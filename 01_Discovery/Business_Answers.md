@@ -174,6 +174,43 @@ The 9 debtors/collections Crystal Reports (Demand Letters, Fund Statements, Reve
 
 ---
 
+### Database List — RESOLVED (2026-08-17)
+
+**Question:** What are the confirmed production databases?  
+**Answer (business stakeholder, 2026-08-17):**
+
+```
+AAR_RISK_DB
+AIMSOFT_DATADUMP
+AIMSOFT_DATADUMP2023
+COM_ACTIVITIES_DB
+COMMISSION
+CRM
+DATA_REPOSITORY_DB
+DB_MASTER_AGENTS
+DB_MASTER_RENEWAL
+DB_ONLINE_PORTAL
+Doc_Arc_DB
+SALES
+```
+
+**Total: 12 production databases confirmed.**
+
+**Resolution:** CONFLICT-011 RESOLVED.
+- DISC-003 originally listed 4 databases (from source code cross-DB queries only)
+- ENV-002 listed 13 databases from project notes (unconfirmed)
+- Business now confirms 12 databases as production
+- The 4 source-confirmed databases (CRM, SALES, AAR_RISK_DB, DATA_REPOSITORY_DB_CLAPI) are all present in this list
+- The 6 previously "project notes only" databases (AIMSOFT_DATADUMP, AIMSOFT_DATADUMP2023, COM_ACTIVITIES_DB, DB_MASTER_AGENTS, DB_MASTER_RENEWAL, DB_ONLINE_PORTAL) are now business-confirmed
+
+**Two items to note:**
+
+1. **MISREPORTS not in list:** Source code has `MISREPORTSConnectionString` at `192.168.50.48`. Business did not include a database named "MISREPORTS". The second application may use a different database name, or MISREPORTS may be an application name not a database name.
+
+2. **DATA_REPOSITORY_DB vs DATA_REPOSITORY_DB_CLAPI:** Source code uses `_CLAPI` suffix. Business lists without suffix. Treated as the same database — `_CLAPI` is likely a connection alias. Confirm at first DB access.
+
+---
+
 ## Summary of Resolved Conflicts
 
 | Conflict ID | Description | Resolution |

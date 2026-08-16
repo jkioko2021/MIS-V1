@@ -3,6 +3,16 @@ name: MIS Validation Findings
 description: Critical conflicts and gaps discovered during discovery validation; affects specifications and business interviews
 ---
 
+## Databases — CONFIRMED (2026-08-17, business stakeholder)
+
+12 production databases: AAR_RISK_DB, AIMSOFT_DATADUMP, AIMSOFT_DATADUMP2023, COM_ACTIVITIES_DB, COMMISSION, CRM, DATA_REPOSITORY_DB, DB_MASTER_AGENTS, DB_MASTER_RENEWAL, DB_ONLINE_PORTAL, Doc_Arc_DB, SALES
+
+Two notes:
+- MISREPORTS not in business list (source has MISREPORTSConnectionString at 192.168.50.48) — may be an app name not DB name
+- DATA_REPOSITORY_DB (business) = DATA_REPOSITORY_DB_CLAPI (source code) — same DB, different alias
+
+DISC-003 updated; CONFLICT-011 RESOLVED.
+
 ## Critical Conflicts — RESOLVED (2026-08-17, business stakeholder)
 
 **CONFLICT-005 — OTP mechanism: RESOLVED**

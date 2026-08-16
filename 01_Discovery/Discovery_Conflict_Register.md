@@ -313,14 +313,15 @@ Given the 929KB active error log and the prevalence of silent exception handling
 | CONFLICT-008 | Four-eyes approval: intent confirmed, enforcement broken | **CRITICAL** | **RESOLVED** — Defect confirmed; business now informed; new system must fix (2026-08-17) |
 | CONFLICT-009 | SMTP EnableSsl=False on Office365 port 587 | HIGH | **RESOLVED (operational)** — Emails confirmed received; new system must enforce TLS explicitly (2026-08-17) |
 | CONFLICT-010 | DLL count: 104 total files vs 51 DLLs | LOW | RESOLVED |
-| CONFLICT-011 | DISC-003 database count outdated: 4 listed vs 7 confirmed | HIGH | OPEN |
+| CONFLICT-011 | DISC-003 database count outdated | HIGH | **RESOLVED** — 12 databases confirmed by business |
+| CONFLICT-011 | DISC-003 database count outdated: 4 listed vs 7 confirmed | HIGH | **RESOLVED** — 12 databases confirmed by business (2026-08-17); DISC-003 updated |
 | CONFLICT-012 | Access denied: Response.Redirect("") vs AccessDenied.aspx | MEDIUM | OPEN |
 
 **Critical unresolved:** 0  
-**High unresolved:** 2  
+**High unresolved:** 1  
 **Medium unresolved:** 4  
 **Low unresolved:** 0  
-**Resolved:** 6  
+**Resolved:** 7  
 
 ### Resolved Conflict Details
 

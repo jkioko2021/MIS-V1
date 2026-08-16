@@ -3,9 +3,9 @@
 **Document ID:** DISC-003  
 **Project:** MIS Modernization  
 **Phase:** Discovery  
-**Date:** 2026-08-16  
+**Date:** 2026-08-16 (database section updated 2026-08-17)  
 **Status:** CONFIRMED unless noted  
-**Source:** /Legacy/CRM/Bin, web.config, packages.config, source inspection  
+**Source:** /Legacy/CRM/Bin, web.config, packages.config, source inspection; database list confirmed by business stakeholder 2026-08-17  
 
 ---
 
@@ -169,13 +169,37 @@ CRM Application
 
 ## 4. Database Dependencies
 
-| Database | Connection Name | Access Method | Classification |
-|---|---|---|---|
-| CRM | CRM (test), CRMJ, CRMy | Encrypted ADO.NET SqlClient | CONFIRMED |
-| MISREPORTS | MISREPORTSConnectionString | Plaintext ADO.NET SqlClient (192.168.50.48) | CONFIRMED |
-| SALES | Inline cross-DB SQL: [SALES].[dbo].* | Cross-database SQL queries | CONFIRMED |
-| DATA_REPOSITORY_DB_CLAPI | Inline cross-DB SQL: [DATA_REPOSITORY_DB_CLAPI].[dbo].* | Cross-database SQL queries | CONFIRMED |
-| ExcelImport | conString (.\SQLEXPRESS) | Local SQL Express — Excel import | CONFIRMED |
+> **Updated 2026-08-17:** Database list confirmed by business stakeholder. 12 production databases confirmed. See CONFLICT-011 resolution notes below.
+
+### 4.1 Confirmed Production Databases (Business-Confirmed, 2026-08-17)
+
+| # | Database | Source Evidence | Purpose | Classification |
+|---|---|---|---|---|
+| 1 | **CRM** | web.config connection string; source code | Primary application database — users, business tracking, audit trail | SOURCE-CONFIRMED |
+| 2 | **SALES** | Inline cross-DB SQL `[SALES].[dbo].*` in source | Sales data — cross-DB joins from CRM | SOURCE-CONFIRMED |
+| 3 | **AAR_RISK_DB** | `AAR_RISK_DB` connection string in web.config | Risk register data | SOURCE-CONFIRMED |
+| 4 | **COMMISSION** | Inferred from SP names and Crystal Reports | Commission calculations and records | CONFIRMED (business) |
+| 5 | **DATA_REPOSITORY_DB** | Source code shows `DATA_REPOSITORY_DB_CLAPI` — business confirms `DATA_REPOSITORY_DB` | CLAPI/eOxegen integration data repository | SOURCE-CONFIRMED (name discrepancy — see note) |
+| 6 | **Doc_Arc_DB** | Inferred from connection naming | Document archive storage | CONFIRMED (business) |
+| 7 | **AIMSOFT_DATADUMP** | Project notes only (no source code evidence) | Aimsoft system data dump | CONFIRMED (business) |
+| 8 | **AIMSOFT_DATADUMP2023** | Project notes only (no source code evidence) | Aimsoft 2023 data dump | CONFIRMED (business) |
+| 9 | **COM_ACTIVITIES_DB** | Project notes only (no source code evidence) | Commercial/activity data | CONFIRMED (business) |
+| 10 | **DB_MASTER_AGENTS** | Project notes only (no source code evidence) | Agent master data | CONFIRMED (business) |
+| 11 | **DB_MASTER_RENEWAL** | Project notes only (no source code evidence) | Renewal master data | CONFIRMED (business) |
+| 12 | **DB_ONLINE_PORTAL** | Project notes only (no source code evidence) | Online portal data | CONFIRMED (business) |
+
+> **Total confirmed production databases: 12**
+
+### 4.2 Databases Seen in Source — Not in Business List
+
+| Database | Source Evidence | Note |
+|---|---|---|
+| MISREPORTS | `MISREPORTSConnectionString` in web.config pointing to `192.168.50.48` | The business database list does not include a database named "MISREPORTS". This may mean: (a) the MISREPORTS application uses one of the 12 confirmed databases under a different application name, or (b) the second application runs against the same SQL Server but its database name differs from "MISREPORTS". Requires clarification. |
+| ExcelImport (.\SQLEXPRESS) | `conString` in source code | Local SQL Express instance — temporary staging for Excel imports only. Not a production database. |
+
+### 4.3 Name Discrepancy — DATA_REPOSITORY_DB
+
+> **⚠️ Minor conflict:** Source code references `DATA_REPOSITORY_DB_CLAPI` (cross-DB SQL queries: `[DATA_REPOSITORY_DB_CLAPI].[dbo].*`). Business stakeholder list shows `DATA_REPOSITORY_DB`. These are treated as the same database — the `_CLAPI` suffix in source code is likely the connection alias, not the actual database name. Confirm at first DB access.
 
 ### 4.1 Stored Procedure Dependencies (Identified)
 
