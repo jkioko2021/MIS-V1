@@ -1,0 +1,2521 @@
+Imports Microsoft.VisualBasic
+Imports System.Data.SqlClient
+Imports System.Web.Configuration
+Imports System.IO
+Imports System.Text
+Imports System.Security.Cryptography
+Imports Microsoft.Practices.EnterpriseLibrary.Security.Cryptography
+Imports System.Data.Odbc
+Imports System.Data.OracleClient
+Imports System.Net.Mail
+Imports Microsoft
+Imports System.Diagnostics
+Imports System.Net
+Imports MyFinpayi
+
+
+Namespace DocumentManagement
+    Public Class Emailing
+        Public Function SendNotification2(ByVal strSubject As String, ByVal strMsgBody As String, ByVal SendAsHTML As Boolean, Optional ByVal strSendtoEmail As String = "", Optional ByVal strMailFromEmail As String = "", Optional ByVal strMailFromName As String = "") As Boolean
+            Dim oMsg = New MailMessage()
+            Dim MessageSentOK As Boolean = False
+
+            Try
+                ''create the mail message
+
+                'Dim mail As New MailMessage()
+
+                ''set the addresses
+                ''mail.From = New MailAddress("snjau@fintech.co.ke", "")
+                ''mail.To.Add("you@yourcompany.com")
+
+                'mail.From = New MailAddress(strMailFromEmail, strMailFromName)
+                'mail.To.Add(strSendtoEmail)
+
+                ''set the content
+                'mail.Subject = strSubject
+                'mail.Body = strMsgBody
+
+
+                Dim MyMail As New QMailClient.EMail
+                Dim mySMTPServer As New QMailClient.SMTPClient
+
+                MyMail.To = strSendtoEmail
+                MyMail.Subject = strSubject
+                MyMail.From = strMailFromEmail
+                If SendAsHTML = True Then
+                    'MyMail.Body = MyMail.BodyHTML(True)
+                    MyMail.Body = MyMail.BodyHTML(strMsgBody)
+                End If
+                MyMail.Body = strMsgBody
+
+
+                mySMTPServer.RemoteServerAddress = WebConfigurationManager.AppSettings("EmailServer").ToString
+
+                mySMTPServer.UserName = WebConfigurationManager.AppSettings("EmailUsername").ToString
+                mySMTPServer.Password = WebConfigurationManager.AppSettings("EmailPassword").ToString
+                mySMTPServer.Connect()
+                If mySMTPServer.AuthLogin = True Then
+                    MyMail.ReturnPath = ""
+                    MyMail.ReplyTo = ""
+                    MyMail.Priority = QMailClient.EMail.MailPriority.Normal
+                    MyMail.InReplyTo = ""
+                    MyMail.Header = ""
+                    MyMail.Date = Now
+                    MyMail.Cc = ""
+                    MyMail.Bcc = ""
+                    'mySMTPServer.Connect()
+                    mySMTPServer.SendMail(MyMail)
+                    MessageSentOK = True
+                End If
+
+
+
+                '========================================================================================
+
+                'oMsg.Body = strMsgBody.ToString
+                'oMsg.IsBodyHtml = True
+                'Dim oSmtp = New SmtpClient(WebConfigurationManager.AppSettings("EmailServer").ToString)
+
+
+                ' ''You can choose several delivery methods. 
+                ''oSmtp.DeliveryMethod = SmtpDeliveryMethod.SpecifiedPickupDirectory
+
+                ''----------------------------------------------------------------------------------------
+                'oSmtp.DeliveryMethod = SmtpDeliveryMethod.Network
+                ''oSmtp.DeliveryMethod = SmtpDeliveryMethod.PickupDirectoryFromIis
+                ''Some SMTP server will require that you first 
+                ''authenticate against the server.
+
+                'Dim oCredential = New Net.NetworkCredential(WebConfigurationManager.AppSettings("EmailUsername").ToString, WebConfigurationManager.AppSettings("EmailPassword").ToString)
+
+                'oSmtp.UseDefaultCredentials = True
+                'oSmtp.Credentials = oCredential
+                ''---------------------------------------------------------------------
+
+                ''Let's send it already
+                'oSmtp.Send(oMsg)
+
+
+
+                '=====================================================================================================
+
+                ''if we are using the IIS SMTP Service, we can write the message
+                ''directly to the PickupDirectory, and bypass the Network layer
+                'Dim smtp As New SmtpClient()
+                'smtp.DeliveryMethod = SmtpDeliveryMethod.PickupDirectoryFromIis
+                'smtp.Send(mail)
+
+                'MessageSentOK = True
+
+            Catch ex As Exception
+                MessageSentOK = False
+            End Try
+
+            Return MessageSentOK
+
+        End Function
+
+        Public Function SendNotification(ByVal mysubj As String, ByVal strMsgBody As String, ByVal SendAsHTML As Boolean, _
+        ByVal EmailServer As String, ByVal EmailUsername As String, ByVal EmailPassword As String, _
+        Optional ByVal strSendtoEmail As String = "", Optional ByVal strSendToName As String = "", Optional ByVal strMailFromEmail As String = "", _
+        Optional ByVal strMailFromName As String = "") As Boolean
+
+            Dim MessageSentOK As Boolean = False
+            Dim oMsg = New MailMessage()
+            Dim strHTML As String = ""
+
+            Try
+
+                ' Set the message sender
+                oMsg.From = New MailAddress(strMailFromEmail, strMailFromName)
+                ' The .To property is a generic collection, 
+                ' so we can add as many recipients as we like.
+                oMsg.To.Add(New MailAddress(strSendtoEmail, strSendToName))
+                ' Set the content
+                oMsg.Subject = mysubj
+                '-------------------------------------------------------------------------------------------------
+                Dim MyMailBody As New StringBuilder
+                ''oMsg.To.Add(New MailAddress(strSendtoEmail, strMailFromName.ToString))
+                ' If address1.ToString <> "" Then oMsg.To.Add(New MailAddress(address1, customername.ToString))
+                ' oMsg.Subject = strSubject
+                ''strSubject = "Gulf African Bank Internet Banking Login Details"
+
+                strHTML = "<!DOCTYPE html PUBLIC '-//W3C//DTD XHTML 1.0 Transitional//EN' 'http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd'>"
+                strHTML = strHTML & "<html xmlns='http://www.w3.org/1999/xhtml' >"
+                strHTML = strHTML & "<head>"
+                strHTML = strHTML & "</head>"
+                strHTML = strHTML & "<body>"
+                strHTML = strHTML & "<table style='width: 468px'>"
+
+                strHTML = strHTML & "<tr>"
+                strHTML = strHTML & "<td colspan='3'>"
+
+
+                strHTML = strHTML & "" & strMsgBody.ToString & "</span></em>"
+                strHTML = strHTML & "<td>"
+                strHTML = strHTML & "</td>"
+                strHTML = strHTML & "</tr>"
+
+                strHTML = strHTML & "<tr>"
+                strHTML = strHTML & "<td>"
+                strHTML = strHTML & "</td>"
+                strHTML = strHTML & "<td>"
+                strHTML = strHTML & "</td>"
+                strHTML = strHTML & "<td>"
+                strHTML = strHTML & "</td>"
+                strHTML = strHTML & "</tr>"
+                strHTML = strHTML & "</table>"
+                strHTML = strHTML & "</body>"
+                strHTML = strHTML & "</html>"
+                oMsg.Body = strHTML.ToString
+                oMsg.IsBodyHtml = True
+
+                Dim oSmtp = New SmtpClient(EmailServer)
+                ''You can choose several delivery methods. 
+                'oSmtp.DeliveryMethod = SmtpDeliveryMethod.SpecifiedPickupDirectory
+                '----------------------------------------------------------------------
+                oSmtp.DeliveryMethod = SmtpDeliveryMethod.Network
+                ''oSmtp.DeliveryMethod = SmtpDeliveryMethod.PickupDirectoryFromIis
+                'Some SMTP server will require that you first 
+                'authenticate against the server.
+
+                '-- if u set 2 True, u r sending as anonymous user so mails to outside to outside domains won't b delivered
+                '-- This stmt also has 2 cam b4 u set the network credentials - Mercy - 8th Apr 2011 
+                oSmtp.UseDefaultCredentials = False
+                Dim oCredential = New NetworkCredential(EmailUsername, EmailPassword)
+                oSmtp.Credentials = oCredential
+
+                '---------------------------------------------------------------------
+                'Let's send it already
+                oSmtp.Send(oMsg)
+                MessageSentOK = True
+
+                '---------------------------------------------------------------------
+            Catch ex As Exception
+
+                ''Try
+                ''    Dim oSmtp As New SmtpClient()
+                ''    oSmtp.DeliveryMethod = SmtpDeliveryMethod.PickupDirectoryFromIis
+
+                ''    oSmtp.Send(oMsg)
+                ''    MessageSentOK = True
+
+                ''    ''MessageSentOK = False
+
+                ''Catch ex2 As Exception
+
+                ''Try ''--If sending via iispickup directory fails, send thru' specified pickup directory
+
+                ''    Dim oSmtp As New SmtpClient()
+
+                ''    oSmtp.DeliveryMethod = SmtpDeliveryMethod.SpecifiedPickupDirectory
+                ''    oSmtp.Send(oMsg)
+                ''    MessageSentOK = True
+
+                ''Catch ex3 As Exception
+
+                ''    MessageSentOK = False
+
+                ''End Try
+
+                ''End Try
+
+                MessageSentOK = False
+
+            End Try
+
+            Return MessageSentOK
+
+        End Function
+
+    End Class
+
+    Public Class FinpayiSecurity
+        Private Const hashProvider As String = "hashprovider"
+        Private Const symmProvider As String = "symprovider"
+
+        Private Const symmKeyFileName As String = "SymmetricKeyFile.txt"
+
+        ' Encrypted string
+        Private stringToEncrypt As String
+        Private encryptedContentsBase64 As String
+
+        ' Generated hash
+        Private stringForHash As String
+        Private generatedHash As Byte()
+
+        Public Function EncryptedPass(ByVal PassToEncrypt As String) As String
+            Me.encryptedContentsBase64 = Cryptographer.EncryptSymmetric(symmProvider, PassToEncrypt)
+            Return Me.encryptedContentsBase64
+        End Function
+        Public Function DencryptPass(ByVal PassToDecrypt As String) As String
+            Try
+                Dim readableString As String = Cryptographer.DecryptSymmetric(symmProvider, PassToDecrypt)
+                Return readableString
+
+            Catch ex As Exception
+                'MsgBox(ex.Message, MsgBoxStyle.Critical, ex.Source)
+                Return String.Empty
+            End Try
+        End Function
+        Public Function GenRandomPassword() As String
+            Dim KeyGen As RandomKeyGenerator
+            Dim NumKeys As Integer
+            'Dim i_Keys As Integer
+            Dim RandomKey As String
+
+            ' MODIFY THIS TO GET MORE KEYS    - LAITH - 27/07/2005 22:48:30 -
+            NumKeys = 1
+
+            KeyGen = New RandomKeyGenerator
+            KeyGen.KeyLetters = "abcdefghjkmnpqrstuvwxyz"
+            KeyGen.KeyNumbers = "123456789"
+
+            'KeyGen.KeyLetters = "abcdefghijklmnopqrstuvwxyz"
+            'KeyGen.KeyNumbers = "0123456789"
+            KeyGen.KeyChars = 7
+
+            RandomKey = KeyGen.Generate()
+
+            Return RandomKey
+
+            'For i_Keys = 1 To NumKeys
+            '    RandomKey = KeyGen.Generate()
+            '    Console.WriteLine(RandomKey)
+            'Next
+            'Console.WriteLine("Press any key to exit...")
+            'Console.Read()
+        End Function
+        Public Interface ICrypto
+            Function BlockSize() As Integer
+            Function KeySize() As Integer
+
+            Function Encrypt(ByVal data As String) As String
+            Function Decrypt(ByVal data As String) As String
+        End Interface
+        Public Class CryptoFactory
+            Public Function MakeCryptographer(ByVal type As String) As ICrypto
+                Select Case type.ToLower
+                    Case "des"
+                        'Return New DES()
+                    Case "tripledes"
+                        'Return New TripleDES()
+                    Case "rijndael"
+                        Return New Rijndael()
+                    Case Else
+                        'Return New TripleDES()
+                End Select
+            End Function
+        End Class
+        Public Class Rijndael
+            Implements ICrypto
+
+            ' The key and initialization vector : change them for your application
+            Private _key() As Byte = {132, 42, 53, 124, 75, 56, 87, 38, 9, 10, 161, 132, 183, _
+        91, 105, 16, 117, 218, 149, 230, 221, 212, 235, 64}
+            Private _iv() As Byte = {83, 71, 26, 58, 54, 35, 22, 11, 83, 71, 26, 58, 54, 35, 22, 11}
+
+            ' returns the default size, in bits of the iv
+            Public Function BlockSize() As Integer Implements ICrypto.BlockSize
+                Dim aes As New RijndaelManaged()
+
+                Return aes.BlockSize
+            End Function
+
+            ' returns the default size, in bits of the key
+            Public Function KeySize() As Integer Implements ICrypto.KeySize
+                Dim aes As New RijndaelManaged()
+
+                Return aes.KeySize
+            End Function
+
+            ' decrypts a string that was encrypted using the Encrypt method
+            Public Function Decrypt(ByVal data As String) As String Implements ICrypto.Decrypt
+                Try
+                    Dim inBytes() As Byte = Convert.FromBase64String(data)
+                    Dim mStream As New MemoryStream(inBytes, 0, inBytes.Length) ' instead of writing the decrypted text
+
+                    Dim aes As New RijndaelManaged()
+                    Dim cs As New CryptoStream(mStream, aes.CreateDecryptor(_key, _iv), CryptoStreamMode.Read)
+
+                    Dim sr As New StreamReader(cs)
+
+                    Return sr.ReadToEnd()
+                Catch ex As Exception
+                    Throw ex
+                End Try
+            End Function
+
+            ' Encrypts a given string
+            Public Function Encrypt(ByVal data As String) As String Implements ICrypto.Encrypt
+                Try
+                    Dim utf8 As New UTF8Encoding
+                    Dim inBytes() As Byte = utf8.GetBytes(data) ' ascii encoding uses 7 
+                    'bytes for characters whereas the encryption uses 8 bytes, thus we use utf8
+                    Dim ms As New MemoryStream() 'instead of writing the encrypted 
+                    'string to a filestream, I will use a memorystream
+
+                    Dim aes As New RijndaelManaged()
+                    Dim cs As New CryptoStream(ms, aes.CreateEncryptor(_key, _iv), CryptoStreamMode.Write)
+
+                    cs.Write(inBytes, 0, inBytes.Length) ' encrypt
+                    cs.FlushFinalBlock()
+
+                    Return Convert.ToBase64String(ms.GetBuffer(), 0, ms.Length)
+                Catch ex As Exception
+                    Throw ex
+                End Try
+            End Function
+        End Class
+
+
+    End Class
+
+    ''---This class is 4 encrypting/decrypting system settings - 11th April 2011
+    Public Class SysSettsEncryption
+        Public Function EncryptSHA(ByVal Data As String) As String
+            Dim shaM As New System.Security.Cryptography.SHA1Managed
+            Convert.ToBase64String(shaM.ComputeHash(Encoding.ASCII.GetBytes(Data)))
+            Dim eNC_data() As Byte = ASCIIEncoding.UTF32.GetBytes(Data)
+            Dim eNC_str As String = Convert.ToBase64String(eNC_data)
+            EncryptSHA = eNC_str
+        End Function
+
+        Public Function DecryptSHA(ByVal Data As String) As String
+            Try
+                Dim dEC_data() As Byte = Convert.FromBase64String(Trim(Data))
+                Dim dEC_Str As String = ASCIIEncoding.UTF32.GetString(dEC_data)
+                DecryptSHA = dEC_Str
+            Catch ex As Exception
+                Return ex.Message
+            End Try
+        End Function
+
+    End Class
+
+    Public Class DataManagement
+        Public Enum DBActionType
+            DataReader = 1
+            Dataset = 2
+            Scalar = 3
+            Delete = 4
+            Insert = 5
+            Update = 6
+            DataTable = 7
+            ODBCDataReader = 8
+            ODBCScalar = 9
+            ODBCDataTable = 10
+            OracleDataReader = 11
+            OracleScalar = 12
+            OracleDataTable = 13
+        End Enum
+        Public Function DBAction(ByVal MyDBAction As Object, ByVal ActionType As DBActionType) As Object
+            DBAction = Nothing
+            Dim DecryptedStr As String = Nothing
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            DecryptedStr = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+
+            Dim myODBCConnection As New OdbcConnection
+            Dim MyOracleConnection As New OracleConnection
+
+
+            Dim MyReader As SqlDataReader = Nothing
+            Dim MyReaderODBC As OdbcDataReader = Nothing
+            Dim MyOracleReaderReader As OracleDataReader = Nothing
+
+            Try
+
+                myConnection.Open()
+
+
+                Select Case ActionType
+                    Case DBActionType.DataReader ' 1
+                        myODBCConnection = Nothing
+                        MyOracleConnection = Nothing
+
+                        Dim myCommand As New SqlCommand(MyDBAction.ToString, myConnection)
+                        MyReader = myCommand.ExecuteReader(Data.CommandBehavior.CloseConnection)
+
+                        Return MyReader
+
+                    Case DBActionType.Dataset '2
+                        myODBCConnection = Nothing
+                        MyOracleConnection = Nothing
+
+                        Dim MyAdpater As New SqlDataAdapter(MyDBAction.ToString, myConnection)
+                        Dim myDataSet As New Data.DataSet
+                        MyAdpater.Fill(myDataSet)
+
+                        myConnection.Close()
+
+                        Return myDataSet
+                    Case DBActionType.Scalar ' 3
+                        myODBCConnection = Nothing
+                        MyOracleConnection = Nothing
+
+                        Dim myCommand As New SqlCommand(MyDBAction.ToString, myConnection)
+                        Dim ScalarItem As Object = myCommand.ExecuteScalar
+
+                        myConnection.Close()
+
+                        Return ScalarItem
+
+                    Case 4, 5, 6
+                        Dim myCommand As New SqlCommand(MyDBAction.ToString, myConnection)
+                        myCommand.ExecuteNonQuery()
+                        myConnection.Close()
+
+                    Case DBActionType.DataTable ' 7
+                        myODBCConnection = Nothing
+                        MyOracleConnection = Nothing
+
+                        Dim MyAdpater As New SqlDataAdapter(MyDBAction.ToString, myConnection)
+                        Dim MyDataTable As New Data.DataTable
+                        MyAdpater.Fill(MyDataTable)
+                        myConnection.Close()
+
+                        Return MyDataTable
+
+                    Case DBActionType.ODBCDataReader ' 8
+                        myODBCConnection = Nothing
+
+
+                        myODBCConnection.ConnectionString = WebConfigurationManager.ConnectionStrings("DeltaConnection").ConnectionString
+                        myODBCConnection.Open()
+
+                        'Dim MyODBCAdapter As New OdbcDataAdapter(MyDBAction.ToString, myODBCConnection)
+                        'Dim MyDataTable As New Data.DataTable
+                        'MyODBCAdapter.Fill(MyDataTable)
+                        'myODBCConnection.Close()
+
+                        Dim myCommand As New OdbcCommand(MyDBAction.ToString, myODBCConnection)
+                        MyReaderODBC = myCommand.ExecuteReader(Data.CommandBehavior.CloseConnection)
+
+                        Return MyReaderODBC
+
+                    Case DBActionType.ODBCScalar ' 9
+
+                        MyOracleConnection = Nothing
+
+                        myODBCConnection.ConnectionString = WebConfigurationManager.ConnectionStrings("DeltaConnection").ConnectionString
+                        myODBCConnection.Open()
+
+                        Dim myCommand As New OdbcCommand(MyDBAction.ToString, myODBCConnection)
+                        Dim ScalarItem As Object = myCommand.ExecuteScalar
+
+                    Case DBActionType.ODBCDataTable '  10
+
+                        MyOracleConnection = Nothing
+
+                        myODBCConnection.ConnectionString = WebConfigurationManager.ConnectionStrings("DeltaConnection").ConnectionString
+                        myODBCConnection.Open()
+
+                        Dim MyAdpater As New OdbcDataAdapter(MyDBAction.ToString, myODBCConnection)
+                        Dim MyDataTable As New Data.DataTable
+                        MyAdpater.Fill(MyDataTable)
+
+                        Return MyDataTable
+
+                    Case DBActionType.OracleScalar
+
+                        myODBCConnection = Nothing
+
+                        myConnection.Close()
+
+                        DecryptedStr = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("IMALConnection").ConnectionString)
+
+                        MyOracleConnection.ConnectionString = DecryptedStr
+                        MyOracleConnection.Open()
+
+                        Dim myOracleCommand As New OracleCommand(MyDBAction.ToString, MyOracleConnection)
+                        Dim ScalarItem As Object = myOracleCommand.ExecuteScalar
+
+                        MyOracleConnection.Close()
+
+                        Return ScalarItem
+
+                    Case DBActionType.OracleDataReader
+                        myODBCConnection = Nothing
+
+                        myConnection.Close()
+
+                        DecryptedStr = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("IMALConnection").ConnectionString)
+
+                        MyOracleConnection.ConnectionString = DecryptedStr
+
+                        MyOracleConnection.Open()
+
+                        'Dim MyODBCAdapter As New OdbcDataAdapter(MyDBAction.ToString, myODBCConnection)
+                        'Dim MyDataTable As New Data.DataTable
+                        'MyODBCAdapter.Fill(MyDataTable)
+                        'myODBCConnection.Close()
+
+                        Dim myOracleCommand As New OracleCommand(MyDBAction.ToString, MyOracleConnection)
+                        MyOracleReaderReader = myOracleCommand.ExecuteReader(Data.CommandBehavior.CloseConnection)
+
+                        Return MyOracleReaderReader
+
+                    Case DBActionType.OracleDataTable
+                        myODBCConnection = Nothing
+
+                        myConnection.Close()
+
+                        DecryptedStr = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("IMALConnection").ConnectionString)
+
+                        MyOracleConnection.ConnectionString = DecryptedStr
+
+                        MyOracleConnection.Open()
+
+                        Dim MyOracleAdpater As New OracleDataAdapter(MyDBAction.ToString, MyOracleConnection)
+                        Dim MyDataTable As New Data.DataTable
+                        MyOracleAdpater.Fill(MyDataTable)
+
+                        Return MyDataTable
+
+
+                End Select
+
+            Catch ex As Exception
+
+
+            Finally
+
+                If Not IsNothing(MyReader) OrElse Not IsNothing(MyReaderODBC) OrElse Not IsNothing(MyOracleReaderReader) Then
+
+                ElseIf myConnection.State <> Data.ConnectionState.Closed AndAlso IsNothing(MyReader) Then
+                    myConnection.Close()
+                    myConnection.Dispose()
+
+                ElseIf myConnection.State <> Data.ConnectionState.Closed AndAlso IsNothing(MyReaderODBC) Then
+                    myConnection.Close()
+                    myConnection.Dispose()
+
+                ElseIf Not IsNothing(myODBCConnection) AndAlso IsNothing(MyReaderODBC) Then
+                    myODBCConnection.Close()
+                    myODBCConnection.Dispose()
+
+                    myConnection.Close()
+                    myConnection.Dispose()
+
+                ElseIf Not IsNothing(MyOracleConnection) AndAlso IsNothing(MyOracleReaderReader) Then
+                    MyOracleConnection.Close()
+                    MyOracleConnection.Dispose()
+
+                    MyOracleConnection.Close()
+                    MyOracleConnection.Dispose()
+                Else
+
+                    If myConnection.State <> Data.ConnectionState.Closed Then
+                        myConnection.Close()
+                    End If
+                    myConnection.Dispose()
+
+                End If
+
+
+
+            End Try
+
+
+        End Function
+
+        Public Function AddSystemSettings(ByVal LoginFromEmail As String, ByVal LoginDisplayName As String, _
+        ByVal LoginSubject As String, ByVal EmailServer As String, ByVal EmailUserName As String, _
+        ByVal EmailPassword As String, ByVal AddedBy As String, ByVal AddedOn As DateTime, _
+        ByVal LastUpdatedBy As String, ByVal LastUpdatedOn As DateTime, ByVal TransactionsNotification As String, ByVal OwnAccounts As String, _
+        ByVal GABAccounts As String, ByVal LocalBanks As String, ByVal International As String, ByVal UtilityPayments As String, ByVal Salaries As String, _
+        ByVal Suppliers As String, ByVal RTGS As String, ByVal SO As String, ByVal LC As String, ByVal StopCheque As String, _
+        ByVal BankersCheques As String, ByVal ChequeBooks As String, ByVal ATMCards As String) As Int32
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Add_SystemSettings", myConnection)
+
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@LoginFromEmail", Data.SqlDbType.VarChar, 200).Value = LoginFromEmail
+                .Parameters.Add("@LoginDisplayName", Data.SqlDbType.VarChar, 200).Value = LoginDisplayName
+                .Parameters.Add("@LoginSubject", Data.SqlDbType.VarChar, 500).Value = LoginSubject
+                .Parameters.Add("@EmailServer", Data.SqlDbType.VarChar, 200).Value = EmailServer
+                .Parameters.Add("@EmailUserName", Data.SqlDbType.VarChar, 200).Value = EmailUserName
+                .Parameters.Add("@EmailPassword", Data.SqlDbType.VarChar, 200).Value = EmailPassword
+                .Parameters.Add("@TransactionsNotification", Data.SqlDbType.VarChar, 200).Value = TransactionsNotification
+                ''.Parameters.Add("@CBOGroupEmail", Data.SqlDbType.VarChar, 200).Value = CBOGroupEmail
+                .Parameters.Add("@AddedBy", Data.SqlDbType.VarChar, 200).Value = AddedBy
+                .Parameters.Add("@AddedOn", Data.SqlDbType.DateTime).Value = AddedOn
+                .Parameters.Add("@LastUpdatedBy", Data.SqlDbType.VarChar, 200).Value = LastUpdatedBy
+                .Parameters.Add("@LastUpdatedOn", Data.SqlDbType.DateTime).Value = LastUpdatedOn
+
+                .Parameters.Add("@OwnAccounts", Data.SqlDbType.VarChar, 200).Value = OwnAccounts
+                .Parameters.Add("@GABAccounts", Data.SqlDbType.VarChar, 200).Value = GABAccounts
+                .Parameters.Add("@LocalBanks", Data.SqlDbType.VarChar, 200).Value = LocalBanks
+                .Parameters.Add("@International", Data.SqlDbType.VarChar, 200).Value = International
+                .Parameters.Add("@UtilityPayments", Data.SqlDbType.VarChar, 200).Value = UtilityPayments
+                .Parameters.Add("@Salaries", Data.SqlDbType.VarChar, 200).Value = Salaries
+                .Parameters.Add("@Suppliers", Data.SqlDbType.VarChar, 200).Value = Suppliers
+                .Parameters.Add("@RTGS", Data.SqlDbType.VarChar, 200).Value = RTGS
+                .Parameters.Add("@SO", Data.SqlDbType.VarChar, 200).Value = SO
+                .Parameters.Add("@LC", Data.SqlDbType.VarChar, 200).Value = LC
+                .Parameters.Add("@StopCheque", Data.SqlDbType.VarChar, 200).Value = StopCheque
+                .Parameters.Add("@BankersCheques", Data.SqlDbType.VarChar, 200).Value = BankersCheques
+                .Parameters.Add("@ChequeBooks", Data.SqlDbType.VarChar, 200).Value = ChequeBooks
+                .Parameters.Add("@ATMCards", Data.SqlDbType.VarChar, 200).Value = ATMCards
+
+                .ExecuteNonQuery()
+
+            End With
+
+            myConnection.Close()
+
+        End Function
+
+        Public Function AddUtility(ByVal strUtilityCode As String, ByVal strUtilityName As String, ByVal strUtilityAbbr As String) As Integer
+            Dim myUtilityId As Int32 = 0
+            Dim sqlstring As String = ""
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Add_Utility", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@UtilityID", Data.SqlDbType.Int, 4).Direction = Data.ParameterDirection.Output
+
+                .Parameters.Add("@UtilityCode", Data.SqlDbType.VarChar, 100).Value = strUtilityCode
+                .Parameters.Add("@UtilityName", Data.SqlDbType.VarChar, 200).Value = strUtilityName
+                .Parameters.Add("@ABBREVIATION", Data.SqlDbType.VarChar, 200).Value = strUtilityAbbr
+                .ExecuteNonQuery()
+                myUtilityId = .Parameters.Item("@UtilityID").Value.ToString
+            End With
+
+            myConnection.Close()
+            '
+            Return CInt(myUtilityId)
+        End Function
+
+
+        Public Function AddProfile(ByVal strProfileName As String, ByVal strProfileType As String, ByVal strRemarks As String) As Int32
+            Dim MyProfileID As Int32 = 0
+            Dim sqlstring As String = ""
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Add_Profile", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@ProfileID", Data.SqlDbType.Int, 4).Direction = Data.ParameterDirection.Output
+                .Parameters.Add("@PROFILENAME", Data.SqlDbType.VarChar, 100).Value = strProfileName
+                .Parameters.Add("@PROFILETYPE", Data.SqlDbType.VarChar, 200).Value = strProfileType
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+                .ExecuteNonQuery()
+                MyProfileID = .Parameters.Item("@ProfileID").Value.ToString
+            End With
+
+            myConnection.Close()
+            Return CInt(MyProfileID)
+
+        End Function
+        Public Function AddCurrrency(ByVal strCurrencyCode As String, ByVal StrCurrencyName As String, ByVal strRemarks As String) As Int32
+            Dim MyCurrencyID As Int32 = 0
+            Dim sqlstring As String = ""
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Add_Currency", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@CurrencyID", Data.SqlDbType.Int, 4).Direction = Data.ParameterDirection.Output
+                .Parameters.Add("@CurrencyCode", Data.SqlDbType.VarChar, 100).Value = strCurrencyCode
+                .Parameters.Add("@CurrencyName", Data.SqlDbType.VarChar, 200).Value = StrCurrencyName
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+                .ExecuteNonQuery()
+                MyCurrencyID = .Parameters.Item("@CurrencyID").Value.ToString
+            End With
+
+            myConnection.Close()
+            Return CInt(MyCurrencyID)
+
+        End Function
+        Public Function UpdateProfile(ByVal strProfileID As String, ByVal strProfileName As String, ByVal strProfileType As String, ByVal strRemarks As String)
+            Dim MyProfileID As Int32 = 0
+            Dim sqlstring As String = ""
+
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("UpDate_Profile", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@ProfileID", Data.SqlDbType.Int, 4).Value = strProfileID
+                .Parameters.Add("@PROFILENAME", Data.SqlDbType.VarChar, 100).Value = strProfileName
+                .Parameters.Add("@PROFILETYPE", Data.SqlDbType.VarChar, 200).Value = strProfileType
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+                .ExecuteNonQuery()
+
+            End With
+
+            myConnection.Close()
+
+
+        End Function
+
+        Public Function AddCharges(ByVal MyAccountNumber As String, ByVal FTInterAcct As Double, ByVal FTIntercust As Double, _
+        ByVal FTInterAcctLocal As Double, ByVal FTInternational As Double, ByVal Bill As Double, ByVal ATM As Double, _
+        ByVal BankersCheque As Double, ByVal CooporateCheque As Double, ByVal SaloPayment As Double, ByVal percentage As Boolean, _
+        ByVal percentOWN As Boolean, ByVal PercentLocalB As Boolean, ByVal PercentWithinB As Boolean, ByVal PercentSalo As Boolean, _
+        ByVal Suppliercharge As Double, ByVal supPercent As Boolean, ByVal FtOwnAccMin As Double, ByVal FtOwnAccMax As Double, _
+        ByVal LocalBanksMin As Double, ByVal LocalBanksMax As Double, ByVal AbcMin As Double, ByVal AbcMax As Double, ByVal utility As Double) As Integer
+
+            Dim MyBillPaymentID As Int32 = 0
+
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+            Dim myCommand As New SqlCommand("Add_Charges", myConnection)
+
+            Try
+
+
+
+                With myCommand
+                    .CommandType = Data.CommandType.StoredProcedure
+                    .Parameters.Add("@ChargeId", Data.SqlDbType.Real).Direction = Data.ParameterDirection.Output
+                    .Parameters.Add("@SourceAccountNumber", Data.SqlDbType.VarChar, 50).Value = MyAccountNumber
+                    .Parameters.Add("@FTInterAcct", Data.SqlDbType.Money).Value = FTInterAcct
+                    .Parameters.Add("@FTIntercust", Data.SqlDbType.Money).Value = FTIntercust
+                    .Parameters.Add("@FTInterAcctLocal", Data.SqlDbType.Money).Value = FTInterAcctLocal
+                    .Parameters.Add("@FTInternational", Data.SqlDbType.Money).Value = FTInternational
+                    .Parameters.Add("@Bill", Data.SqlDbType.Money).Value = Bill
+                    .Parameters.Add("@ATM", Data.SqlDbType.Money).Value = ATM
+                    .Parameters.Add("@BankersCheque ", Data.SqlDbType.Money).Value = BankersCheque
+                    .Parameters.Add("@CooporateCheque ", Data.SqlDbType.Money).Value = CooporateCheque
+                    .Parameters.Add("@SalaryPY ", Data.SqlDbType.Money).Value = SaloPayment
+                    .Parameters.Add("@percentage  ", Data.SqlDbType.Bit).Value = percentage
+                    .Parameters.Add("@FTOwnPercentage  ", Data.SqlDbType.Bit).Value = percentOWN
+                    .Parameters.Add("@FTLocalBankPercent  ", Data.SqlDbType.Bit).Value = PercentLocalB
+                    .Parameters.Add("@FTWithinPercent  ", Data.SqlDbType.Bit).Value = PercentWithinB
+                    .Parameters.Add("@SalaryPercent  ", Data.SqlDbType.Bit).Value = PercentSalo
+                    .Parameters.Add("@SupplierPY  ", Data.SqlDbType.Money).Value = Suppliercharge
+                    .Parameters.Add("@SupplierPercent  ", Data.SqlDbType.Bit).Value = supPercent
+
+                    'added
+                    .Parameters.Add("@FtOwnAccMin ", Data.SqlDbType.Money).Value = FtOwnAccMin
+                    .Parameters.Add("@FtOwnAccMax ", Data.SqlDbType.Money).Value = FtOwnAccMax
+                    ' LocalBanksMax()
+                    .Parameters.Add("@FTIntercustMin  ", Data.SqlDbType.Money).Value = LocalBanksMin
+                    .Parameters.Add("@FTIntercustMax  ", Data.SqlDbType.Money).Value = LocalBanksMax
+
+                    'AbcMax
+                    .Parameters.Add("@FTInterAcctLocalMin  ", Data.SqlDbType.Money).Value = AbcMin
+                    .Parameters.Add("@FTInterAcctLocalMax  ", Data.SqlDbType.Money).Value = AbcMax
+
+                    .Parameters.Add("@utility ", Data.SqlDbType.Money).Value = utility
+
+                    .ExecuteNonQuery()
+                    MyBillPaymentID = .Parameters.Item("@ChargeId").Value.ToString
+                End With
+
+                myConnection.Close()
+
+                Return MyBillPaymentID
+
+            Catch ex As Exception
+
+            End Try
+
+        End Function
+
+        Public Function AddDefaultCharges(ByVal OwnAccounts As Double, ByVal GABAccounts As Double, ByVal LocalBanks As Double, _
+        ByVal International As Double, ByVal RTGS As Double, ByVal Salaries As Double, ByVal Suppliers As Double, _
+        ByVal LettersOfCredit As Double, ByVal StandingOrders As Double, ByVal BankersCheques As Double, ByVal StopCheque As Double, _
+        ByVal UtilityPayments As Double, ByVal ATMRequests As Double, ByVal ChequeBookRequests As Double, ByVal LastUpdatedOn As Date, _
+        ByVal LastUpdatedBy As String) As Integer
+
+            Dim DefaultChargesID As Int32 = 0
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+            Dim myCommand As New SqlCommand("Add_DefaultCharges", myConnection)
+
+            Try
+
+                With myCommand
+                    .CommandType = Data.CommandType.StoredProcedure
+                    .Parameters.Add("@DefaultChargesID", Data.SqlDbType.Real).Direction = Data.ParameterDirection.Output
+                    .Parameters.Add("@OwnAccounts", Data.SqlDbType.Money).Value = OwnAccounts
+                    .Parameters.Add("@GABAccounts", Data.SqlDbType.Money).Value = GABAccounts
+                    .Parameters.Add("@LocalBanks", Data.SqlDbType.Money).Value = LocalBanks
+                    .Parameters.Add("@International", Data.SqlDbType.Money).Value = International
+                    .Parameters.Add("@RTGS", Data.SqlDbType.Money).Value = RTGS
+                    .Parameters.Add("@Salaries", Data.SqlDbType.Money).Value = Salaries
+                    .Parameters.Add("@Suppliers ", Data.SqlDbType.Money).Value = Suppliers
+                    .Parameters.Add("@LettersOfCredit ", Data.SqlDbType.Money).Value = LettersOfCredit
+                    .Parameters.Add("@StandingOrders  ", Data.SqlDbType.Money).Value = StandingOrders
+                    .Parameters.Add("@BankersCheques ", Data.SqlDbType.Money).Value = BankersCheques
+                    .Parameters.Add("@StopCheque ", Data.SqlDbType.Money).Value = StopCheque
+                    .Parameters.Add("@UtilityPayments  ", Data.SqlDbType.Money).Value = UtilityPayments
+                    .Parameters.Add("@ATMRequests  ", Data.SqlDbType.Money).Value = ATMRequests
+                    .Parameters.Add("@ChequeBookRequests  ", Data.SqlDbType.Money).Value = ChequeBookRequests
+                    .Parameters.Add("@LastUpdatedOn  ", Data.SqlDbType.DateTime).Value = LastUpdatedOn
+                    .Parameters.Add("@LastUpdatedBy ", Data.SqlDbType.VarChar, 100).Value = LastUpdatedBy
+
+                    .ExecuteNonQuery()
+
+                    DefaultChargesID = .Parameters.Item("@DefaultChargesID").Value.ToString
+                End With
+
+                myConnection.Close()
+
+                Return DefaultChargesID
+
+            Catch ex As Exception
+
+            End Try
+
+        End Function
+
+        Public Function AddChargesSettings(ByVal Service As String, ByVal Currency As String, ByVal ChargeAmount As Double, _
+        ByVal ChargesCollectionAccount As String, ByVal SuspenceAccount As String, ByVal LastUpdatedOn As Date, ByVal LastUpdatedBy As String, _
+        Optional ByVal ClientID As Integer = 0) As Integer
+
+            Dim DefaultChargesID As Int32 = 0
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+            Dim myCommand As New SqlCommand("Add_ChargesSettings", myConnection)
+
+            Try
+
+                With myCommand
+                    .CommandType = Data.CommandType.StoredProcedure
+                    .Parameters.Add("@Service", Data.SqlDbType.VarChar, 50).Value = Service
+                    .Parameters.Add("@Currency", Data.SqlDbType.VarChar, 50).Value = Currency
+                    .Parameters.Add("@ChargeAmount", Data.SqlDbType.Money).Value = ChargeAmount
+                    .Parameters.Add("@ChargesCollectionAccount", Data.SqlDbType.VarChar, 50).Value = ChargesCollectionAccount
+                    .Parameters.Add("@SuspenceAccount", Data.SqlDbType.VarChar, 50).Value = SuspenceAccount
+                    .Parameters.Add("@UpdatedBy ", Data.SqlDbType.VarChar, 100).Value = LastUpdatedBy
+                    .Parameters.Add("@LastUpdatedOn  ", Data.SqlDbType.DateTime).Value = LastUpdatedOn
+                    .Parameters.Add("@ClientID  ", Data.SqlDbType.Int).Value = ClientID
+
+                    .ExecuteNonQuery()
+
+                End With
+
+                myConnection.Close()
+
+            Catch ex As Exception
+
+            End Try
+
+        End Function
+
+        Public Function AddDailyLimits(ByVal Currency As String, ByVal Limit As Double, ByVal LastUpdatedOn As Date, ByVal LastUpdatedBy As String, _
+        Optional ByVal ClientID As Integer = 0) As Integer
+
+            Dim DefaultChargesID As Int32 = 0
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+            Dim myCommand As New SqlCommand("Add_DailyLimits", myConnection)
+
+            Try
+
+                With myCommand
+                    .CommandType = Data.CommandType.StoredProcedure
+                    .Parameters.Add("@Currency", Data.SqlDbType.VarChar, 50).Value = Currency
+                    .Parameters.Add("@Limit", Data.SqlDbType.Money).Value = Limit
+                    .Parameters.Add("@UpdatedBy ", Data.SqlDbType.VarChar, 100).Value = LastUpdatedBy
+                    .Parameters.Add("@LastUpdatedOn  ", Data.SqlDbType.DateTime).Value = LastUpdatedOn
+                    .Parameters.Add("@ClientID  ", Data.SqlDbType.Int).Value = ClientID
+
+                    .ExecuteNonQuery()
+
+                End With
+
+                myConnection.Close()
+
+            Catch ex As Exception
+
+            End Try
+
+        End Function
+
+        Public Function AddPeriodicalCharges(ByVal Period As String, ByVal Currency As String, ByVal Charge As Double, ByVal SetBy As String, ByVal SetOn As Date) As Integer
+
+            Dim DefaultChargesID As Int32 = 0
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+            Dim myCommand As New SqlCommand("Add_PeriodicalCharges", myConnection)
+
+            Try
+
+                With myCommand
+                    .CommandType = Data.CommandType.StoredProcedure
+                    .Parameters.Add("@Period", Data.SqlDbType.VarChar, 50).Value = Period
+                    .Parameters.Add("@Currency", Data.SqlDbType.VarChar, 50).Value = Currency
+                    .Parameters.Add("@Charge", Data.SqlDbType.Money).Value = Charge
+                    .Parameters.Add("@SetBy ", Data.SqlDbType.VarChar, 50).Value = SetBy
+                    .Parameters.Add("@SetOn", Data.SqlDbType.DateTime).Value = SetOn
+
+                    .ExecuteNonQuery()
+
+                End With
+
+                myConnection.Close()
+
+            Catch ex As Exception
+
+            End Try
+
+        End Function
+
+        Public Function AddChargesExemption(ByVal ProfileType As String, ByVal ProfileID As Integer, ByVal Exempt As Boolean, ByVal SetBy As String, _
+                ByVal SetOn As Date) As Integer
+
+            Dim DefaultChargesID As Int32 = 0
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+            Dim myCommand As New SqlCommand("Add_ChargesExemption", myConnection)
+
+            Try
+
+                With myCommand
+                    .CommandType = Data.CommandType.StoredProcedure
+                    .Parameters.Add("@ProfileType", Data.SqlDbType.VarChar, 50).Value = ProfileType
+                    .Parameters.Add("@ProfileID", Data.SqlDbType.Int).Value = ProfileID
+                    .Parameters.Add("@Exempt", Data.SqlDbType.Bit).Value = Exempt
+                    .Parameters.Add("@SetBy", Data.SqlDbType.VarChar, 50).Value = SetBy
+                    .Parameters.Add("@SetOn", Data.SqlDbType.DateTime).Value = SetOn
+
+                    .ExecuteNonQuery()
+
+                End With
+
+                myConnection.Close()
+
+            Catch ex As Exception
+
+            End Try
+
+        End Function
+
+        Public Function AddNegotiatedCharges(ByVal ClientID As Integer, ByVal OwnAccounts As Double, ByVal GABAccounts As Double, ByVal LocalBanks As Double, _
+        ByVal International As Double, ByVal RTGS As Double, ByVal Salaries As Double, ByVal Suppliers As Double, _
+        ByVal LettersOfCredit As Double, ByVal StandingOrders As Double, ByVal BankersCheques As Double, ByVal StopCheque As Double, _
+        ByVal UtilityPayments As Double, ByVal ATMRequests As Double, ByVal ChequeBookRequests As Double, ByVal LastUpdatedOn As Date, _
+        ByVal LastUpdatedBy As String) As Integer
+
+            Dim NegotiatedChargesID As Int32 = 0
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+            Dim myCommand As New SqlCommand("Add_NegotiatedCharges", myConnection)
+
+            Try
+
+                With myCommand
+                    .CommandType = Data.CommandType.StoredProcedure
+                    .Parameters.Add("@NegotiatedChargesID", Data.SqlDbType.Real).Direction = Data.ParameterDirection.Output
+                    .Parameters.Add("@ClientID", Data.SqlDbType.Int).Value = ClientID
+                    .Parameters.Add("@OwnAccounts", Data.SqlDbType.Money).Value = OwnAccounts
+                    .Parameters.Add("@GABAccounts", Data.SqlDbType.Money).Value = GABAccounts
+                    .Parameters.Add("@LocalBanks", Data.SqlDbType.Money).Value = LocalBanks
+                    .Parameters.Add("@International", Data.SqlDbType.Money).Value = International
+                    .Parameters.Add("@RTGS", Data.SqlDbType.Money).Value = RTGS
+                    .Parameters.Add("@Salaries", Data.SqlDbType.Money).Value = Salaries
+                    .Parameters.Add("@Suppliers ", Data.SqlDbType.Money).Value = Suppliers
+                    .Parameters.Add("@LettersOfCredit ", Data.SqlDbType.Money).Value = LettersOfCredit
+                    .Parameters.Add("@StandingOrders  ", Data.SqlDbType.Money).Value = StandingOrders
+                    .Parameters.Add("@BankersCheques ", Data.SqlDbType.Money).Value = BankersCheques
+                    .Parameters.Add("@StopCheque ", Data.SqlDbType.Money).Value = StopCheque
+                    .Parameters.Add("@UtilityPayments  ", Data.SqlDbType.Money).Value = UtilityPayments
+                    .Parameters.Add("@ATMRequests  ", Data.SqlDbType.Money).Value = ATMRequests
+                    .Parameters.Add("@ChequeBookRequests  ", Data.SqlDbType.Money).Value = ChequeBookRequests
+                    .Parameters.Add("@LastUpdatedOn  ", Data.SqlDbType.DateTime).Value = LastUpdatedOn
+                    .Parameters.Add("@LastUpdatedBy ", Data.SqlDbType.VarChar, 100).Value = LastUpdatedBy
+
+                    .ExecuteNonQuery()
+
+                    NegotiatedChargesID = .Parameters.Item("@NegotiatedChargesID").Value.ToString
+                End With
+
+                myConnection.Close()
+
+                Return NegotiatedChargesID
+
+            Catch ex As Exception
+
+            End Try
+
+        End Function
+
+        Public Function AddMessages(ByVal Myclientid As String, ByVal Mymfrom As String, ByVal Mymto As String, ByVal Myfullsubject As String, _
+                ByVal Mycleansubject As String, ByVal MyAttachcount As Int32, _
+                ByVal Mymsgid As String, ByVal Mymsgdirection As Boolean, _
+                ByVal Mymsgbody As String, ByVal Mysessionid As String) As Integer
+
+            Dim myID As Double = 0
+
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+            Dim myCommand As New SqlCommand("Add_Messages", myConnection)
+
+            Try
+                With myCommand
+                    .CommandType = Data.CommandType.StoredProcedure
+                    .Parameters.Add("@ID", Data.SqlDbType.Real).Direction = Data.ParameterDirection.Output
+                    .Parameters.Add("@clientid", Data.SqlDbType.VarChar, 50).Value = Myclientid
+                    .Parameters.Add("@mfrom", Data.SqlDbType.VarChar, 50).Value = Mymfrom
+                    .Parameters.Add("@mto", Data.SqlDbType.VarChar, 50).Value = Mymto
+                    .Parameters.Add("@fullsubject", Data.SqlDbType.VarChar, 100).Value = Myfullsubject
+                    .Parameters.Add("@cleansubject", Data.SqlDbType.VarChar, 100).Value = Mycleansubject
+                    .Parameters.Add("@attachcount", Data.SqlDbType.Int).Value = MyAttachcount
+                    .Parameters.Add("@msgid", Data.SqlDbType.VarChar, 50).Value = Mymsgid
+                    .Parameters.Add("@msgdirection", Data.SqlDbType.Int).Value = Mymsgdirection
+                    .Parameters.Add("@msgbody", Data.SqlDbType.VarChar, 8000).Value = Mymsgbody
+                    .Parameters.Add("@sessionid", Data.SqlDbType.VarChar, 100).Value = Mysessionid
+                    .ExecuteNonQuery()
+                    myID = .Parameters.Item("@ID").Value
+                End With
+
+                myConnection.Close()
+
+                Return myID
+
+            Catch ex As Exception
+
+            End Try
+
+        End Function
+
+        Public Function AddMessagesReply(ByVal Myclientid As String, ByVal Mymfrom As String, ByVal Mymto As String, ByVal Myfullsubject As String, _
+        ByVal Mycleansubject As String, ByVal MyAttachcount As Int32, _
+        ByVal Mymsgid As String, ByVal Mymsgdirection As Boolean, _
+        ByVal Mymsgbody As String, ByVal Mysessionid As String, _
+        ByVal Myisprocessed As Boolean, ByVal MyProcessedby As String) As Integer
+
+            Dim myID As Double = 0
+
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+            Dim myCommand As New SqlCommand("Add_Messages_Reply", myConnection)
+
+            Try
+                With myCommand
+                    .CommandType = Data.CommandType.StoredProcedure
+                    .Parameters.Add("@ID", Data.SqlDbType.Real).Direction = Data.ParameterDirection.Output
+                    .Parameters.Add("@clientid", Data.SqlDbType.VarChar, 50).Value = Myclientid
+                    .Parameters.Add("@mfrom", Data.SqlDbType.VarChar, 50).Value = Mymfrom
+                    .Parameters.Add("@mto", Data.SqlDbType.VarChar, 50).Value = Mymto
+                    .Parameters.Add("@fullsubject", Data.SqlDbType.VarChar, 100).Value = Myfullsubject
+                    .Parameters.Add("@cleansubject", Data.SqlDbType.VarChar, 100).Value = Mycleansubject
+                    .Parameters.Add("@attachcount", Data.SqlDbType.Int).Value = MyAttachcount
+                    .Parameters.Add("@msgid", Data.SqlDbType.VarChar, 50).Value = Mymsgid
+                    .Parameters.Add("@msgdirection", Data.SqlDbType.Int).Value = Mymsgdirection
+                    .Parameters.Add("@msgbody", Data.SqlDbType.VarChar, 8000).Value = Mymsgbody
+                    .Parameters.Add("@sessionid", Data.SqlDbType.VarChar, 100).Value = Mysessionid
+                    .Parameters.Add("@isprocessed", Data.SqlDbType.Int).Value = Myisprocessed
+                    .Parameters.Add("@processedby", Data.SqlDbType.VarChar, 50).Value = MyProcessedby
+                    .ExecuteNonQuery()
+                    myID = .Parameters.Item("@ID").Value
+                End With
+
+                myConnection.Close()
+
+                Return myID
+
+            Catch ex As Exception
+
+            End Try
+
+        End Function
+
+        Public Function AddMessageSubject(ByVal strMessageSubject As String, ByVal strSubjectRemarks As String) As Int32
+
+            Dim MyMessageSubjectID As Int32 = 0
+
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Add_MessageSubject", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@SubJectID", Data.SqlDbType.Int, 4).Direction = Data.ParameterDirection.Output
+                .Parameters.Add("@SubjectDescription", Data.SqlDbType.VarChar, 100).Value = strMessageSubject
+                .Parameters.Add("@SubJectRemarks", Data.SqlDbType.VarChar, 200).Value = strSubjectRemarks
+                .ExecuteNonQuery()
+                MyMessageSubjectID = .Parameters.Item("@SubJectID").Value.ToString
+            End With
+
+            myConnection.Close()
+            Return CInt(MyMessageSubjectID)
+
+        End Function
+
+        Public Function UpdateMessageSubject(ByVal strSubJectID As String, ByVal strMessageSubject As String, ByVal strSubjectRemarks As String)
+
+            Dim MyMessageSubjectID As Int32 = 0
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Update_MessageSubject", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@SubJectID", Data.SqlDbType.Int, 4).Value = strSubJectID
+                .Parameters.Add("@SubjectDescription", Data.SqlDbType.VarChar, 100).Value = strMessageSubject
+                .Parameters.Add("@SubJectRemarks", Data.SqlDbType.VarChar, 200).Value = strSubjectRemarks
+                .ExecuteNonQuery()
+            End With
+
+            myConnection.Close()
+
+
+        End Function
+        ''
+        Public Function UpdateCurrecy(ByVal strCurrencyId As String, ByVal strCurrencyCode As String, ByVal StrCurrencyName As String, ByVal strRemarks As String)
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("UpDate_Currency", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@CurrencyID", Data.SqlDbType.Int, 4).Value = strCurrencyId
+                .Parameters.Add("@CurrencyCode", Data.SqlDbType.VarChar, 100).Value = strCurrencyCode
+                .Parameters.Add("@CurrencyName", Data.SqlDbType.VarChar, 200).Value = StrCurrencyName
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+                .ExecuteNonQuery()
+
+            End With
+
+            myConnection.Close()
+
+
+        End Function
+        Public Function AddAcctType(ByVal strAcctTypeName As String, ByVal strRemarks As String) As Int32
+            Dim MyAcctTypeID As Int32 = 0
+            Dim sqlstring As String = ""
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Add_AcctType", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@ACCTTYPEID", Data.SqlDbType.Int, 4).Direction = Data.ParameterDirection.Output
+                .Parameters.Add("@ACCTTYPENAME", Data.SqlDbType.VarChar, 100).Value = strAcctTypeName
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+                .ExecuteNonQuery()
+                MyAcctTypeID = .Parameters.Item("@ACCTTYPEID").Value.ToString
+            End With
+
+            myConnection.Close()
+            Return CInt(MyAcctTypeID)
+
+        End Function
+        Public Function UpdateAcctType(ByVal strAcctTypeID As String, ByVal strAcctTypeName As String, ByVal strRemarks As String)
+            Dim sqlstring As String = ""
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("UpDate_AcctType", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@ACCTTYPEID", Data.SqlDbType.Int, 4).Value = strAcctTypeID
+                .Parameters.Add("@ACCTTYPENAME", Data.SqlDbType.VarChar, 100).Value = strAcctTypeName
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+                .ExecuteNonQuery()
+
+            End With
+
+            myConnection.Close()
+
+
+        End Function
+        Public Function AddFrequency(ByVal strFrequencyName As String, ByVal strRemarks As String) As Int32
+            Dim MyFrequencyID As Int32 = 0
+            Dim sqlstring As String = ""
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Add_Frequency", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@FrequencyID", Data.SqlDbType.Int, 4).Direction = Data.ParameterDirection.Output
+                .Parameters.Add("@Frequency", Data.SqlDbType.VarChar, 100).Value = strFrequencyName
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+                .ExecuteNonQuery()
+                MyFrequencyID = .Parameters.Item("@FrequencyID").Value.ToString
+            End With
+
+            myConnection.Close()
+            Return CInt(MyFrequencyID)
+
+        End Function
+        Public Function UpdateFrequency(ByVal strFrequencyID As String, ByVal strFrequencyName As String, ByVal strRemarks As String)
+            Dim sqlstring As String = ""
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("UpDate_Frequency", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@FrequencyID", Data.SqlDbType.Int, 4).Value = strFrequencyID
+                .Parameters.Add("@Frequency", Data.SqlDbType.VarChar, 100).Value = strFrequencyName
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+                .ExecuteNonQuery()
+
+            End With
+
+            myConnection.Close()
+
+
+        End Function
+
+        Public Function AddAdminAuditTrail(ByVal Myusername As String, ByVal Myactiontype As String, _
+        ByVal Myactiondescription As String, ByVal Mypageaccessed As String, _
+        ByVal Myclientipaddress As String, ByVal Mysessionid As String) As Integer
+
+            Dim myID As Double = 0
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+            Dim myCommand As New SqlCommand("Add_AdminAuditTrail", myConnection)
+
+            Try
+                With myCommand
+                    .CommandType = Data.CommandType.StoredProcedure
+                    .Parameters.Add("@ID", Data.SqlDbType.Real).Direction = Data.ParameterDirection.Output
+                    .Parameters.Add("@username", Data.SqlDbType.VarChar, 50).Value = Myusername
+                    .Parameters.Add("@actiontype", Data.SqlDbType.VarChar, 50).Value = Myactiontype
+                    .Parameters.Add("@actiondescription", Data.SqlDbType.VarChar, 150).Value = Myactiondescription
+                    .Parameters.Add("@pageaccessed", Data.SqlDbType.VarChar, 100).Value = Mypageaccessed
+                    .Parameters.Add("@clientipaddress", Data.SqlDbType.VarChar, 50).Value = Myclientipaddress
+                    .Parameters.Add("@sessionid", Data.SqlDbType.VarChar, 50).Value = Mysessionid
+                    .ExecuteNonQuery()
+                    myID = .Parameters.Item("@ID").Value
+                End With
+
+                myConnection.Close()
+
+                Return myID
+
+            Catch ex As Exception
+
+            End Try
+
+        End Function
+
+        Public Function AddCodes(ByVal generated_by As String, ByVal challenge As String, ByVal response_code As String, _
+                ByVal serial_number As String, ByVal reference_number As String, ByVal myfulldate As String) As Integer
+
+            Dim myID As Double = 0
+
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+            Dim myCommand As New SqlCommand("Add_generated_codes", myConnection)
+
+            Try
+                With myCommand
+                    .CommandType = Data.CommandType.StoredProcedure
+                    .Parameters.Add("@ID", Data.SqlDbType.Real).Direction = Data.ParameterDirection.Output
+                    .Parameters.Add("@generated_by", Data.SqlDbType.VarChar, 50).Value = generated_by
+                    .Parameters.Add("@challenge", Data.SqlDbType.VarChar, 50).Value = challenge
+                    .Parameters.Add("@response_code", Data.SqlDbType.VarChar, 100).Value = response_code
+                    .Parameters.Add("@serial_number", Data.SqlDbType.VarChar, 100).Value = serial_number
+                    .Parameters.Add("@reference_number", Data.SqlDbType.VarChar, 100).Value = reference_number
+                    .Parameters.Add("@myfulldate", Data.SqlDbType.VarChar, 20).Value = myfulldate
+
+                    .ExecuteNonQuery()
+                    myID = .Parameters.Item("@ID").Value
+                End With
+
+                myConnection.Close()
+
+                Return myID
+
+            Catch ex As Exception
+
+            End Try
+
+        End Function
+
+        Public Sub DeactivateSignatory(ByVal MySignatoryID As Int32)
+
+            Dim DecryptedStr As String = Nothing
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            DecryptedStr = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Deactivate_Signatory", myConnection)
+
+            Try
+                With myCommand
+                    .CommandType = Data.CommandType.StoredProcedure
+                    .Parameters.Add("@SignatoryID", Data.SqlDbType.Real).Value = MySignatoryID
+                    .Parameters.Add("@Activated", Data.SqlDbType.Int).Value = 0
+                    .ExecuteNonQuery()
+
+                End With
+
+                myConnection.Close()
+
+            Catch ex As Exception
+                CType(myCommand, IDisposable).Dispose()
+            Finally
+                myConnection.Close()
+            End Try
+
+        End Sub
+
+        Public Function AddUtilities(ByVal strUtilityName As String, ByVal strRemarks As String) As Int32
+            Dim MyUtilityID As Int32 = 0
+            Dim sqlstring As String = ""
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Add_Utilities", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@UTILITYID", Data.SqlDbType.Int, 4).Direction = Data.ParameterDirection.Output
+                .Parameters.Add("@UTILITYNAME", Data.SqlDbType.VarChar, 100).Value = strUtilityName
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+                .ExecuteNonQuery()
+                MyUtilityID = .Parameters.Item("@UTILITYID").Value.ToString
+            End With
+
+            myConnection.Close()
+            Return CInt(MyUtilityID)
+
+        End Function
+        Public Function UpdateUtilities(ByVal strUtilityID As String, ByVal strUtilityName As String, ByVal strRemarks As String)
+            Dim sqlstring As String = ""
+
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("UpDate_Utilities", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@UTILITYID", Data.SqlDbType.Int, 4).Value = strUtilityID
+                .Parameters.Add("@UTILITYNAME", Data.SqlDbType.VarChar, 100).Value = strUtilityName
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+                .ExecuteNonQuery()
+
+            End With
+
+            myConnection.Close()
+
+
+        End Function
+        Public Function AddBankDetails(ByVal strBankName As String, ByVal strBankCode As String, ByVal strRemarks As String) As Int32
+
+            Dim MyProviderID As Int32 = 0
+            Dim sqlstring As String = ""
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Add_Bank", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@BankID", Data.SqlDbType.Int, 4).Direction = Data.ParameterDirection.Output
+                .Parameters.Add("@BankName", Data.SqlDbType.VarChar, 100).Value = strBankName
+                .Parameters.Add("@BankCode", Data.SqlDbType.VarChar, 20).Value = strBankCode
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+                .ExecuteNonQuery()
+                MyProviderID = .Parameters.Item("@BankID").Value.ToString
+            End With
+
+            myConnection.Close()
+            Return CInt(MyProviderID)
+
+        End Function
+        Public Function UpdateBankDetails(ByVal strBankID As String, ByVal strBankName As String, ByVal strBankCode As String, ByVal strRemarks As String)
+
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Update_Bank", myConnection)
+
+            Dim MyProviderID As Int32 = 0
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@BankID", Data.SqlDbType.Int, 4).Value = strBankID
+                .Parameters.Add("@BankName", Data.SqlDbType.VarChar, 100).Value = strBankName
+                .Parameters.Add("@BankCode", Data.SqlDbType.VarChar, 100).Value = strBankCode
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+                .ExecuteNonQuery()
+            End With
+
+            myConnection.Close()
+
+
+        End Function
+
+        Public Function AddUtilityProvider(ByVal strUtilityID As String, ByVal strUtilityProvider As String, ByVal strContractNo As String, _
+        ByVal strContactPerson As String, ByVal strPostalAddress As String, ByVal strPhysicalAddress As String, ByVal strRemarks As String, _
+        ByVal Currency As String) As Int32
+
+            Dim MyProviderID As Int32 = 0
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Add_UtilityProvider", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@UTILITYPROVIDERID", Data.SqlDbType.Int, 4).Direction = Data.ParameterDirection.Output
+                .Parameters.Add("@UTILITYID", Data.SqlDbType.Int, 4).Value = strUtilityID
+                .Parameters.Add("@PROVIDERNAME", Data.SqlDbType.VarChar, 20).Value = strUtilityProvider
+                .Parameters.Add("@PROVIDERACCOUNT", Data.SqlDbType.VarChar, 20).Value = strContractNo
+                .Parameters.Add("@CONTACTPERSON", Data.SqlDbType.VarChar, 20).Value = strContactPerson
+                .Parameters.Add("@POSTALADDRESS", Data.SqlDbType.VarChar, 20).Value = strPostalAddress
+                .Parameters.Add("@PHYSICALADDRESS", Data.SqlDbType.VarChar, 20).Value = strPhysicalAddress
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+                .Parameters.Add("@Currency", Data.SqlDbType.VarChar, 20).Value = Currency
+                .ExecuteNonQuery()
+                MyProviderID = .Parameters.Item("@UTILITYPROVIDERID").Value.ToString
+            End With
+
+            myConnection.Close()
+            Return CInt(MyProviderID)
+
+        End Function
+
+        Public Function UpdateUtilityProvider(ByVal strUtilityProviderID As String, ByVal strUtilityID As String, ByVal strUtilityProvider As String, _
+        ByVal strContractNo As String, ByVal strContactPerson As String, ByVal strPostalAddress As String, ByVal strPhysicalAddress As String, _
+        ByVal strRemarks As String, ByVal Currency As String)
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Update_UtilityProvider", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@UTILITYPROVDERID", Data.SqlDbType.Int, 4).Value = strUtilityProviderID
+                .Parameters.Add("@UTILITYID", Data.SqlDbType.Int, 4).Value = strUtilityID
+                .Parameters.Add("@PROVIDERNAME", Data.SqlDbType.VarChar, 20).Value = strUtilityProvider
+                .Parameters.Add("@PROVIDERACCOUNT", Data.SqlDbType.VarChar, 20).Value = strContractNo
+                .Parameters.Add("@CONTACTPERSON", Data.SqlDbType.VarChar, 20).Value = strContactPerson
+                .Parameters.Add("@POSTALADDRESS", Data.SqlDbType.VarChar, 20).Value = strPostalAddress
+                .Parameters.Add("@PHYSICALADDRESS", Data.SqlDbType.VarChar, 20).Value = strPhysicalAddress
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+                .Parameters.Add("@Currency", Data.SqlDbType.VarChar, 20).Value = Currency
+                .ExecuteNonQuery()
+            End With
+
+            myConnection.Close()
+        End Function
+
+        Public Function AddBankBranch(ByVal strBankID As String, ByVal strBranchName As String, ByVal strBranchCode As String, ByVal strRemarks As String) As Int32
+
+            Dim MyBankBranchID As Int32 = 0
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Add_BankBranches", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@BranchID", Data.SqlDbType.Int, 4).Direction = Data.ParameterDirection.Output
+                .Parameters.Add("@BANKCode", Data.SqlDbType.Int, 4).Value = strBankID
+                .Parameters.Add("@BranchName", Data.SqlDbType.VarChar, 20).Value = strBranchName
+                .Parameters.Add("@BranchCode", Data.SqlDbType.VarChar, 20).Value = strBranchCode
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+                .ExecuteNonQuery()
+                MyBankBranchID = .Parameters.Item("@BranchID").Value.ToString
+            End With
+
+            myConnection.Close()
+            Return CInt(MyBankBranchID)
+
+        End Function
+        Public Function UpdateBankBranch(ByVal strBranchID As String, ByVal strBankID As String, ByVal strBranchName As String, ByVal strBranchCode As String, ByVal strRemarks As String)
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Update_Branches", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@BANKBRANCHID", Data.SqlDbType.Int, 4).Value = strBranchID
+                .Parameters.Add("@BankID", Data.SqlDbType.Int, 4).Value = strBankID
+                .Parameters.Add("@BranchName", Data.SqlDbType.VarChar, 20).Value = strBranchName
+                .Parameters.Add("@BranchCode", Data.SqlDbType.VarChar, 20).Value = strBranchCode
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+                .ExecuteNonQuery()
+            End With
+
+            myConnection.Close()
+
+
+        End Function
+        Public Function AddEmployees(ByVal strProfileID As String, ByVal addedby As String, ByVal strEmployeeName As String, _
+        ByVal strTitle As String, ByVal strTelExt As String, ByVal strHomePhone As String, ByVal strCellphone As String, _
+        ByVal strEmail As String, ByVal strUserName As String, ByVal strOtherEmail As String, _
+        ByVal IntDaysToLockUser As Int16, ByVal IntUserLocked As Int16, ByVal strMyPassword As String, _
+        ByVal activated As Boolean, Optional ByVal RecordStatus As String = "New Record") As Int32
+
+            Dim MyEmployeeID As Int32 = 0
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Add_Employee", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@EmployeeID", Data.SqlDbType.Int, 4).Direction = Data.ParameterDirection.Output
+                .Parameters.Add("@ProfileID", Data.SqlDbType.Int, 4).Value = strProfileID
+                .Parameters.Add("@addedby", Data.SqlDbType.VarChar, 50).Value = addedby
+                .Parameters.Add("@EmployeeName", Data.SqlDbType.VarChar, 50).Value = strEmployeeName
+                .Parameters.Add("@Title", Data.SqlDbType.VarChar, 20).Value = strTitle
+                .Parameters.Add("@TelExt", Data.SqlDbType.VarChar, 20).Value = strTelExt
+                .Parameters.Add("@HomePhone", Data.SqlDbType.VarChar, 200).Value = strHomePhone
+                .Parameters.Add("@CellPhone", Data.SqlDbType.VarChar, 200).Value = strCellphone
+                .Parameters.Add("@Email", Data.SqlDbType.VarChar, 200).Value = strEmail
+                .Parameters.Add("@UserName", Data.SqlDbType.VarChar, 200).Value = strUserName
+                .Parameters.Add("@DaysTolockUser", Data.SqlDbType.Int).Value = IntDaysToLockUser
+                .Parameters.Add("@EmployeeLocked", Data.SqlDbType.Bit).Value = IntUserLocked
+                .Parameters.Add("@OtherEmail", Data.SqlDbType.VarChar, 200).Value = strOtherEmail
+                .Parameters.Add("@Password", Data.SqlDbType.VarChar, 500).Value = strMyPassword
+                .Parameters.Add("@Activated", Data.SqlDbType.Bit, 1).Value = activated
+                .Parameters.Add("@RecordStatus", Data.SqlDbType.VarChar, 50).Value = RecordStatus
+
+                .ExecuteNonQuery()
+                MyEmployeeID = .Parameters.Item("@EmployeeID").Value.ToString
+            End With
+
+            myConnection.Close()
+            Return CInt(MyEmployeeID)
+
+        End Function
+
+        Public Function UpdateEmployees(ByVal strEmployeeID As String, ByVal approvedBy As String, ByVal approved As Boolean, _
+        ByVal strProfileID As String, ByVal strEmployeeName As String, ByVal strTitle As String, ByVal strTelExt As String, _
+        ByVal strHomePhone As String, ByVal strCellphone As String, ByVal strEmail As String, ByVal strUserName As String, _
+        ByVal Password As String, ByVal strOtherEmail As String, ByVal IntDaysToLockUser As Int16, ByVal IntUserLocked As Int16, _
+        ByVal MODIFIEDBY As String, Optional ByVal RecordStatus As String = "Update", Optional ByVal EmailSent As Boolean = False)
+
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("UpDate_Employee", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@EmployeeID", Data.SqlDbType.Int, 4).Value = strEmployeeID
+                .Parameters.Add("@approvedBy", Data.SqlDbType.VarChar, 100).Value = approvedBy
+                .Parameters.Add("@approved", Data.SqlDbType.VarChar, 20).Value = approved
+                .Parameters.Add("@ProfileID", Data.SqlDbType.Int, 4).Value = strProfileID
+                .Parameters.Add("@EmployeeName", Data.SqlDbType.VarChar, 100).Value = strEmployeeName
+                .Parameters.Add("@Title", Data.SqlDbType.VarChar, 100).Value = strTitle
+                .Parameters.Add("@TelExt", Data.SqlDbType.VarChar, 20).Value = strTelExt
+                .Parameters.Add("@HomePhone", Data.SqlDbType.VarChar, 20).Value = strHomePhone
+                .Parameters.Add("@CellPhone", Data.SqlDbType.VarChar, 20).Value = strCellphone
+                .Parameters.Add("@Email", Data.SqlDbType.VarChar, 100).Value = strEmail
+                .Parameters.Add("@UserName", Data.SqlDbType.VarChar, 50).Value = strUserName
+                .Parameters.Add("@Password", Data.SqlDbType.VarChar, 100).Value = Password
+                .Parameters.Add("@DaysTolockUser", Data.SqlDbType.Int).Value = IntDaysToLockUser
+                .Parameters.Add("@EmployeeLocked", Data.SqlDbType.Bit).Value = IntUserLocked
+                .Parameters.Add("@OtherEmail", Data.SqlDbType.VarChar, 100).Value = strOtherEmail
+                .Parameters.Add("@MODIFIEDBY", Data.SqlDbType.VarChar, 100).Value = MODIFIEDBY
+                ''.Parameters.Add("@CanDoDeletion", Data.SqlDbType.Bit).Value = CanDoDeletion
+                .Parameters.Add("@RecordStatus", Data.SqlDbType.VarChar, 50).Value = RecordStatus
+                .Parameters.Add("@EmailSent", Data.SqlDbType.Bit).Value = EmailSent
+
+                .ExecuteNonQuery()
+            End With
+
+
+        End Function
+
+        Public Sub AddStaticDataMaintenanceReason(ByVal ClientID As String, ByVal ClientModule As String, ByVal MaintenanceReason As String, ByVal UseType As String)
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Add_StaticDataMaintenance", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+
+                .Parameters.Add("@ClientID", Data.SqlDbType.Int).Value = ClientID
+                .Parameters.Add("@Module", Data.SqlDbType.VarChar, 50).Value = ClientModule
+                .Parameters.Add("@MaintenanceReason", Data.SqlDbType.VarChar, 1000).Value = MaintenanceReason
+                .Parameters.Add("@UseType", Data.SqlDbType.VarChar, 50).Value = UseType
+                .ExecuteNonQuery()
+
+            End With
+
+            myConnection.Close()
+
+        End Sub
+
+        Public Function AddClientDetails(ByVal strAcctBaseNo As String, ByVal strClientName As String, _
+        ByVal strPhoneNum As String, ByVal strAddress As String, ByVal strPhysicalAddress As String, _
+        ByVal strFax As String, ByVal strContact As String, ByVal strEmail As String, ByVal strWebsite As String, _
+        ByVal strCountry As String, ByVal strTitle As String, ByVal strRemarks As String, ByVal AcctType As String, _
+        ByVal strAddedBy As String, ByVal RecordStatus As String, ByVal DailyLimit As Double) As Int32
+
+            Dim MyClientID As Int32 = 0
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Add_CLients", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@CLIENTID", Data.SqlDbType.Int, 4).Direction = Data.ParameterDirection.Output
+                .Parameters.Add("@ACCTBASENO", Data.SqlDbType.VarChar, 50).Value = strAcctBaseNo
+                .Parameters.Add("@CLIENTNAME", Data.SqlDbType.VarChar, 100).Value = strClientName
+                .Parameters.Add("@LOCATION", Data.SqlDbType.VarChar, 200).Value = strPhysicalAddress
+                .Parameters.Add("@TITLE", Data.SqlDbType.VarChar, 20).Value = strTitle
+                .Parameters.Add("@ADDRESS", Data.SqlDbType.VarChar, 200).Value = strAddress
+                .Parameters.Add("@CONTACTNAME", Data.SqlDbType.VarChar, 200).Value = strContact
+                .Parameters.Add("@EMAILADDRESS", Data.SqlDbType.VarChar, 200).Value = strEmail
+                .Parameters.Add("@WEBSITE", Data.SqlDbType.VarChar, 200).Value = strWebsite
+                .Parameters.Add("@TELEPHONE", Data.SqlDbType.VarChar, 200).Value = strPhoneNum
+                .Parameters.Add("@FAX", Data.SqlDbType.VarChar, 50).Value = strFax
+                .Parameters.Add("@COUNTRY", Data.SqlDbType.VarChar, 50).Value = strCountry
+                .Parameters.Add("@ACCTUSETYPE", Data.SqlDbType.VarChar, 50).Value = AcctType
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+                .Parameters.Add("@ADDEDBY", Data.SqlDbType.VarChar, 20).Value = strAddedBy
+                .Parameters.Add("@RecordStatus", Data.SqlDbType.VarChar, 50).Value = RecordStatus
+                .Parameters.Add("@DailyLimit", Data.SqlDbType.Float).Value = DailyLimit
+                .ExecuteNonQuery()
+                MyClientID = .Parameters.Item("@CLIENTID").Value.ToString
+            End With
+
+            myConnection.Close()
+            Return CInt(MyClientID)
+
+        End Function
+
+        Public Function UpdateClientDetails(ByVal strClientID As String, ByVal approvedBy As String, ByVal approved As Boolean, _
+        ByVal strClientName As String, ByVal strPhoneNum As String, ByVal strAddress As String, _
+        ByVal strPhysicalAddress As String, ByVal strFax As String, ByVal strContact As String, _
+        ByVal strEmail As String, ByVal strWebsite As String, ByVal strCountry As String, ByVal strTitle As String, _
+        ByVal strRemarks As String, ByVal strModifiedby As String, ByVal strIsLocked As Int16, ByVal RecordStatus As String, _
+        ByVal DailyLimit As Double) As Int32
+
+            Dim MyClientID As Int32 = 0
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("UpDate_ClientDetails", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@CLIENTID", Data.SqlDbType.Int, 4).Value = strClientID
+                .Parameters.Add("@approvedBy", Data.SqlDbType.VarChar, 30).Value = approvedBy
+                .Parameters.Add("@approved", Data.SqlDbType.Bit, 1).Value = approved
+                .Parameters.Add("@CLIENTNAME", Data.SqlDbType.VarChar, 100).Value = strClientName
+                .Parameters.Add("@LOCATION", Data.SqlDbType.VarChar, 200).Value = strPhysicalAddress
+                .Parameters.Add("@TITLE", Data.SqlDbType.VarChar, 20).Value = strTitle
+                .Parameters.Add("@ADDRESS", Data.SqlDbType.VarChar, 200).Value = strAddress
+                .Parameters.Add("@CONTACTNAME", Data.SqlDbType.VarChar, 200).Value = strContact
+                .Parameters.Add("@EMAILADDRESS", Data.SqlDbType.VarChar, 200).Value = strEmail
+                .Parameters.Add("@WEBSITE", Data.SqlDbType.VarChar, 200).Value = strWebsite
+                .Parameters.Add("@TELEPHONE", Data.SqlDbType.VarChar, 200).Value = strPhoneNum
+                .Parameters.Add("@FAX", Data.SqlDbType.VarChar, 50).Value = strFax
+                .Parameters.Add("@COUNTRY", Data.SqlDbType.NVarChar).Value = strCountry
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 500).Value = strRemarks
+                .Parameters.AddWithValue("@MODIFIEDBY", strModifiedby)
+                .Parameters.AddWithValue("@LOCKED", strIsLocked)
+                .Parameters.Add("@RecordStatus", Data.SqlDbType.VarChar, 50).Value = RecordStatus
+                .Parameters.Add("@DailyLimit", Data.SqlDbType.Float).Value = DailyLimit
+                .ExecuteNonQuery()
+            End With
+
+            myConnection.Close()
+
+        End Function
+
+        Public Function AddSignatoryDetails(ByVal strClientID As String, ByVal strSignatoryName As String, _
+        ByVal strEmailAddress As String, ByVal strCellPhone As String, ByVal strUserName As String, _
+        ByVal strPassword As String, ByVal strProfileID As String, ByVal IntActive As Int16, ByVal Active As Boolean, _
+        ByVal strAddedBy As String, ByVal strRemarks As String, Optional ByVal tokenserial As String = "") As Int32
+
+            Dim MySignatoryID As Int32 = 0
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Add_Signatory", myConnection)
+
+            '
+            If Object.ReferenceEquals(strRemarks, Nothing) Then
+                strRemarks = ""
+            End If
+
+            If Object.ReferenceEquals(tokenserial, Nothing) Then
+                tokenserial = ""
+            End If
+            '
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@SIGNATORYID", Data.SqlDbType.Int, 4).Direction = Data.ParameterDirection.Output
+                .Parameters.Add("@ClientID", Data.SqlDbType.Int).Value = strClientID
+                .Parameters.Add("@SIGNATORYNAME", Data.SqlDbType.VarChar, 100).Value = strSignatoryName
+                .Parameters.Add("@EMAILADDRESS", Data.SqlDbType.VarChar, 100).Value = strEmailAddress
+                .Parameters.Add("@CELLPHONE", Data.SqlDbType.VarChar, 100).Value = strCellPhone
+                .Parameters.Add("@USERNAME", Data.SqlDbType.VarChar, 200).Value = strUserName
+                .Parameters.Add("@PASSWORD", Data.SqlDbType.VarChar, 200).Value = strPassword
+                .Parameters.Add("@PROFILEID", Data.SqlDbType.Int).Value = strProfileID
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+                .Parameters.Add("@ADDEDBY", Data.SqlDbType.VarChar, 20).Value = strAddedBy
+                .Parameters.Add("@ACTIVE", Data.SqlDbType.Bit).Value = Active
+
+                .Parameters.Add("@TokenSerialnumber", Data.SqlDbType.VarChar, 50).Value = tokenserial
+
+                .ExecuteNonQuery()
+                MySignatoryID = .Parameters.Item("@SIGNATORYID").Value.ToString
+            End With
+
+            myConnection.Close()
+            Return CInt(MySignatoryID)
+
+        End Function
+
+        Public Function UpdateSignatoryDetails(ByVal strSignatoryID As String, ByVal strClientID As String, _
+        ByVal strSignatoryName As String, ByVal strEmailAddress As String, ByVal strCellPhone As String, _
+        ByVal strUserName As String, ByVal strPassword As String, ByVal strProfileID As String, ByVal IntActive As Int16, _
+        ByVal Active As Boolean, ByVal strModifiedBy As String, ByVal strRemarks As String, ByVal AcctActivated As Boolean, _
+        ByVal serial As String) As Int32
+
+            Dim MySignatoryID As Int32 = 0
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Update_Signatory", myConnection)
+
+            '
+            If Object.ReferenceEquals(strRemarks, Nothing) Then
+                strRemarks = ""
+            End If
+
+            If Object.ReferenceEquals(serial, Nothing) Then
+                serial = ""
+            End If
+            '
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@SIGNATORYID", Data.SqlDbType.Int, 4).Value = strSignatoryID
+                .Parameters.Add("@ClientID", Data.SqlDbType.Int).Value = strClientID
+                .Parameters.Add("@SIGNATORYNAME", Data.SqlDbType.VarChar, 100).Value = strSignatoryName
+                .Parameters.Add("@EMAILADDRESS", Data.SqlDbType.VarChar, 100).Value = strEmailAddress
+                .Parameters.Add("@CELLPHONE", Data.SqlDbType.VarChar, 100).Value = strCellPhone
+                .Parameters.Add("@USERNAME", Data.SqlDbType.VarChar, 200).Value = strUserName
+                .Parameters.Add("@PASSWORD", Data.SqlDbType.VarChar, 200).Value = strPassword
+                .Parameters.Add("@PROFILEID", Data.SqlDbType.Int).Value = strProfileID
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+                .Parameters.Add("@MODIFIEDBY", Data.SqlDbType.VarChar, 20).Value = strModifiedBy
+                .Parameters.Add("@SignatoryLocked", Data.SqlDbType.Bit).Value = IntActive
+                .Parameters.Add("@TokenSerialnumber", Data.SqlDbType.VarChar, 50).Value = serial
+                .Parameters.Add("@ACTIVE", Data.SqlDbType.Bit).Value = Active
+                .Parameters.Add("@ACTIVATED", Data.SqlDbType.Bit).Value = AcctActivated
+
+                '.Parameters.Add("@ACTIVATED", Data.SqlDbType.Bit).Value = AcctActivated
+
+                .ExecuteNonQuery()
+            End With
+
+            myConnection.Close()
+
+
+        End Function
+        Public Function AddAcctDetails(ByVal strClientID As Int32, _
+        ByVal strBaseNo As String, ByVal strAcctNo As String, ByVal strAcctName As String, _
+        ByVal strAcctType As String, ByVal strAccDescription As String, ByVal strCurrency As String, _
+        ByVal strRemarks As String) As Int32
+
+            Dim MyAccountID As Int32 = 0
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("Add_AcctDetails", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@ACCOUNTID", Data.SqlDbType.BigInt).Direction = Data.ParameterDirection.Output
+                .Parameters.Add("@ClientID", Data.SqlDbType.BigInt).Value = strClientID
+                .Parameters.Add("@BASENUMBER", Data.SqlDbType.VarChar, 50).Value = strBaseNo
+                .Parameters.Add("@ACCTNUMBER", Data.SqlDbType.VarChar, 50).Value = strAcctNo
+                .Parameters.Add("@ACCTNAME", Data.SqlDbType.VarChar, 100).Value = strAcctName
+                .Parameters.Add("@ACCTTYPE", Data.SqlDbType.VarChar, 50).Value = strAcctType
+                .Parameters.Add("@ACCDESCRIPTION", Data.SqlDbType.VarChar, 200).Value = strAccDescription
+                .Parameters.Add("@CURRENCY", Data.SqlDbType.VarChar, 50).Value = strCurrency
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 200).Value = strRemarks
+
+                .ExecuteNonQuery()
+                MyAccountID = .Parameters.Item("@ACCOUNTID").Value.ToString
+            End With
+
+            myConnection.Close()
+            Return CInt(MyAccountID)
+
+        End Function
+
+        Public Function UpdateAcctDetails(ByVal strAcctID As String, ByVal strActive As Int32, ByVal strRemarks As String)
+            Dim sqlstring As String = ""
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("UpDate_AcctDetails", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                .Parameters.Add("@ACTIVE", Data.SqlDbType.Int, 4).Value = strActive
+                .Parameters.Add("@ACCOUNTID", Data.SqlDbType.Int, 4).Value = strAcctID
+                .Parameters.Add("@REMARKS", Data.SqlDbType.VarChar, 100).Value = strRemarks
+
+                .ExecuteNonQuery()
+
+            End With
+
+            myConnection.Close()
+
+
+        End Function
+        '-----------------------------------------------------------------------------------------------------------------------------
+        Public Function ADD_NewCredit_Appl(ByVal Salutation As String, ByVal surname As String, ByVal Forename1 As Boolean, _
+      ByVal Forename2 As String, ByVal Forename3 As String, ByVal ELRollNo As String, _
+      ByVal PassPortNo As String, ByVal nationality As String, ByVal taxNo As String, _
+      ByVal DRLicenceNo As String, ByVal SocialSecNo As String, ByVal HealtInsNo As String, ByVal Mstatus As String, _
+      ByVal NoOfDepend As String, ByVal Gender As String, ByVal DOB As Date, ByVal plceIfBirth As String, ByVal PostalNo As String, ByVal PostalCode As String, _
+      ByVal Town As String, ByVal Country As String, ByVal EmailAdd As String, ByVal Province As String, ByVal District As String, _
+      ByVal ResType As String, ByVal Durationyr As Integer, ByVal DurationMont As Integer, ByVal wtelephope As String, _
+      ByVal Htel As String, ByVal MobTel As String, ByVal fax As String, ByVal Empname As String, ByVal EmpAddre1 As String, ByVal Emptown As String, ByVal EmpCountr As String, _
+      ByVal Occupation As String, ByVal EmplDuraYr As String, ByVal EmplDurM As String, ByVal Income As String, ByVal IncomFreq As String, _
+      ByVal grpName As String, ByVal GrNo As String, ByVal AppDate As Date, ByVal AppAmount As Double, ByVal AppCurr As String, ByVal AppDur As Long, ByVal AppStatus As String, _
+      ByVal StatUpReason As String, ByVal Appramount As Double, ByVal DisAmount As Double, ByVal ApproDate As Date, ByVal MaturityDate As Date, ByVal intType As String, _
+      ByVal IntCalcMethod As String, ByVal CreditArmoType As String, ByVal OtherInfo As String)
+
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+
+            Dim myCommand As New SqlCommand("ADD_NewCredit_Appl", myConnection)
+
+            With myCommand
+                .CommandType = Data.CommandType.StoredProcedure
+                ' .Parameters.Add("@CLIENTID", Data.SqlDbType.Int, 4).Value = strClientID
+                .Parameters.Add("@Salutation", Data.SqlDbType.VarChar, 30).Value = Salutation
+                .Parameters.Add("@Surname", Data.SqlDbType.Bit, 1).Value = surname
+                .Parameters.Add("@ForeName1", Data.SqlDbType.VarChar, 50).Value = Forename1
+                .Parameters.Add("@Forename2", Data.SqlDbType.VarChar, 50).Value = Forename2
+                .Parameters.Add("@ForeName3", Data.SqlDbType.VarChar, 50).Value = Forename3
+                .Parameters.Add("@Election_Roll_Number", Data.SqlDbType.VarChar, 50).Value = ELRollNo
+                .Parameters.Add("@PassportNo", Data.SqlDbType.VarChar, 50).Value = PassPortNo
+                .Parameters.Add("@Nationality", Data.SqlDbType.VarChar, 50).Value = nationality
+                .Parameters.Add("@Tax_No", Data.SqlDbType.VarChar, 50).Value = taxNo
+                .Parameters.Add("@Driving_License", Data.SqlDbType.VarChar, 50).Value = DRLicenceNo
+                .Parameters.Add("@Social_Security", Data.SqlDbType.VarChar, 50).Value = SocialSecNo
+                .Parameters.Add("@Health_Insurance", Data.SqlDbType.VarChar, 50).Value = HealtInsNo
+                .Parameters.Add("@MaritalStatus", Data.SqlDbType.VarChar, 50).Value = Mstatus
+
+
+
+                .Parameters.Add("@No_of_Dependants", Data.SqlDbType.Int, 4).Value = NoOfDepend
+                .Parameters.Add("@Gender", Data.SqlDbType.VarChar, 50).Value = Gender
+                .Parameters.Add("@DateofBirth", Data.SqlDbType.Date).Value = DOB
+                .Parameters.Add("@PlaceofBirth", Data.SqlDbType.VarChar, 50).Value = plceIfBirth
+                .Parameters.Add("@PostalNumber", Data.SqlDbType.VarChar, 50).Value = PostalNo
+                .Parameters.Add("@PostalCode", Data.SqlDbType.VarChar, 50).Value = PostalCode
+                .Parameters.Add("@Town", Data.SqlDbType.VarChar, 50).Value = Town
+                .Parameters.Add("@Country", Data.SqlDbType.VarChar, 50).Value = Country
+                .Parameters.Add("@EmailAddress", Data.SqlDbType.VarChar, 50).Value = EmailAdd
+                .Parameters.Add("@Province", Data.SqlDbType.VarChar, 50).Value = Province
+                .Parameters.Add("@District", Data.SqlDbType.VarChar, 50).Value = District
+                .Parameters.Add("@Residence_Type", Data.SqlDbType.VarChar, 50).Value = ResType
+
+
+                .Parameters.Add("@Duration_Years", Data.SqlDbType.Int, 4).Value = Durationyr
+                .Parameters.Add("@Duration_Months", Data.SqlDbType.Int, 4).Value = DurationMont
+                .Parameters.Add("@Work_Telephone", Data.SqlDbType.VarChar, 50).Value = wtelephope
+                .Parameters.Add("@Home_Telephone", Data.SqlDbType.VarChar, 50).Value = Htel
+                .Parameters.Add("@Mobile_Telephone", Data.SqlDbType.VarChar, 50).Value = MobTel
+                .Parameters.Add("@Facsimile_Fax", Data.SqlDbType.VarChar, 50).Value = fax
+                .Parameters.Add("@EmployerName", Data.SqlDbType.VarChar, 50).Value = Empname
+                .Parameters.Add("@Employer_Address_Line1", Data.SqlDbType.VarChar, 200).Value = EmpAddre1
+                .Parameters.Add("@Employer_Town", Data.SqlDbType.VarChar, 50).Value = Emptown
+                .Parameters.Add("@Employer_Country", Data.SqlDbType.VarChar, 50).Value = EmpCountr
+                .Parameters.Add("@Occupation", Data.SqlDbType.VarChar, 50).Value = Occupation
+                .Parameters.Add("@Employment_Duration_yrs", Data.SqlDbType.VarChar, 500).Value = EmplDuraYr
+
+                .Parameters.Add("@Employment_Duration_Months", Data.SqlDbType.Bit, 1).Value = EmplDurM
+                .Parameters.Add("@Income", Data.SqlDbType.Decimal).Value = Income
+                .Parameters.Add("@Income_Frequency", Data.SqlDbType.VarChar, 50).Value = IncomFreq
+                .Parameters.Add("@GroupName", Data.SqlDbType.VarChar, 50).Value = grpName
+                .Parameters.Add("@GroupNo", Data.SqlDbType.VarChar, 50).Value = GrNo
+                .Parameters.Add("@Application_Date", Data.SqlDbType.DateTime).Value = AppDate
+                .Parameters.Add("@Application_Amount", Data.SqlDbType.Decimal).Value = AppAmount
+                .Parameters.Add("@Currency", Data.SqlDbType.VarChar, 20).Value = AppCurr
+                .Parameters.Add("@Application_Duration", Data.SqlDbType.Int, 4).Value = AppDur
+                .Parameters.Add("@Application_Status", Data.SqlDbType.VarChar, 50).Value = AppStatus
+                .Parameters.Add("@Status_Update_Reason", Data.SqlDbType.VarChar, 200).Value = StatUpReason
+                .Parameters.Add("@Approved_Amount", Data.SqlDbType.Decimal).Value = Appramount
+
+                .Parameters.Add("@Disbursed_Amount", Data.SqlDbType.Decimal).Value = DisAmount
+                .Parameters.Add("@Approval_Date", Data.SqlDbType.DateTime).Value = ApproDate
+                .Parameters.Add("@Maturity_Date", Data.SqlDbType.DateTime).Value = MaturityDate
+                .Parameters.Add("@Interest_type", Data.SqlDbType.VarChar, 50).Value = intType
+                .Parameters.Add("@Interset_Calc_Method", Data.SqlDbType.VarChar, 50).Value = IntCalcMethod
+                .Parameters.Add("@Credit_Amort_Type", Data.SqlDbType.VarChar, 50).Value = CreditArmoType
+                .Parameters.Add("@Other_Information", Data.SqlDbType.VarChar, 50).Value = OtherInfo
+
+                .ExecuteNonQuery()
+            End With
+
+            myConnection.Close()
+
+        End Function
+        Public Function AddTransactionsForex(ByVal MyTransType As String, ByVal MyTerminal As String, _
+        ByVal Myusername As String, ByVal Mysessionid As String) As Integer
+
+            Dim myID As Double = 0
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+            Dim myCommand As New SqlCommand("Add_Transactions_Forex", myConnection)
+
+            Try
+                With myCommand
+                    .CommandType = Data.CommandType.StoredProcedure
+                    .Parameters.Add("@ID", Data.SqlDbType.Real).Direction = Data.ParameterDirection.Output
+                    .Parameters.Add("@TransactionType", Data.SqlDbType.VarChar, 20).Value = MyTransType
+                    .Parameters.Add("@Terminal", Data.SqlDbType.VarChar, 50).Value = MyTerminal
+                    .Parameters.Add("@Username", Data.SqlDbType.VarChar, 50).Value = Myusername
+                    .Parameters.Add("@sessionid", Data.SqlDbType.VarChar, 50).Value = Mysessionid
+                    .ExecuteNonQuery()
+                    myID = .Parameters.Item("@ID").Value
+                End With
+
+                myConnection.Close()
+
+                Return myID
+
+            Catch ex As Exception
+
+            End Try
+
+        End Function
+        Public Function AddAccountLinkage(ByVal MyclientID As String, ByVal Isdefault As Boolean, ByVal MyLinkedBy As String, ByVal MyCIFNumber As String) As Integer
+
+            Dim MyCIFLinkingID As Int32 = 0
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New FinpayiSecurity.CryptoFactory()
+            Dim Cryptographer As FinpayiSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+            Dim myCommand As New SqlCommand("Add_CIFLinking", myConnection)
+
+            Try
+                With myCommand
+                    .CommandType = Data.CommandType.StoredProcedure
+                    .Parameters.Add("@CIFLinkingID", Data.SqlDbType.Real).Direction = Data.ParameterDirection.Output
+                    .Parameters.Add("@ClientID", Data.SqlDbType.Int).Value = MyclientID
+                    .Parameters.Add("@IsDefault", Data.SqlDbType.Bit).Value = Isdefault
+                    .Parameters.Add("@LinkedBy", Data.SqlDbType.VarChar, 100).Value = MyLinkedBy
+                    .Parameters.Add("@CIFNumber", Data.SqlDbType.VarChar, 20).Value = MyCIFNumber
+
+                    .ExecuteNonQuery()
+                    MyCIFLinkingID = .Parameters.Item("@CIFLinkingID").Value.ToString
+                End With
+
+                myConnection.Close()
+
+                Return MyCIFLinkingID
+
+            Catch ex As Exception
+
+            End Try
+
+        End Function
+    End Class
+
+    '-------------------------------------------------------------------------------------------------------------
+    
+
+
+    Public Class DataCleanUp
+        Public Sub ClearControls(ByVal MyContainer As Object, Optional ByVal MyContainer2 As Object = Nothing)
+            Try
+
+                Dim MyControl As New Control
+                Dim MyControl1 As New Control
+                Dim Mycontrol2 As New Control
+                Dim MyTextBox As New TextBox
+                Dim MyDropdownlist As New DropDownList
+                Dim MyPanel As New Panel
+                Dim MyLabel As New Label
+                Dim MyHiddenField As New HiddenField
+
+                Dim MyLstList As New ListBox
+
+                Dim MyView As New View
+                Dim MyMultiview As New MultiView
+                MyMultiview = TryCast(MyContainer, MultiView)
+
+                If MyContainer2 IsNot Nothing Then
+                    MyView = TryCast(MyContainer2, View)
+                    For Each MyControl In MyView.Controls
+                        MyTextBox = TryCast(MyControl, TextBox)
+                        If MyTextBox IsNot Nothing Then
+                            MyTextBox.Text = ""
+                        End If
+
+                        MyDropdownlist = TryCast(MyControl, DropDownList)
+                        If MyDropdownlist IsNot Nothing Then
+                            MyDropdownlist.SelectedValue = ""
+                        End If
+
+                        MyLstList = TryCast(MyControl, ListBox)
+                        If MyLstList IsNot Nothing Then
+                            MyLstList.Items.Clear()
+                        End If
+
+                        MyHiddenField = TryCast(MyControl, HiddenField)
+                        If MyHiddenField IsNot Nothing Then
+                            MyHiddenField.Value = ""
+                        End If
+                    Next
+                Else
+
+                    If MyMultiview IsNot Nothing Then
+                        For Each MyView In MyMultiview.Views
+                            For Each MyControl In MyView.Controls
+                                MyTextBox = TryCast(MyControl, TextBox)
+                                If MyTextBox IsNot Nothing Then
+                                    MyTextBox.Text = ""
+
+                                End If
+
+                                MyLabel = TryCast(MyControl, Label)
+                                If MyLabel IsNot Nothing Then
+                                    MyLabel.Text = ""
+                                End If
+
+                                MyDropdownlist = TryCast(MyControl, DropDownList)
+                                If MyDropdownlist IsNot Nothing Then
+                                    MyDropdownlist.SelectedValue = ""
+                                End If
+
+                                MyHiddenField = TryCast(MyControl, HiddenField)
+                                If MyHiddenField IsNot Nothing Then
+                                    MyHiddenField.Value = ""
+                                End If
+
+                                MyPanel = TryCast(MyControl, Panel)
+                                If MyPanel IsNot Nothing Then
+                                    For Each Mycontrol2 In MyPanel.Controls
+                                        MyLstList = TryCast(Mycontrol2, ListBox)
+                                        If MyLstList IsNot Nothing Then
+                                            MyLstList.Items.Clear()
+                                        End If
+
+                                        MyLabel = TryCast(Mycontrol2, Label)
+                                        If MyLabel IsNot Nothing Then
+                                            MyLabel.Text = ""
+                                        End If
+                                    Next
+
+
+                                End If
+                            Next
+                        Next
+                    End If
+
+                End If
+            Catch ex As Exception
+
+            End Try
+
+
+
+        End Sub
+    End Class
+    Public Class ResponseHelper
+
+        Public Sub New()
+
+        End Sub
+
+        Public Shared Sub Redirect(ByVal url As String, ByVal target As String, ByVal windowFeatures As String)
+
+            Dim context As HttpContext = HttpContext.Current
+
+            If (String.IsNullOrEmpty(target) OrElse target.Equals("_self", StringComparison.OrdinalIgnoreCase)) AndAlso String.IsNullOrEmpty(windowFeatures) Then
+
+                context.Response.Redirect(url)
+
+            Else
+
+                Dim page As Page = CType(context.Handler, Page)
+
+                If page Is Nothing Then
+
+                    Throw New InvalidOperationException("Cannot redirect to new window outside Page context.")
+
+                End If
+
+                url = page.ResolveClientUrl(url)
+
+                Dim script As String
+
+                If (Not String.IsNullOrEmpty(windowFeatures)) Then
+
+                    script = "window.open(""{0}"", ""{1}"", ""{2}"");"
+
+                Else
+
+                    script = "window.open(""{0}"", ""{1}"");"
+
+                End If
+
+                script = String.Format(script, url, target, windowFeatures)
+
+                ScriptManager.RegisterStartupScript(page, GetType(Page), "Redirect", script, True)
+
+            End If
+
+        End Sub
+        Public Shared Sub AddDeleteConfirmation(ByVal e As GridViewRowEventArgs, ByVal LinkButtonName As String)
+            '' Check you are only working with Data Rows, not headers/footers
+            'If e.Row.RowType = DataControlRowType.DataRow Then
+            '    '' Loop through each control in the GridView command column
+            '    For Each ctl As Control In e.Row.Cells(deleteColumnIndex).Controls
+            '        Try
+            '            '' If it is a LinkButton with a text value of Delete then add the confirmation message.
+            '            If TypeOf (ctl) Is LinkButton Then
+            '                Dim DeleteLink As LinkButton = CType(ctl, LinkButton)
+            '                If DeleteLink.Text.ToLower = "delete" Then
+            '                    DeleteLink.Attributes.Add("onclick", _
+            '                                           "return confirm(""Are you sure you wish to delete this record?"")")
+            '                End If
+            '            End If
+            '        Catch ex As Exception
+            '            ' just ignore for deployment. May want to re-throw for development.
+            '        End Try
+            '    Next
+            'End If
+            Dim MyLinkbutton As New LinkButton
+
+            If e.Row.RowType = DataControlRowType.DataRow Then
+                MyLinkbutton = TryCast(e.Row.FindControl(LinkButtonName), LinkButton)
+                If Not IsNothing(MyLinkbutton) Then
+                    MyLinkbutton.Attributes.Add("onclick", _
+                                                           "return confirm(""Are you sure you wish to delete this record?"")")
+                End If
+
+            End If
+        End Sub
+    End Class
+
+
+End Namespace
+
+

@@ -1,0 +1,519 @@
+﻿<%@ Page Title="" Language="VB" MasterPageFile="~/MasterPage.master" AutoEventWireup="false" CodeFile="Approve_Renewal_List.aspx.vb" Inherits="_Default" %>
+
+
+<%@ OutputCache Location="None" %>
+<%@ Register Assembly="AjaxControlToolkit" Namespace="AjaxControlToolkit" TagPrefix="cc1" %>
+<%@ Register assembly="Telerik.Web.UI" namespace="Telerik.Web.UI" tagprefix="telerik" %>
+<asp:Content ID="Content1" ContentPlaceHolderID="ContentPlaceHolder1" Runat="Server">
+    <asp:UpdateProgress ID="UpdateProgress1" runat="server">
+        <ProgressTemplate>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+         <asp:Label ID="lblProgress" runat="server" Font-Bold="True" ForeColor="Red" 
+                Text="Please Wait...." Font-Size="Larger"></asp:Label>
+        </ProgressTemplate>
+    </asp:UpdateProgress>
+    <asp:UpdatePanel ID="UpdatePanel1" runat="server">
+        <ContentTemplate>
+            <table style="height: 100%;">
+                <tr>
+                    <td align="center" bgcolor="#333333" colspan="4">
+                        <asp:Label ID="Label6" runat="server" Font-Bold="True" Font-Size="Larger" 
+                            ForeColor="#CCCCCC" style="font-weight: 700" 
+                            Text="APPROVE &amp; PRINT SCHEDULES"></asp:Label>
+                    </td>
+                </tr>
+                <tr>
+                    <td align="center" colspan="4" style="text-align: left">
+                        <asp:Label ID="Label134" runat="server" style="font-weight: 700" 
+                            Text="Renewing Month"></asp:Label>
+                    </td>
+                </tr>
+                <tr>
+                    <td align="center" style="text-align: left">
+                        <asp:Label ID="Label131" runat="server" style="font-weight: 700" 
+                            Text="From"></asp:Label>
+                        &nbsp;&nbsp;
+                        <telerik:RadDatePicker ID="dtmonthfr" Runat="server" MinDate="" Skin="Forest">
+                            <Calendar Skin="Forest" UseColumnHeadersAsSelectors="False" 
+                                UseRowHeadersAsSelectors="False" ViewSelectorText="x">
+                            </Calendar>
+                            <DateInput DateFormat="dd/MM/yyyy" DisplayDateFormat="dd/MM/yyyy">
+                            </DateInput>
+                            <DatePopupButton HoverImageUrl="" ImageUrl="" />
+                        </telerik:RadDatePicker>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    </td>
+                    <td align="center">
+                        &nbsp;</td>
+                    <td align="center">
+                        &nbsp;</td>
+                    <td align="center">
+                        &nbsp;</td>
+                </tr>
+                <tr>
+                    <td align="center" colspan="4" style="text-align: left">
+                        <asp:Label ID="Label130" runat="server" style="font-weight: 700" 
+                            Text="To"></asp:Label>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        <telerik:RadDatePicker ID="dtmonthto" Runat="server" MinDate="" Skin="Forest">
+                            <Calendar Skin="Forest" UseColumnHeadersAsSelectors="False" 
+                                UseRowHeadersAsSelectors="False" ViewSelectorText="x">
+                            </Calendar>
+                            <DateInput DateFormat="dd/MM/yyyy" DisplayDateFormat="dd/MM/yyyy">
+                            </DateInput>
+                            <DatePopupButton HoverImageUrl="" ImageUrl="" />
+                        </telerik:RadDatePicker>
+                        &nbsp;&nbsp;&nbsp;
+                        <telerik:RadButton ID="cmdview" runat="server" Skin="Simple" Text="View" 
+                            Width="157px">
+                        </telerik:RadButton>
+                    </td>
+                    <td align="center">
+                        &nbsp;</td>
+                    <td align="center">
+                        &nbsp;</td>
+                    <td align="center">
+                        &nbsp;</td>
+                </tr>
+                <tr>
+                    <td colspan="4">
+                        <asp:Panel ID="Panel9" runat="server" BorderStyle="Solid" BorderWidth="1px" 
+                            Height="100%" style="font-weight: 700" Width="1162px">
+                            <table style="width: 99%">
+                                <tr>
+                                    <td class="style8" colspan="4">
+                                        <asp:Panel ID="Panel12" runat="server" Height="100%" ScrollBars="Both" 
+                                            Width="1142px">
+                                            <telerik:RadGrid ID="GDSEARCH" runat="server" AllowPaging="True" 
+                                                CellSpacing="0" GridLines="None" Height="100%" Skin="Simple" 
+                                                Width="100%" PageSize="20">
+                                                <MasterTableView AutoGenerateColumns="False">
+                                                    <CommandItemSettings ExportToPdfText="Export to PDF" />
+                                                    <CommandItemSettings ExportToPdfText="Export to PDF" />
+                                                    <RowIndicatorColumn FilterControlAltText="Filter RowIndicator column">
+                                                        <HeaderStyle Width="20px" />
+                                                    </RowIndicatorColumn>
+                                                    <ExpandCollapseColumn FilterControlAltText="Filter ExpandColumn column">
+                                                        <HeaderStyle Width="20px" />
+                                                    </ExpandCollapseColumn>
+                                                    <Columns>
+                                                        <telerik:GridBoundColumn DataField="ID" FilterControlAltText="Filter ID column" 
+                                                            HeaderText="ID" SortExpression="ID" UniqueName="ID" 
+                                                            DataType="System.Decimal" ReadOnly="True">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="POLICY_CODE" 
+                                                            FilterControlAltText="Filter POLICY_CODE column" HeaderText="POLICY_CODE" 
+                                                            SortExpression="POLICY_CODE" UniqueName="POLICY_CODE">
+                                                                                                                      
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="PROPOSER_DISPLAY_NAME" 
+                                                            FilterControlAltText="Filter PROPOSER_DISPLAY_NAME column" 
+                                                            HeaderText="PROPOSER_DISPLAY_NAME" SortExpression="PROPOSER_DISPLAY_NAME" 
+                                                            UniqueName="PROPOSER_DISPLAY_NAME">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="DISPLAY_MEMBERSHIP_NO" 
+                                                            FilterControlAltText="Filter DISPLAY_MEMBERSHIP_NO column" 
+                                                            HeaderText="DISPLAY_MEMBERSHIP_NO" SortExpression="DISPLAY_MEMBERSHIP_NO" 
+                                                            UniqueName="DISPLAY_MEMBERSHIP_NO">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="FAMILY_NO" 
+                                                            FilterControlAltText="Filter FAMILY_NO column" HeaderText="FAMILY_NO" 
+                                                            SortExpression="FAMILY_NO" UniqueName="FAMILY_NO">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="MEMBER_NAME" 
+                                                            FilterControlAltText="Filter MEMBER_NAME column" HeaderText="MEMBER_NAME" 
+                                                            SortExpression="MEMBER_NAME" UniqueName="MEMBER_NAME">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="RELATION" 
+                                                            FilterControlAltText="Filter RELATION column" HeaderText="RELATION" 
+                                                            SortExpression="RELATION" UniqueName="RELATION">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="SCHEME_NAME" 
+                                                            FilterControlAltText="Filter SCHEME_NAME column" HeaderText="SCHEME_NAME" 
+                                                            SortExpression="SCHEME_NAME" UniqueName="SCHEME_NAME">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="FAMILY_SHARED" 
+                                                            FilterControlAltText="Filter FAMILY_SHARED column" HeaderText="FAMILY_SHARED" 
+                                                            SortExpression="FAMILY_SHARED" UniqueName="FAMILY_SHARED">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="OP_BENEFIT" 
+                                                            FilterControlAltText="Filter OP_BENEFIT column" HeaderText="OP_BENEFIT" 
+                                                            SortExpression="OP_BENEFIT" UniqueName="OP_BENEFIT">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="MEMBER_BIRTH_DATE" 
+                                                            FilterControlAltText="Filter MEMBER_BIRTH_DATE column" 
+                                                            HeaderText="MEMBER_BIRTH_DATE" SortExpression="MEMBER_BIRTH_DATE" 
+                                                            UniqueName="MEMBER_BIRTH_DATE">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="MEMBER_ADMINISTRATIVE_SEX" 
+                                                            FilterControlAltText="Filter MEMBER_ADMINISTRATIVE_SEX column" 
+                                                            HeaderText="MEMBER_ADMINISTRATIVE_SEX" 
+                                                            SortExpression="MEMBER_ADMINISTRATIVE_SEX" 
+                                                            UniqueName="MEMBER_ADMINISTRATIVE_SEX">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="POLICY_VALID_FROM" 
+                                                            FilterControlAltText="Filter POLICY_VALID_FROM column" 
+                                                            HeaderText="POLICY_VALID_FROM" SortExpression="POLICY_VALID_FROM" 
+                                                            UniqueName="POLICY_VALID_FROM">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="POLICY_VALID_UPTO" 
+                                                            FilterControlAltText="Filter POLICY_VALID_UPTO column" 
+                                                            HeaderText="POLICY_VALID_UPTO" SortExpression="POLICY_VALID_UPTO" 
+                                                            UniqueName="POLICY_VALID_UPTO">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="AGENT" 
+                                                            FilterControlAltText="Filter AGENT column" HeaderText="AGENT" 
+                                                            SortExpression="AGENT" UniqueName="AGENT">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="PROPOSER_PRI_ADD_LINE1" 
+                                                            FilterControlAltText="Filter PROPOSER_PRI_ADD_LINE1 column" 
+                                                            HeaderText="PROPOSER_PRI_ADD_LINE1" SortExpression="PROPOSER_PRI_ADD_LINE1" 
+                                                            UniqueName="PROPOSER_PRI_ADD_LINE1">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="AGE_AT_RENEWAL" 
+                                                            FilterControlAltText="Filter AGE_AT_RENEWAL column" HeaderText="AGE_AT_RENEWAL" 
+                                                            SortExpression="AGE_AT_RENEWAL" UniqueName="AGE_AT_RENEWAL">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="CATEGORY" 
+                                                            FilterControlAltText="Filter CATEGORY column" HeaderText="CATEGORY" 
+                                                            SortExpression="CATEGORY" UniqueName="CATEGORY">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="OP_LIMIT" DataType="System.Decimal" DataFormatString="{0:n}"
+                                                            FilterControlAltText="Filter OP_LIMIT column" HeaderText="OP_LIMIT" 
+                                                            SortExpression="OP_LIMIT" UniqueName="OP_LIMIT">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="OP_PREMIUM" DataType="System.Decimal" DataFormatString="{0:n}"
+                                                            FilterControlAltText="Filter OP_PREMIUM column" HeaderText="OP_PREMIUM" 
+                                                            SortExpression="OP_PREMIUM" UniqueName="OP_PREMIUM">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="IP_LIMIT" DataType="System.Decimal" DataFormatString="{0:n}"
+                                                            FilterControlAltText="Filter IP_LIMIT column" HeaderText="IP_LIMIT" 
+                                                            SortExpression="IP_LIMIT" UniqueName="IP_LIMIT">
+                                                             </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="IP_PREMIUM" DataType="System.Decimal" DataFormatString="{0:n}"
+                                                            FilterControlAltText="Filter IP_PREMIUM column" HeaderText="IP_PREMIUM" 
+                                                            SortExpression="IP_PREMIUM" UniqueName="IP_PREMIUM">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="PA" DataType="System.Decimal" DataFormatString="{0:n}"
+                                                            FilterControlAltText="Filter PA column" HeaderText="PA" SortExpression="PA" 
+                                                            UniqueName="PA">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="NCD" DataType="System.Decimal" DataFormatString="{0:n}"
+                                                            FilterControlAltText="Filter NCD column" HeaderText="NCD" SortExpression="NCD" 
+                                                            UniqueName="NCD">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="LEVIES" DataType="System.Decimal" DataFormatString="{0:n}"
+                                                            FilterControlAltText="Filter LEVIES column" HeaderText="LEVIES" 
+                                                            SortExpression="LEVIES" UniqueName="LEVIES">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="TOTAL_PREMIUM" DataType="System.Decimal" DataFormatString="{0:n}"
+                                                            FilterControlAltText="Filter TOTAL_PREMIUM column" HeaderText="TOTAL_PREMIUM" 
+                                                            SortExpression="TOTAL_PREMIUM" UniqueName="TOTAL_PREMIUM">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="IP_PREM_SILVERPLUS" 
+                                                            DataType="System.Decimal" DataFormatString="{0:n}"
+                                                            FilterControlAltText="Filter IP_PREM_SILVERPLUS column" 
+                                                            HeaderText="IP_PREM_SILVERPLUS" SortExpression="IP_PREM_SILVERPLUS" 
+                                                            UniqueName="IP_PREM_SILVERPLUS">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="LEVIES_S" DataType="System.Decimal" DataFormatString="{0:n}"
+                                                            FilterControlAltText="Filter LEVIES_S column" HeaderText="LEVIES_S" 
+                                                            SortExpression="LEVIES_S" UniqueName="LEVIES_S">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="SILVERPLUS_PREMIUM" 
+                                                            DataType="System.Decimal" 
+                                                            FilterControlAltText="Filter SILVERPLUS_PREMIUM column" DataFormatString="{0:n}"
+                                                            HeaderText="SILVERPLUS_PREMIUM" SortExpression="SILVERPLUS_PREMIUM" 
+                                                            UniqueName="SILVERPLUS_PREMIUM">
+                                                        </telerik:GridBoundColumn>
+                                     </Columns>
+                                                    <EditFormSettings>
+                                                        <EditColumn FilterControlAltText="Filter EditCommandColumn column">
+                                                        </EditColumn>
+                                                    </EditFormSettings>
+                                                </MasterTableView>
+                                                <ItemStyle Wrap="False" />
+                                                <PagerStyle Wrap="False" />
+                                                <FilterMenu EnableImageSprites="False">
+                                                </FilterMenu>
+                                                <HeaderContextMenu CssClass="GridContextMenu GridContextMenu_Default">
+                                                </HeaderContextMenu>
+                                            </telerik:RadGrid>
+                                            
+                                        </asp:Panel>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="style8" style="width: 174px">
+                                        <asp:Label ID="Label104" runat="server" Text="Total Premiums"></asp:Label>
+                                    </td>
+                                    <td>
+                                        <telerik:RadNumericTextBox ID="txttotal" Runat="server" Width="155px">
+                                        </telerik:RadNumericTextBox>
+                                    </td>
+                                    <td class="style8" style="width: 300px">
+                                        <telerik:RadButton ID="BTNEXCEL" runat="server" Skin="Simple" 
+                                            Text="Export To excel">
+                                        </telerik:RadButton>
+                                    </td>
+                                    <td style="width: 287px">
+                                        &nbsp;</td>
+                                </tr>
+                                <tr>
+                                    <td class="style8" style="width: 174px">
+                                        &nbsp;</td>
+                                    <td style="width: 151px">
+                                        &nbsp;</td>
+                                    <td class="style8" style="width: 300px">
+                                        &nbsp;</td>
+                                    <td style="width: 287px">
+                                        &nbsp;</td>
+                                </tr>
+                                <tr>
+                                    <td style="height: 11px;" bgcolor="#333333" colspan="4">
+                                        <asp:Label ID="Label137" runat="server" 
+                                            style="font-weight: 700; color: #FFFFFF;" Text="Approve"></asp:Label>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        &nbsp;</td>
+                                    <td style="width: 151px; height: 12px;">
+                                        <asp:CheckBox ID="chksign" runat="server" Text="Approve" />
+                                    </td>
+                                    <td class="style8" style="width: 300px; height: 12px;">
+                                        <telerik:RadButton ID="RadButton1" runat="server" Skin="Simple" Text="Approve" 
+                                            Width="150px">
+                                        </telerik:RadButton>
+                                    </td>
+                                    <td style="width: 287px">
+                                        &nbsp;</td>
+                                </tr>
+                                <tr>
+                                    <td bgcolor="#666666" colspan="4">
+                                        <asp:Label ID="Label138" runat="server" 
+                                            style="font-weight: 700; color: #FFFFFF;" Text="Verification"></asp:Label>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="4">
+                                        <asp:Panel ID="Panel13" runat="server" Height="100%" ScrollBars="Both" 
+                                            Width="1142px">
+                                            <telerik:RadGrid ID="GDSEARCH_1" runat="server" AllowPaging="True" 
+                                                CellSpacing="0" GridLines="None" Height="100%" PageSize="20" Skin="Simple" 
+                                                Width="100%">
+                                                <MasterTableView AutoGenerateColumns="False">
+                                                    <CommandItemSettings ExportToPdfText="Export to PDF" />
+                                                    <CommandItemSettings ExportToPdfText="Export to PDF" />
+                                                    <RowIndicatorColumn FilterControlAltText="Filter RowIndicator column">
+                                                        <HeaderStyle Width="20px" />
+                                                    </RowIndicatorColumn>
+                                                    <ExpandCollapseColumn FilterControlAltText="Filter ExpandColumn column">
+                                                        <HeaderStyle Width="20px" />
+                                                    </ExpandCollapseColumn>
+                                                    <Columns>
+                                                        <telerik:GridBoundColumn DataField="ID" DataType="System.Decimal" 
+                                                            FilterControlAltText="Filter ID column" HeaderText="ID" ReadOnly="True" 
+                                                            SortExpression="ID" UniqueName="ID">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="POLICY_CODE" 
+                                                            FilterControlAltText="Filter POLICY_CODE column" HeaderText="POLICY_CODE" 
+                                                            SortExpression="POLICY_CODE" UniqueName="POLICY_CODE">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="PROPOSER_DISPLAY_NAME" 
+                                                            FilterControlAltText="Filter PROPOSER_DISPLAY_NAME column" 
+                                                            HeaderText="PROPOSER_DISPLAY_NAME" SortExpression="PROPOSER_DISPLAY_NAME" 
+                                                            UniqueName="PROPOSER_DISPLAY_NAME">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="DISPLAY_MEMBERSHIP_NO" 
+                                                            FilterControlAltText="Filter DISPLAY_MEMBERSHIP_NO column" 
+                                                            HeaderText="DISPLAY_MEMBERSHIP_NO" SortExpression="DISPLAY_MEMBERSHIP_NO" 
+                                                            UniqueName="DISPLAY_MEMBERSHIP_NO">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="FAMILY_NO" 
+                                                            FilterControlAltText="Filter FAMILY_NO column" HeaderText="FAMILY_NO" 
+                                                            SortExpression="FAMILY_NO" UniqueName="FAMILY_NO">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="MEMBER_NAME" 
+                                                            FilterControlAltText="Filter MEMBER_NAME column" HeaderText="MEMBER_NAME" 
+                                                            SortExpression="MEMBER_NAME" UniqueName="MEMBER_NAME">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="RELATION" 
+                                                            FilterControlAltText="Filter RELATION column" HeaderText="RELATION" 
+                                                            SortExpression="RELATION" UniqueName="RELATION">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="SCHEME_NAME" 
+                                                            FilterControlAltText="Filter SCHEME_NAME column" HeaderText="SCHEME_NAME" 
+                                                            SortExpression="SCHEME_NAME" UniqueName="SCHEME_NAME">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="FAMILY_SHARED" 
+                                                            FilterControlAltText="Filter FAMILY_SHARED column" HeaderText="FAMILY_SHARED" 
+                                                            SortExpression="FAMILY_SHARED" UniqueName="FAMILY_SHARED">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="OP_BENEFIT" 
+                                                            FilterControlAltText="Filter OP_BENEFIT column" HeaderText="OP_BENEFIT" 
+                                                            SortExpression="OP_BENEFIT" UniqueName="OP_BENEFIT">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="MEMBER_BIRTH_DATE" 
+                                                            FilterControlAltText="Filter MEMBER_BIRTH_DATE column" 
+                                                            HeaderText="MEMBER_BIRTH_DATE" SortExpression="MEMBER_BIRTH_DATE" 
+                                                            UniqueName="MEMBER_BIRTH_DATE">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="MEMBER_ADMINISTRATIVE_SEX" 
+                                                            FilterControlAltText="Filter MEMBER_ADMINISTRATIVE_SEX column" 
+                                                            HeaderText="MEMBER_ADMINISTRATIVE_SEX" 
+                                                            SortExpression="MEMBER_ADMINISTRATIVE_SEX" 
+                                                            UniqueName="MEMBER_ADMINISTRATIVE_SEX">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="POLICY_VALID_FROM" 
+                                                            FilterControlAltText="Filter POLICY_VALID_FROM column" 
+                                                            HeaderText="POLICY_VALID_FROM" SortExpression="POLICY_VALID_FROM" 
+                                                            UniqueName="POLICY_VALID_FROM">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="POLICY_VALID_UPTO" 
+                                                            FilterControlAltText="Filter POLICY_VALID_UPTO column" 
+                                                            HeaderText="POLICY_VALID_UPTO" SortExpression="POLICY_VALID_UPTO" 
+                                                            UniqueName="POLICY_VALID_UPTO">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="AGENT" 
+                                                            FilterControlAltText="Filter AGENT column" HeaderText="AGENT" 
+                                                            SortExpression="AGENT" UniqueName="AGENT">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="PROPOSER_PRI_ADD_LINE1" 
+                                                            FilterControlAltText="Filter PROPOSER_PRI_ADD_LINE1 column" 
+                                                            HeaderText="PROPOSER_PRI_ADD_LINE1" SortExpression="PROPOSER_PRI_ADD_LINE1" 
+                                                            UniqueName="PROPOSER_PRI_ADD_LINE1">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="AGE_AT_RENEWAL" 
+                                                            FilterControlAltText="Filter AGE_AT_RENEWAL column" HeaderText="AGE_AT_RENEWAL" 
+                                                            SortExpression="AGE_AT_RENEWAL" UniqueName="AGE_AT_RENEWAL">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="CATEGORY" 
+                                                            FilterControlAltText="Filter CATEGORY column" HeaderText="CATEGORY" 
+                                                            SortExpression="CATEGORY" UniqueName="CATEGORY">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="OP_LIMIT" DataFormatString="{0:n}" 
+                                                            DataType="System.Decimal" FilterControlAltText="Filter OP_LIMIT column" 
+                                                            HeaderText="OP_LIMIT" SortExpression="OP_LIMIT" UniqueName="OP_LIMIT">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="OP_PREMIUM" DataFormatString="{0:n}" 
+                                                            DataType="System.Decimal" FilterControlAltText="Filter OP_PREMIUM column" 
+                                                            HeaderText="OP_PREMIUM" SortExpression="OP_PREMIUM" UniqueName="OP_PREMIUM">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="IP_LIMIT" DataFormatString="{0:n}" 
+                                                            DataType="System.Decimal" FilterControlAltText="Filter IP_LIMIT column" 
+                                                            HeaderText="IP_LIMIT" SortExpression="IP_LIMIT" UniqueName="IP_LIMIT">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="IP_PREMIUM" DataFormatString="{0:n}" 
+                                                            DataType="System.Decimal" FilterControlAltText="Filter IP_PREMIUM column" 
+                                                            HeaderText="IP_PREMIUM" SortExpression="IP_PREMIUM" UniqueName="IP_PREMIUM">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="PA" DataFormatString="{0:n}" 
+                                                            DataType="System.Decimal" FilterControlAltText="Filter PA column" 
+                                                            HeaderText="PA" SortExpression="PA" UniqueName="PA">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="NCD" DataFormatString="{0:n}" 
+                                                            DataType="System.Decimal" FilterControlAltText="Filter NCD column" 
+                                                            HeaderText="NCD" SortExpression="NCD" UniqueName="NCD">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="LEVIES" DataFormatString="{0:n}" 
+                                                            DataType="System.Decimal" FilterControlAltText="Filter LEVIES column" 
+                                                            HeaderText="LEVIES" SortExpression="LEVIES" UniqueName="LEVIES">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="TOTAL_PREMIUM" DataFormatString="{0:n}" 
+                                                            DataType="System.Decimal" FilterControlAltText="Filter TOTAL_PREMIUM column" 
+                                                            HeaderText="TOTAL_PREMIUM" SortExpression="TOTAL_PREMIUM" 
+                                                            UniqueName="TOTAL_PREMIUM">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="IP_PREM_SILVERPLUS" 
+                                                            DataFormatString="{0:n}" DataType="System.Decimal" 
+                                                            FilterControlAltText="Filter IP_PREM_SILVERPLUS column" 
+                                                            HeaderText="IP_PREM_SILVERPLUS" SortExpression="IP_PREM_SILVERPLUS" 
+                                                            UniqueName="IP_PREM_SILVERPLUS">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="LEVIES_S" DataFormatString="{0:n}" 
+                                                            DataType="System.Decimal" FilterControlAltText="Filter LEVIES_S column" 
+                                                            HeaderText="LEVIES_S" SortExpression="LEVIES_S" UniqueName="LEVIES_S">
+                                                        </telerik:GridBoundColumn>
+                                                        <telerik:GridBoundColumn DataField="SILVERPLUS_PREMIUM" 
+                                                            DataFormatString="{0:n}" DataType="System.Decimal" 
+                                                            FilterControlAltText="Filter SILVERPLUS_PREMIUM column" 
+                                                            HeaderText="SILVERPLUS_PREMIUM" SortExpression="SILVERPLUS_PREMIUM" 
+                                                            UniqueName="SILVERPLUS_PREMIUM">
+                                                        </telerik:GridBoundColumn>
+                                                    </Columns>
+                                                    <EditFormSettings>
+                                                        <EditColumn FilterControlAltText="Filter EditCommandColumn column">
+                                                        </EditColumn>
+                                                    </EditFormSettings>
+                                                </MasterTableView>
+                                                <ItemStyle Wrap="False" />
+                                                <PagerStyle Wrap="False" />
+                                                <FilterMenu EnableImageSprites="False">
+                                                </FilterMenu>
+                                                <HeaderContextMenu CssClass="GridContextMenu GridContextMenu_Default">
+                                                </HeaderContextMenu>
+                                            </telerik:RadGrid>
+                                        </asp:Panel>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <asp:Label ID="Label139" runat="server" Text="Total Premiums"></asp:Label>
+                                    </td>
+                                    <td>
+                                        <telerik:RadNumericTextBox ID="txttotal_1" Runat="server" Width="155px">
+                                        </telerik:RadNumericTextBox>
+                                    </td>
+                                    <td class="style8" style="width: 300px; height: 12px;">
+                                        <telerik:RadButton ID="BTNEXCEL0" runat="server" Skin="Simple" 
+                                            Text="Export To excel">
+                                        </telerik:RadButton>
+                                    </td>
+                                    <td style="width: 287px">
+                                        &nbsp;</td>
+                                </tr>
+                                <tr>
+                                    <td align="right">
+                                        &nbsp;</td>
+                                    <td>
+                                        <asp:CheckBox ID="chkver" runat="server" Text="Verify" />
+                                    </td>
+                                    <td class="style8" style="width: 300px; height: 12px;">
+                                        &nbsp;</td>
+                                    <td style="width: 287px">
+                                        &nbsp;</td>
+                                </tr>
+                                <tr>
+                                    <td align="right">
+                                        &nbsp;</td>
+                                    <td>
+                                        <telerik:RadButton ID="RadButton2" runat="server" Skin="Simple" Text="Submit" 
+                                            Width="150px">
+                                        </telerik:RadButton>
+                                    </td>
+                                    <td class="style8" style="width: 300px; height: 12px;">
+                                        &nbsp;</td>
+                                    <td style="width: 287px">
+                                        &nbsp;</td>
+                                </tr>
+                                <tr>
+                                    <td class="style8" colspan="2">
+                                        <asp:Label ID="lblerr" runat="server" ForeColor="Red"></asp:Label>
+                                        <asp:HiddenField ID="HiddenField1" runat="server" />
+                                    </td>
+                                    <td class="style8" style="width: 300px">
+                                        &nbsp;</td>
+                                    <td style="width: 287px">
+                                        &nbsp;&nbsp;&nbsp;</td>
+                                </tr>
+                            </table>
+                        </asp:Panel>
+                    </td>
+                </tr>
+            </table>
+        </ContentTemplate>
+     
+    </asp:UpdatePanel>
+</asp:Content>
+

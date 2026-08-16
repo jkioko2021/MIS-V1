@@ -1,0 +1,483 @@
+﻿Imports System.Data
+Imports DocManage.DataManagement
+
+Imports System.Data.SqlClient
+
+Imports Telerik.Web.UI
+Imports DocManage
+Imports System.IO
+
+Imports System.Data.OleDb
+Imports System.Web.Configuration
+Imports Mymail
+Partial Class _Default
+    Inherits System.Web.UI.Page
+    Dim MyDBAction As New DataManagement
+    Dim MyDatable As New Data.DataTable
+    Dim MyQuery As String = ""
+    Dim SqlAction As String = ""
+    Dim MyDatatable As DataTable : Dim Str As String
+    Dim AB As Integer
+    Dim MailSent As Boolean = False
+
+    Protected Sub Page_Load(sender As Object, e As System.EventArgs) Handles Me.Load
+        If Not IsPostBack Then
+            Try
+                'cboyear.SelectedValue = DatePart(DateInterval.Year, Date.Now())
+                dtduedate.DbSelectedDate = DateAdd(DateInterval.Day, 14, Date.Now())
+                Str = "select MAX(Period_From)Period_From,MAX(Period_To)Period_To from [AAR_RISK_DB].[dbo].[TBL_MIS_RISK_PERIOD] where Status='CLOSED'"
+                MyDatatable = TryCast(MyDBAction.DBAction(Str, DataManagement.DBActionType.DataTable), DataTable)
+                With cbofrom
+                    .Items.Clear()
+                    .DataSource = MyDatatable
+                    .DataTextField = MyDatatable.Columns("Period_From").ToString
+                    .DataValueField = MyDatatable.Columns("Period_From").ToString
+                    .DataBind()
+                End With
+                With cboto
+                    .Items.Clear()
+                    .DataSource = MyDatatable
+                    .DataTextField = MyDatatable.Columns("Period_To").ToString
+                    .DataValueField = MyDatatable.Columns("Period_To").ToString
+                    .DataBind()
+                End With
+
+                Str = "select min(Period_From)Period_From,min(Period_To)Period_To from [AAR_RISK_DB].[dbo].[TBL_MIS_RISK_PERIOD] where Status='OPEN'"
+                MyDatatable = TryCast(MyDBAction.DBAction(Str, DataManagement.DBActionType.DataTable), DataTable)
+                With cbofrom_p
+                    .Items.Clear()
+                    .DataSource = MyDatatable
+                    .DataTextField = MyDatatable.Columns("Period_From").ToString
+                    .DataValueField = MyDatatable.Columns("Period_From").ToString
+                    .DataBind()
+                End With
+                With cboto_p
+                    .Items.Clear()
+                    .DataSource = MyDatatable
+                    .DataTextField = MyDatatable.Columns("Period_To").ToString
+                    .DataValueField = MyDatatable.Columns("Period_To").ToString
+                    .DataBind()
+                End With
+                Str = "select code,Category_Name  from [AAR_RISK_DB].[dbo].[TBL_MIS_RISK_CATEGORY]" '"
+                MyDatatable = TryCast(MyDBAction.DBAction(Str, DataManagement.DBActionType.DataTable), DataTable)
+                With cbocategory
+                    .Items.Clear()
+                    .DataSource = MyDatatable
+                    .DataTextField = MyDatatable.Columns("Category_Name").ToString
+                    .DataValueField = MyDatatable.Columns("code").ToString
+                    .DataBind()
+                End With
+
+                Str = "SELECT  [Status]  FROM [AAR_RISK_DB].[dbo].[TBL_MIS_RISK_ACTION_STATUS] where  Is_Active=1" '"
+                MyDatatable = TryCast(MyDBAction.DBAction(Str, DataManagement.DBActionType.DataTable), DataTable)
+                With cbostatus
+                    .Items.Clear()
+                    .DataSource = MyDatatable
+                    .DataTextField = MyDatatable.Columns("Status").ToString
+                    .DataValueField = MyDatatable.Columns("Status").ToString
+                    .DataBind()
+                End With
+                With cboriskstatus
+                    .Items.Clear()
+                    .DataSource = MyDatatable
+                    .DataTextField = MyDatatable.Columns("Status").ToString
+                    .DataValueField = MyDatatable.Columns("Status").ToString
+                    .DataBind()
+                End With
+
+                Str = "select Likelihood_Code,Likelihood_factor from [AAR_RISK_DB].[dbo].[TBL_MIS_RISK_LIKELYHOOD]" '"
+                MyDatatable = TryCast(MyDBAction.DBAction(Str, DataManagement.DBActionType.DataTable), DataTable)
+                With cbolikely
+                    .Items.Clear()
+                    .DataSource = MyDatatable
+                    .DataTextField = MyDatatable.Columns("Likelihood_factor").ToString
+                    .DataValueField = MyDatatable.Columns("Likelihood_Code").ToString
+                    .DataBind()
+                End With
+
+                Str = "select Impact_code,Impact_factor from [AAR_RISK_DB].[dbo].[TBL_MIS_RISK_IMPACT]" '"
+                MyDatatable = TryCast(MyDBAction.DBAction(Str, DataManagement.DBActionType.DataTable), DataTable)
+                With cboimpact
+                    .Items.Clear()
+                    .DataSource = MyDatatable
+                    .DataTextField = MyDatatable.Columns("Impact_factor").ToString
+                    .DataValueField = MyDatatable.Columns("Impact_code").ToString
+                    .DataBind()
+                End With
+
+           
+
+                Str = "select code,Obj_Name	 from [AAR_RISK_DB].[dbo].[TBL_MIS_RISK_OBJE] " '"
+                MyDatatable = TryCast(MyDBAction.DBAction(Str, DataManagement.DBActionType.DataTable), DataTable)
+                With cboobjective
+                    .Items.Clear()
+                    .DataSource = MyDatatable
+                    .DataTextField = MyDatatable.Columns("Obj_Name").ToString
+                    .DataValueField = MyDatatable.Columns("code").ToString
+                    .DataBind()
+                End With
+
+                Str = "select Eff_factor  from [AAR_RISK_DB].[dbo].[TBL_MIS_RISK_CONTROL_EFF]" '"
+                MyDatatable = TryCast(MyDBAction.DBAction(Str, DataManagement.DBActionType.DataTable), DataTable)
+                With cbopercieved
+                    .Items.Clear()
+                    .DataSource = MyDatatable
+                    .DataTextField = MyDatatable.Columns("Eff_factor").ToString
+                    .DataValueField = MyDatatable.Columns("Eff_factor").ToString
+                    .DataBind()
+                End With
+                Str = "select Eff_factor  from [AAR_RISK_DB].[dbo].[TBL_MIS_RISK_CONTROL_EFF]" '"
+                MyDatatable = TryCast(MyDBAction.DBAction(Str, DataManagement.DBActionType.DataTable), DataTable)
+                With cbodesired
+                    .Items.Clear()
+                    .DataSource = MyDatatable
+                    .DataTextField = MyDatatable.Columns("Eff_factor").ToString
+                    .DataValueField = MyDatatable.Columns("Eff_factor").ToString
+                    .DataBind()
+                End With
+                LOAD_DEPART(cbofrom.SelectedValue)
+                LoadGrid()
+         
+
+            Catch ex As Exception
+                lblsave.Text = ex.Message
+            End Try
+        End If
+    End Sub
+    Public Sub LOAD_DEPART(ByVal PERIOD As String)
+        SqlAction = "SELECT   DISTINCT [Period_From],[Period_To],[Depart_Code],[Department],[Owner_Code],[Risk_Owner],[Champion_Name],[Champion_Code],[Status],Due_Date  FROM [AAR_RISK_DB].[dbo].[VW_MIS_CRM_RISK_SUMMARY] WHERE Closed=1  AND Period_From='" & cbofrom.SelectedValue & "' and status='CLOSED'"
+        MyDatable = TryCast(MyDBAction.DBAction(SqlAction, DataManagement.DBActionType.DataTable), Data.DataTable)
+        If MyDatable.Rows.Count > 0 Then
+            GDDEPART.DataSource = MyDatable
+            GDDEPART.DataBind()
+            Session("DEP_01") = MyDatable
+            MyDatable = Nothing
+        Else
+            GDDEPART.DataSource = Nothing
+            GDDEPART.DataBind()
+        End If
+    End Sub
+    Protected Sub GDDEPART_SelectedIndexChanged(sender As Object, e As System.EventArgs) Handles GDDEPART.SelectedIndexChanged
+        Try
+            Dim id As String
+            HiddenField1.Value = ""
+            Session("email") = ""
+            id = (DirectCast(GDDEPART.SelectedItems(0), GridDataItem)).GetDataKeyValue("Depart_Code").ToString()
+            SqlAction = "SELECT  [Id],[Period_From],[Period_To],[Depart_Code],[Department],[Owner_Code],[Risk_Owner],[Champion_Name],[Champion_Code],[Status],Due_Date  FROM [AAR_RISK_DB].[dbo].[VW_MIS_CRM_RISK_SUMMARY] WHERE [Depart_Code]='" & id & "'"
+            MyDatable = TryCast(MyDBAction.DBAction(SqlAction, DataManagement.DBActionType.DataTable), Data.DataTable)
+            If MyDatable.Rows.Count > 0 Then
+                FILE_NO.Text = MyDatable.Rows(0).Item("Depart_Code").ToString()
+                txtchamp.Text = MyDatable.Rows(0).Item("Champion_Name").ToString()
+                txtowner.Text = MyDatable.Rows(0).Item("Risk_Owner").ToString()
+                LoadGrid(FILE_NO.Text)
+                Str = "select [Email] from [AAR_RISK_DB].[dbo].[TBL_MIS_RISK_CHAMPS]  WHERE [Department]='" & FILE_NO.Text & "' and active=1" '"
+                MyDatatable = TryCast(MyDBAction.DBAction(Str, DataManagement.DBActionType.DataTable), DataTable)
+                If MyDatatable.Rows.Count > 0 Then
+                    Session("email") = MyDatatable.Rows(0).Item("Email").ToString()
+                End If
+
+
+            End If
+
+        Catch ex As Exception
+            lblsave.Text = ex.Message
+        End Try
+
+    End Sub
+
+    Public Sub LoadGrid()
+        SqlAction = "SELECT  [Id],[Period_From],[Period_To],[Depart_Code],[Department],[Owner_Code],[Risk_Owner],[Champion_Name],[Champion_Code],[Status],Due_Date  FROM [AAR_RISK_DB].[dbo].[VW_MIS_CRM_RISK_SUMMARY] WHERE Period_From='" & cbofrom_p.SelectedValue & "' and status='OPEN' and closed=0 "
+        MyDatable = TryCast(MyDBAction.DBAction(SqlAction, DataManagement.DBActionType.DataTable), Data.DataTable)
+        If MyDatable.Rows.Count > 0 Then
+            GDOPEN.DataSource = MyDatable
+            GDOPEN.DataBind()
+            Session("DEP_01") = MyDatable
+            MyDatable = Nothing
+        Else
+            GDOPEN.DataSource = MyDatable
+            GDOPEN.DataBind()
+        End If
+    End Sub
+    Protected Sub btnsave_Click(sender As Object, e As System.EventArgs) Handles btnsave.Click
+        Try
+            lblsave.Text = ""
+            
+            If txtchamp.Text = "" Then
+                lblsave.Text = "Select The Champion"
+                Exit Sub
+            End If
+            If cboaction.SelectedValue = "" Then
+                lblsave.Text = "Select The Action"
+                Exit Sub
+            End If
+            'SELECT [Champion_Name],[Email] FROM [AAR_RISK_DB].[dbo].[TBL_MIS_RISK_CHAMPS] where Department=''
+           
+
+
+            If HiddenField1.Value = "" Then
+                MyDBAction.UPDATE_RISK(cbofrom_p.SelectedValue, cboto_p.SelectedValue, FILE_NO.Text, cboaction.SelectedValue, Session("username"), CDate(dtduedate.DbSelectedDate).ToString("yyyy-MM-dd"))
+                UpdateRecord("UPDATE [AAR_RISK_DB].[dbo].[TBL_MIS_RISK_SUMMARY] SET [Status]='LAPSED' WHERE Depart_Code='" & FILE_NO.Text & "' AND Period_From='" & cbofrom.SelectedValue & "'")
+
+                'Session("email") = "jmwaniki@aar.co.ke"
+                Session("cc_email") = ""
+                Session("Message") = "This is to inform you that Risk Register for the period between '" & cbofrom_p.SelectedValue & "' and '" & cboto_p.SelectedValue & "' has been opened ready for update on or before '" & CDate(dtduedate.DbSelectedDate).ToString("yyyy-MM-dd") & "'"
+                MailSent = SendLoginDetails(txtchamp.Text, Session("email"), Session("cc_email"))
+
+                MyDBAction.Risk_Escalate(FILE_NO.Text, Session("username"), "RISK REGISTER", "Escalated", Session("Message"), FILE_NO.Text)
+
+            Else
+                UpdateRecord("UPDATE [AAR_RISK_DB].[dbo].[TBL_MIS_RISK_SUMMARY] SET [Status]='OPEN',[Reopened]=1,[ReOpen_date]=convert(date,GETDATE()) WHERE ID='" & HiddenField1.Value & "' ")
+                ' UPDATE [dbo].[TBL_MIS_RISK_SUMMARY] SET [Status]='OPEN',[Reopened]=1,[ReOpen_date]=convert(date,GETDATE()) WHERE Depart_Code =@Depart_Code AND Period_From=@Period_From AND @Status<>'OPEN'
+                'MailSent = SendLoginDetails("Team", Session("email"), Session("cc_email"))
+            End If
+            HiddenField1.Value = ""
+            LoadGrid()
+            LOAD_DEPART(cbofrom.SelectedValue)
+            lblsave.Text = "Saved Successful!"
+            txtchamp.Text = ""
+            txtowner.Text = ""
+            GD_RISK.DataSource = Nothing
+            GD_RISK.DataBind()
+            'cbofrom.SelectedValue = ""
+            'cboto.SelectedValue = ""
+            CODE.Text = ""
+        Catch ex As Exception
+            lblsave.Text = ex.Message
+        End Try
+    End Sub
+    Private Sub UpdateRecord(ByVal sqlAction As String)
+        Dim MySmsObject As New DataManagement
+        MySmsObject.DBAction(sqlAction, DataManagement.DBActionType.Update)
+
+    End Sub
+ 
+    Protected Sub GDOPEN_SelectedIndexChanged(sender As Object, e As System.EventArgs) Handles GDOPEN.SelectedIndexChanged
+        Try
+            Dim stst As String = ""
+            HiddenField1.Value = ""
+            'ltEmbed.Text = ""
+            HiddenField1.Value = (DirectCast(GDOPEN.SelectedItems(0), GridDataItem)).GetDataKeyValue("ID").ToString()
+            SqlAction = "SELECT  [Id],[Period_From],[Period_To],[Depart_Code],[Department],[Owner_Code],[Risk_Owner],[Champion_Name],[Champion_Code],[Status]  FROM [AAR_RISK_DB].[dbo].[VW_MIS_CRM_RISK_SUMMARY] WHERE id='" & HiddenField1.Value & "' "
+            MyDatable = TryCast(MyDBAction.DBAction(SqlAction, DataManagement.DBActionType.DataTable), Data.DataTable)
+            If MyDatable.Rows.Count > 0 Then
+                txtchamp.Text = MyDatable.Rows(0).Item("Champion_Name").ToString
+                txtowner.Text = MyDatable.Rows(0).Item("Risk_Owner").ToString
+                FILE_NO.Text = MyDatable.Rows(0).Item("Depart_Code").ToString
+                cbofrom_p.SelectedValue = MyDatable.Rows(0).Item("Period_From").ToString
+                cboto_p.SelectedValue = MyDatable.Rows(0).Item("Period_To").ToString
+                'cboaction.SelectedValue = MyDatable.Rows(0).Item("Status").ToString
+
+            End If
+        Catch ex As Exception
+            lblsave.Text = ex.Message
+        End Try
+    End Sub
+ 
+
+    Public Function SendLoginDetails(ByVal EmployeeName As String, ByVal RecepientEmail As String, ByVal ccemail As String) As Boolean
+
+        Dim MailSent As Boolean = False
+        Dim strMailFromEmail As String = ""
+        Dim strMailFromName As String = ""
+        Dim MessageSubject As String = ""
+        Dim MySqlAction As String = ""
+        Dim MyDBAction As New DataManagement
+        Dim MyDataTable As New Data.DataTable
+        Dim MyEncryption As New SysSettsEncryption
+        Dim LoginFromEmail As String = ""
+        Dim LoginDisplayName As String = ""
+        Dim LoginSubject As String = ""
+        Dim EmailServer As String = ""
+        Dim EmailUserName As String = ""
+        Dim EmailPassword As String = ""
+        Dim action As String = ""
+
+        Try ''--Retrieve settings from db n decrypt - Mercy - 12th Apr 2011
+            LoginFromEmail = System.Configuration.ConfigurationManager.AppSettings("LoginFromEmail").Trim()
+            LoginDisplayName = System.Configuration.ConfigurationManager.AppSettings("LoginDisplayName").Trim()
+            'LoginSubject = System.Configuration.ConfigurationManager.AppSettings("LoginSubject").Trim()
+            LoginSubject = "RISK REGISTER"
+            EmailServer = System.Configuration.ConfigurationManager.AppSettings("EmailServer").Trim()
+            EmailUserName = System.Configuration.ConfigurationManager.AppSettings("EmailUsername").Trim()
+            EmailPassword = System.Configuration.ConfigurationManager.AppSettings("EmailPassword").Trim()
+
+            Dim strHTML As New StringBuilder
+            strHTML = strHTML.Append("<!DOCTYPE html PUBLIC '-//W3C//DTD XHTML 1.0 Transitional//EN' 'http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd'>")
+            strHTML = strHTML.Append("<html xmlns='http://www.w3.org/1999/xhtml' >")
+            strHTML = strHTML.Append("<head>")
+            strHTML = strHTML.Append("</head>")
+            strHTML = strHTML.Append("<body>")
+            strHTML = strHTML.Append("<table style='width: 668px'>")
+            strHTML = strHTML.Append("<tr>")
+
+            strHTML = strHTML.Append("<td colspan='3'>")
+            'strHTML = strHTML.Append("<span style='font-size: 11pt; font-family: Calibri'> Attention:Relationship Managers")
+            strHTML = strHTML.Append("<span style='font-size: 11pt; font-family: Calibri'><b><u>Dear, " & txtchamp.Text & " </u></b> </span>")
+            strHTML = strHTML.Append("<br />")
+            strHTML = strHTML.Append("<br />")
+            MessageSubject = Session("Header")
+            strHTML = strHTML.Append("<br />")
+            strHTML = strHTML.Append("<br />")
+            strHTML = strHTML.Append("--------------------------------------<b>Details</b>------------------------------------------------------")
+            strHTML = strHTML.Append("<br />")
+            strHTML = strHTML.Append("<br />")
+            strHTML = strHTML.Append("" & Session("Message") & "")
+               strHTML = strHTML.Append("<br />")
+            strHTML = strHTML.Append("<br />")
+            strHTML = strHTML.Append("<span style='font-size: 11pt; font-family: Calibri'><b>Date : " & Date.Now() & " </b></span>")
+            strHTML = strHTML.Append("<br />")
+            strHTML = strHTML.Append("<span style='font-size: 11pt; font-family: Calibri'><b>Forwaded By : " & Session("FullNames") & " </b></span>")
+            strHTML = strHTML.Append("<br />")
+            strHTML = strHTML.Append("<br />")
+           
+            strHTML = strHTML.Append("----------------------------------------End--------------------------------------------------------------------")
+            strHTML = strHTML.Append("<br />")
+
+            strHTML = strHTML.Append("<span style='font-size: 11pt; font-color:RED; font-family: Calibri'><b><i>THIS IS A SYSTEM GENERATED EMAIL.DO NOT REPLY!.</i></b>")
+            'Membership Enquiry (membershipenquiry@aar.co.ke)
+            strHTML = strHTML.Append("<br />")
+
+            strHTML = strHTML.Append("</table>")
+            strHTML = strHTML.Append("</body>")
+            strHTML = strHTML.Append("</html>")
+            Dim mymail As New Emailing
+            MailSent = mymail.SendNotification("", LoginSubject, strHTML.ToString, True, EmailServer, EmailUserName, EmailPassword, RecepientEmail, EmployeeName, LoginFromEmail, LoginDisplayName, ccemail)
+            Session("MailSent") = MailSent
+        Catch ex As Exception
+            'MyDBAction.DoLogs("Class==AssignAdminAccessProfile.vb: Private Sub DisplayMenuItems()" & " : Error : " & ex.Message)
+            MailSent = False
+        End Try
+
+        Return MailSent
+    End Function
+
+    Private Sub Load_Root(ByVal str As String)
+        SqlAction = "SELECT Root_id, [Risk_Code],[Root_Cause],[Current_Contr] ,[Mitigations],[Due_Date],Action_Owner,Action_Status  FROM [AAR_RISK_DB].[dbo].[TBL_MIS_RISK_ROOT_CAUSE] WHERE  Risk_Code ='" & str & "'"
+        MyDatable = TryCast(MyDBAction.DBAction(SqlAction, DataManagement.DBActionType.DataTable), Data.DataTable)
+        If MyDatable.Rows.Count > 0 Then
+            GD_RISK_ROOT.DataSource = MyDatable
+            GD_RISK_ROOT.DataBind()
+            MyDatable = Nothing
+        Else
+            GD_RISK_ROOT.DataSource = Nothing
+            GD_RISK_ROOT.DataBind()
+        End If
+    End Sub
+
+
+    Protected Sub GD_RISK_ROOT_SelectedIndexChanged(sender As Object, e As System.EventArgs) Handles GD_RISK_ROOT.SelectedIndexChanged
+        Try
+            HiddenField2.Value = 1
+            rootid.Text = (DirectCast(GD_RISK_ROOT.SelectedItems(0), GridDataItem)).GetDataKeyValue("Root_ID").ToString()
+            SqlAction = "SELECT  [Root_ID],[Risk_Code],[Root_Cause],[Current_Contr],[Mitigations],[Due_Date],[Action_Owner],[Action_Status],[Updated_By],[Update_Date]  FROM [AAR_RISK_DB].[dbo].[TBL_MIS_RISK_ROOT_CAUSE] WHERE  Root_ID='" & rootid.Text & "'"
+            MyDatable = TryCast(MyDBAction.DBAction(SqlAction, DataManagement.DBActionType.DataTable), Data.DataTable)
+            If MyDatable.Rows.Count > 0 Then
+                txtroot.Text = MyDatable.Rows(0).Item("Root_Cause").ToString()
+                'txtconseq.Text = MyDatable.Rows(0).Item("Risk_Conseq").ToString()
+                txtcurrcont.Text = MyDatable.Rows(0).Item("Current_Contr").ToString()
+                txtmitigation.Text = MyDatable.Rows(0).Item("Mitigations").ToString()
+                dtduedate.DbSelectedDate = MyDatable.Rows(0).Item("Due_Date").ToString()
+                txtowner.Text = MyDatable.Rows(0).Item("Action_Owner").ToString()
+                cbostatus.SelectedValue = MyDatable.Rows(0).Item("Action_Status").ToString()
+            End If
+        Catch ex As Exception
+            lblroot.Text = ex.Message
+        End Try
+    End Sub
+    Public Sub LoadGrid(ByVal depart As String)
+        'GD_RISK_1.DataSource = Nothing
+        'GD_RISK_1.DataBind()
+        GD_RISK.DataSource = Nothing
+        GD_RISK.DataBind()
+        GDNOTES.DataSource = Nothing
+        GDNOTES.DataBind()
+     
+        ' SqlAction = "SELECT [Risk_Id],[Depart_Objective],[Risk_Title],[Risk_Category],[Risk_Impact],[Risk_Likelihood],[Due_Date],[Action_Owner],[Action_Status] FROM [AAR_RISK_DB].[dbo].[VW_MIS_CRM_RISK_MASTER] WHERE  Depart_Code='" & FILE_NO.Text & "' and PERIOD_FROM='" & CDate(dtfrom.DbSelectedDate).ToString("yyyy-MM-dd") & "' order by Depart_Objective"
+
+        SqlAction = "SELECT [Risk_Id],[Depart_Objective],[Risk_Title],[Risk_Category],[Risk_Impact],[Risk_Likelihood],[Due_Date],[Action_Owner],[Action_Status] FROM [AAR_RISK_DB].[dbo].[VW_MIS_CRM_RISK_MASTER] WHERE  Depart_Code='" & FILE_NO.Text & "' and is_active=1 order by Depart_Objective"
+        MyDatable = TryCast(MyDBAction.DBAction(SqlAction, DataManagement.DBActionType.DataTable), Data.DataTable)
+        If MyDatable.Rows.Count > 0 Then
+            GD_RISK.DataSource = MyDatable
+            GD_RISK.DataBind()
+            Session("DEP_01") = MyDatable
+            MyDatable = Nothing
+        Else
+            GD_RISK.DataSource = Nothing
+            GD_RISK.DataBind()
+        End If
+
+
+        
+
+        SqlAction = "SELECT [Note_id],[Risk_Code],[Notes_by] ,[Note_date],[Notes]  FROM [AAR_RISK_DB].[dbo].[TBL_MIS_RISK_NOTES] WHERE  Risk_Code ='" & depart & "' ORDER BY Note_id DESC"
+        MyDatable = TryCast(MyDBAction.DBAction(SqlAction, DataManagement.DBActionType.DataTable), Data.DataTable)
+        If MyDatable.Rows.Count > 0 Then
+            GDNOTES.DataSource = MyDatable
+            GDNOTES.DataBind()
+            MyDatable = Nothing
+        Else
+            GDNOTES.DataSource = Nothing
+            GDNOTES.DataBind()
+        End If
+
+    End Sub
+    Protected Sub GD_RISK_SelectedIndexChanged(sender As Object, e As System.EventArgs) Handles GD_RISK.SelectedIndexChanged
+        Try
+            Dim Risk_Id As Integer
+         
+            rootid.Text = ""
+            GD_RISK_ROOT.DataSource = Nothing
+            GD_RISK_ROOT.DataBind()
+            Risk_Id = (DirectCast(GD_RISK.SelectedItems(0), GridDataItem)).GetDataKeyValue("Risk_Id").ToString()
+            SqlAction = "SELECT [Risk_Id],[Depart_Code],[Risk_Code],[Period_From],[Period_To],[Depart_Objective],[Risk_Title],[Risk_Descr],[Risk_Category],[Root_Cause],[Risk_Conseq],[Risk_Impact],[I_Rate],[Risk_Likelihood],[L_Rate],[I_Risk_Exposure],[I_Risk_Rate],[Current_Contr],[Perceived_Contr_Eff],[Perceived_Rate],[Desired_Contr_Effe],[R_Risk_Rate],[R_Risk_Exposure],[Is_Active],[Mitigations],[Due_Date],[Action_Owner],[Action_Status],[Updated_by],[Update_date],[Submitted],[Reviewed],[Reviewed_by],[Update_Status]  FROM [AAR_RISK_DB].[dbo].[TBL_MIS_RISK_MASTER] WHERE  Risk_Id='" & Risk_Id & "'"
+            MyDatable = TryCast(MyDBAction.DBAction(SqlAction, DataManagement.DBActionType.DataTable), Data.DataTable)
+            If MyDatable.Rows.Count > 0 Then
+                FILE_NO.Text = MyDatable.Rows(0).Item("Depart_Code").ToString()
+                cboobjective.SelectedValue = MyDatable.Rows(0).Item("Depart_Objective").ToString()
+                txttitle.Text = MyDatable.Rows(0).Item("Risk_Title").ToString()
+                cbocategory.SelectedValue = MyDatable.Rows(0).Item("Risk_Category").ToString()
+                txtdescr.Text = MyDatable.Rows(0).Item("Risk_Descr").ToString()
+
+                cboimpact.SelectedValue = MyDatable.Rows(0).Item("Risk_Impact").ToString()
+                cbolikely.SelectedValue = MyDatable.Rows(0).Item("Risk_Likelihood").ToString()
+                'cboinhe.SelectedValue = MyDatable.Rows(0).Item("I_Risk_Exposure").ToString()
+
+                cbopercieved.SelectedValue = MyDatable.Rows(0).Item("Perceived_Contr_Eff").ToString()
+                cbodesired.SelectedValue = MyDatable.Rows(0).Item("Desired_Contr_Effe").ToString()
+                'cboResidual.SelectedValue = MyDatable.Rows(0).Item("R_Risk_Exposure").ToString()
+
+                cboriskstatus.SelectedValue = MyDatable.Rows(0).Item("Action_Status").ToString()
+                chkactive.Checked = MyDatable.Rows(0).Item("Is_active").ToString()
+                LBLRISK.Text = MyDatable.Rows(0).Item("Risk_Code").ToString()
+
+                Load_Root(LBLRISK.Text)
+
+                cboobjective.Enabled = False
+                txttitle.Enabled = False
+                cbocategory.Enabled = False
+                txtdescr.Enabled = False
+                txtroot.Enabled = True
+                txtconseq.Enabled = False
+                cboimpact.Enabled = False
+                cbolikely.Enabled = False
+                'cboinhe.Enabled = False
+                txtcurrcont.Enabled = True
+                cbopercieved.Enabled = False
+                cbodesired.Enabled = False
+                'cboResidual.Enabled = False
+                txtmitigation.Enabled = True
+                dtduedate.Enabled = True
+                txtowner.Text = True
+                cbostatus.Enabled = True
+                chkactive.Enabled = False
+                LBLRISK.Enabled = False
+                'btnsave.Enabled = False
+               
+            End If
+
+
+        Catch ex As Exception
+
+        End Try
+    End Sub
+End Class

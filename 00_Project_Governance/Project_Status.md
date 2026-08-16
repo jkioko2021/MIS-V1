@@ -1,67 +1,93 @@
 # Project Status
 
-**Project:** MIS Modernization (MIS_V1)
-**Framework Version:** replit.md v3.2
-**Last Updated:** 2026-08-16
+**Project:** MIS Modernization  
+**Framework Version:** replit.md v3.2 / CLAUDE.md v3.1  
+**Last Updated:** 2026-08-16  
 
 ---
 
 ## Current Phase
 
-```
-GOVERNANCE AND PROJECT INITIALIZATION ONLY
-```
-
----
-
-## Phase History
-
-| Date       | Phase                              | Status    | Notes                                              |
-|------------|------------------------------------|-----------|----------------------------------------------------|
-| 2026-08-16 | Governance Initialization          | COMPLETE  | Directories, CLAUDE.md, governance files created   |
+**PHASE: DISCOVERY — IN PROGRESS**
 
 ---
 
 ## Phase Gate Status
 
-| Gate                            | Status      | Notes                          |
-|---------------------------------|-------------|--------------------------------|
-| Governance initialized          | ✅ COMPLETE |                                |
-| replit.md v3.2 loaded           | ✅ COMPLETE |                                |
-| CLAUDE.md created               | ✅ COMPLETE |                                |
-| Project directories created     | ✅ COMPLETE |                                |
-| Legacy protection enabled       | ✅ ACTIVE   | /Legacy is READ-ONLY           |
-| Implementation disabled         | ✅ ACTIVE   | No code may be written         |
-| Database modification disabled  | ✅ ACTIVE   | No DB changes permitted        |
-| Discovery                       | ⬜ PENDING  | Awaiting legacy upload         |
-| Requirements                    | ⬜ PENDING  |                                |
-| Architecture Validation         | ⬜ PENDING  |                                |
-| Reference Module (Authentication)| ⬜ PENDING |                                |
-| Module Factory                  | ⬜ PENDING  |                                |
+| Gate | Status | Date | Notes |
+|---|---|---|---|
+| Governance Initialization | ✅ COMPLETE | 2026-08-16 | Governance directories and master documents established |
+| replit.md v3.2 Loaded | ✅ COMPLETE | 2026-08-16 | Authoritative Replit operating framework loaded |
+| CLAUDE.md v3.1 Loaded | ✅ COMPLETE | 2026-08-16 | Authoritative Claude architecture framework loaded |
+| Legacy Application Uploaded | ✅ COMPLETE | 2026-08-16 | /Legacy/CRM extracted from CRM_*.zip |
+| Structural Discovery | ✅ COMPLETE | 2026-08-16 | 7 discovery documents produced |
+| Business Rule Extraction | ⏳ NOT STARTED | — | Requires DB access and Crystal Report inspection |
+| Database Discovery | ⏳ NOT STARTED | — | Requires test DB connection |
+| Architecture Validation | ⏳ NOT STARTED | — | Requires discovery completion |
+| Module Specifications | ⏳ NOT STARTED | — | Follows architecture approval |
+| Implementation — Wave 1 | ⏳ NOT STARTED | — | |
+| Implementation — Wave 2 | ⏳ NOT STARTED | — | |
+| Implementation — Wave 3 | ⏳ NOT STARTED | — | |
+| Implementation — Wave 4 | ⏳ NOT STARTED | — | |
+| Implementation — Wave 5 | ⏳ NOT STARTED | — | |
 
 ---
 
-## Modernization Waves
+## Discovery Deliverables
 
-| Wave | Modules                                                          | Status  |
-|------|------------------------------------------------------------------|---------|
-| 1    | Authentication, User Administration, Settings                    | PENDING |
-| 2    | Agent Management, Business Tracking, Case Register, Enquiry, Log Activity | PENDING |
-| 3    | Commissions, Debtors, Premium Refund, Production                 | PENDING |
-| 4    | Medical Underwriting, Non-Medical Renewal, Retail Renewals, Portfolio Management | PENDING |
-| 5    | Complaint Tracking, OFF-System Cases, Risk Register, Reports, Retail BenchMarks, A-Home | PENDING |
-
----
-
-## Current Blockers
-
-- Legacy application source files not yet uploaded.
-- SQL Server RDS connectivity not yet validated (credentials not yet configured via Replit Secrets).
+| Document | Status | Location |
+|---|---|---|
+| Legacy_Application_Inventory.md | ✅ COMPLETE | 01_Discovery/ |
+| Legacy_Project_Inventory.md | ✅ COMPLETE | 01_Discovery/ |
+| Legacy_Dependency_Inventory.md | ✅ COMPLETE | 01_Discovery/ |
+| Legacy_Risk_Register.md | ✅ COMPLETE | 01_Discovery/ |
+| Legacy_Configuration_Inventory.md | ✅ COMPLETE | 01_Discovery/ |
+| Legacy_Integration_Inventory.md | ✅ COMPLETE | 01_Discovery/ |
+| Legacy_Report_Inventory.md | ✅ COMPLETE | 01_Discovery/ |
+| Business Rule Catalogue | ⏳ NOT STARTED | 03_Business_Rules/ |
+| Database Discovery | ⏳ NOT STARTED | 07_Database/ |
+| Stored Procedure Catalogue | ⏳ NOT STARTED | 07_Database/ |
 
 ---
 
-## Next Required Action
+## Critical Blockers
 
-1. Upload the legacy eOxegen application source files.
-2. Configure `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` via Replit Secrets.
-3. Begin Phase: **DISCOVERY**.
+| Blocker | Impact | Required Action |
+|---|---|---|
+| Crystal Reports (.rpt) are binary | 184 reports — business logic inside is invisible | Must open each in Crystal Reports to extract SQL, formulas, parameters |
+| Stored procedure bodies unknown | 57+ SPs identified by name only — business logic inside unknown | Requires test DB connection to extract SP definitions |
+| MISREPORTS is a separate application | Unknown scope and modules | Requires separate inventory |
+| eOxegen and ACCPAC integrations | Unknown protocol and data model | Requires stakeholder input |
+| Credentials exposed in web.config | Security incident risk | Rotate all credentials immediately |
+
+---
+
+## Key Discovery Statistics
+
+| Item | Count |
+|---|---|
+| ASPX Pages | 76 |
+| Crystal Reports | 184 |
+| Stored Procedures (identified) | 57+ |
+| App_Code Classes (active) | 7 |
+| App_Code Classes (excluded) | 4 |
+| Binary DLLs in /Bin | 104 |
+| Security Risks Identified | 11 |
+| Infrastructure Risks Identified | 6 |
+| Technical Debt Risks Identified | 11 |
+| Business Continuity Risks Identified | 7 |
+| Data Risks Identified | 4 |
+| Migration Risks Identified | 4 |
+| Integrations Identified | 10 |
+| Databases Accessed | 4+ |
+
+---
+
+## Immediate Actions Required (Business)
+
+1. **CRITICAL — Rotate all credentials** exposed in web.config (email password, report server SA password, DB sa account)
+2. **Confirm Crystal Reports access** — discovery team needs Crystal Reports software to inspect 184 .rpt files
+3. **Confirm test DB access** — connection to test SQL Server required to extract stored procedure definitions
+4. **Clarify MISREPORTS scope** — is this a separate application? What modules does it cover?
+5. **Clarify eOxegen integration** — what is the core insurance system and how does CRM interact with it?
+6. **Clarify excluded modules** — are Commissions, Debtors, Premium Refund, Portfolio Management in MISREPORTS?

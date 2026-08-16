@@ -1,0 +1,47 @@
+Imports Microsoft.VisualBasic
+Public Class CCSVGenerator
+    Public Function GenerateMaster(ByVal br_code As String, ByVal src_code As String, ByVal batch As String, ByVal aa As String, ByVal balancing As String, ByVal userid As String, ByVal makerid As String, ByVal maker_dt_stamp As String, ByVal batch_desc As String, ByVal Path As String, ByVal fileext As String) As Boolean
+        Dim fs As New IO.FileStream(Path & "\Master." & fileext & "." & Format(Now, "ddMMMyyyyhhmmss") & ".csv", IO.FileMode.Create)
+        Dim wtr As New IO.StreamWriter(fs)
+        Dim x As Integer = 0
+        Dim y As Integer = 0
+        wtr.WriteLine("DETB_UPLOAD_MASTER,~~END~~,,,,,,,,,,")
+        wtr.WriteLine("BRANCH_CODE,SOURCE_CODE,BATCH_NO,AUTO_AUTH,BALANCING,ONCE_AUTH,USER_ID,MAKER_ID,MAKER_DT_STAMP,RECORDSTAT,BATCH_DESC,~~END~~")
+        wtr.WriteLine(br_code & "," & src_code & "," & batch & ",N,N,Y," & userid & "," & makerid & "," & maker_dt_stamp & ",0," & batch_desc & ",~~END~~")
+        wtr.WriteLine("~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~")
+        wtr.Close()
+        wtr.Dispose()
+        wtr = Nothing
+        fs.Close()
+        fs.Dispose()
+        fs = Nothing
+    End Function
+
+    Public Function GenerateDetail(ByVal data As Data.DataTable, ByVal Path As String, ByVal fileext As String) As Boolean
+        Dim fs As New IO.FileStream(Path & "\Detail." & fileext & "." & Format(Now, "ddMMMyyyyhhmmss") & ".csv", IO.FileMode.Create)
+        Dim wtr As New IO.StreamWriter(fs)
+        Dim x As Integer = 0
+        Dim y As Integer = 0
+        wtr.WriteLine("DETB_UPLOAD_MASTER,~~END~~,,,,,,,,,,")
+        wtr.WriteLine("ACCOUNT_BRANCH,BRANCH_CODE,SOURCE_CODE,BATCH_NO,CURR_NO,CCY_CD,ACCOUNT,AMOUNT,LCY_EQUIVALENT,EXCH_RATE,DR_CR,TXN_CODE,VALUE_DATE,FIN_CYCLE,ADDL_TEXT,PERIOD_CODE,INSTRUMENT_NO,~~END~~")
+
+        Dim i As Integer = 0
+        For i = 0 To data.Rows.Count - 1
+            With data.Rows
+                wtr.WriteLine(.Item(i)("ACCOUNT_BRANCH") & "," & .Item(i)("BRANCH_CODE") & "," & .Item(i)("SOURCE_CODE") & "," & .Item(i)("BATCH_NO") & "," & .Item(i)("CURR_NO") & "," & .Item(i)("CCY_CD") & "," & .Item(i)("ACCOUNT") & "," & .Item(i)("AMOUNT") & "," & _
+                .Item(i)("LCY_EQUIVALENT") & "," & .Item(i)("EXCH_RATE") & "," & .Item(i)("DR_CR") & "," & .Item(i)("TXN_CODE") & "," & .Item(i)("VALUE_DATE") & "," & .Item(i)("FIN_CYCLE") & "," & .Item(i)("ADDL_TEXT") & "," & .Item(i)("PERIOD_CODE") & "," & .Item(i)("INSTRUMENT_NO") & ",~~END~~")
+
+            End With
+        Next
+
+
+        wtr.WriteLine("~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~,~~END~~")
+        wtr.Close()
+        wtr.Dispose()
+        wtr = Nothing
+        fs.Close()
+        fs.Dispose()
+        fs = Nothing
+    End Function
+
+End Class

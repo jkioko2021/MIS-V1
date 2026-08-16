@@ -1,0 +1,125 @@
+<%@ Master Language="VB" CodeFile="MasterPage.master.vb"  Inherits="MasterPage"  %>
+
+<%@ Register Assembly="Telerik.Web.UI" Namespace="Telerik.Web.UI" TagPrefix="telerik" %>
+<%@ Register assembly="AjaxControlToolkit" namespace="AjaxControlToolkit" tagprefix="cc1" %>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" >
+<head id="Head1" runat ="server">
+ <title>
+    .::MIS::.
+ </title>
+ <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+     <link rel="shortcut icon" href="~/Images/favicon.ico"/>
+     <link href="scripts/Sales.css" rel="stylesheet" type="text/css"/>
+     <script language="javascript" type="text/javascript" src="scripts/James_toolkit.js"></script>  
+     <%--<script language="javascript" type="text/javascript" src="scripts/jquery-1.4.1.js"></script>--%>  
+     <script language="javascript" type="text/javascript" src="scripts/jquery-3.7.1.js"></script>  
+    
+    <style type="text/css">
+        .style15
+        {
+            height: 36px;
+            width: 100%;
+        }
+        #div1
+        {
+            height: 554px;
+        }
+        .style16
+        {
+            height: 3px;
+        }
+        .style17
+        {
+            width: 238px;
+        }
+        .style18
+        {
+            width: 97px;
+        }
+        .style19
+        {
+            width: 235px;
+        }
+        .style20
+        {
+            width: 180px;
+        }
+        </style>
+    
+</head>
+
+<%--<body onload="disableBackButton()">--%>
+<body bgcolor="#FFFFFF">
+<form id="form1" runat="server" enctype="multipart/form-data" method="post" > 
+     <asp:literal id="AntiForgeryToken" runat="server" />
+     <telerik:RadScriptManager ID="ToolkitScriptManager1" runat="server" EnableTheming="True" AsyncPostBackTimeout="0" AsyncPostBackErrorMessage="Page Error: UnKnown."></telerik:RadScriptManager>
+  
+<table style="background-position: center center; border: thin solid #FF9900; background-color:#FFFFFF; outline:#cccccc Solid 1px; overflow:hidden; table-layout:fixed; position:inherit; top: 0px; left: 0px; width: inherit; height: 100%; color: #000000; clip: rect(auto, auto, auto, auto); right: 0px; bottom: 15px; "  
+    cellpadding="1px" cellspacing="1px" border="1" align="center">
+   <tr>
+        <td align="right" 
+            
+            style="min-height:10px; background-repeat: repeat; background-attachment: fixed; background-color: #FF6D0D;" 
+            class="style16">
+                </td>
+    </tr>
+    <tr>
+        <td align="char">
+            <telerik:RadMenu ID="RadMenu1" Runat="server" Skin="Telerik">
+            </telerik:RadMenu>
+            <telerik:RadFormDecorator ID="RadFormDecorator1" Runat="server" Skin="Sunset" />
+        </td>
+    </tr>
+    <tr>
+        <td valign="top">
+            <asp:ContentPlaceHolder ID="ContentPlaceHolder1" runat="server">
+            </asp:ContentPlaceHolder>
+        </td>
+    </tr>
+    <tr>
+        <td style="background-color:#FF9248; background-image: url('/MISREPORTS/Images/footer-bg.gif'); background-repeat: repeat;" 
+            class="style15">
+          
+                        <table>
+                            <tr>
+                                <td class="style9"><strong>Current User:</strong></td>
+                                <td>
+                                    <asp:Label ID="Label1" runat="server"  ForeColor="White" Width="245px" 
+                                        Font-Size="13px"></asp:Label>
+                                </td>
+                                <td class="style11"><strong>Today's  Date:</strong></td>
+                                <td>
+                                    <asp:Label ID="Label2" runat="server" ForeColor="White"
+                                        Text="20-August-2007" Width="180px" Font-Size="13px"></asp:Label>
+                                </td>
+                                <td class="style10"><strong>Last Login: </strong></td>
+                                <td class="style19">
+                                    <asp:Label ID="Label4" runat="server" ForeColor="White"
+                                        Text="15.30 PM" Width="150px" Font-Size="13px"></asp:Label>
+                                </td>
+                                <td class="style18">
+                                    <strong>IT On Call </strong>:</td>
+                                <td class="style20">
+                                    <asp:Label ID="Label6" runat="server" ForeColor="White"
+                                        Text="Admin" Width="180px" Font-Size="13px"></asp:Label>
+                                </td>
+                                <td class="style17">
+                                    Mobile:<asp:Label ID="Label7" runat="server" ForeColor="White"
+                                        Text="Admin" Width="171px" Font-Size="13px"></asp:Label>
+                                </td>
+                                <td class="style17">
+                                    <asp:Label ID="Label5" runat="server" ForeColor="White"
+                                        Text="License Info" Width="115%" Font-Size="13px" Visible="False"></asp:Label>
+                                </td>
+                            </tr>
+                        </table>
+                  
+        </td>
+    </tr>
+    </table>
+
+ </form>
+</body>
+</html>

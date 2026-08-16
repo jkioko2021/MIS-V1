@@ -1,0 +1,690 @@
+Imports Microsoft.VisualBasic
+Imports System.Data.SqlClient
+Imports System.Web.Configuration
+Imports System.IO
+Imports System.Text
+Imports System.Security.Cryptography
+Imports Microsoft.Practices.EnterpriseLibrary.Security.Cryptography
+Imports System.Data.Odbc
+Imports System.Web
+Imports System.Diagnostics
+Imports System.Data
+
+
+Namespace DataManage
+
+    Public Class DocManagementSecurity
+        Private Const hashProvider As String = "hashprovider"
+        Private Const symmProvider As String = "symprovider"
+
+        Private Const symmKeyFileName As String = "SymmetricKeyFile.txt"
+
+       
+
+        ' Encrypted string
+        Private stringToEncrypt As String
+        Private encryptedContentsBase64 As String
+
+        ' Generated hash
+        Private stringForHash As String
+        Private generatedHash As Byte()
+
+        Public Function EncryptedPass(ByVal PassToEncrypt As String) As String
+            Me.encryptedContentsBase64 = Cryptographer.EncryptSymmetric(symmProvider, PassToEncrypt)
+            Return Me.encryptedContentsBase64
+        End Function
+        Public Function DencryptPass(ByVal PassToDecrypt As String) As String
+            Dim readableString As String = Cryptographer.DecryptSymmetric(symmProvider, PassToDecrypt)
+            Return readableString
+        End Function
+        Public Function GenRandomPassword() As String
+            Dim KeyGen As RandomKeyGenerator
+            Dim NumKeys As Integer
+            'Dim i_Keys As Integer
+            Dim RandomKey As String
+
+            ' MODIFY THIS TO GET MORE KEYS    - LAITH - 27/07/2005 22:48:30 -
+            NumKeys = 1
+
+            KeyGen = New RandomKeyGenerator
+            KeyGen.KeyLetters = "abcdefghijklmnopqrstuvwxyz"
+            KeyGen.KeyNumbers = "0123456789"
+            KeyGen.KeyChars = 5
+
+            RandomKey = KeyGen.Generate()
+
+            Return RandomKey
+
+            'For i_Keys = 1 To NumKeys
+            '    RandomKey = KeyGen.Generate()
+            '    Console.WriteLine(RandomKey)
+            'Next
+            'Console.WriteLine("Press any key to exit...")
+            'Console.Read()
+        End Function
+        Public Interface ICrypto
+            Function BlockSize() As Integer
+            Function KeySize() As Integer
+
+            Function Encrypt(ByVal data As String) As String
+            Function Decrypt(ByVal data As String) As String
+        End Interface
+        Public Class CryptoFactory
+            Public Function MakeCryptographer(ByVal type As String) As ICrypto
+                Select Case type.ToLower
+                    Case "des"
+                        'Return New DES()
+                    Case "tripledes"
+                        'Return New TripleDES()
+                    Case "rijndael"
+                        Return New Rijndael()
+                    Case Else
+                        'Return New TripleDES()
+                End Select
+            End Function
+        End Class
+        Public Class Rijndael
+            Implements ICrypto
+
+            ' The key and initialization vector : change them for your application
+            Private _key() As Byte = {132, 42, 53, 124, 75, 56, 87, 38, 9, 10, 161, 132, 183, _
+        91, 105, 16, 117, 218, 149, 230, 221, 212, 235, 64}
+            Private _iv() As Byte = {83, 71, 26, 58, 54, 35, 22, 11, 83, 71, 26, 58, 54, 35, 22, 11}
+
+            ' returns the default size, in bits of the iv
+            Public Function BlockSize() As Integer Implements ICrypto.BlockSize
+                Dim aes As New RijndaelManaged()
+
+                Return aes.BlockSize
+            End Function
+
+            ' returns the default size, in bits of the key
+            Public Function KeySize() As Integer Implements ICrypto.KeySize
+                Dim aes As New RijndaelManaged()
+
+                Return aes.KeySize
+            End Function
+
+            ' decrypts a string that was encrypted using the Encrypt method
+            Public Function Decrypt(ByVal data As String) As String Implements ICrypto.Decrypt
+                Try
+                    Dim inBytes() As Byte = Convert.FromBase64String(data)
+                    Dim mStream As New MemoryStream(inBytes, 0, inBytes.Length) ' instead of writing the decrypted text
+
+                    Dim aes As New RijndaelManaged()
+                    Dim cs As New CryptoStream(mStream, aes.CreateDecryptor(_key, _iv), CryptoStreamMode.Read)
+
+                    Dim sr As New StreamReader(cs)
+
+                    Return sr.ReadToEnd()
+                Catch ex As Exception
+                    Throw ex
+                End Try
+            End Function
+
+            ' Encrypts a given string
+            Public Function Encrypt(ByVal data As String) As String Implements ICrypto.Encrypt
+                Try
+                    Dim utf8 As New UTF8Encoding
+                    Dim inBytes() As Byte = utf8.GetBytes(data) ' ascii encoding uses 7 
+                    'bytes for characters whereas the encryption uses 8 bytes, thus we use utf8
+                    Dim ms As New MemoryStream() 'instead of writing the encrypted 
+                    'string to a filestream, I will use a memorystream
+
+                    Dim aes As New RijndaelManaged()
+                    Dim cs As New CryptoStream(ms, aes.CreateEncryptor(_key, _iv), CryptoStreamMode.Write)
+
+                    cs.Write(inBytes, 0, inBytes.Length) ' encrypt
+                    cs.FlushFinalBlock()
+
+                    Return Convert.ToBase64String(ms.GetBuffer(), 0, ms.Length)
+                Catch ex As Exception
+                    Throw ex
+                End Try
+            End Function
+        End Class
+
+    End Class
+    Public Class DataManagement
+        Public Enum DBActionType
+            DataReader = 1
+            Dataset = 2
+            Scalar = 3
+            Delete = 4
+            Insert = 5
+            Update = 6
+            DataTable = 7
+            ODBCDataReader = 8
+            ODBCScalar = 9
+            ODBCDataTable = 10
+            ReturnValue = 11
+        End Enum
+
+        Public Const emptystr As String = ""
+        Public Const emptyNo As Double = 0.0
+        Public Const Emptydates As String = "01-01-1900"
+
+        Public Function UpdateDB(ByVal sql As String) As Boolean
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New DocManagementSecurity.CryptoFactory()
+            Dim Cryptographer As DocManagementSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            Dim cmd As New SqlCommand
+
+            'Try
+
+            myConnection.Open()
+            'cmd = Nothing
+
+            cmd.CommandType = Data.CommandType.Text
+
+            cmd.Connection = myConnection
+
+            cmd.CommandText = sql
+
+            cmd.ExecuteNonQuery()
+
+            Return True
+            myConnection.Close()
+        End Function
+        Public Sub ClearGaiaControls(ByVal MyContainer As Object, Optional ByVal MyContainer2 As Object = Nothing)
+            Try
+
+                Dim MyControl As New Control
+                Dim MyControl1 As New Control
+                Dim MyTextBox As New TextBox
+                Dim MyDropdownlist As New DropDownList
+
+                Dim MyView As New View
+                Dim MyMultiview As New MultiView
+                MyMultiview = TryCast(MyContainer, MultiView)
+
+                If MyContainer2 IsNot Nothing Then
+                    MyView = TryCast(MyContainer2, View)
+                    For Each MyControl In MyView.Controls
+                        MyTextBox = TryCast(MyControl, TextBox)
+                        If MyTextBox IsNot Nothing Then
+                            MyTextBox.Text = ""
+                        End If
+
+                        MyDropdownlist = TryCast(MyControl, DropDownList)
+                        If MyDropdownlist IsNot Nothing Then
+                            MyDropdownlist.SelectedValue = ""
+                        End If
+                    Next
+                Else
+
+                    If MyMultiview IsNot Nothing Then
+                        For Each MyView In MyMultiview.Views
+                            For Each MyControl In MyView.Controls
+                                MyTextBox = TryCast(MyControl, TextBox)
+                                If MyTextBox IsNot Nothing Then
+                                    MyTextBox.Text = ""
+
+                                End If
+
+                                MyDropdownlist = TryCast(MyControl, DropDownList)
+                                If MyDropdownlist IsNot Nothing Then
+                                    MyDropdownlist.SelectedValue = ""
+                                End If
+                            Next
+                        Next
+                    End If
+
+                End If
+            Catch ex As Exception
+
+            End Try
+
+
+
+        End Sub
+        Public Function DBAction(ByVal MyDBAction As Object, ByVal ActionType As DBActionType, Optional ByVal ConnectConfig As String = "", Optional ByVal CmdObject As SqlCommand = Nothing) As Object
+            DBAction = Nothing
+            Dim MyConnectstring As String = ""
+            Try
+
+                If ConnectConfig.Trim <> "" Then
+                    MyConnectstring = ConnectConfig
+                Else
+                    MyConnectstring = "FINMIS3"
+                End If
+
+                Dim EnctryptionAlgorith As String = "rijndael"
+                Dim CryptographyFactory As New DocManagementSecurity.CryptoFactory()
+                Dim Cryptographer As DocManagementSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+                Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings(MyConnectstring).ConnectionString)
+
+                Dim myConnection As New SqlConnection(DecryptedStr)
+
+                myConnection.Open()
+
+                Select Case ActionType
+                    Case 1
+                        Dim myCommand As New SqlCommand(MyDBAction.ToString, myConnection)
+                        Return myCommand.ExecuteReader(Data.CommandBehavior.CloseConnection)
+
+                    Case 2
+                        Dim MyAdpater As New SqlDataAdapter(MyDBAction.ToString, myConnection)
+                        Dim myDataSet As New Data.DataSet
+                        MyAdpater.Fill(myDataSet)
+
+                        myConnection.Close()
+
+                        Return myDataSet
+                    Case 3
+                        Dim myCommand As New SqlCommand(MyDBAction.ToString, myConnection)
+                        Dim ScalarItem As Object = myCommand.ExecuteScalar
+
+                        myConnection.Close()
+
+                        Return ScalarItem
+
+                    Case 4, 5, 6
+                        Dim myCommand As New SqlCommand(MyDBAction.ToString, myConnection)
+                        myCommand.ExecuteNonQuery()
+                        myConnection.Close()
+
+                    Case 7
+                        Dim MyAdpater As New SqlDataAdapter(MyDBAction.ToString, myConnection)
+                        Dim MyDataTable As New Data.DataTable
+                        MyAdpater.Fill(MyDataTable)
+                        myConnection.Close()
+
+                        Return MyDataTable
+
+                    Case 8
+                        myConnection.Close()
+
+                        Dim myODBCConnection As New OdbcConnection(WebConfigurationManager.ConnectionStrings("DeltaConnection").ConnectionString)
+                        myODBCConnection.Open()
+
+
+                        Dim myCommand As New OdbcCommand(MyDBAction.ToString, myODBCConnection)
+                        Dim MyReader As OdbcDataReader = myCommand.ExecuteReader(Data.CommandBehavior.CloseConnection)
+
+                        Return MyReader
+                    Case 9
+                        myConnection.Close()
+
+                        Dim myODBCConnection As New OdbcConnection(WebConfigurationManager.ConnectionStrings("DeltaConnection").ConnectionString)
+                        myODBCConnection.Open()
+
+                        Dim myCommand As New OdbcCommand(MyDBAction.ToString, myODBCConnection)
+                        Dim ScalarItem As Object = myCommand.ExecuteScalar
+
+                        myODBCConnection.Close()
+
+                        Return ScalarItem
+
+                    Case 10
+                        myConnection.Close()
+
+                        DecryptedStr = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+                        Dim myODBCConnection As New OdbcConnection(DecryptedStr)
+                        myODBCConnection.Open()
+
+                        Dim MyAdpater As New OdbcDataAdapter(MyDBAction.ToString, myODBCConnection)
+                        Dim MyDataTable As New Data.DataTable
+                        MyAdpater.Fill(MyDataTable)
+                        myODBCConnection.Close()
+
+                        Return MyDataTable
+
+                    Case 11
+
+                        DecryptedStr = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+                        Dim Conn As New SqlConnection(DecryptedStr)
+                        Conn.Open()
+
+                        Dim cmd As New SqlCommand
+                        Dim Result As String
+                        With cmd
+                            .Connection = Conn
+                            .CommandText = MyDBAction
+                            Result = .ExecuteScalar
+                        End With
+                        Conn.Close()
+
+                        Return Result
+                    Case 12
+                        myConnection.Close()
+
+                        DecryptedStr = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+                        Dim myODBCConnection As New OdbcConnection(DecryptedStr)
+                        myODBCConnection.Open()
+
+                        Dim MyAdpater As New SqlClient.SqlDataAdapter(CmdObject)
+                        Dim MyDataTable As New Data.DataTable
+                        MyAdpater.Fill(MyDataTable)
+                        myODBCConnection.Close()
+
+                        Return MyDataTable
+                        'CmdObject.Connection = myConnection
+                        'MyAdapter = New SqlClient.SqlDataAdapter(CmdObject)
+                        'MyAdapter.Fill(dt)
+                        'myConnection.Close()
+                        'Return dt
+                End Select
+
+            Catch ex As Exception
+
+
+            End Try
+
+        End Function
+
+        Public Function AddAdminAuditTrail(ByVal Myusername As String, ByVal Myactiontype As String, _
+        ByVal Myactiondescription As String, ByVal Mypageaccessed As String, _
+        ByVal Myclientipaddress As String, ByVal Mysessionid As String) As Integer
+
+            Dim myID As Double = 0
+
+            Dim EnctryptionAlgorith As String = "rijndael"
+            Dim CryptographyFactory As New DocManagementSecurity.CryptoFactory()
+            Dim Cryptographer As DocManagementSecurity.ICrypto = CryptographyFactory.MakeCryptographer(EnctryptionAlgorith)
+
+            Dim DecryptedStr As String = Cryptographer.Decrypt(WebConfigurationManager.ConnectionStrings("FINMIS3").ConnectionString)
+
+            Dim myConnection As New SqlConnection(DecryptedStr)
+            myConnection.Open()
+            Dim myCommand As New SqlCommand("Add_AdminAuditTrail", myConnection)
+
+            Try
+                With myCommand
+                    .CommandType = Data.CommandType.StoredProcedure
+                    .Parameters.Add("@ID", Data.SqlDbType.Real).Direction = Data.ParameterDirection.Output
+                    .Parameters.Add("@username", Data.SqlDbType.VarChar, 50).Value = Myusername
+                    .Parameters.Add("@actiontype", Data.SqlDbType.VarChar, 50).Value = Myactiontype
+                    .Parameters.Add("@actiondescription", Data.SqlDbType.VarChar, 150).Value = Myactiondescription
+                    .Parameters.Add("@pageaccessed", Data.SqlDbType.VarChar, 100).Value = Mypageaccessed
+                    .Parameters.Add("@clientipaddress", Data.SqlDbType.VarChar, 50).Value = Myclientipaddress
+                    .Parameters.Add("@sessionid", Data.SqlDbType.VarChar, 50).Value = Mysessionid
+                    .ExecuteNonQuery()
+                    myID = .Parameters.Item("@ID").Value
+                End With
+
+                myConnection.Close()
+
+                Return myID
+
+            Catch ex As Exception
+
+            End Try
+
+        End Function
+#Region ""
+        Public Function LoadCombo(ByVal MyTable As String, ByVal MyText As String, ByVal MyValue As String) As DataTable
+            Try
+                Dim MyDatatable As DataTable : Dim Str As String
+
+                Str = "SELECT " & MyText & "," & MyValue & " FROM " & MyTable
+                MyDatatable = TryCast(DBAction(Str, DBActionType.DataTable), DataTable)
+
+                LoadCombo = MyDatatable
+
+                Return LoadCombo
+            Catch ex As Exception
+                LoadCombo = Nothing
+                Return LoadCombo
+            End Try
+        End Function
+#End Region
+    End Class
+
+    Public Class ResponseHelper
+
+        Public Sub New()
+
+        End Sub
+
+        Public Shared Sub Redirect(ByVal url As String, ByVal target As String, ByVal windowFeatures As String)
+
+            Dim context As HttpContext = HttpContext.Current
+
+            If (String.IsNullOrEmpty(target) OrElse target.Equals("_self", StringComparison.OrdinalIgnoreCase)) AndAlso String.IsNullOrEmpty(windowFeatures) Then
+
+                context.Response.Redirect(url)
+
+            Else
+
+                Dim page As Page = CType(context.Handler, Page)
+
+                If page Is Nothing Then
+
+                    Throw New InvalidOperationException("Cannot redirect to new window outside Page context.")
+
+                End If
+
+                url = page.ResolveClientUrl(url)
+
+                Dim script As String
+
+                If (Not String.IsNullOrEmpty(windowFeatures)) Then
+
+                    script = "window.open(""{0}"", ""{1}"", ""{2}"");"
+
+                Else
+
+                    script = "window.open(""{0}"", ""{1}"");"
+
+                End If
+
+                script = String.Format(script, url, target, windowFeatures)
+
+                ScriptManager.RegisterStartupScript(page, GetType(Page), "Redirect", script, True)
+
+            End If
+
+        End Sub
+        Public Shared Sub AddDeleteConfirmation(ByVal deleteColumnIndex As Integer, ByVal e As GridViewRowEventArgs)
+            '' Check you are only working with Data Rows, not headers/footers
+            If e.Row.RowType = DataControlRowType.DataRow Then
+                '' Loop through each control in the GridView command column
+                For Each ctl As Control In e.Row.Cells(deleteColumnIndex).Controls
+                    Try
+                        '' If it is a LinkButton with a text value of Delete then add the confirmation message.
+                        If TypeOf (ctl) Is LinkButton Then
+                            Dim DeleteLink As LinkButton = CType(ctl, LinkButton)
+                            If DeleteLink.Text.ToLower = "delete" Then
+                                DeleteLink.Attributes.Add("onclick", _
+                                                       "return confirm(""Are you sure you wish to delete this record?"")")
+                            End If
+                        End If
+                    Catch ex As Exception
+                        ' just ignore for deployment. May want to re-throw for development.
+                    End Try
+                Next
+            End If
+        End Sub
+    End Class
+    Public Class DataCleanUp
+        Public Sub ClearControls(ByVal MyContainer As Object, Optional ByVal MyContainer2 As Object = Nothing)
+            Try
+
+                Dim MyControl As New Control
+                Dim MyControl1 As New Control
+                Dim Mycontrol2 As New Control
+                Dim MyTextBox As New TextBox
+                Dim MyDropdownlist As New DropDownList
+                Dim MyPanel As New Panel
+                Dim MyLabel As New Label
+                Dim MyHiddenField As New HiddenField
+
+                Dim MyLstList As New ListBox
+
+                Dim MyView As New View
+                Dim MyMultiview As New MultiView
+                MyMultiview = TryCast(MyContainer, MultiView)
+
+                If MyContainer2 IsNot Nothing Then
+                    MyView = TryCast(MyContainer2, View)
+                    For Each MyControl In MyView.Controls
+                        MyTextBox = TryCast(MyControl, TextBox)
+                        If MyTextBox IsNot Nothing Then
+                            MyTextBox.Text = ""
+                        End If
+
+                        MyDropdownlist = TryCast(MyControl, DropDownList)
+                        If MyDropdownlist IsNot Nothing Then
+                            MyDropdownlist.SelectedValue = ""
+                        End If
+
+                        MyLstList = TryCast(MyControl, ListBox)
+                        If MyLstList IsNot Nothing Then
+                            MyLstList.Items.Clear()
+                        End If
+
+                        MyHiddenField = TryCast(MyControl, HiddenField)
+                        If MyHiddenField IsNot Nothing Then
+                            MyHiddenField.Value = ""
+                        End If
+                    Next
+                Else
+
+                    If MyMultiview IsNot Nothing Then
+                        For Each MyView In MyMultiview.Views
+                            For Each MyControl In MyView.Controls
+                                MyTextBox = TryCast(MyControl, TextBox)
+                                If MyTextBox IsNot Nothing Then
+                                    MyTextBox.Text = ""
+
+                                End If
+
+                                MyLabel = TryCast(MyControl, Label)
+                                If MyLabel IsNot Nothing Then
+                                    MyLabel.Text = ""
+                                End If
+
+                                MyDropdownlist = TryCast(MyControl, DropDownList)
+                                If MyDropdownlist IsNot Nothing Then
+                                    MyDropdownlist.SelectedValue = ""
+                                End If
+
+                                MyHiddenField = TryCast(MyControl, HiddenField)
+                                If MyHiddenField IsNot Nothing Then
+                                    MyHiddenField.Value = ""
+                                End If
+
+                                MyPanel = TryCast(MyControl, Panel)
+                                If MyPanel IsNot Nothing Then
+                                    For Each Mycontrol2 In MyPanel.Controls
+                                        MyLstList = TryCast(Mycontrol2, ListBox)
+                                        If MyLstList IsNot Nothing Then
+                                            MyLstList.Items.Clear()
+                                        End If
+
+                                        MyLabel = TryCast(Mycontrol2, Label)
+                                        If MyLabel IsNot Nothing Then
+                                            MyLabel.Text = ""
+                                        End If
+                                    Next
+
+
+                                End If
+                            Next
+                        Next
+                    End If
+
+                End If
+            Catch ex As Exception
+
+            End Try
+
+
+
+        End Sub
+    End Class
+
+    Public Interface ICrypto
+        Function BlockSize() As Integer
+        Function KeySize() As Integer
+
+        Function Encrypt(ByVal data As String) As String
+        Function Decrypt(ByVal data As String) As String
+    End Interface
+    Public Class CryptoFactory
+        Public Function MakeCryptographer(ByVal type As String) As ICrypto
+            Select Case type.ToLower
+                Case "des"
+                    'Return New DES()
+                Case "tripledes"
+                    'Return New TripleDES()
+                Case "rijndael"
+                    Return New Rijndael()
+                Case Else
+                    'Return New TripleDES()
+            End Select
+        End Function
+    End Class
+    Public Class Rijndael
+        Implements ICrypto
+
+        ' The key and initialization vector : change them for your application
+        Private _key() As Byte = {132, 42, 53, 124, 75, 56, 87, 38, 9, 10, 161, 132, 183, _
+    91, 105, 16, 117, 218, 149, 230, 221, 212, 235, 64}
+        Private _iv() As Byte = {83, 71, 26, 58, 54, 35, 22, 11, 83, 71, 26, 58, 54, 35, 22, 11}
+
+        ' returns the default size, in bits of the iv
+        Public Function BlockSize() As Integer Implements ICrypto.BlockSize
+            Dim aes As New RijndaelManaged()
+
+            Return aes.BlockSize
+        End Function
+
+        ' returns the default size, in bits of the key
+        Public Function KeySize() As Integer Implements ICrypto.KeySize
+            Dim aes As New RijndaelManaged()
+
+            Return aes.KeySize
+        End Function
+
+        ' decrypts a string that was encrypted using the Encrypt method
+        Public Function Decrypt(ByVal data As String) As String Implements ICrypto.Decrypt
+            Try
+                Dim inBytes() As Byte = Convert.FromBase64String(data)
+                Dim mStream As New MemoryStream(inBytes, 0, inBytes.Length) ' instead of writing the decrypted text
+
+                Dim aes As New RijndaelManaged()
+                Dim cs As New CryptoStream(mStream, aes.CreateDecryptor(_key, _iv), CryptoStreamMode.Read)
+
+                Dim sr As New StreamReader(cs)
+
+                Return sr.ReadToEnd()
+            Catch ex As Exception
+                Throw ex
+            End Try
+        End Function
+
+        ' Encrypts a given string
+        Public Function Encrypt(ByVal data As String) As String Implements ICrypto.Encrypt
+            Try
+                Dim utf8 As New UTF8Encoding
+                Dim inBytes() As Byte = utf8.GetBytes(data) ' ascii encoding uses 7 
+                'bytes for characters whereas the encryption uses 8 bytes, thus we use utf8
+                Dim ms As New MemoryStream() 'instead of writing the encrypted 
+                'string to a filestream, I will use a memorystream
+
+                Dim aes As New RijndaelManaged()
+                Dim cs As New CryptoStream(ms, aes.CreateEncryptor(_key, _iv), CryptoStreamMode.Write)
+
+                cs.Write(inBytes, 0, inBytes.Length) ' encrypt
+                cs.FlushFinalBlock()
+
+                Return Convert.ToBase64String(ms.GetBuffer(), 0, ms.Length)
+            Catch ex As Exception
+                Throw ex
+            End Try
+        End Function
+
+    End Class
+End Namespace
+

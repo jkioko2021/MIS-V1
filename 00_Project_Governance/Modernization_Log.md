@@ -1,6 +1,6 @@
 # Modernization Log
 
-**Project:** MIS Modernization (MIS_V1)
+**Project:** MIS Modernization  
 **Framework Version:** replit.md v3.2 / CLAUDE.md v3.1
 
 All significant project events, phase transitions, and decisions are recorded here in chronological order.
@@ -11,112 +11,104 @@ All significant project events, phase transitions, and decisions are recorded he
 
 ### LOG-001 — Governance Initialization
 
-| Field        | Value                                     |
-|--------------|-------------------------------------------|
-| Date         | 2026-08-16                                |
-| Type         | PROJECT INITIALIZATION                    |
-| Phase        | GOVERNANCE ONLY                           |
-| Performed By | AI Engineering Agent                      |
-| Status       | COMPLETE                                  |
+| Field | Value |
+|---|---|
+| Date | 2026-08-16 |
+| Type | PROJECT INITIALIZATION |
+| Phase | GOVERNANCE ONLY |
+| Status | COMPLETE |
 
-**Actions Taken:**
-
-- Received PROJECT INITIALIZATION — GOVERNANCE ONLY instruction document.
-- Read `replit.md` (v3.2) — Enterprise Application Modernization Master Instructions loaded.
-- Created provisional `00_Project_Governance/CLAUDE.md` — Operating framework established.
-- Created all 17 project governance directories.
-- Created `00_Project_Governance/Project_Status.md`
-- Created `00_Project_Governance/Modernization_Log.md`
-- Created `15_Decisions/Architecture_Decision_Log.md`
-
-**Governance Controls Confirmed:**
-
-- `/Legacy` is READ-ONLY ✅
-- No implementation without approved requirements ✅
-- No production database modification without authorization ✅
-- Unknown business behaviour must not be invented ✅
-- All implementation traceable to approved requirements ✅
-- Out-of-scope items recorded as Change Requests ✅
-- Existing business rules preserved unless explicitly changed ✅
-- Discovery findings separated from assumptions ✅
-- Every architectural decision documented ✅
-- No legacy file may be changed during discovery ✅
+**Actions:** Governance directories created, master files initialized. All 10 governance controls confirmed active.
 
 ---
 
-### LOG-002 — Master Instructions Loaded (replit.md v3.2)
+### LOG-002 — replit.md v3.2 Loaded
 
-| Field        | Value                                     |
-|--------------|-------------------------------------------|
-| Date         | 2026-08-16                                |
-| Type         | DOCUMENTATION LOADED                      |
-| Phase        | GOVERNANCE ONLY                           |
-| Performed By | AI Engineering Agent                      |
-| Status       | COMPLETE                                  |
+| Field | Value |
+|---|---|
+| Date | 2026-08-16 |
+| Type | DOCUMENTATION LOADED |
+| Status | COMPLETE |
 
-**Actions Taken:**
-
-- `attached_assets/replit_v3.2_1786911478047.md` received and read in full (127 sections, 3623 lines).
-- `replit.md` updated to v3.2 — this is now the authoritative Replit operating framework.
-
-**Evidence Classification:** SOURCE-CONFIRMED — provided directly by project owner.
-
-**Key additions in v3.2 (§108–127):**
-- Requirements governance and lifecycle statuses
-- Change Request governance flow
-- Business sign-off gate (§111)
-- Data migration reconciliation standard (§112)
-- API contract governance (§113)
-- Frontend design system governance (§114)
-- Feature flags and controlled rollout (§115)
-- Parallel run / dual validation (§116)
-- Disaster recovery and business continuity (§117)
-- Production hypercare (§118)
-- Observability definition of done (§119)
-- AI evidence classification (§120)
-- AI decision record format (§121)
-- Enhanced traceability chain (§122)
-- Release readiness gate (§123)
+**Evidence Classification:** SOURCE-CONFIRMED  
+`replit.md` updated to v3.2 — authoritative Replit operating framework (127 sections, 3,623 lines).
 
 ---
 
 ### LOG-003 — CLAUDE.md v3.1 Loaded
 
-| Field        | Value                                     |
-|--------------|-------------------------------------------|
-| Date         | 2026-08-16                                |
-| Type         | DOCUMENTATION LOADED                      |
-| Phase        | GOVERNANCE ONLY                           |
-| Performed By | AI Engineering Agent                      |
-| Status       | COMPLETE                                  |
+| Field | Value |
+|---|---|
+| Date | 2026-08-16 |
+| Type | DOCUMENTATION LOADED |
+| Status | COMPLETE |
+
+**Evidence Classification:** SOURCE-CONFIRMED  
+`00_Project_Governance/CLAUDE.md` replaced with v3.1 (125 sections, 3,751 lines).
+
+---
+
+### LOG-004 — Legacy Application Uploaded and Extracted
+
+| Field | Value |
+|---|---|
+| Date | 2026-08-16 |
+| Type | LEGACY APPLICATION INTAKE |
+| Phase | DISCOVERY |
+| Status | COMPLETE |
 
 **Actions Taken:**
+- Received `CRM_*.zip` via attached_assets
+- Extracted to `/Legacy/CRM/`
+- Confirmed structure: 76 ASPX pages, 184 Crystal Reports, 104 DLLs, 11 App_Code files
+- `/Legacy` designated READ-ONLY — no modifications permitted
 
-- `attached_assets/CLAUDE_v3.1_1786911498562.md` received and read in full (125 sections, 3751 lines).
-- `00_Project_Governance/CLAUDE.md` replaced with authoritative v3.1 content.
+**Evidence Classification:** SOURCE-CONFIRMED
 
-**Evidence Classification:** SOURCE-CONFIRMED — provided directly by project owner.
+---
 
-**Summary — CLAUDE.md v3.1 defines:**
+### LOG-005 — Structural Discovery Complete
 
-- Role: Principal AI Architecture and Modernization Agent
-- Claude vs Replit responsibility split (§5): Claude = architecture/planning/review; Replit = implementation/build/test
-- Source of truth hierarchy (§6) — 11-level priority order
-- Legacy application = business specification, NOT technical target (§2)
-- 22 business modules confirmed (§22)
-- 5-wave modernization sequence confirmed (§24)
-- Module analysis standard (§23) — 22 attributes per module
-- Business rule extraction format (§19) with Rule IDs (BR-XXX-NNN)
-- Golden transaction standard (§40)
-- Replit handoff format (§49)
-- Claude review checklist for Replit output (§50, §96, §119)
-- v3.1 extensions (§102–125): Requirements baseline, Change Request governance, Business sign-off gate, Data migration reconciliation, API contract governance, Design system governance, Feature flags, Parallel validation, Disaster recovery, Production hypercare, Observability, AI evidence classification, Decision record governance, Enhanced traceability
+| Field | Value |
+|---|---|
+| Date | 2026-08-16 |
+| Type | DISCOVERY MILESTONE |
+| Phase | DISCOVERY |
+| Status | COMPLETE |
 
-**Key principle confirmed:**
+**Actions Taken:**
+- Inspected all directories, ASPX pages, App_Code files, Bin DLLs, web.config, packages.config
+- Read Login.aspx.vb, MasterPage.master.vb, Mail.vb, SMSCOMMS.vb, MyEncryptDecrypt.vb, TwoFactorAuthentication.vb, CPasswordStrength.vb
+- Extracted all stored procedure names from DocManage.vb (6,362 lines)
+- Identified all session variables, databases, integrations, and security issues
 
-> The legacy application is the BUSINESS SPECIFICATION, not the technical solution.
-> Claude transforms verified business evidence into approved requirements, rules, architecture, specifications, test scenarios and traceability.
-> Replit implements those specifications incrementally and safely.
+**7 Discovery Documents Produced:**
+
+| Document | Key Finding |
+|---|---|
+| DISC-001: Legacy_Application_Inventory.md | ASP.NET Web Forms .NET 4.0, VB.NET, AAR Insurance Kenya MIS |
+| DISC-002: Legacy_Project_Inventory.md | 76 ASPX pages, 21 modules identified, 7 App_Code classes |
+| DISC-003: Legacy_Dependency_Inventory.md | 57+ SPs, 15 dependency risks, Telerik 2011/Crystal 13/Office Interop CRITICAL |
+| DISC-004: Legacy_Risk_Register.md | 43 risks: 8 CRITICAL+HIGH, 12 HIGH, 10 MEDIUM |
+| DISC-005: Legacy_Configuration_Inventory.md | Credentials exposed in web.config — CRITICAL security finding |
+| DISC-006: Legacy_Integration_Inventory.md | 10 integrations: SMS modem CRITICAL, eOxegen/ACCPAC UNKNOWN |
+| DISC-007: Legacy_Report_Inventory.md | 184 Crystal Reports — content invisible without Crystal software |
+
+**Critical Findings:**
+1. Email password, SA database password, and report server credentials are **in plaintext in web.config** — must rotate immediately
+2. SMS OTP uses serial port hardware modem — **cannot run in cloud/container**
+3. All 184 Crystal Reports are binary — **business logic invisible without Crystal software**
+4. 57+ stored procedures identified by name only — **SQL logic unknown without DB access**
+5. Microsoft Office Interop for Excel — **requires Office installed on server**
+6. Telerik RadControls 2011 (15 years old) — **no upgrade path; full replacement required**
+
+**Blockers for next phase:**
+- Crystal Reports access required (184 reports to inspect)
+- Test DB connection required (57+ stored procedures to extract)
+- MISREPORTS application scope clarification required
+- eOxegen and ACCPAC integration discovery required
+
+**Evidence Classification:** SOURCE-CONFIRMED
 
 ---
 

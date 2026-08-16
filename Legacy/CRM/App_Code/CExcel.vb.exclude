@@ -1,0 +1,346 @@
+Public Class CExcel
+    Private isBookOpen As Boolean = False
+    Private _ExcelPath As String = String.Empty
+    Private _Excel As New Microsoft.Office.Interop.Excel.Application
+    Private _Book As Microsoft.Office.Interop.Excel.Workbook
+    Private isHeaderGenerated As Boolean = False
+    Private isFooterGenerated As Boolean = False
+    Private isMasterGenerated As Boolean = False
+    Private isDetailGenerated As Boolean = False
+    Private DetailFooterPosition As Integer = 4
+    Public Sub OpenWorkBook(ByVal Path As String)
+        Try
+            If IO.File.Exists(Path) = False Then
+                MsgBox("The following file could not be found." & vbCrLf & _
+                        "FILE:[" & Path & "]." & vbCrLf & _
+                        "Please give the correct path", MsgBoxStyle.Information, "File does not exist")
+                isBookOpen = False
+            Else
+                _Book = _Excel.Workbooks.Open(Path)
+                isBookOpen = True
+            End If
+        Catch ex As Exception
+            MsgBox(ex.Message, MsgBoxStyle.Information, ex.Source)
+        End Try
+    End Sub
+
+    Public Sub openmpesa(ByVal Path As String)
+        Try
+            If IO.File.Exists(Path) = False Then
+                MsgBox("The following file could not be found." & vbCrLf & _
+                        "FILE:[" & Path & "]." & vbCrLf & _
+                        "Please give the correct path", MsgBoxStyle.Information, "File does not exist")
+                isBookOpen = False
+            Else
+                _Book = _Excel.Workbooks.Open(Path)
+                isBookOpen = True
+            End If
+        Catch ex As Exception
+            MsgBox(ex.Message, MsgBoxStyle.Information, ex.Source)
+        End Try
+    End Sub
+
+    Public Sub SaveWorkBookAs(ByVal Path As String)
+        Try
+            If isBookOpen = True Then
+                ''If isMasterGenerated = False Then
+                ''    MsgBox("Please generate master data", MsgBoxStyle.Information, "no master data")
+                ''    Return
+                ''End If
+                ''If isDetailGenerated = False Then
+                ''    MsgBox("Please generate detail data", MsgBoxStyle.Information, "no detail header")
+                ''    Return
+                ''End If
+                ''If isHeaderGenerated = False Then
+                ''    MsgBox("Please generate headers", MsgBoxStyle.Information, "no header defined")
+                ''    Return
+                ''End If
+                ''If isFooterGenerated = False Then
+                ''    MsgBox("Please generate footers", MsgBoxStyle.Information, "no footer defined")
+                ''    Return
+                ''End If
+                If IO.Path.GetDirectoryName(Path) = String.Empty Then
+                    MsgBox("The following file could not be found." & vbCrLf & _
+                            "FILE:[" & Path & "]." & vbCrLf & _
+                            "Please give the correct path", MsgBoxStyle.Information, "File does not exist")
+                    isBookOpen = False
+                Else
+                    _Book.SaveAs(Path)
+                End If
+
+            Else
+                MsgBox("this workbook is closed")
+            End If
+        Catch ex As Exception
+            MsgBox(ex.Message, MsgBoxStyle.Information, ex.Source)
+        End Try
+    End Sub
+
+
+    Public Function AddMpesa(ByVal br_code As String, ByVal src_code As String, ByVal batch As String, ByVal aa As String, ByVal balancing As String, ByVal userid As String, ByVal makerid As String, ByVal maker_dt_stamp As String, ByVal batch_desc As String, ByVal Path As String, ByVal fileext As String, Optional ByVal oa As String = "", Optional ByVal rs As String = "") As Boolean
+        Try
+            If isBookOpen = True Then
+                Dim Master As Microsoft.Office.Interop.Excel.Worksheet = _Book.Sheets(1)
+                With Master.Cells
+                    'Row 3
+                    .Item(2, 1) = br_code
+                    .Item(2, 2) = src_code
+                    .Item(2, 3) = batch
+                    .Item(2, 4) = aa
+                    .Item(2, 5) = balancing
+                    .Item(2, 6) = oa
+                    .Item(2, 7) = userid
+                    .Item(2, 8) = makerid
+                    .Item(2, 9) = maker_dt_stamp
+                    .Item(2, 10) = rs
+                    .Item(2, 11) = batch_desc
+                    .Item(2, 12) = ""
+                End With
+                isMasterGenerated = True
+            Else
+                isMasterGenerated = False
+                MsgBox("this workbook is closed")
+            End If
+        Catch ex As Exception
+            MsgBox(ex.Message, MsgBoxStyle.Information, ex.Source)
+        End Try
+    End Function
+
+    Public Function AddMasterRecord(ByVal br_code As String, ByVal src_code As String, ByVal batch As String, ByVal aa As String, ByVal balancing As String, ByVal userid As String, ByVal makerid As String, ByVal maker_dt_stamp As String, ByVal batch_desc As String, ByVal Path As String, ByVal fileext As String, Optional ByVal oa As String = "Y", Optional ByVal rs As String = "O") As Boolean
+        Try
+            If isBookOpen = True Then
+                Dim Master As Microsoft.Office.Interop.Excel.Worksheet = _Book.Sheets(1)
+                With Master.Cells
+                    'Row 3
+                    .Item(3, 1) = br_code
+                    .Item(3, 2) = src_code
+                    .Item(3, 3) = batch
+                    .Item(3, 4) = aa
+                    .Item(3, 5) = balancing
+                    .Item(3, 6) = oa
+                    .Item(3, 7) = userid
+                    .Item(3, 8) = makerid
+                    .Item(3, 9) = maker_dt_stamp
+                    .Item(3, 10) = rs
+                    .Item(3, 11) = batch_desc
+                    .Item(3, 12) = "~~END~~"
+                End With
+                isMasterGenerated = True
+            Else
+                isMasterGenerated = False
+                MsgBox("this workbook is closed")
+            End If
+        Catch ex As Exception
+            MsgBox(ex.Message, MsgBoxStyle.Information, ex.Source)
+        End Try
+    End Function
+    Public Sub AddDetailRecords(ByVal records As Data.DataTable)
+        If isBookOpen = False Then MsgBox("Please open a workbook first", MsgBoxStyle.Exclamation, "file not open") : Return
+        Dim Details As Microsoft.Office.Interop.Excel.Worksheet = _Book.Sheets(2)
+        If IsNothing(records) = False Then
+            Dim i As Integer = 0
+            With records.Rows
+                For i = 0 To .Count - 1
+
+                    '( & "," &  & "," &  & "," &  & "," &  & "," &  & "," &  & "," &  & "," & _
+                    ' & "," &  & "," &  & "," & & "," &  & "," &  & "," &  & "," &  & "," &  & ",~~END~~")
+                    Details.Cells.Item(i + 3, 1) = .Item(i)("ACCOUNT_BRANCH")
+                    Details.Cells.Item(i + 3, 2) = .Item(i)("BRANCH_CODE")
+                    Details.Cells.Item(i + 3, 3) = .Item(i)("SOURCE_CODE")
+                    Details.Cells.Item(i + 3, 4) = .Item(i)("BATCH_NO")
+                    Details.Cells.Item(i + 3, 5) = .Item(i)("CURR_NO")
+                    Details.Cells.Item(i + 3, 6) = .Item(i)("CCY_CD")
+                    Details.Cells.Item(i + 3, 7) = .Item(i)("ACCOUNT")
+                    Details.Cells.Item(i + 3, 8) = .Item(i)("AMOUNT")
+                    Details.Cells.Item(i + 3, 9) = .Item(i)("LCY_EQUIVALENT")
+                    Details.Cells.Item(i + 3, 10) = .Item(i)("EXCH_RATE")
+                    Details.Cells.Item(i + 3, 11) = .Item(i)("DR_CR")
+                    Details.Cells.Item(i + 3, 12) = .Item(i)("TXN_CODE")
+                    Details.Cells.Item(i + 3, 13) = .Item(i)("VALUE_DATE")
+                    Details.Cells.Item(i + 3, 14) = .Item(i)("FIN_CYCLE")
+                    Details.Cells.Item(i + 3, 15) = .Item(i)("ADDL_TEXT")
+                    Details.Cells.Item(i + 3, 16) = .Item(i)("PERIOD_CODE")
+                    Details.Cells.Item(i + 3, 17) = .Item(i)("INSTRUMENT_NO")
+                    Details.Cells.Item(i + 3, 18) = "~~END~~"
+                    DetailFooterPosition = i + 4
+                Next
+
+            End With
+
+            isDetailGenerated = True
+        Else
+            isDetailGenerated = False
+        End If
+    End Sub
+
+    Public Sub GeneratempesaHeaders()
+        If isBookOpen = True Then
+            ' Dim Details As Microsoft.Office.Interop.Excel.Worksheet = _Book.Sheets(1)
+            Dim Master As Microsoft.Office.Interop.Excel.Worksheet = _Book.Sheets(1)
+
+            With Master.Cells
+
+                'clear all data
+                .Clear()
+
+                'Row 1
+                .Item(1, 1) = "Amount"
+                .Item(1, 2) = "CreditIdentityString"
+                .Item(1, 3) = "CreditIdentityStringType"
+                .Item(1, 4) = "ValidationIdentityString"
+
+                .Item(1, 5) = "ValidationIdentityStringType"
+
+
+            End With
+            'With Details.Cells
+            '    ''clear all data
+            '    '.Clear()
+
+            '    ''Row 1
+            '    '.Item(1, 1) = "Amount"
+            '    '.Item(1, 2) = "CreditIdentityString"
+            '    '.Item(1, 3) = "CreditIdentityStringType"
+            '    '.Item(1, 4) = "ValidationIdentityString"
+
+            '    '.Item(1, 5) = "ValidationIdentityStringType"
+
+
+            'End With
+
+
+            isHeaderGenerated = True
+        Else
+            '            isHeaderGenerated = False
+
+            isHeaderGenerated = True
+        End If
+    End Sub
+
+    Public Sub GenerateHeaders()
+        If isBookOpen = True Then
+            Dim Details As Microsoft.Office.Interop.Excel.Worksheet = _Book.Sheets(2)
+            Dim Master As Microsoft.Office.Interop.Excel.Worksheet = _Book.Sheets(1)
+
+            With Master.Cells
+
+                'clear all data
+                .Clear()
+
+                'Row 1
+                .Item(1, 1) = "DETB_UPLOAD_MASTER"
+                .Item(1, 2) = "~~END~~"
+
+                'Row 2
+                .Item(2, 1) = "BRANCH_CODE"
+                .Item(2, 2) = "SOURCE_CODE"
+                .Item(2, 3) = "BATCH_NO"
+                .Item(2, 4) = "AUTO_AUTH"
+                .Item(2, 5) = "BALANCING"
+                .Item(2, 6) = "ONCE_AUTH"
+                .Item(2, 7) = "USER_ID"
+                .Item(2, 8) = "MAKER_ID"
+                .Item(2, 9) = "MAKER_DT_STAMP"
+                .Item(2, 10) = "RECORDSTAT"
+                .Item(2, 11) = "BATCH_DESC"
+                .Item(2, 12) = "~~END~~"
+            End With
+            With Details.Cells
+                'clear all data
+                .Clear()
+                'Row 1
+                .Item(1, 1) = "DETB_UPLOAD_DETAIL"
+                .Item(1, 2) = "~~END~~"
+                'Row 2
+                .Item(1, 1) = "ACCOUNT_BRANCH"
+                .Item(1, 2) = "BRANCH_CODE"
+                .Item(1, 3) = "SOURCE_CODE"
+                .Item(1, 4) = "BATCH_NO"
+                .Item(1, 5) = "CURR_NO"
+                .Item(1, 6) = "CCY_CD"
+                .Item(1, 7) = "ACCOUNT"
+                .Item(1, 8) = "AMOUNT"
+                .Item(1, 9) = "LCY_EQUIVALENT"
+                .Item(1, 10) = "EXCH_RATE"
+                .Item(1, 11) = "DR_CR"
+                .Item(1, 12) = "TXN_CODE"
+                .Item(1, 13) = "VALUE_DATE"
+                .Item(1, 14) = "FIN_CYCLE"
+                .Item(1, 15) = "ADDL_TEXT"
+                .Item(1, 16) = "PERIOD_CODE"
+                .Item(1, 17) = "INSTRUMENT_NO"
+                .Item(1, 18) = "~~END~~"
+
+            End With
+
+
+            isHeaderGenerated = True
+        Else
+            isHeaderGenerated = False
+        End If
+    End Sub
+    Public Sub GenerateFooters()
+        If isBookOpen = True Then
+            Dim Details As Microsoft.Office.Interop.Excel.Worksheet = _Book.Sheets(2)
+            Dim Master As Microsoft.Office.Interop.Excel.Worksheet = _Book.Sheets(1)
+
+            With Master.Cells
+
+                'Row 2
+                .Item(4, 1) = "~~END~~"
+                .Item(4, 2) = "~~END~~"
+                .Item(4, 3) = "~~END~~"
+                .Item(4, 4) = "~~END~~"
+                .Item(4, 5) = "~~END~~"
+                .Item(4, 6) = "~~END~~"
+                .Item(4, 7) = "~~END~~"
+                .Item(4, 8) = "~~END~~"
+                .Item(4, 9) = "~~END~~"
+                .Item(4, 10) = "~~END~~"
+                .Item(4, 11) = "~~END~~"
+                .Item(4, 12) = "~~END~~"
+            End With
+            With Details.Cells
+                'Row 2
+                .Item(DetailFooterPosition, 1) = "~~END~~"
+                .Item(DetailFooterPosition, 2) = "~~END~~"
+                .Item(DetailFooterPosition, 3) = "~~END~~"
+                .Item(DetailFooterPosition, 4) = "~~END~~"
+                .Item(DetailFooterPosition, 5) = "~~END~~"
+                .Item(DetailFooterPosition, 6) = "~~END~~"
+                .Item(DetailFooterPosition, 7) = "~~END~~"
+                .Item(DetailFooterPosition, 8) = "~~END~~"
+                .Item(DetailFooterPosition, 9) = "~~END~~"
+                .Item(DetailFooterPosition, 10) = "~~END~~"
+                .Item(DetailFooterPosition, 11) = "~~END~~"
+                .Item(DetailFooterPosition, 12) = "~~END~~"
+                .Item(DetailFooterPosition, 13) = "~~END~~"
+                .Item(DetailFooterPosition, 14) = "~~END~~"
+                .Item(DetailFooterPosition, 15) = "~~END~~"
+                .Item(DetailFooterPosition, 16) = "~~END~~"
+                .Item(DetailFooterPosition, 17) = "~~END~~"
+                .Item(DetailFooterPosition, 18) = "~~END~~"
+
+            End With
+
+
+            isFooterGenerated = True
+        Else
+            isFooterGenerated = True
+        End If
+
+    End Sub
+    Public Function GenerateTable(ByVal conn_string As String) As Data.DataTable
+        Dim sql As New Data.SqlClient.SqlDataAdapter(conn_string, "Data Source=DIT-SNJAU;Initial Catalog=AfroFinPay2;User ID=sa")
+        Dim ds As New Data.DataSet
+        sql.Fill(ds, "TB")
+        Return ds.Tables("TB")
+    End Function
+    Public Sub CloseWorkBook()
+        If isBookOpen = True Then
+            _Book.Close()
+            _Book = Nothing
+            isBookOpen = False
+        End If
+    End Sub
+End Class
