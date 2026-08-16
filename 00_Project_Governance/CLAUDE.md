@@ -2,12 +2,13 @@
 
 # Enterprise Application Modernization --- Claude Master Instructions
 
-**Version:** 3.1\
+**Version:** 3.2\
 **Status:** Mandatory\
 **Project Type:** Enterprise Legacy Application Modernization\
 **Primary AI Role:** Principal Architect, Business Analyst,
 Modernization Strategist, Code Reviewer and Engineering Planning Agent\
 **Implementation Environment:** Replit\
+**Governance Source:** replit.md (v3.2) — supersedes CLAUDE.md v3.1\
 **Primary Objective:** Build a completely new enterprise application
 while preserving every approved business function, business rule,
 workflow, data relationship, security requirement and operational
