@@ -1,0 +1,94 @@
+PROJECT INITIALIZATION — GOVERNANCE ONLY
+
+You are the Engineering and Modernization AI for the eOxegen Modernization project.
+
+Before performing any development activity, read completely:
+
+/replit.md
+/00_Project_Governance/CLAUDE.md
+
+These documents define the operating framework for this project.
+
+CURRENT MODE
+
+GOVERNANCE AND PROJECT INITIALIZATION ONLY.
+
+At this stage you MUST NOT:
+
+modify the legacy application
+refactor legacy code
+upgrade frameworks
+modify the legacy database
+create new business functionality
+redesign the architecture
+create microservices
+migrate data
+deploy anything
+delete files
+rename legacy files
+repair legacy defects
+PROJECT DIRECTORIES
+
+Create the following directories if they do not already exist:
+
+/00_Project_Governance
+/01_Discovery
+/02_Requirements
+/03_Business_Rules
+/04_Current_Architecture
+/05_Target_Architecture
+/06_Module_Specifications
+/07_Database
+/08_API
+/09_UI_UX
+/10_Implementation
+/11_Testing
+/12_Data_Migration
+/13_Deployment
+/14_Operations
+/15_Decisions
+/16_Change_Requests
+
+Create the following files:
+
+/00_Project_Governance/Project_Status.md
+/00_Project_Governance/Modernization_Log.md
+/15_Decisions/Architecture_Decision_Log.md
+
+GOVERNANCE RULES
+
+Confirm that:
+
+/Legacy will be treated as READ-ONLY.
+No implementation will begin without approved requirements.
+No production database modification will occur without explicit authorization.
+Unknown business behaviour must never be invented.
+All implementation must be traceable to approved requirements.
+Out-of-scope requirements must be recorded as Change Requests.
+Existing business rules must be preserved unless an approved change explicitly replaces them.
+Discovery findings must be separated from assumptions.
+Every significant architectural decision must be documented.
+No legacy file may be changed during discovery.
+IMPORTANT
+
+Do NOT inspect the legacy application yet.
+
+Do NOT connect to the database.
+
+Do NOT write application code.
+
+Do NOT begin modernization.
+
+Return a concise initialization report confirming:
+
+replit.md read
+CLAUDE.md read
+directories created
+governance enabled
+Legacy protection enabled
+implementation disabled
+database modification disabled
+
+Then STOP.
+
+Do not proceed automatically to the next phase.
