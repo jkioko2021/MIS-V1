@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "MIS_V1"
+description = "MIS_V1 is a central Management Information System. The first version includes a Customers/CRM module for managing customer records and interactions, plus a reports dashboard with key metrics and recent activity. Designed to grow with more modules over time."
+version = "1.0.0"
+id = "artifacts/mis-v1"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24389
+
+[services.development]
+run = "pnpm --filter @workspace/mis-v1 run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/mis-v1", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/mis-v1/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24389"
+BASE_PATH = "/"
