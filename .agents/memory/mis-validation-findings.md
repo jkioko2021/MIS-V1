@@ -3,32 +3,29 @@ name: MIS Validation Findings
 description: Critical conflicts and gaps discovered during discovery validation; affects specifications and business interviews
 ---
 
-## Critical Conflicts (must resolve before spec finalisation)
+## Critical Conflicts — RESOLVED (2026-08-17, business stakeholder)
 
-**CONFLICT-005 — OTP mechanism:**
-- BR-AUTH-007 (Login.aspx.vb `SendOtpToEmail()`) = 6-digit numeric via EMAIL
-- DISC-006/SMSCOMMS.vb = 4-character alphanumeric via SMS modem
-- These are contradictory. Business must confirm current production behaviour.
-- **Why:** SMS and email OTP have different threat models and implementation paths.
+**CONFLICT-005 — OTP mechanism: RESOLVED**
+- OTP is delivered by EMAIL only (6-digit numeric via `SendOtpToEmail()`)
+- SMSCOMMS.vb is legacy dead code — not used for OTP in production
+- New system: email OTP with CSPRNG, 5-min expiry, retry limit
 
-**CONFLICT-006 — Password minimum length:**
-- CPasswordStrength.vb class default = 6 chars
-- ChangePass.aspx.vb hardcodes = 4 chars (overrides class)
-- TBL_MIS_CRM_PASSWORD_CONF has configurable `Len` — but ChangePass DOES NOT read it
-- Current enforced value in production = 4 chars
-- **Why:** New system must enforce correct value; users may have 4-char passwords today.
+**CONFLICT-006 — Password minimum length: RESOLVED**
+- Policy confirmed as 6 characters minimum
+- Legacy code enforcing 4 chars in ChangePass.aspx is a DEFECT
+- TBL_MIS_CRM_PASSWORD_CONF is dead configuration (no code reads it)
+- Users may have 4-5 char passwords today → force change on first login to new system
 
-**CONFLICT-008 — Four-eyes approval broken:**
-- UserDetails.aspx has correct maker-checker logic (blocks self-approval)
-- ApproveUserDetails.aspx ALWAYS sets CanApprove=True (both branches return True)
-- Business intent confirmed; enforcement is a legacy defect
-- **Why:** Compliance risk; business must be told; must fix in new system.
+**CONFLICT-008 — Four-eyes approval: RESOLVED**
+- Defect confirmed; business was NOT aware
+- ApproveUserDetails.aspx always grants approval = live compliance defect
+- Business notified; retrospective audit of self-approvals recommended
+- New system MUST enforce maker-checker correctly
 
-**CONFLICT-009 — SMTP EnableSsl=False on Office365 port 587:**
-- Port 587 requires STARTTLS; EnableSsl=False may break email silently
-- 478 silent catch blocks mean failures are swallowed
-- Must confirm with business whether emails are actually being received
-- **Why:** If broken, OTP email delivery is also broken → 2FA non-functional.
+**CONFLICT-009 — SMTP EnableSsl=False: RESOLVED**
+- Emails ARE being received in production (confirmed by business)
+- .NET SmtpClient on port 587 with EnableSsl=False works opportunistically
+- New system must use MailKit with explicit STARTTLS enforcement
 
 ## Outdated Documents
 
@@ -48,14 +45,42 @@ Must be updated. ExcelImport (.\SQLEXPRESS) is local staging, not a production D
 
 Claims, Commissions, Debtors, Complaints, Off-System Cases, Coverage Management — all have SP names and/or Crystal Reports but ZERO ASPX pages in /Legacy/CRM. These may be in the MISREPORTS application (192.168.50.48) which is not included in /Legacy.
 
-## Key Business Questions (VAL-004)
+## eOxegen (confirmed 2026-08-17)
+- eOxegen is the core Policy Administration System (PAS)
+- Data direction: eOxegen → MIS (MIS PULLS data from eOxegen; does not push back)
+- Method, frequency, and data elements still unknown (GAP-INT-001 partially open)
+- DATA_REPOSITORY_DB_CLAPI may be eOxegen's staging area — unconfirmed
 
-10 P1 questions that block specifications:
-1. OTP: email or SMS?
-2. Are emails received in production?
-3. Password minimum length policy
-4. Four-eyes defect — business awareness
-5-7. Where are Claims / Commissions / Debtors screens?
-8. MISREPORTS scope
-9. eOxegen: what is it and how does CRM interact?
-10. ACCPAC: active integration or historical?
+## Navigation Map Finding (2026-08-17, DISC-008)
+
+~76 navigation entries. Cross-ref against 76 /Legacy/CRM pages:
+- ~29 navigation pages ARE in /Legacy/CRM
+- ~47 navigation pages are NOT — they're in a second application (MISREPORTS or linked app)
+
+This means there are TWO application tiers:
+1. /Legacy/CRM (76 pages) — source accessible
+2. Other application (~47 pages) — source NOT accessible, separate app
+
+**Debtors RESOLVED:** = Committal Tracking (/Committal_Tracking.aspx), 1 page, in other app
+**Commissions RESOLVED:** = /Commission_run.aspx (Settings), SP-driven batch trigger only
+**Claims STILL UNKNOWN:** not in navigation map at all; likely processed in eOxegen
+
+**NEW modules discovered (never in DISC-001):**
+- Premium Refund (6 pages) — completely unknown, no SPs identified
+- Retail Renewals (6 pages)
+- Non-Medical Renewal (2 pages)
+- Off System Cases (6 pages)
+- Complaint Tracking (3 pages)
+- Retail BenchMarks (3 pages)
+- Portfolio Management (3 pages)
+- Case Register (1 page)
+- Log Activity / M-Tiba Push (1 page)
+
+**Production_RE.aspx.vb orphan:** Likely maps to /Production_Ret.aspx in the other application
+
+## Remaining P1 Business Questions
+- Claims: are they processed in eOxegen? (not in MIS navigation at all)
+- Source code for the other application (~47 pages) — needed to complete all module specs
+- eOxegen integration method and data elements (direction confirmed, mechanism unknown)
+- ACCPAC: active integration or historical?
+- All Q-RR, Q-DB, Q-RPT, Q-TERM questions still open

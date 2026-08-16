@@ -307,20 +307,30 @@ Given the 929KB active error log and the prevalence of silent exception handling
 | CONFLICT-002 | Database count: 4 vs 7 vs 13 | HIGH | OPEN |
 | CONFLICT-003 | jQuery version per-page: unknown | MEDIUM | OPEN |
 | CONFLICT-004 | OTP entry: Login.aspx Panel1 vs Verify_OTP.aspx | MEDIUM | OPEN |
-| CONFLICT-005 | OTP mechanism: email 6-digit vs SMS 4-char | **CRITICAL** | OPEN |
-| CONFLICT-006 | Password minimum: 6 chars vs 4 chars vs DB-configured | **CRITICAL** | OPEN |
+| CONFLICT-005 | OTP mechanism: email 6-digit vs SMS 4-char | **CRITICAL** | **RESOLVED** — Email confirmed by business (2026-08-17) |
+| CONFLICT-006 | Password minimum: 6 chars vs 4 chars vs DB-configured | **CRITICAL** | **RESOLVED** — Policy is 6 chars; legacy code enforces 4 = defect (2026-08-17) |
 | CONFLICT-007 | Exempt page name: changepassword.aspx vs ChangePass.aspx | MEDIUM | OPEN |
-| CONFLICT-008 | Four-eyes approval: intent confirmed, enforcement broken | **CRITICAL** | OPEN |
-| CONFLICT-009 | SMTP EnableSsl=False on Office365 port 587 | HIGH | OPEN |
+| CONFLICT-008 | Four-eyes approval: intent confirmed, enforcement broken | **CRITICAL** | **RESOLVED** — Defect confirmed; business now informed; new system must fix (2026-08-17) |
+| CONFLICT-009 | SMTP EnableSsl=False on Office365 port 587 | HIGH | **RESOLVED (operational)** — Emails confirmed received; new system must enforce TLS explicitly (2026-08-17) |
 | CONFLICT-010 | DLL count: 104 total files vs 51 DLLs | LOW | RESOLVED |
 | CONFLICT-011 | DISC-003 database count outdated: 4 listed vs 7 confirmed | HIGH | OPEN |
 | CONFLICT-012 | Access denied: Response.Redirect("") vs AccessDenied.aspx | MEDIUM | OPEN |
 
-**Critical unresolved:** 3  
-**High unresolved:** 3  
-**Medium unresolved:** 5  
+**Critical unresolved:** 0  
+**High unresolved:** 2  
+**Medium unresolved:** 4  
 **Low unresolved:** 0  
-**Resolved:** 1  
+**Resolved:** 6  
+
+### Resolved Conflict Details
+
+| ID | Resolution | Date | Source |
+|---|---|---|---|
+| CONFLICT-005 | OTP is email only. SMSCOMMS.vb is legacy/unused for OTP. | 2026-08-17 | Business stakeholder |
+| CONFLICT-006 | Policy is minimum 6 chars. Code enforcing 4 is a defect. New system enforces 6. | 2026-08-17 | Business stakeholder |
+| CONFLICT-008 | Four-eyes defect confirmed and reported to business. Must be fixed in new system. Retrospective audit of self-approvals recommended. | 2026-08-17 | Business stakeholder |
+| CONFLICT-009 | Emails are received in production. New system must explicitly enforce TLS (do not replicate EnableSsl=False). | 2026-08-17 | Business stakeholder |
+| CONFLICT-010 | 51 DLLs (documentation error). | 2026-08-16 | ENV-001 |  
 
 ---
 

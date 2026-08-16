@@ -89,17 +89,27 @@
 
 ---
 
-## Category E — Business Rules — Modules with No ASPX Pages
+## Category E — Business Rules — Modules with No ASPX Pages in /Legacy/CRM
 
-| Gap ID | Description | Priority | Blocking What |
+> **Updated 2026-08-17:** Business stakeholder provided a navigation map (DISC-008). Cross-referencing reveals ~47 navigable pages outside /Legacy/CRM. Several gaps below are now partially or fully resolved.
+
+| Gap ID | Description | Priority | Status |
 |---|---|---|---|
-| GAP-MOD-001 | **Claims module has no ASPX pages.** sp_Claims_Process_Action and sp_Claims_Approval_Action exist but no UI pages found in /Legacy/CRM. Claims may be entirely in MISREPORTS or the UI may be missing from the repository. | P1 | Claims module specification |
-| GAP-MOD-002 | **Commissions module has no ASPX pages.** 8 Crystal Reports on commissions exist but no commission calculation or management UI found. Commission processing may be SP-only or in MISREPORTS. | P1 | Commission module specification |
-| GAP-MOD-003 | **Debtors module has no ASPX pages.** 9 debtors/collections Crystal Reports exist but no collections UI found. May be in MISREPORTS. | P1 | Debtors/collections specification |
-| GAP-MOD-004 | **Complaints module has no ASPX pages.** SP_MIS_CRM_COMPLAINTS_REGISTER and SP_MIS_CRM_COMMITAL_SYSTEM_MESSAGES exist. | P2 | Complaints module specification |
-| GAP-MOD-005 | **Off-System Cases module has no ASPX pages.** sp_MIS_CRM_Off_system_Tracking and SP_MIS_CRM_OFF_SYSTEM_MESSAGES exist. | P2 | Off-system tracking specification |
-| GAP-MOD-006 | **Coverage Management module has no ASPX pages.** SP_MIS_CRM_COV_* and SP_MIS_CRM_HPC_* SPs exist implying a module. | P2 | Coverage management specification |
-| GAP-MOD-007 | **MISREPORTS application scope entirely unknown.** This separate application at 192.168.50.48 may contain the Claims, Commissions, Debtors and other missing modules. It was not included in /Legacy/CRM. | P1 | Scope definition — may add significant work |
+| GAP-MOD-001 | **Claims module has no pages in navigation map or /Legacy/CRM.** sp_Claims_Process_Action, sp_Claims_Approval_Action confirmed; 15 Crystal Reports exist. No UI found. Claims likely processed in eOxegen (core PAS). | P1 | **OPEN — business must confirm if claims are in eOxegen** |
+| GAP-MOD-002 | **Commissions — no full module UI.** RESOLVED: /Commission_run.aspx under Settings is a batch trigger only. Commission calculation is SP-driven. 8 Crystal Reports are the output. No CRUD module UI exists. | P2 | **RESOLVED — scope confirmed: SP-driven, Settings trigger** |
+| GAP-MOD-003 | **Debtors = Committal Tracking.** RESOLVED: /Committal_Tracking.aspx is the single Debtors page. In the other application (not /Legacy/CRM). 9 Crystal Reports are the reporting face. | P2 | **RESOLVED — scope confirmed: 1 page in other app** |
+| GAP-MOD-004 | **Complaint Tracking module pages confirmed** in navigation map: /Complaint_On_Status.aspx, /Complain_Escalated_View.aspx, /Complaint_Tracking.aspx. All in other application. Business rules still unknown. | P2 | **SCOPE CONFIRMED — source not accessible** |
+| GAP-MOD-005 | **Off-System Cases confirmed** in navigation map: 6 pages (/Off_System_DPI.aspx, /Off_System_IP.aspx, and 4 others). All in other application. Business rules still unknown. | P2 | **SCOPE CONFIRMED — source not accessible** |
+| GAP-MOD-006 | **Coverage Management module.** SP_MIS_CRM_COV_* and SP_MIS_CRM_HPC_* SPs confirmed. No navigation menu entry found — may be a sub-function of Off-System Cases or embedded in Claims (eOxegen). | P2 | **OPEN — location unclear** |
+| GAP-MOD-007 | **Other application scope (~47 pages).** Navigation map confirms a second application tier with 47 pages not in /Legacy/CRM. Source code for this application is NOT in /Legacy and has not been provided. | P1 | **OPEN — source of second application required** |
+| GAP-MOD-008 | **Premium Refund module (NEW).** 6 pages confirmed in navigation: /Refund_New.aspx, /Refund_Status.aspx, /Refund_Allocated.aspx, /Refund_Dispatch.aspx, /Refund_From_Decline.aspx, /Refund_Bank_Recon.aspx. All in other application. Previously completely unknown. | P1 | **NEW GAP — no source, no SPs identified, no specification** |
+| GAP-MOD-009 | **Retail Renewals module (NEW).** 6 pages in navigation outside /Legacy/CRM. /NET_Pre_Renewal_list_MR.aspx, /Renewal_preparation.aspx, /Retail_Renewal_Loading.aspx, /Retail_Renewal_Data_Upload.aspx, and others. | P1 | **NEW GAP — source not accessible** |
+| GAP-MOD-010 | **Retail BenchMarks module (NEW).** 3 pages: /New_RET_Followup.aspx, /Approver_Renewal.aspx, /Retail_Management.aspx. All in other application. | P2 | **NEW GAP — source not accessible** |
+| GAP-MOD-011 | **Non-Medical Renewal module (NEW).** 2 pages: /Non_Medical_Renewals.aspx and one other. Distinct from general renewals. In other application. | P1 | **NEW GAP — source not accessible** |
+| GAP-MOD-012 | **Portfolio Management module (NEW).** 3 pages: /Production_Portfolio_NM.aspx, /Production_Portfolio_Ret.aspx, /Production_Portfolio_RS.aspx. In other application. | P2 | **NEW GAP — source not accessible** |
+| GAP-MOD-013 | **Case Register module (NEW).** 1 page: /Case_Allocated_ID.aspx. Purpose and business rules completely unknown. In other application. | P2 | **NEW GAP — source not accessible** |
+| GAP-MOD-014 | **Medical Underwriting (extended).** Navigation shows 2 UW pages not in /Legacy/CRM: /Member_Loading.aspx and /UWC_Register.aspx. Legacy has Business_Medical_UW.aspx and Business_UW_TAT.aspx — these appear to be different pages. | P2 | **NEW GAP — source not accessible** |
+| GAP-MOD-015 | **Business_Tracking_Corp.aspx in navigation vs Business_Tracking_SME_Corp.aspx in /Legacy/CRM.** Whether these are the same page renamed or two different pages is unknown. | P3 | **NEW GAP — naming discrepancy** |
 
 ---
 
