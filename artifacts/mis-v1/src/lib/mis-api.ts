@@ -125,6 +125,18 @@ export interface BusinessRequirement {
   applies_to: string;
 }
 
+export interface BusinessUpload {
+  upload_id: number;
+  file_no: string;
+  req_id: number | null;
+  filename: string;
+  filesize: number | null;
+  mime_type: string | null;
+  storage_key: string;
+  uploaded_by: string;
+  uploaded_at: string;
+}
+
 export interface SalesAgent {
   agent_id: string;
   agent_name: string;
@@ -172,6 +184,16 @@ export const misApi = {
     post<ApiResponse<void>>(`/business/${fileNo}/checklist/${reqId}`),
   businessUnAckDoc: (fileNo: string, reqId: number) =>
     del<ApiResponse<void>>(`/business/${fileNo}/checklist/${reqId}`),
+
+  // Document uploads
+  businessListUploads: (fileNo: string) =>
+    get<ApiResponse<BusinessUpload[]>>(`/business/${fileNo}/uploads`),
+  businessRecordUpload: (fileNo: string, body: {
+    req_id?: number; filename: string; filesize?: number;
+    mime_type?: string; storage_key: string;
+  }) => post<ApiResponse<{ upload_id: number }>>(`/business/${fileNo}/uploads`, body),
+  businessDeleteUpload: (fileNo: string, uploadId: number) =>
+    del<ApiResponse<void>>(`/business/${fileNo}/uploads/${uploadId}`),
 
   // Reference data
   businessRequirements: (client_type?: string) =>

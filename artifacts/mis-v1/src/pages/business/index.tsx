@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { misApi, type BusinessFile, type BusinessNote, type BusinessDoc, type BusinessRequirement, type SalesAgent, type Employee } from '@/lib/mis-api';
+import { misApi, type BusinessFile, type BusinessNote, type BusinessDoc, type BusinessRequirement, type SalesAgent, type Employee, type BusinessUpload } from '@/lib/mis-api';
 import { useAuth } from '@/lib/auth-context';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,9 +17,14 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
+  Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Progress } from '@/components/ui/progress';
+import {
   Search, RefreshCw, FileText, Plus, CheckCircle2, Circle,
   SendHorizontal, ArrowUpRight, Trash2, MessageSquare, FileCheck,
-  ChevronRight, Building2, User,
+  ChevronRight, Building2, User, Upload, Paperclip, AlertCircle,
 } from 'lucide-react';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -84,6 +89,12 @@ function fmtDate(d: string | null | undefined) {
 }
 function today() {
   return new Date().toISOString().split('T')[0];
+}
+function fmtBytes(b: number | null | undefined) {
+  if (!b) return '';
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+  return `${(b / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -378,6 +389,74 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
   const ackedCount = requirements.filter(r => isAcknowledged(r.req_id)).length;
   const isComplete = ackedCount === requirements.length && requirements.length > 0;
   const isSaving = registerMut.isPending || updateMut.isPending;
+
+  // ─── Upload dialog state ─────────────────────────────────────────────────────
+  const [uploadFor, setUploadFor] = useState<BusinessRequirement | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Uploads for this file
+  const { data: uploadsRes } = useQuery({
+    queryKey: ['business-uploads', fileNo],
+    queryFn: () => misApi.businessListUploads(fileNo!),
+    enabled: mode === 'edit' && !!fileNo,
+    staleTime: 30_000,
+  });
+  const uploads: BusinessUpload[] = (uploadsRes?.data ?? []) as BusinessUpload[];
+
+  async function handleUpload() {
+    if (!pendingFile || !fileNo || !uploadFor) return;
+    setIsUploading(true);
+    setUploadProgress(10);
+    try {
+      // 1. Get presigned URL from the API server
+      const urlRes = await fetch('/api/storage/uploads/request-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: pendingFile.name,
+          size: pendingFile.size,
+          contentType: pendingFile.type || 'application/octet-stream',
+        }),
+      });
+      if (!urlRes.ok) throw new Error('Failed to get upload URL');
+      const { uploadURL, objectPath } = await urlRes.json();
+      setUploadProgress(35);
+
+      // 2. PUT file bytes directly to GCS via presigned URL
+      const uploadRes = await fetch(uploadURL, {
+        method: 'PUT',
+        body: pendingFile,
+        headers: { 'Content-Type': pendingFile.type || 'application/octet-stream' },
+      });
+      if (!uploadRes.ok) throw new Error('Upload to storage failed');
+      setUploadProgress(75);
+
+      // 3. Record in DB and auto-acknowledge the requirement
+      await misApi.businessRecordUpload(fileNo, {
+        req_id: uploadFor.req_id,
+        filename: pendingFile.name,
+        filesize: pendingFile.size,
+        mime_type: pendingFile.type || 'application/octet-stream',
+        storage_key: objectPath,
+      });
+      setUploadProgress(100);
+
+      toast({ title: 'Document uploaded', description: `${pendingFile.name} uploaded and acknowledged.` });
+      qc.invalidateQueries({ queryKey: ['business-file', fileNo] });
+      qc.invalidateQueries({ queryKey: ['business-uploads', fileNo] });
+      setUploadFor(null);
+      setPendingFile(null);
+    } catch (err) {
+      toast({ title: 'Upload failed', description: String(err), variant: 'destructive' });
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  }
 
   const title = mode === 'register'
     ? `Register ${isRetail ? 'Retail' : 'SME/Corp'} File`
@@ -674,50 +753,118 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
             {/* ── DOCUMENTS TAB ────────────────────────────────────────────── */}
             <TabsContent value="docs" className="flex-1 overflow-hidden mt-0">
               <ScrollArea className="h-full">
-                <div className="px-5 py-4 space-y-2">
-                  <p className="text-xs text-muted-foreground mb-3">
+                <div className="px-5 py-4 space-y-3">
+
+                  {/* Summary banner */}
+                  <div className={`rounded-xl border px-4 py-3 flex items-center gap-3 ${
+                    isComplete
+                      ? 'border-green-200 bg-green-50'
+                      : 'border-amber-200 bg-amber-50/70'
+                  }`}>
                     {isComplete
-                      ? 'All required documents acknowledged. File is complete.'
-                      : `${requirements.length - ackedCount} document(s) still pending acknowledgement.`}
-                  </p>
+                      ? <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
+                      : <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
+                    }
+                    <div>
+                      <p className={`text-sm font-semibold ${isComplete ? 'text-green-800' : 'text-amber-800'}`}>
+                        {isComplete ? 'All documents complete' : `${requirements.length - ackedCount} document(s) still pending`}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {ackedCount} of {requirements.length} acknowledged · Upload files or click Acknowledge
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Document rows */}
                   {requirements.map(r => {
                     const acked = isAcknowledged(r.req_id);
                     const info = getAckInfo(r.req_id);
+                    const docUpload = uploads.find(u => u.req_id === r.req_id);
+
                     return (
                       <div
                         key={r.req_id}
-                        className={`flex items-start justify-between gap-3 rounded-lg border p-3 ${
-                          acked ? 'border-green-200 bg-green-50' : 'border-border bg-background'
+                        className={`rounded-xl border transition-colors ${
+                          acked ? 'border-green-200 bg-green-50/40' : 'border-border bg-card'
                         }`}
                       >
-                        <div className="flex items-start gap-2 min-w-0">
-                          {acked
-                            ? <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
-                            : <Circle className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-                          }
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium">{r.req_name}</p>
-                            {acked && info && (
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                Acknowledged by {info.acknowledged_by} · {fmtDate(info.acknowledged_at)}
-                              </p>
+                        <div className="flex items-start justify-between gap-3 p-3.5">
+                          {/* Left: icon + text */}
+                          <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                            {acked
+                              ? <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                              : <Circle className="w-4 h-4 text-muted-foreground/50 mt-0.5 shrink-0" />
+                            }
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium leading-snug">{r.req_name}</p>
+                              {docUpload ? (
+                                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                  <Paperclip className="w-3 h-3 text-blue-500 shrink-0" />
+                                  <a
+                                    href={`/api/storage/objects${docUpload.storage_key}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[200px]"
+                                    onClick={e => e.stopPropagation()}
+                                  >
+                                    {docUpload.filename}
+                                  </a>
+                                  {docUpload.filesize != null && (
+                                    <span className="text-xs text-muted-foreground shrink-0">
+                                      · {fmtBytes(docUpload.filesize)}
+                                    </span>
+                                  )}
+                                  <span className="text-xs text-muted-foreground shrink-0">
+                                    · {docUpload.uploaded_by}
+                                  </span>
+                                </div>
+                              ) : acked && info ? (
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  Acknowledged by {info.acknowledged_by} · {fmtDate(info.acknowledged_at)}
+                                </p>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          {/* Right: action buttons */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {!acked && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs gap-1 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300"
+                                onClick={() => { setUploadFor(r); setPendingFile(null); }}
+                              >
+                                <Upload className="w-3 h-3" /> Upload
+                              </Button>
                             )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`h-7 text-xs gap-1 ${
+                                acked
+                                  ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
+                                  : 'hover:bg-accent'
+                              }`}
+                              onClick={() => acked ? unAckDocMut.mutate(r.req_id) : ackDocMut.mutate(r.req_id)}
+                              disabled={ackDocMut.isPending || unAckDocMut.isPending}
+                            >
+                              {acked
+                                ? <><Trash2 className="w-3 h-3" /> Remove</>
+                                : 'Acknowledge'
+                              }
+                            </Button>
                           </div>
                         </div>
-                        <Button
-                          variant={acked ? 'outline' : 'secondary'}
-                          size="sm"
-                          className="shrink-0 h-7 text-xs"
-                          onClick={() => acked ? unAckDocMut.mutate(r.req_id) : ackDocMut.mutate(r.req_id)}
-                          disabled={ackDocMut.isPending || unAckDocMut.isPending}
-                        >
-                          {acked ? 'Remove' : 'Acknowledge'}
-                        </Button>
                       </div>
                     );
                   })}
+
                   {requirements.length === 0 && (
-                    <p className="text-sm text-muted-foreground py-8 text-center">No document requirements found.</p>
+                    <div className="py-12 text-center text-muted-foreground">
+                      <FileCheck className="w-8 h-8 mx-auto mb-2 opacity-25" />
+                      <p className="text-sm">No document requirements found.</p>
+                    </div>
                   )}
                 </div>
               </ScrollArea>
@@ -804,6 +951,116 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
             </Button>
           </div>
         </div>
+        {/* ── Upload Dialog ──────────────────────────────────────────────── */}
+        <Dialog
+          open={!!uploadFor}
+          onOpenChange={v => { if (!v && !isUploading) { setUploadFor(null); setPendingFile(null); } }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Upload className="w-4 h-4 text-blue-600" />
+                Upload Document
+              </DialogTitle>
+              {uploadFor && (
+                <DialogDescription>
+                  {uploadFor.req_name}
+                </DialogDescription>
+              )}
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+              {/* Drop zone */}
+              <label
+                className={`relative flex flex-col items-center justify-center w-full h-44 rounded-xl border-2 border-dashed cursor-pointer transition-all select-none ${
+                  isUploading
+                    ? 'opacity-50 pointer-events-none border-muted-foreground/20 bg-muted/30'
+                    : isDragging
+                    ? 'border-primary bg-primary/5 scale-[1.01]'
+                    : pendingFile
+                    ? 'border-green-400 bg-green-50'
+                    : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-accent/40'
+                }`}
+                onDragOver={e => { e.preventDefault(); if (!isUploading) setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={e => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  if (!isUploading) {
+                    const f = e.dataTransfer.files[0];
+                    if (f) setPendingFile(f);
+                  }
+                }}
+              >
+                <input
+                  type="file"
+                  className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) setPendingFile(f); }}
+                  disabled={isUploading}
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.xls,.xlsx,.csv,.txt"
+                />
+                {pendingFile ? (
+                  <div className="text-center px-6 pointer-events-none">
+                    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
+                      <FileCheck className="w-6 h-6 text-green-600" />
+                    </div>
+                    <p className="text-sm font-semibold text-green-800 truncate max-w-[300px]">{pendingFile.name}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{fmtBytes(pendingFile.size)} · Click to change</p>
+                  </div>
+                ) : (
+                  <div className="text-center px-6 pointer-events-none">
+                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
+                      <Upload className="w-6 h-6 text-muted-foreground/60" />
+                    </div>
+                    <p className="text-sm font-medium">
+                      Drop file here or <span className="text-primary">browse</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">PDF, Word, Excel, JPG, PNG — up to 10 MB</p>
+                  </div>
+                )}
+              </label>
+
+              {/* Progress bar */}
+              {isUploading && (
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Uploading…</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <Progress value={uploadProgress} className="h-1.5" />
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => { setUploadFor(null); setPendingFile(null); }}
+                disabled={isUploading}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpload}
+                disabled={!pendingFile || isUploading}
+                className="gap-1.5"
+              >
+                {isUploading ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    Uploading…
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-3.5 h-3.5" />
+                    Upload &amp; Acknowledge
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </SheetContent>
     </Sheet>
   );

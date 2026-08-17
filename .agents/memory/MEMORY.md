@@ -9,3 +9,4 @@
 - [MIS Business Processes](mis-business-processes.md) — 16 processes documented in BP-CAT-001; 62 unknowns in BP-UNK-001; BT state machine incomplete
 - [Auth module](auth-module.md) — JWT+bcrypt+OTP; route prefix rule; Vite proxy; default seed password
 - [Admin module](admin-module.md) — User enrollment, profiles/roles CRUD, access rights matrix; MENU_MASTER defines all pages
+- [Business Tracking module](business-module.md) — BT pages, upload flow, Object Storage setup, security gap on downloads

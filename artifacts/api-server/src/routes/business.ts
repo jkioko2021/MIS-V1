@@ -327,4 +327,93 @@ router.post("/business/:fileNo/allocate", async (req: Request, res: Response) =>
   } catch (err) { handleError(res, err, "allocate file"); }
 });
 
+// ─── GET /business/:fileNo/uploads ───────────────────────────────────────────
+router.get("/business/:fileNo/uploads", async (req: Request, res: Response) => {
+  try {
+    const rows = await query<{
+      upload_id: number; req_id: number | null; filename: string;
+      filesize: number | null; mime_type: string | null;
+      storage_key: string; uploaded_by: string; uploaded_at: string;
+    }>(
+      `SELECT upload_id, req_id, filename, filesize, mime_type,
+              storage_key, uploaded_by, uploaded_at
+       FROM crm.business_uploads
+       WHERE file_no=$1 AND is_active=TRUE
+       ORDER BY uploaded_at DESC`,
+      [req.params.fileNo]
+    );
+    res.json({ ok: true, data: rows });
+  } catch (err) { handleError(res, err, "list uploads"); }
+});
+
+// ─── POST /business/:fileNo/uploads ──────────────────────────────────────────
+// Records a GCS upload (presigned URL upload done client-side) and auto-acknowledges the doc.
+router.post("/business/:fileNo/uploads", async (req: Request, res: Response) => {
+  const { fileNo } = req.params;
+  const { req_id, filename, filesize, mime_type, storage_key } =
+    req.body as {
+      req_id?: number; filename: string; filesize?: number;
+      mime_type?: string; storage_key: string;
+    };
+  if (!filename || !storage_key) {
+    res.status(400).json({ ok: false, error: "filename and storage_key are required." });
+    return;
+  }
+  try {
+    // Insert upload record
+    const row = await queryOne<{ upload_id: number }>(
+      `INSERT INTO crm.business_uploads
+         (file_no, req_id, filename, filesize, mime_type, storage_key, uploaded_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       RETURNING upload_id`,
+      [fileNo, req_id ?? null, filename, filesize ?? null, mime_type ?? null,
+       storage_key, req.user!.username]
+    );
+
+    // Auto-acknowledge the requirement if req_id provided
+    if (req_id && row?.upload_id) {
+      await query(
+        `INSERT INTO crm.business_doc_checklist
+           (file_no, req_id, acknowledged_by, acknowledged_at, upload_id)
+         VALUES ($1,$2,$3,NOW(),$4)
+         ON CONFLICT (file_no, req_id) DO UPDATE
+           SET acknowledged_by=$3, acknowledged_at=NOW(), upload_id=$4`,
+        [fileNo, req_id, req.user!.username, row.upload_id]
+      );
+      // Recompute is_complete
+      await query(
+        `UPDATE crm.business_tracking bt SET is_complete = (
+           SELECT COUNT(*) = (
+             SELECT COUNT(*) FROM crm.business_req
+             WHERE is_active=TRUE AND (applies_to='ALL' OR applies_to=bt.client_type)
+           )
+           FROM crm.business_doc_checklist dc
+           WHERE dc.file_no=bt.file_no
+         ), updated_at=NOW()
+         WHERE bt.file_no=$1`,
+        [fileNo]
+      );
+    }
+
+    await query(
+      `INSERT INTO crm.admin_audit_trail (employee_id, action, details) VALUES ($1,'BT_UPLOAD',$2)`,
+      [req.user!.sub, `Uploaded ${filename} for ${fileNo}`]
+    ).catch(() => {});
+
+    res.status(201).json({ ok: true, data: { upload_id: row?.upload_id } });
+  } catch (err) { handleError(res, err, "record upload"); }
+});
+
+// ─── DELETE /business/:fileNo/uploads/:uploadId ───────────────────────────────
+router.delete("/business/:fileNo/uploads/:uploadId", async (req: Request, res: Response) => {
+  try {
+    await query(
+      `UPDATE crm.business_uploads SET is_active=FALSE
+       WHERE upload_id=$1 AND file_no=$2`,
+      [Number(req.params.uploadId), req.params.fileNo]
+    );
+    res.json({ ok: true });
+  } catch (err) { handleError(res, err, "delete upload"); }
+});
+
 export default router;
