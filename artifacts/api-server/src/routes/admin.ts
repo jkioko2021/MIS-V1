@@ -47,7 +47,7 @@ router.get("/admin/employees", async (req: Request, res: Response) => {
 
     if (search) {
       params.push(`%${search}%`);
-      conditions.push(`(e.employee_name ILIKE $${params.length} OR e.username ILIKE $${params.length} OR e.emp_code ILIKE $${params.length})`);
+      conditions.push(`(e.employee_name ILIKE $${params.length} OR e.username ILIKE $${params.length} OR e.emp_code ILIKE $${params.length} OR e.email ILIKE $${params.length})`);
     }
     if (status === "active")   conditions.push("e.activated = TRUE AND e.approved = TRUE AND e.employee_locked = FALSE");
     if (status === "locked")   conditions.push("e.employee_locked = TRUE");
@@ -56,16 +56,17 @@ router.get("/admin/employees", async (req: Request, res: Response) => {
 
     const rows = await query<{
       employee_id: number; emp_code: string; username: string;
-      employee_name: string; email: string; department: string;
+      employee_name: string; email: string | null; department: string;
       profile_id: number; profile_name: string;
       activated: boolean; employee_locked: boolean; approved: boolean;
       failed_attempts: number; last_login_date: string | null;
-      last_password_reset: string | null; created_at: string;
+      last_password_reset: string | null; created_at: string; added_by: string | null;
     }>(
       `SELECT e.employee_id, e.emp_code, e.username, e.employee_name, e.email,
               e.department, e.profile_id, p.profile_name,
               e.activated, e.employee_locked, e.approved,
-              e.failed_attempts, e.last_login_date, e.last_password_reset, e.created_at
+              e.failed_attempts, e.last_login_date, e.last_password_reset,
+              e.created_at, e.added_by
        FROM crm.employees e
        LEFT JOIN crm.profiles p ON p.profile_id = e.profile_id
        WHERE ${conditions.join(" AND ")}
@@ -85,6 +86,18 @@ router.post("/admin/employees", async (req: Request, res: Response) => {
     return;
   }
   try {
+    // Email uniqueness check
+    if (email) {
+      const existing = await queryOne<{ c: number }>(
+        `SELECT COUNT(*)::int AS c FROM crm.employees WHERE LOWER(email)=LOWER($1) AND is_deleted=FALSE`,
+        [String(email)]
+      );
+      if ((existing?.c ?? 0) > 0) {
+        res.status(409).json({ ok: false, error: "An account with this email address already exists." });
+        return;
+      }
+    }
+
     // Next emp_code
     const last = await queryOne<{ emp_code: string }>(
       `SELECT emp_code FROM crm.employees WHERE emp_code LIKE 'EMP%' ORDER BY employee_id DESC LIMIT 1`
