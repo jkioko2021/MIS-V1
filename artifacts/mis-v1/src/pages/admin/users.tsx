@@ -236,7 +236,8 @@ export default function UsersPage() {
 
   const action = useCallback((path: string, body: object) =>
     apiFetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      .then(() => qc.invalidateQueries({ queryKey: ['admin-employees'] })),
+      .then(() => qc.invalidateQueries({ queryKey: ['admin-employees'] }))
+      .catch((e: Error) => alert(e.message)),
   [qc]);
 
   const handleReset = useCallback(async (id: number) => {
@@ -375,6 +376,7 @@ export default function UsersPage() {
       {/* Dialogs */}
       {(enrollOpen || editEmployee) && (
         <EnrollDialog
+          key={editEmployee?.employee_id ?? 'new'}
           open
           onClose={() => { setEnrollOpen(false); setEditEmployee(null); }}
           profiles={profiles}
