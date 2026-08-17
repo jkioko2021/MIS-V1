@@ -18,3 +18,11 @@ expertMode = true
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[userenv]
+
+[userenv.shared]
+MSSQL_ENCRYPT = "true"
+MSSQL_HOST = "internal-apps-db-test.c7eznhldreld.eu-west-1.rds.amazonaws.com"
+MSSQL_PORT = "1433"
+MSSQL_TRUST_SERVER_CERT = "true"
