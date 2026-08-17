@@ -23,6 +23,6 @@ timeoutMs = 20000
 
 [userenv.shared]
 MSSQL_ENCRYPT = "true"
-MSSQL_HOST = "baz.ngrok.dev"
-MSSQL_PORT = "8080"
+MSSQL_HOST = "serveo.net"
+MSSQL_PORT = "22"
 MSSQL_TRUST_SERVER_CERT = "true"
