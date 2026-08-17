@@ -9,6 +9,8 @@ import DashboardPage from '@/pages/dashboard';
 import BusinessTrackingPage from '@/pages/business';
 import RiskRegisterPage from '@/pages/risk';
 import LoginPage from '@/pages/login';
+import UsersPage from '@/pages/admin/users';
+import ProfilesPage from '@/pages/admin/profiles';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import {
   Route,
@@ -20,29 +22,42 @@ import {
 } from 'wouter';
 import {
   LayoutDashboard, FileText, Shield, Database,
-  ChevronRight, LogOut, User,
+  ChevronRight, LogOut, User, Users, Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
-    },
-  },
+  defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } },
 });
 
-const NAV = [
-  { href: '/',           label: 'Dashboard',         icon: LayoutDashboard },
-  { href: '/business',   label: 'Business Tracking',  icon: FileText },
-  { href: '/risk',       label: 'Risk Register',       icon: Shield },
-  { href: '/discovery',  label: 'DB Discovery',        icon: Database },
+// ─── Navigation structure ─────────────────────────────────────────────────────
+const NAV_SECTIONS = [
+  {
+    label: null,
+    items: [
+      { href: '/',          label: 'Dashboard',         icon: LayoutDashboard },
+      { href: '/business',  label: 'Business Tracking', icon: FileText },
+      { href: '/risk',      label: 'Risk Register',     icon: Shield },
+      { href: '/discovery', label: 'DB Discovery',      icon: Database },
+    ],
+  },
+  {
+    label: 'Administration',
+    adminOnly: true,
+    items: [
+      { href: '/admin/users',    label: 'User Enrollment',    icon: Users },
+      { href: '/admin/profiles', label: 'Profiles & Access',  icon: Settings },
+    ],
+  },
 ];
 
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
 function Sidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+
+  // Show admin section only for profile 1 (SuperAdmin) or 2 (System Admin)
+  const isAdmin = user && (user.profileId === 1 || user.profileId === 2);
 
   return (
     <aside className="w-56 shrink-0 border-r bg-muted/30 flex flex-col h-screen sticky top-0">
@@ -51,29 +66,41 @@ function Sidebar() {
         <p className="text-xs text-muted-foreground">Management Information System</p>
       </div>
 
-      <nav className="flex-1 p-2 space-y-0.5">
-        {NAV.map(({ href, label, icon: Icon }) => {
-          const active = location === href || (href !== '/' && location.startsWith(href));
+      <nav className="flex-1 p-2 space-y-4 overflow-y-auto">
+        {NAV_SECTIONS.map((section, si) => {
+          if (section.adminOnly && !isAdmin) return null;
           return (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
-                active
-                  ? 'bg-primary text-primary-foreground font-medium'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+            <div key={si} className="space-y-0.5">
+              {section.label && (
+                <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  {section.label}
+                </p>
               )}
-            >
-              <Icon className="w-4 h-4 shrink-0" />
-              <span className="flex-1">{label}</span>
-              {active && <ChevronRight className="w-3 h-3 opacity-60" />}
-            </Link>
+              {section.items.map(({ href, label, icon: Icon }) => {
+                const active = location === href || (href !== '/' && location.startsWith(href));
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
+                      active
+                        ? 'bg-primary text-primary-foreground font-medium'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    )}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span className="flex-1">{label}</span>
+                    {active && <ChevronRight className="w-3 h-3 opacity-60" />}
+                  </Link>
+                );
+              })}
+            </div>
           );
         })}
       </nav>
 
-      {/* User info + logout */}
+      {/* User footer */}
       {user && (
         <div className="p-3 border-t space-y-2">
           <div className="flex items-center gap-2 px-1">
@@ -94,10 +121,7 @@ function Sidebar() {
           </button>
         </div>
       )}
-
-      <div className="px-3 pb-2 text-xs text-muted-foreground">
-        v2.0 · MIS Modernisation
-      </div>
+      <div className="px-3 pb-2 text-xs text-muted-foreground">v2.0 · MIS Modernisation</div>
     </aside>
   );
 }
@@ -113,8 +137,9 @@ function AppLayout({ children }: { children: ReactNode }) {
   );
 }
 
+// ─── Protected router ─────────────────────────────────────────────────────────
 function ProtectedRouter() {
-  const { user, loading, passwordExpired } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -127,24 +152,21 @@ function ProtectedRouter() {
     );
   }
 
-  if (!user) {
-    return <LoginPage />;
-  }
-
-  if (passwordExpired) {
-    // Already handled inside LoginPage via the change_password step;
-    // this guard catches a rare race — just send to login to re-authenticate.
-    return <LoginPage />;
-  }
+  if (!user) return <LoginPage />;
 
   return (
     <RoutedErrorBoundary>
       <AppLayout>
         <Switch>
-          <Route path="/"          component={DashboardPage} />
-          <Route path="/business"  component={BusinessTrackingPage} />
-          <Route path="/risk"      component={RiskRegisterPage} />
-          <Route path="/discovery" component={DiscoveryPage} />
+          <Route path="/"                 component={DashboardPage} />
+          <Route path="/business"         component={BusinessTrackingPage} />
+          <Route path="/risk"             component={RiskRegisterPage} />
+          <Route path="/discovery"        component={DiscoveryPage} />
+          <Route path="/admin/users"      component={UsersPage} />
+          <Route path="/admin/profiles"   component={ProfilesPage} />
+          <Route path="/admin">
+            {() => <Redirect to="/admin/users" />}
+          </Route>
           <Route component={NotFound} />
         </Switch>
       </AppLayout>

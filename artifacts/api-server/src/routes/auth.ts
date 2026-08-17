@@ -351,9 +351,9 @@ router.get("/auth/me", requireAuth, async (req: Request, res: Response) => {
   try {
     const profile = await queryOne<{ profile_name: string; menu_access: string[] }>(
       `SELECT p.profile_name,
-              ARRAY_AGG(ma.menu_item ORDER BY ma.menu_order) FILTER (WHERE ma.menu_item IS NOT NULL) AS menu_access
+              ARRAY_AGG(ma.sub_menu_name ORDER BY ma.menu_order) FILTER (WHERE ma.can_access = TRUE) AS menu_access
        FROM crm.profiles p
-       LEFT JOIN crm.menu_access ma ON ma.profile_id = p.profile_id AND ma.is_active = TRUE
+       LEFT JOIN crm.menu_access ma ON ma.profile_id = p.profile_id
        WHERE p.profile_id = $1
        GROUP BY p.profile_name`,
       [u.profileId]

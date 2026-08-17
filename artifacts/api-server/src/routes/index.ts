@@ -3,11 +3,13 @@ import healthRouter from "./health";
 import discoveryRouter from "./discovery";
 import misRouter from "./mis";
 import authRouter from "./auth";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(authRouter);
+router.use(adminRouter);
 router.use(discoveryRouter);
 router.use(misRouter);
 
