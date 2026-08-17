@@ -183,8 +183,8 @@ function fileToForm(f: BusinessFile): FormState {
 // ─── Field components ─────────────────────────────────────────────────────────
 function Field({ label, children, required }: { label: string; children: React.ReactNode; required?: boolean }) {
   return (
-    <div className="space-y-1">
-      <Label className="text-xs font-medium text-muted-foreground">
+    <div className="space-y-1.5">
+      <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 tracking-wide">
         {label}{required && <span className="text-destructive ml-0.5">*</span>}
       </Label>
       {children}
@@ -239,9 +239,8 @@ function CheckRow({ checked, onChange, label }: { checked: boolean; onChange: (v
 
 function SectionHeader({ title }: { title: string }) {
   return (
-    <div className="flex items-center gap-2 pt-2">
-      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</span>
-      <div className="flex-1 h-px bg-border" />
+    <div className="flex items-center gap-3 pt-3 -mx-5 px-5 py-2 bg-slate-50 dark:bg-muted/40 border-y border-slate-200 dark:border-border">
+      <span className="text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400">{title}</span>
     </div>
   );
 }
@@ -464,7 +463,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 
   return (
     <Sheet open onOpenChange={v => !v && onClose()}>
-      <SheetContent className="w-[680px] sm:max-w-[680px] p-0 flex flex-col">
+      <SheetContent className="w-[680px] sm:max-w-[680px] p-0 flex flex-col !bg-white dark:!bg-card border-l-2 border-slate-200">
         {/* Header */}
         <SheetHeader className="px-5 pt-5 pb-3 border-b shrink-0">
           <div className="flex items-start justify-between gap-3">
