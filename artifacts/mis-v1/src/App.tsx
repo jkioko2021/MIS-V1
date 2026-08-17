@@ -5,7 +5,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import DiscoveryPage from '@/pages/discovery';
-import DashboardPage from '@/pages/dashboard';
+import HomePage from '@/pages/home';
 import BusinessTrackingPage from '@/pages/business';
 import RiskRegisterPage from '@/pages/risk';
 import LoginPage from '@/pages/login';
@@ -21,7 +21,7 @@ import {
   Redirect,
 } from 'wouter';
 import {
-  LayoutDashboard, FileText, Shield, Database,
+  Home, FileText, Shield, Database,
   ChevronRight, LogOut, User, Users, Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -35,7 +35,7 @@ const NAV_SECTIONS = [
   {
     label: null,
     items: [
-      { href: '/',          label: 'Dashboard',         icon: LayoutDashboard },
+      { href: '/',          label: 'Home',              icon: Home },
       { href: '/business',  label: 'Business Tracking', icon: FileText },
       { href: '/risk',      label: 'Risk Register',     icon: Shield },
       { href: '/discovery', label: 'DB Discovery',      icon: Database },
@@ -158,7 +158,7 @@ function ProtectedRouter() {
     <RoutedErrorBoundary>
       <AppLayout>
         <Switch>
-          <Route path="/"                 component={DashboardPage} />
+          <Route path="/"                 component={HomePage} />
           <Route path="/business"         component={BusinessTrackingPage} />
           <Route path="/risk"             component={RiskRegisterPage} />
           <Route path="/discovery"        component={DiscoveryPage} />
