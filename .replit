@@ -23,6 +23,6 @@ timeoutMs = 20000
 
 [userenv.shared]
 MSSQL_ENCRYPT = "true"
-MSSQL_HOST = "sql-relay.mis.com"
+MSSQL_HOST = "105.164.128.40"
 MSSQL_PORT = "1433"
 MSSQL_TRUST_SERVER_CERT = "true"
