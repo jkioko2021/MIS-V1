@@ -1,4 +1,4 @@
-modules = ["nodejs-24", "python-base-3.13"]
+modules = ["nodejs-24", "python-base-3.13", "postgresql-16"]
 
 [deployment]
 router = "application"
@@ -26,3 +26,6 @@ MSSQL_ENCRYPT = "true"
 MSSQL_HOST = "105.164.128.40"
 MSSQL_PORT = "1433"
 MSSQL_TRUST_SERVER_CERT = "true"
+
+[nix]
+channel = "stable-25_05"
