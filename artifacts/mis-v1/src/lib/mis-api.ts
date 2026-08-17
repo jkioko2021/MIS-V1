@@ -9,9 +9,43 @@ async function get<T>(path: string, params?: Record<string, string>): Promise<T>
       .join('&');
     if (qs) url += `?${qs}`;
   }
-  const res = await fetch(url);
+  const res = await fetch(url, { credentials: 'include' });
   if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
   return res.json();
+}
+
+async function post<T>(path: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: body != null ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+  return data;
+}
+
+async function put<T>(path: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: body != null ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+  return data;
+}
+
+async function del<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+  return data;
 }
 
 export interface ApiResponse<T> { ok: boolean; data: T; total?: number; error?: string; }
@@ -20,33 +54,91 @@ export interface ApiResponse<T> { ok: boolean; data: T; total?: number; error?: 
 export interface BusinessFile {
   file_no: string;
   proposer_name: string;
-  family_code: string;
+  family_code: string | null;
   receive_dt: string;
-  premium: number;
+  premium: number | null;
   file_status: string;
   business_type: string;
   client_type: string;
   business: string;
-  agent_id: string;
-  agent_name: string;
+  agent_id: string | null;
+  agent_name: string | null;
   is_mtiba: boolean;
   is_ipf: boolean;
   walk_in_client: string;
+  walk_in_auth: string | null;
   rate_type: string;
   benefit_verified: string;
   medical_uw: boolean;
   allocated: boolean;
+  allocated_to: string | null;
+  allocate_dt: string | null;
   invoiced: boolean;
-  allocated_to: string;
   forwarded: boolean;
-  forwarded_by: string;
-  forward_date: string;
+  forwarded_by: string | null;
+  forward_date: string | null;
   is_complete: boolean;
-  pay_ref_no: string;
-  paid_amt: number;
+  ready_for_update: boolean;
+  is_active: boolean;
+  is_declined: boolean;
+  pay_ref_no: string | null;
+  paid_amt: number | null;
   entered_by: string;
   created_at: string;
+  updated_at: string;
   note_count: number;
+  // Extended columns
+  nid: string | null;
+  pin_no: string | null;
+  county_code: string | null;
+  card_type: string | null;
+  gi_category: string | null;
+  pay_mode: string | null;
+  sector: string | null;
+  cr12: boolean;
+  corp_category: string | null;
+}
+
+export interface BusinessNote {
+  note_id: number;
+  file_no: string;
+  note_from: string;
+  note_date: string;
+  notes: string;
+  is_active: boolean;
+}
+
+export interface BusinessDoc {
+  id: number | null;
+  file_no: string;
+  req_id: number;
+  req_name: string;
+  applies_to: string;
+  acknowledged_at: string | null;
+  acknowledged_by: string | null;
+}
+
+export interface BusinessRequirement {
+  req_id: number;
+  req_code: number;
+  req_name: string;
+  applies_to: string;
+}
+
+export interface SalesAgent {
+  agent_id: string;
+  agent_name: string;
+  agent_email: string | null;
+  agent_phone: string | null;
+  agency_code: string | null;
+  is_active: boolean;
+}
+
+export interface Employee {
+  employee_id: number;
+  username: string;
+  employee_name: string;
+  department: string;
 }
 
 export interface BusinessSummary {
@@ -58,12 +150,36 @@ export const misApi = {
   productionMonth: () => get<ApiResponse<{ month_name: string; date_from: string; date_to: string; year: number }>>('/mis/production-month'),
   staffOnCall:     () => get<ApiResponse<{ staff_name: string; staff_mobile: string }>>('/mis/staff-on-call'),
 
-  business: (params?: Record<string, string>) => get<ApiResponse<BusinessFile[]>>('/mis/business', params),
-  businessFile:    (fileNo: string) => get<ApiResponse<BusinessFile & { notes: unknown[]; docs: unknown[] }>>(`/mis/business/${fileNo}`),
+  // Business tracking - reads
+  business:        (params?: Record<string, string>) => get<ApiResponse<BusinessFile[]>>('/mis/business', params),
+  businessFile:    (fileNo: string) => get<ApiResponse<BusinessFile & { notes: BusinessNote[]; docs: BusinessDoc[] }>>(`/mis/business/${fileNo}`),
   businessSummary: () => get<ApiResponse<BusinessSummary>>('/mis/business/summary/counts'),
 
-  agents:   () => get<ApiResponse<unknown[]>>('/mis/agents'),
-  employees:(params?: Record<string, string>) => get<ApiResponse<unknown[]>>('/mis/employees', params),
+  // Business tracking - writes
+  businessRegister: (body: Partial<BusinessFile>) =>
+    post<ApiResponse<{ file_no: string }>>('/business/register', body),
+  businessUpdate: (fileNo: string, body: Partial<BusinessFile>) =>
+    put<ApiResponse<void>>(`/business/${fileNo}`, body),
+  businessForward: (fileNo: string) =>
+    post<ApiResponse<void>>(`/business/${fileNo}/forward`),
+  businessAllocate: (fileNo: string, allocated_to: string) =>
+    post<ApiResponse<void>>(`/business/${fileNo}/allocate`, { allocated_to }),
+  businessAddNote: (fileNo: string, notes: string) =>
+    post<ApiResponse<{ note_id: number }>>(`/business/${fileNo}/notes`, { notes }),
+  businessDeleteNote: (fileNo: string, noteId: number) =>
+    del<ApiResponse<void>>(`/business/${fileNo}/notes/${noteId}`),
+  businessAckDoc: (fileNo: string, reqId: number) =>
+    post<ApiResponse<void>>(`/business/${fileNo}/checklist/${reqId}`),
+  businessUnAckDoc: (fileNo: string, reqId: number) =>
+    del<ApiResponse<void>>(`/business/${fileNo}/checklist/${reqId}`),
+
+  // Reference data
+  businessRequirements: (client_type?: string) =>
+    get<ApiResponse<BusinessRequirement[]>>('/business/requirements', client_type ? { client_type } : undefined),
+  counties: () => get<ApiResponse<string[]>>('/business/counties'),
+
+  agents:   () => get<ApiResponse<SalesAgent[]>>('/mis/agents'),
+  employees:(params?: Record<string, string>) => get<ApiResponse<Employee[]>>('/mis/employees', params),
   profiles: () => get<ApiResponse<unknown[]>>('/mis/profiles'),
   audit:    (params?: Record<string, string>) => get<ApiResponse<unknown[]>>('/mis/audit', params),
 
