@@ -1,4 +1,4 @@
-import { Pool } from "pg";
+import { Pool, type PoolClient } from "pg";
 import { logger } from "./logger";
 
 let pool: Pool | null = null;
@@ -34,4 +34,30 @@ export async function queryOne<T = Record<string, unknown>>(
 ): Promise<T | null> {
   const rows = await query<T>(sql, params);
   return rows[0] ?? null;
+}
+
+/** Run a block inside a single PostgreSQL transaction. Rolls back on error. */
+export async function withTransaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    const result = await fn(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/** Execute a query using an existing transaction client. */
+export async function txQuery<T = Record<string, unknown>>(
+  client: PoolClient,
+  sql: string,
+  params?: unknown[]
+): Promise<T[]> {
+  const result = await client.query(sql, params);
+  return result.rows as T[];
 }

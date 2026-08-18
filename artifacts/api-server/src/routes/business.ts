@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { query, queryOne } from "../lib/postgres";
+import { query, queryOne, withTransaction, txQuery } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
 import { logger } from "../lib/logger";
 
@@ -44,29 +44,6 @@ router.get("/business/requirements", async (req: Request, res: Response) => {
 // ─── All write routes require auth ────────────────────────────────────────────
 router.use(requireAuth);
 
-// ─── File number generator ────────────────────────────────────────────────────
-async function generateFileNo(clientType: string): Promise<string> {
-  const prefix = clientType === "R" ? "R" : "C";
-  const now = new Date();
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const yy = String(now.getFullYear()).slice(-2);
-  const pattern = `${prefix}-${mm}/${yy}/-%`;
-
-  const last = await queryOne<{ file_no: string }>(
-    `SELECT file_no FROM crm.business_tracking
-     WHERE file_no LIKE $1 ORDER BY created_at DESC LIMIT 1`,
-    [pattern]
-  );
-
-  let seq = 1;
-  if (last?.file_no) {
-    const parts = last.file_no.split("-");
-    const lastSeq = parseInt(parts[parts.length - 1] ?? "0", 10);
-    if (!isNaN(lastSeq)) seq = lastSeq + 1;
-  }
-  return `${prefix}-${mm}/${yy}/-${String(seq).padStart(6, "0")}`;
-}
-
 // ─── POST /business/register ──────────────────────────────────────────────────
 router.post("/business/register", async (req: Request, res: Response) => {
   const {
@@ -84,48 +61,82 @@ router.post("/business/register", async (req: Request, res: Response) => {
   }
 
   try {
-    const file_no = await generateFileNo(String(client_type));
-    await query(
-      `INSERT INTO crm.business_tracking (
-         file_no, proposer_name, family_code, receive_dt,
-         file_status, business_type, client_type, business,
-         agent_id, is_mtiba, is_ipf, walk_in_client,
-         rate_type, benefit_verified, medical_uw,
-         allocated, invoiced, forwarded, is_complete, ready_for_update,
-         is_active, is_declined,
-         pay_ref_no, paid_amt, entered_by,
-         nid, pin_no, county_code, card_type, gi_category,
-         pay_mode, sector, cr12, cr12_ref, corp_category, walk_in_auth
-       ) VALUES (
-         $1,$2,$3,$4,
-         'REGISTERED',$5,$6,$7,
-         $8,$9,$10,$11,
-         $12,'NO',FALSE,
-         FALSE,FALSE,FALSE,FALSE,FALSE,
-         TRUE,FALSE,
-         $13,$14,$15,
-         $16,$17,$18,$19,$20,
-         $21,$22,$23,$24,$25,$26
-       )`,
-      [
-        file_no, String(proposer_name), family_code || null,
-        receive_dt || new Date().toISOString().split("T")[0],
-        String(business_type), String(client_type), String(business),
-        agent_id || null, !!is_mtiba, !!is_ipf,
-        client_type === "R" && walk_in_client === "Y" ? "Y" : "N",
-        rate_type || "S",
-        pay_ref_no || null, paid_amt ? Number(paid_amt) : null,
-        req.user!.username,
-        nid || null, pin_no || null, county_code || null,
-        card_type || null, gi_category || null,
-        pay_mode || null, sector || null,
-        cr12 === true || cr12 === "true", cr12_ref || null,
-        corp_category || null, walk_in_auth || null,
-      ]
-    );
+    // ── Transaction with advisory lock ─────────────────────────────────────
+    // pg_advisory_xact_lock ensures only one registration per client type runs
+    // at a time, preventing duplicate file numbers under concurrent load.
+    // Lock IDs: 1001 = Retail, 1002 = Corporate
+    const file_no = await withTransaction(async (client) => {
+      const lockId = String(client_type) === "R" ? 1001 : 1002;
+      await txQuery(client, "SELECT pg_advisory_xact_lock($1)", [lockId]);
+
+      // Generate file_no while holding the lock
+      const prefix = String(client_type) === "R" ? "R" : "C";
+      const now = new Date();
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const yy = String(now.getFullYear()).slice(-2);
+      const pattern = `${prefix}-${mm}/${yy}/-%`;
+
+      const lastRows = await txQuery<{ file_no: string }>(
+        client,
+        `SELECT file_no FROM crm.business_tracking
+         WHERE file_no LIKE $1 ORDER BY created_at DESC LIMIT 1`,
+        [pattern]
+      );
+      let seq = 1;
+      const lastRow = lastRows[0];
+      if (lastRow?.file_no) {
+        const parts = lastRow.file_no.split("-");
+        const lastSeq = parseInt(parts[parts.length - 1] ?? "0", 10);
+        if (!isNaN(lastSeq)) seq = lastSeq + 1;
+      }
+      const newFileNo = `${prefix}-${mm}/${yy}/-${String(seq).padStart(6, "0")}`;
+
+      // INSERT inside the same transaction — advisory lock is still held
+      await txQuery(
+        client,
+        `INSERT INTO crm.business_tracking (
+           file_no, proposer_name, family_code, receive_dt,
+           file_status, business_type, client_type, business,
+           agent_id, is_mtiba, is_ipf, walk_in_client,
+           rate_type, benefit_verified, medical_uw,
+           allocated, invoiced, forwarded, is_complete, ready_for_update,
+           is_active, is_declined,
+           pay_ref_no, paid_amt, entered_by,
+           nid, pin_no, county_code, card_type, gi_category,
+           pay_mode, sector, cr12, cr12_ref, corp_category, walk_in_auth
+         ) VALUES (
+           $1,$2,$3,$4,
+           'REGISTERED',$5,$6,$7,
+           $8,$9,$10,$11,
+           $12,'NO',FALSE,
+           FALSE,FALSE,FALSE,FALSE,FALSE,
+           TRUE,FALSE,
+           $13,$14,$15,
+           $16,$17,$18,$19,$20,
+           $21,$22,$23,$24,$25,$26
+         )`,
+        [
+          newFileNo, String(proposer_name), family_code || null,
+          receive_dt || new Date().toISOString().split("T")[0],
+          String(business_type), String(client_type), String(business),
+          agent_id || null, !!is_mtiba, !!is_ipf,
+          client_type === "R" && walk_in_client === "Y" ? "Y" : "N",
+          rate_type || "S",
+          pay_ref_no || null, paid_amt ? Number(paid_amt) : null,
+          req.user!.username,
+          nid || null, pin_no || null, county_code || null,
+          card_type || null, gi_category || null,
+          pay_mode || null, sector || null,
+          cr12 === true || cr12 === "true", cr12_ref || null,
+          corp_category || null, walk_in_auth || null,
+        ]
+      );
+
+      return newFileNo;
+    });
 
     await query(
-      `INSERT INTO crm.admin_audit_trail (employee_id, action, details) VALUES ($1, 'BT_REGISTER', $2)`,
+      `INSERT INTO crm.admin_audit_trail (username, action_type, description) VALUES ($1, 'BT_REGISTER', $2)`,
       [req.user!.sub, `Registered ${file_no} — ${proposer_name}`]
     ).catch(() => {});
 
@@ -183,7 +194,7 @@ router.put("/business/:fileNo", async (req: Request, res: Response) => {
     );
 
     await query(
-      `INSERT INTO crm.admin_audit_trail (employee_id, action, details) VALUES ($1,'BT_UPDATE',$2)`,
+      `INSERT INTO crm.admin_audit_trail (username, action_type, description) VALUES ($1,'BT_UPDATE',$2)`,
       [req.user!.sub, `Updated ${fileNo}`]
     ).catch(() => {});
 
@@ -192,56 +203,131 @@ router.put("/business/:fileNo", async (req: Request, res: Response) => {
 });
 
 // ─── POST /business/:fileNo/forward ──────────────────────────────────────────
+// Mirrors the legacy btnforward_Click state machine exactly.
 router.post("/business/:fileNo/forward", async (req: Request, res: Response) => {
   const { fileNo } = req.params;
   const { to_user, comments } = req.body as { to_user?: string; comments?: string };
+
+  if (!comments?.trim()) {
+    res.status(400).json({ ok: false, error: "Comments are required when forwarding." });
+    return;
+  }
+
   try {
     const file = await queryOne<{
       file_status: string; is_complete: boolean; allocated: boolean;
       business: string; medical_uw: boolean; invoiced: boolean;
+      benefit_verified: string; walk_in_client: string; client_type: string;
     }>(
-      `SELECT file_status, is_complete, allocated, business, medical_uw, invoiced
+      `SELECT file_status, is_complete, allocated, business, medical_uw, invoiced,
+              benefit_verified, walk_in_client, client_type
        FROM crm.business_tracking WHERE file_no=$1 AND is_active=TRUE`,
       [fileNo]
     );
     if (!file) { res.status(404).json({ ok: false, error: "File not found." }); return; }
 
-    // Validation per legacy state machine
+    // Gate 1: Documentation Complete must be ticked (legacy: "You Must Tick Business is complete Checkbox!")
     if (!file.is_complete) {
-      res.status(400).json({ ok: false, error: "Documentation checklist is not complete. Acknowledge all required documents first." });
-      return;
-    }
-    if (file.business === "M" && !file.medical_uw) {
-      res.status(400).json({ ok: false, error: "Medical UW review is required before forwarding." });
-      return;
-    }
-    if (!file.allocated) {
-      res.status(400).json({ ok: false, error: "File must be allocated before forwarding." });
-      return;
-    }
-    if (!file.invoiced) {
-      res.status(400).json({ ok: false, error: "File must be invoiced before forwarding." });
+      res.status(400).json({ ok: false, error: "Mark Documentation Complete before forwarding." });
       return;
     }
 
-    await query(
-      `UPDATE crm.business_tracking SET
-         forwarded=TRUE, forwarded_by=$1, forward_date=NOW(),
-         file_status='FORWARDED', ready_for_update=TRUE,
-         is_complete=TRUE, updated_at=NOW()
-       WHERE file_no=$2`,
-      [req.user!.username, fileNo]
+    // Gate 2: No unacknowledged required documents
+    const pending = await queryOne<{ cnt: string }>(
+      `SELECT COUNT(*) AS cnt FROM crm.business_req br
+       WHERE br.is_active=TRUE
+         AND (br.applies_to='ALL' OR br.applies_to=$1)
+         AND NOT EXISTS (
+           SELECT 1 FROM crm.business_doc_checklist dc
+           WHERE dc.file_no=$2 AND dc.req_id=br.req_id
+         )`,
+      [file.client_type, fileNo]
     );
+    if (Number(pending?.cnt ?? 0) > 0) {
+      res.status(400).json({ ok: false, error: "Upload or acknowledge all required documents first." });
+      return;
+    }
 
-    const detail = to_user
-      ? `Forwarded ${fileNo} to ${to_user}${comments ? ` — ${comments}` : ""}`
-      : `Forwarded ${fileNo}`;
+    // ── Status machine (mirrors legacy btnforward_Click conditions) ──────────
+    let newStatus: string;
+
+    if (file.medical_uw && !file.allocated) {
+      // Medical UW path — route to Medical UW team
+      newStatus = "MEDICAL UW-REVIEW";
+      await query(
+        `UPDATE crm.business_tracking SET
+           forwarded=TRUE, is_complete=TRUE, ready_for_update=FALSE,
+           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
+         WHERE file_no=$3`,
+        [newStatus, req.user!.username, fileNo]
+      );
+    } else if (file.allocated && file.benefit_verified === "NO") {
+      // Allocated but benefit not yet verified
+      newStatus = "BENEFIT VERIFICATION";
+      await query(
+        `UPDATE crm.business_tracking SET
+           forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
+           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
+         WHERE file_no=$3`,
+        [newStatus, req.user!.username, fileNo]
+      );
+    } else if (file.allocated && file.benefit_verified !== "NO" && !file.invoiced) {
+      // Allocated + verified, waiting for invoice
+      newStatus = "ALLOCATED";
+      await query(
+        `UPDATE crm.business_tracking SET
+           forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
+           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
+         WHERE file_no=$3`,
+        [newStatus, req.user!.username, fileNo]
+      );
+    } else if (file.invoiced) {
+      newStatus = "INVOICED";
+      await query(
+        `UPDATE crm.business_tracking SET
+           forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
+           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
+         WHERE file_no=$3`,
+        [newStatus, req.user!.username, fileNo]
+      );
+    } else if (file.walk_in_client === "Y" && to_user) {
+      // Walk-in client: allocate directly to Membership Admin (no intermediate team step)
+      newStatus = "ALLOCATED";
+      await query(
+        `UPDATE crm.business_tracking SET
+           forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
+           benefit_verified='YES', walk_in_client='Y',
+           allocated_to=$1, allocate_dt=NOW(),
+           file_status=$2, forward_date=NOW(), forwarded_by=$3, updated_at=NOW()
+         WHERE file_no=$4`,
+        [to_user, newStatus, req.user!.username, fileNo]
+      );
+    } else {
+      // Default: forward to team
+      newStatus = "FORWARDED";
+      await query(
+        `UPDATE crm.business_tracking SET
+           forwarded=TRUE, is_complete=TRUE, allocated=FALSE, ready_for_update=TRUE,
+           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
+         WHERE file_no=$3`,
+        [newStatus, req.user!.username, fileNo]
+      );
+    }
+
+    // Persist comment as a tracking note
     await query(
-      `INSERT INTO crm.admin_audit_trail (employee_id, action, details) VALUES ($1,'BT_FORWARD',$2)`,
-      [req.user!.sub, detail]
+      `INSERT INTO crm.business_tracking_notes (file_no, note_from, notes, note_date, is_active)
+       VALUES ($1, $2, $3, NOW(), TRUE)`,
+      [fileNo, req.user!.username, comments.trim()]
     ).catch(() => {});
 
-    res.json({ ok: true });
+    const detail = `Forwarded ${fileNo} → ${newStatus}${to_user ? ` (to: ${to_user})` : ""}. Note: ${comments}`;
+    await query(
+      `INSERT INTO crm.admin_audit_trail (username, action_type, description) VALUES ($1,'BT_FORWARD',$2)`,
+      [req.user!.username, detail]
+    ).catch(() => {});
+
+    res.json({ ok: true, data: { new_status: newStatus } });
   } catch (err) { handleError(res, err, "forward file"); }
 });
 
@@ -401,7 +487,7 @@ router.post("/business/:fileNo/uploads", async (req: Request, res: Response) => 
     }
 
     await query(
-      `INSERT INTO crm.admin_audit_trail (employee_id, action, details) VALUES ($1,'BT_UPLOAD',$2)`,
+      `INSERT INTO crm.admin_audit_trail (username, action_type, description) VALUES ($1,'BT_UPLOAD',$2)`,
       [req.user!.sub, `Uploaded ${filename} for ${fileNo}`]
     ).catch(() => {});
 
@@ -411,12 +497,20 @@ router.post("/business/:fileNo/uploads", async (req: Request, res: Response) => 
 
 // ─── DELETE /business/:fileNo/uploads/:uploadId ───────────────────────────────
 router.delete("/business/:fileNo/uploads/:uploadId", async (req: Request, res: Response) => {
+  const { fileNo, uploadId } = req.params;
   try {
-    await query(
-      `UPDATE crm.business_uploads SET is_active=FALSE
-       WHERE upload_id=$1 AND file_no=$2`,
-      [Number(req.params.uploadId), req.params.fileNo]
+    const upload = await queryOne<{ filename: string }>(
+      `SELECT filename FROM crm.business_uploads WHERE upload_id=$1 AND file_no=$2`,
+      [Number(uploadId), fileNo]
     );
+    await query(
+      `UPDATE crm.business_uploads SET is_active=FALSE WHERE upload_id=$1 AND file_no=$2`,
+      [Number(uploadId), fileNo]
+    );
+    await query(
+      `INSERT INTO crm.admin_audit_trail (username, action_type, description) VALUES ($1,'BT_DOC_DELETE',$2)`,
+      [req.user!.sub, `Deleted ${upload?.filename ?? "file"} from ${fileNo}`]
+    ).catch(() => {});
     res.json({ ok: true });
   } catch (err) { handleError(res, err, "delete upload"); }
 });
@@ -428,9 +522,9 @@ router.get("/business/:fileNo/history", async (req: Request, res: Response) => {
     const rows = await query<{
       done_by: string; action: string; details: string; done_at: string;
     }>(
-      `SELECT employee_id AS done_by, action, details, created_at AS done_at
+      `SELECT username AS done_by, action_type AS action, description AS details, created_at AS done_at
        FROM crm.admin_audit_trail
-       WHERE details LIKE $1
+       WHERE description LIKE $1
        ORDER BY created_at DESC
        LIMIT 100`,
       [`%${fileNo}%`]
@@ -457,8 +551,8 @@ router.post("/business/:fileNo/mark-complete", async (req: Request, res: Respons
     const action = complete ? "BT_DOC_COMPLETE" : "BT_DOC_INCOMPLETE";
     const detail = `${complete ? "Marked complete" : "Marked incomplete"} ${fileNo} by ${req.user!.username}`;
     await query(
-      `INSERT INTO crm.admin_audit_trail (employee_id, action, details) VALUES ($1,$2,$3)`,
-      [req.user!.sub, action, detail]
+      `INSERT INTO crm.admin_audit_trail (username, action_type, description) VALUES ($1,$2,$3)`,
+      [req.user!.username, action, detail]
     ).catch(() => {});
 
     res.json({ ok: true });

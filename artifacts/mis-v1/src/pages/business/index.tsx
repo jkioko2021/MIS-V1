@@ -150,7 +150,7 @@ function blankForm(clientType: 'R' | 'C' = 'R'): FormState {
     proposer_name: '',
     family_code: '',
     receive_dt: today(),
-    nid: '', pin_no: '', walk_in_client: 'N', walk_in_auth: '', card_type: '', is_mtiba: false, is_ipf: false,
+    nid: '', pin_no: '', walk_in_client: 'Y', walk_in_auth: '', card_type: '', is_mtiba: false, is_ipf: false,
     cr12: false, cr12_ref: '', corp_category: '', sector: '',
     agent_id: '', county_code: '', gi_category: '', rate_type: 'S',
     pay_ref_no: '', paid_amt: '', pay_mode: '',
@@ -333,8 +333,9 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 
   const forwardMut = useMutation({
     mutationFn: () => misApi.businessForward(fileNo!, { to_user: forwardToUser, comments: forwardComments }),
-    onSuccess: () => {
-      toast({ title: 'File forwarded', description: 'Status updated to FORWARDED.' });
+    onSuccess: (res) => {
+      const newStatus = (res as { data?: { new_status?: string } })?.data?.new_status ?? 'FORWARDED';
+      toast({ title: 'File forwarded', description: `Status updated to ${newStatus}.` });
       setShowForwardDialog(false);
       setForwardToUser('');
       setForwardComments('');
@@ -369,12 +370,52 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
     onSuccess: () => qc.invalidateQueries({ queryKey: ['business-file', fileNo] }),
   });
 
+  // Delete an uploaded file and remove its acknowledgement
+  const deleteUploadMut = useMutation({
+    mutationFn: async ({ uploadId, reqId }: { uploadId: number; reqId: number }) => {
+      await misApi.businessDeleteUpload(fileNo!, uploadId);
+      await misApi.businessUnAckDoc(fileNo!, reqId);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['business-file', fileNo] });
+      qc.invalidateQueries({ queryKey: ['business-uploads', fileNo] });
+      qc.invalidateQueries({ queryKey: ['business-history', fileNo] });
+      toast({ title: 'Document removed' });
+    },
+    onError: (e) => toast({ title: 'Error removing document', description: String(e), variant: 'destructive' }),
+  });
+
   function handleSave() {
     if (!form.proposer_name.trim()) {
       toast({ title: 'Validation', description: 'Proposer name is required.', variant: 'destructive' }); return;
     }
     if (!form.business_type) {
       toast({ title: 'Validation', description: 'Business action is required.', variant: 'destructive' }); return;
+    }
+    if (!form.business) {
+      toast({ title: 'Validation', description: 'Coverage type (Medical/Non-Medical) is required.', variant: 'destructive' }); return;
+    }
+    if (!form.agent_id) {
+      toast({ title: 'Validation', description: 'Sales agent/broker is required.', variant: 'destructive' }); return;
+    }
+    // Retail Non-Medical: NID, County, PIN and GI Category are all mandatory (legacy rule)
+    if (isRetail && form.business === 'N') {
+      if (!form.nid.trim()) {
+        toast({ title: 'Validation', description: 'National ID is required for Non-Medical Retail.', variant: 'destructive' }); return;
+      }
+      if (!form.county_code) {
+        toast({ title: 'Validation', description: 'County is required for Non-Medical Retail.', variant: 'destructive' }); return;
+      }
+      if (!form.pin_no.trim()) {
+        toast({ title: 'Validation', description: 'KRA PIN is required for Non-Medical Retail.', variant: 'destructive' }); return;
+      }
+      if (!form.gi_category) {
+        toast({ title: 'Validation', description: 'GI Category is required for Non-Medical.', variant: 'destructive' }); return;
+      }
+    }
+    // Walk-in: Membership Admin must be selected
+    if (isRetail && form.walk_in_client === 'Y' && !form.allocated_to) {
+      toast({ title: 'Validation', description: 'Select a Membership Admin to allocate the walk-in file.', variant: 'destructive' }); return;
     }
     if (mode === 'register') registerMut.mutate();
     else updateMut.mutate();
@@ -733,12 +774,12 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                     </Field>
                   </div>
 
-                  {/* Processing section — only in edit mode */}
-                  {mode === 'edit' && (
+                  {/* Processing section — in edit mode, or in register mode for walk-in Retail */}
+                  {(mode === 'edit' || (isRetail && form.walk_in_client === 'Y')) && (
                     <>
-                      <SectionHeader title="Processing Status" />
+                      <SectionHeader title={mode === 'edit' ? 'Processing Status' : 'Walk-in Allocation'} />
                       <div className="grid grid-cols-2 gap-3">
-                        <Field label="Allocated To">
+                        <Field label="Allocated To *">
                           <Select value={form.allocated_to} onValueChange={v => set('allocated_to', v)}>
                             <SelectTrigger className="h-8 text-sm">
                               <SelectValue placeholder="Assign to employee…" />
@@ -882,32 +923,55 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 
                           {/* Right: action buttons */}
                           <div className="flex items-center gap-1.5 shrink-0">
-                            {!acked && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 text-xs gap-1 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300"
-                                onClick={() => { setUploadFor(r); setPendingFile(null); }}
-                              >
-                                <Upload className="w-3 h-3" /> Upload
-                              </Button>
+                            {docUpload ? (
+                              // Has an uploaded file → Replace or Delete
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs gap-1 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300"
+                                  onClick={() => { setUploadFor(r); setPendingFile(null); }}
+                                >
+                                  <Upload className="w-3 h-3" /> Replace
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs gap-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() => deleteUploadMut.mutate({ uploadId: docUpload.upload_id, reqId: r.req_id })}
+                                  disabled={deleteUploadMut.isPending}
+                                >
+                                  <Trash2 className="w-3 h-3" /> Delete
+                                </Button>
+                              </>
+                            ) : (
+                              // No uploaded file → Upload or Acknowledge/Remove
+                              <>
+                                {!acked && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs gap-1 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300"
+                                    onClick={() => { setUploadFor(r); setPendingFile(null); }}
+                                  >
+                                    <Upload className="w-3 h-3" /> Upload
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className={`h-7 text-xs gap-1 ${
+                                    acked
+                                      ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
+                                      : 'hover:bg-accent'
+                                  }`}
+                                  onClick={() => acked ? unAckDocMut.mutate(r.req_id) : ackDocMut.mutate(r.req_id)}
+                                  disabled={ackDocMut.isPending || unAckDocMut.isPending}
+                                >
+                                  {acked ? <><Trash2 className="w-3 h-3" /> Remove</> : 'Acknowledge'}
+                                </Button>
+                              </>
                             )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className={`h-7 text-xs gap-1 ${
-                                acked
-                                  ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
-                                  : 'hover:bg-accent'
-                              }`}
-                              onClick={() => acked ? unAckDocMut.mutate(r.req_id) : ackDocMut.mutate(r.req_id)}
-                              disabled={ackDocMut.isPending || unAckDocMut.isPending}
-                            >
-                              {acked
-                                ? <><Trash2 className="w-3 h-3" /> Remove</>
-                                : 'Acknowledge'
-                              }
-                            </Button>
                           </div>
                         </div>
                       </div>
@@ -1058,15 +1122,21 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                 Forward File — {fileNo}
               </DialogTitle>
               <DialogDescription>
-                Select the destination employee and add an optional handover note.
+                Select the destination employee and add a handover note. Comments are required.
               </DialogDescription>
             </DialogHeader>
+            {!(existingFile?.is_complete) && (
+              <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <AlertCircle className="w-4 h-4 shrink-0 text-amber-500" />
+                <span>Tick <strong>Documentation Complete</strong> in the Documents tab before forwarding.</span>
+              </div>
+            )}
             <div className="space-y-4 py-2">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-700">Forward To</Label>
                 <Select value={forwardToUser} onValueChange={setForwardToUser}>
                   <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Select employee…" />
+                    <SelectValue placeholder="Select employee (optional)…" />
                   </SelectTrigger>
                   <SelectContent>
                     {employees.map(e => (
@@ -1076,11 +1146,13 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Comments <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Label className="text-xs font-semibold text-slate-700">
+                  Comments <span className="text-red-500">*</span>
+                </Label>
                 <Textarea
                   value={forwardComments}
                   onChange={e => setForwardComments(e.target.value)}
-                  placeholder="Add any handover notes…"
+                  placeholder="Required — add handover notes or reason for forwarding…"
                   className="text-sm resize-none h-20"
                 />
               </div>
@@ -1090,7 +1162,13 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                 Cancel
               </Button>
               <Button
-                onClick={() => forwardMut.mutate()}
+                onClick={() => {
+                  if (!forwardComments.trim()) {
+                    toast({ title: 'Comments required', description: 'Add a handover note before forwarding.', variant: 'destructive' });
+                    return;
+                  }
+                  forwardMut.mutate();
+                }}
                 disabled={forwardMut.isPending}
                 className="gap-1.5 bg-blue-600 hover:bg-blue-700"
               >
