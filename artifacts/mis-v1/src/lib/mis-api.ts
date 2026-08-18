@@ -172,42 +172,42 @@ export const misApi = {
 
   // Business tracking - reads
   business:        (params?: Record<string, string>) => get<ApiResponse<BusinessFile[]>>('/mis/business', params),
-  businessFile:    (fileNo: string) => get<ApiResponse<BusinessFile & { notes: BusinessNote[]; docs: BusinessDoc[] }>>(`/mis/business/${fileNo}`),
+  businessFile:    (fileNo: string) => get<ApiResponse<BusinessFile & { notes: BusinessNote[]; docs: BusinessDoc[] }>>(`/mis/business/${encodeURIComponent(fileNo)}`),
   businessSummary: () => get<ApiResponse<BusinessSummary>>('/mis/business/summary/counts'),
 
   // Business tracking - writes
   businessRegister: (body: Partial<BusinessFile>) =>
     post<ApiResponse<{ file_no: string }>>('/business/register', body),
   businessUpdate: (fileNo: string, body: Partial<BusinessFile>) =>
-    put<ApiResponse<void>>(`/business/${fileNo}`, body),
+    put<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}`, body),
   businessForward: (fileNo: string, body?: { to_user?: string; comments?: string }) =>
-    post<ApiResponse<void>>(`/business/${fileNo}/forward`, body),
+    post<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}/forward`, body),
   businessAllocate: (fileNo: string, allocated_to: string) =>
-    post<ApiResponse<void>>(`/business/${fileNo}/allocate`, { allocated_to }),
+    post<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}/allocate`, { allocated_to }),
   businessAddNote: (fileNo: string, notes: string) =>
-    post<ApiResponse<{ note_id: number }>>(`/business/${fileNo}/notes`, { notes }),
+    post<ApiResponse<{ note_id: number }>>(`/business/${encodeURIComponent(fileNo)}/notes`, { notes }),
   businessDeleteNote: (fileNo: string, noteId: number) =>
-    del<ApiResponse<void>>(`/business/${fileNo}/notes/${noteId}`),
+    del<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}/notes/${noteId}`),
   businessAckDoc: (fileNo: string, reqId: number) =>
-    post<ApiResponse<void>>(`/business/${fileNo}/checklist/${reqId}`),
+    post<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}/checklist/${reqId}`),
   businessUnAckDoc: (fileNo: string, reqId: number) =>
-    del<ApiResponse<void>>(`/business/${fileNo}/checklist/${reqId}`),
+    del<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}/checklist/${reqId}`),
 
   // History & documentation complete
   businessGetHistory: (fileNo: string) =>
-    get<ApiResponse<AuditEntry[]>>(`/business/${fileNo}/history`),
+    get<ApiResponse<AuditEntry[]>>(`/business/${encodeURIComponent(fileNo)}/history`),
   businessMarkComplete: (fileNo: string, complete: boolean) =>
-    post<ApiResponse<void>>(`/business/${fileNo}/mark-complete`, { complete }),
+    post<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}/mark-complete`, { complete }),
 
   // Document uploads
   businessListUploads: (fileNo: string) =>
-    get<ApiResponse<BusinessUpload[]>>(`/business/${fileNo}/uploads`),
+    get<ApiResponse<BusinessUpload[]>>(`/business/${encodeURIComponent(fileNo)}/uploads`),
   businessRecordUpload: (fileNo: string, body: {
     req_id?: number; filename: string; filesize?: number;
     mime_type?: string; storage_key: string;
-  }) => post<ApiResponse<{ upload_id: number }>>(`/business/${fileNo}/uploads`, body),
+  }) => post<ApiResponse<{ upload_id: number }>>(`/business/${encodeURIComponent(fileNo)}/uploads`, body),
   businessDeleteUpload: (fileNo: string, uploadId: number) =>
-    del<ApiResponse<void>>(`/business/${fileNo}/uploads/${uploadId}`),
+    del<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}/uploads/${uploadId}`),
 
   // Reference data
   businessRequirements: (client_type?: string) =>
