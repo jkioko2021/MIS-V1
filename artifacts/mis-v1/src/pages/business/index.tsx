@@ -533,7 +533,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 
   return (
     <Sheet open onOpenChange={v => !v && onClose()}>
-      <SheetContent className="w-[680px] sm:max-w-[680px] p-0 flex flex-col !bg-white dark:!bg-card border-l-2 border-slate-200">
+      <SheetContent className="w-[720px] sm:max-w-[720px] p-0 flex flex-col !bg-white dark:!bg-card border-l-2 border-slate-200">
         {/* Header */}
         <SheetHeader className="px-5 pt-5 pb-3 border-b shrink-0">
           <div className="flex items-start justify-between gap-3">
@@ -553,7 +553,6 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                 </div>
               )}
             </div>
-            {/* Client type toggle — only for new registration */}
             {mode === 'register' && (
               <div className="flex rounded-lg border bg-muted p-0.5 shrink-0">
                 {(['R','C'] as const).map(ct => (
@@ -575,551 +574,356 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
           </div>
         </SheetHeader>
 
-        {/* Body */}
+        {/* Body — single scrollable page */}
         {mode === 'edit' && fileLoading ? (
           <div className="p-5 space-y-3">
             {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-8" />)}
           </div>
         ) : (
-          <Tabs defaultValue="details" className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="mx-5 mt-3 w-auto shrink-0 justify-start h-9">
-              <TabsTrigger value="details" className="text-xs gap-1.5">
-                <FileText className="w-3.5 h-3.5" /> Details
-              </TabsTrigger>
-              {mode === 'edit' && (
-                <>
-                  <TabsTrigger value="docs" className="text-xs gap-1.5">
-                    <FileCheck className="w-3.5 h-3.5" />
-                    Documents {requirements.length > 0 && (
-                      <span className={`ml-1 text-xs font-medium ${isComplete ? 'text-green-600' : 'text-amber-600'}`}>
-                        {ackedCount}/{requirements.length}
-                      </span>
-                    )}
-                  </TabsTrigger>
-                  <TabsTrigger value="notes" className="text-xs gap-1.5">
-                    <MessageSquare className="w-3.5 h-3.5" /> Notes {notes.length > 0 && `(${notes.length})`}
-                  </TabsTrigger>
-                  <TabsTrigger value="history" className="text-xs gap-1.5">
-                    <History className="w-3.5 h-3.5" /> History {history.length > 0 && `(${history.length})`}
-                  </TabsTrigger>
-                </>
-              )}
-            </TabsList>
+          <ScrollArea className="flex-1">
+            <div className="px-5 pb-4 space-y-3">
 
-            {/* ── DETAILS TAB ──────────────────────────────────────────────── */}
-            <TabsContent value="details" className="flex-1 overflow-hidden mt-0">
-              <ScrollArea className="h-full">
-                <div className="px-5 pb-4 space-y-3">
-                  <SectionHeader title="File Information" />
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field label="Business Action" required>
-                      <SelectField
-                        value={form.business_type}
-                        onChange={v => set('business_type', v)}
-                        options={BUSINESS_ACTIONS}
-                        placeholder="Select action…"
-                      />
-                    </Field>
-                    <Field label="Coverage Type" required>
-                      <SelectField
-                        value={form.business}
-                        onChange={v => set('business', v as 'M' | 'N')}
-                        options={[{ value: 'M', label: 'Medical' }, { value: 'N', label: 'Non-Medical' }]}
-                      />
-                    </Field>
-                    <Field label="Receive Date">
-                      <Input
-                        type="date"
-                        value={form.receive_dt}
-                        onChange={e => set('receive_dt', e.target.value)}
-                        className="h-8 text-sm"
-                      />
-                    </Field>
-                    <Field label="Rate Type">
-                      <SelectField
-                        value={form.rate_type}
-                        onChange={v => set('rate_type', v as 'S' | 'C')}
-                        options={[{ value: 'S', label: 'Standard' }, { value: 'C', label: 'Corporate' }]}
-                      />
-                    </Field>
-                  </div>
+              {/* ── Registration / Edit Form ─────────────────────────────── */}
+              <SectionHeader title="File Information" />
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Business Action" required>
+                  <SelectField value={form.business_type} onChange={v => set('business_type', v)} options={BUSINESS_ACTIONS} placeholder="Select action…" />
+                </Field>
+                <Field label="Coverage Type" required>
+                  <SelectField value={form.business} onChange={v => set('business', v as 'M' | 'N')} options={[{ value: 'M', label: 'Medical' }, { value: 'N', label: 'Non-Medical' }]} />
+                </Field>
+                <Field label="Receive Date">
+                  <Input type="date" value={form.receive_dt} onChange={e => set('receive_dt', e.target.value)} className="h-8 text-sm" />
+                </Field>
+                <Field label="Rate Type">
+                  <SelectField value={form.rate_type} onChange={v => set('rate_type', v as 'S' | 'C')} options={[{ value: 'S', label: 'Standard' }, { value: 'C', label: 'Corporate' }]} />
+                </Field>
+              </div>
 
-                  <SectionHeader title="Proposer Details" />
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field label="Proposer Name" required>
-                      <TextInput value={form.proposer_name} onChange={v => set('proposer_name', v)} placeholder="Full name…" />
-                    </Field>
-                    <Field label="Family / Policy Code">
-                      <TextInput value={form.family_code} onChange={v => set('family_code', v)} placeholder="e.g. AAR-12345" />
-                    </Field>
+              <SectionHeader title="Proposer Details" />
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Proposer Name" required>
+                  <TextInput value={form.proposer_name} onChange={v => set('proposer_name', v)} placeholder="Full name…" />
+                </Field>
+                <Field label="Family / Policy Code">
+                  <TextInput value={form.family_code} onChange={v => set('family_code', v)} placeholder="e.g. AAR-12345" />
+                </Field>
 
-                    {/* Retail-only fields */}
-                    {isRetail && (
-                      <>
-                        <Field label="National ID (NID)">
-                          <TextInput value={form.nid} onChange={v => set('nid', v)} placeholder="ID number…" />
-                        </Field>
-                        <Field label="KRA PIN">
-                          <TextInput value={form.pin_no} onChange={v => set('pin_no', v)} placeholder="PIN certificate no." />
-                        </Field>
-                        <div className="col-span-2 flex items-center gap-6">
-                          <CheckRow checked={form.walk_in_client === 'Y'} onChange={v => set('walk_in_client', v ? 'Y' : 'N')} label="Walk-in Client" />
-                          <CheckRow checked={form.is_mtiba} onChange={v => set('is_mtiba', v)} label="M-TIBA Card" />
-                          <CheckRow checked={form.is_ipf} onChange={v => set('is_ipf', v)} label="IPF (Insurance Premium Financing)" />
-                        </div>
-                        {form.walk_in_client === 'Y' && (
-                          <Field label="Walk-in Authorised By">
-                            <SelectField
-                              value={form.walk_in_auth}
-                              onChange={v => set('walk_in_auth', v)}
-                              options={employees.map(e => ({ value: e.username, label: e.employee_name }))}
-                              placeholder="Select authoriser…"
-                            />
-                          </Field>
-                        )}
-                      </>
-                    )}
-
-                    {/* Corporate-only fields */}
-                    {isCorp && (
-                      <>
-                        <Field label="Business Category">
-                          <SelectField
-                            value={form.corp_category}
-                            onChange={v => set('corp_category', v)}
-                            options={CORP_CATS.map(c => ({ value: c, label: c }))}
-                            placeholder="Select category…"
-                          />
-                        </Field>
-                        <Field label="Industry Sector">
-                          <SelectField
-                            value={form.sector}
-                            onChange={v => set('sector', v)}
-                            options={SECTORS.map(s => ({ value: s, label: s }))}
-                            placeholder="Select sector…"
-                          />
-                        </Field>
-                        <Field label="CR12 Reference No.">
-                          <TextInput
-                            value={form.cr12_ref}
-                            onChange={v => set('cr12_ref', v)}
-                            placeholder="e.g. CR12/2024/00123"
-                          />
-                        </Field>
-                        <div className="col-span-2 flex items-center gap-6">
-                          <CheckRow checked={form.cr12} onChange={v => set('cr12', v)} label="CR12 / Certificate of Incorporation submitted" />
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  <SectionHeader title="Classification" />
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field label="Sales Agent">
-                      <Select value={form.agent_id} onValueChange={v => set('agent_id', v)}>
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue placeholder="Assign agent…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {agents.filter(a => a.is_active).map(a => (
-                            <SelectItem key={a.agent_id} value={a.agent_id}>{a.agent_name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                {isRetail && (
+                  <>
+                    <Field label="National ID (NID)">
+                      <TextInput value={form.nid} onChange={v => set('nid', v)} placeholder="ID number…" />
                     </Field>
-                    <Field label="County">
-                      <Select value={form.county_code} onValueChange={v => set('county_code', v)}>
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue placeholder="Select county…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {counties.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                    <Field label="KRA PIN">
+                      <TextInput value={form.pin_no} onChange={v => set('pin_no', v)} placeholder="PIN certificate no." />
                     </Field>
-                    <Field label="GI Category">
-                      <SelectField
-                        value={form.gi_category}
-                        onChange={v => set('gi_category', v)}
-                        options={GI_CATS.map(g => ({ value: g, label: g }))}
-                        placeholder="Select GI category…"
-                      />
-                    </Field>
-                    <Field label="Client Type">
-                      <SelectField
-                        value={form.client_sub_type}
-                        onChange={v => set('client_sub_type', v)}
-                        options={[{ value: 'S', label: 'SME' }, { value: 'C', label: 'CORPORATE' }]}
-                        placeholder="Select client type…"
-                      />
-                    </Field>
-                    {isRetail && form.is_mtiba && (
-                      <Field label="Card Type">
-                        <SelectField
-                          value={form.card_type}
-                          onChange={v => set('card_type', v)}
-                          options={CARD_TYPES.map(c => ({ value: c, label: c }))}
-                          placeholder="Select card type…"
-                        />
+                    <div className="col-span-2 flex items-center gap-6">
+                      <CheckRow checked={form.walk_in_client === 'Y'} onChange={v => set('walk_in_client', v ? 'Y' : 'N')} label="Walk-in Client" />
+                      <CheckRow checked={form.is_mtiba} onChange={v => set('is_mtiba', v)} label="M-TIBA Card" />
+                      <CheckRow checked={form.is_ipf} onChange={v => set('is_ipf', v)} label="IPF (Insurance Premium Financing)" />
+                    </div>
+                    {form.walk_in_client === 'Y' && (
+                      <Field label="Walk-in Authorised By">
+                        <SelectField value={form.walk_in_auth} onChange={v => set('walk_in_auth', v)} options={employees.map(e => ({ value: e.username, label: e.employee_name }))} placeholder="Select authoriser…" />
                       </Field>
                     )}
-                  </div>
+                  </>
+                )}
 
-                  <SectionHeader title="Payment" />
+                {isCorp && (
+                  <>
+                    <Field label="Business Category">
+                      <SelectField value={form.corp_category} onChange={v => set('corp_category', v)} options={CORP_CATS.map(c => ({ value: c, label: c }))} placeholder="Select category…" />
+                    </Field>
+                    <Field label="Industry Sector">
+                      <SelectField value={form.sector} onChange={v => set('sector', v)} options={SECTORS.map(s => ({ value: s, label: s }))} placeholder="Select sector…" />
+                    </Field>
+                    <Field label="CR12 Reference No.">
+                      <TextInput value={form.cr12_ref} onChange={v => set('cr12_ref', v)} placeholder="e.g. CR12/2024/00123" />
+                    </Field>
+                    <div className="col-span-2 flex items-center gap-6">
+                      <CheckRow checked={form.cr12} onChange={v => set('cr12', v)} label="CR12 / Certificate of Incorporation submitted" />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <SectionHeader title="Classification" />
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Sales Agent" required>
+                  <Select value={form.agent_id} onValueChange={v => set('agent_id', v)}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Assign agent…" /></SelectTrigger>
+                    <SelectContent>{agents.filter(a => a.is_active).map(a => <SelectItem key={a.agent_id} value={a.agent_id}>{a.agent_name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </Field>
+                <Field label="County">
+                  <Select value={form.county_code} onValueChange={v => set('county_code', v)}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select county…" /></SelectTrigger>
+                    <SelectContent>{counties.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
+                </Field>
+                <Field label="GI Category">
+                  <SelectField value={form.gi_category} onChange={v => set('gi_category', v)} options={GI_CATS.map(g => ({ value: g, label: g }))} placeholder="Select GI category…" />
+                </Field>
+                <Field label="Client Sub-Type">
+                  <SelectField value={form.client_sub_type} onChange={v => set('client_sub_type', v)} options={[{ value: 'S', label: 'SME' }, { value: 'C', label: 'CORPORATE' }]} placeholder="Select client type…" />
+                </Field>
+                {isRetail && form.is_mtiba && (
+                  <Field label="Card Type">
+                    <SelectField value={form.card_type} onChange={v => set('card_type', v)} options={CARD_TYPES.map(c => ({ value: c, label: c }))} placeholder="Select card type…" />
+                  </Field>
+                )}
+              </div>
+
+              <SectionHeader title="Payment" />
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Payment Reference No.">
+                  <TextInput value={form.pay_ref_no} onChange={v => set('pay_ref_no', v)} placeholder="e.g. MPESA ref…" />
+                </Field>
+                <Field label="Paid Amount (KES)">
+                  <TextInput value={form.paid_amt} onChange={v => set('paid_amt', v)} placeholder="0.00" />
+                </Field>
+                <Field label="Payment Mode">
+                  <SelectField value={form.pay_mode} onChange={v => set('pay_mode', v)} options={PAY_MODES.map(p => ({ value: p, label: p }))} placeholder="Select mode…" />
+                </Field>
+              </div>
+
+              {/* Processing Status — edit mode or walk-in register */}
+              {(mode === 'edit' || (isRetail && form.walk_in_client === 'Y')) && (
+                <>
+                  <SectionHeader title={mode === 'edit' ? 'Processing Status' : 'Walk-in Allocation'} />
                   <div className="grid grid-cols-2 gap-3">
-                    <Field label="Payment Reference No.">
-                      <TextInput value={form.pay_ref_no} onChange={v => set('pay_ref_no', v)} placeholder="e.g. MPESA ref…" />
+                    <Field label="Allocated To *">
+                      <Select value={form.allocated_to} onValueChange={v => set('allocated_to', v)}>
+                        <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Assign to employee…" /></SelectTrigger>
+                        <SelectContent>{employees.map(e => <SelectItem key={e.username} value={e.username}>{e.employee_name}</SelectItem>)}</SelectContent>
+                      </Select>
                     </Field>
-                    <Field label="Paid Amount (KES)">
-                      <TextInput value={form.paid_amt} onChange={v => set('paid_amt', v)} placeholder="0.00" />
+                    <Field label="Benefit Verified">
+                      <SelectField value={form.benefit_verified} onChange={v => set('benefit_verified', v as 'YES' | 'NO')} options={[{ value: 'YES', label: 'Yes — Verified' }, { value: 'NO', label: 'No — Pending' }]} />
                     </Field>
-                    <Field label="Payment Mode">
-                      <SelectField
-                        value={form.pay_mode}
-                        onChange={v => set('pay_mode', v)}
-                        options={PAY_MODES.map(p => ({ value: p, label: p }))}
-                        placeholder="Select mode…"
-                      />
-                    </Field>
+                    <div className="col-span-2 flex items-center gap-6">
+                      <CheckRow checked={form.medical_uw} onChange={v => set('medical_uw', v)} label="Medical UW Reviewed" />
+                      <CheckRow checked={form.invoiced} onChange={v => set('invoiced', v)} label="Invoiced" />
+                    </div>
                   </div>
+                </>
+              )}
 
-                  {/* Processing section — in edit mode, or in register mode for walk-in Retail */}
-                  {(mode === 'edit' || (isRetail && form.walk_in_client === 'Y')) && (
-                    <>
-                      <SectionHeader title={mode === 'edit' ? 'Processing Status' : 'Walk-in Allocation'} />
-                      <div className="grid grid-cols-2 gap-3">
-                        <Field label="Allocated To *">
-                          <Select value={form.allocated_to} onValueChange={v => set('allocated_to', v)}>
-                            <SelectTrigger className="h-8 text-sm">
-                              <SelectValue placeholder="Assign to employee…" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {employees.map(e => (
-                                <SelectItem key={e.username} value={e.username}>{e.employee_name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </Field>
-                        <Field label="Benefit Verified">
-                          <SelectField
-                            value={form.benefit_verified}
-                            onChange={v => set('benefit_verified', v as 'YES' | 'NO')}
-                            options={[{ value: 'YES', label: 'Yes — Verified' }, { value: 'NO', label: 'No — Pending' }]}
-                          />
-                        </Field>
-                        <div className="col-span-2 flex items-center gap-6">
-                          <CheckRow checked={form.medical_uw} onChange={v => set('medical_uw', v)} label="Medical UW Reviewed" />
-                          <CheckRow checked={form.invoiced} onChange={v => set('invoiced', v)} label="Invoiced" />
-                        </div>
-                      </div>
+              {/* ── Document Upload ────────────────────────────────────────── */}
+              {mode === 'edit' && (
+                <>
+                  <SectionHeader title={`Documents ${requirements.length > 0 ? `(${ackedCount}/${requirements.length})` : ''}`} />
 
-                      {/* Forward info banner */}
-                      {existingFile && (
-                        <div className={`rounded-lg border p-3 text-xs space-y-1 ${isComplete ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'}`}>
-                          <div className="flex items-center gap-1.5 font-medium">
-                            {isComplete
-                              ? <><CheckCircle2 className="w-3.5 h-3.5 text-green-600" /><span className="text-green-700">All documents acknowledged</span></>
-                              : <><Circle className="w-3.5 h-3.5 text-amber-600" /><span className="text-amber-700">Documentation incomplete ({ackedCount}/{requirements.length} docs)</span></>
-                            }
-                          </div>
-                          {existingFile.forward_date && (
-                            <p className="text-muted-foreground">
-                              Forwarded {fmtDate(existingFile.forward_date)} by {existingFile.forwarded_by}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </ScrollArea>
-            </TabsContent>
-
-            {/* ── DOCUMENTS TAB ────────────────────────────────────────────── */}
-            <TabsContent value="docs" className="flex-1 overflow-hidden mt-0">
-              <ScrollArea className="h-full">
-                <div className="px-5 py-4 space-y-3">
-
-                  {/* Summary banner */}
-                  <div className={`rounded-xl border px-4 py-3 flex items-center gap-3 ${
-                    isComplete
-                      ? 'border-green-200 bg-green-50'
-                      : 'border-amber-200 bg-amber-50/70'
-                  }`}>
+                  {/* Progress banner */}
+                  <div className={`rounded-xl border px-4 py-3 flex items-center gap-3 ${isComplete ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50/70'}`}>
                     {isComplete
                       ? <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
                       : <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
                     }
                     <div>
                       <p className={`text-sm font-semibold ${isComplete ? 'text-green-800' : 'text-amber-800'}`}>
-                        {isComplete ? 'All documents complete' : `${requirements.length - ackedCount} document(s) still pending`}
+                        {isComplete ? 'All documents acknowledged' : `${requirements.length - ackedCount} document(s) still pending`}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {ackedCount} of {requirements.length} acknowledged · Upload files or click Acknowledge
-                      </p>
+                      <p className="text-xs text-muted-foreground">{ackedCount} of {requirements.length} acknowledged · Upload or click Acknowledge</p>
                     </div>
-                  </div>
-
-                  {/* Documentation Complete toggle */}
-                  <div className="flex items-center justify-between rounded-xl border px-4 py-2.5 bg-card">
-                    <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={existingFile?.is_complete ?? isComplete}
-                        onChange={e => markCompleteMut.mutate(e.target.checked)}
-                        disabled={markCompleteMut.isPending}
-                        className="w-4 h-4 rounded border-gray-300 accent-green-600 cursor-pointer"
-                      />
-                      <span className="text-sm font-medium">Documentation Complete</span>
-                    </label>
-                    {(existingFile?.is_complete ?? isComplete) && (
-                      <span className="text-xs text-green-600 font-medium flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Marked complete
-                      </span>
-                    )}
                   </div>
 
                   {/* Document rows */}
-                  {requirements.map(r => {
-                    const acked = isAcknowledged(r.req_id);
-                    const info = getAckInfo(r.req_id);
-                    const docUpload = uploads.find(u => u.req_id === r.req_id);
-
-                    return (
-                      <div
-                        key={r.req_id}
-                        className={`rounded-xl border transition-colors ${
-                          acked ? 'border-green-200 bg-green-50/40' : 'border-border bg-card'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3 p-3.5">
-                          {/* Left: icon + text */}
-                          <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                            {acked
-                              ? <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
-                              : <Circle className="w-4 h-4 text-muted-foreground/50 mt-0.5 shrink-0" />
-                            }
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium leading-snug">{r.req_name}</p>
+                  <div className="space-y-2">
+                    {requirements.map(r => {
+                      const acked = isAcknowledged(r.req_id);
+                      const info  = getAckInfo(r.req_id);
+                      const docUpload = uploads.find(u => u.req_id === r.req_id);
+                      return (
+                        <div key={r.req_id} className={`rounded-xl border transition-colors ${acked ? 'border-green-200 bg-green-50/40' : 'border-border bg-card'}`}>
+                          <div className="flex items-start justify-between gap-3 p-3.5">
+                            <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                              {acked
+                                ? <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                                : <Circle className="w-4 h-4 text-muted-foreground/50 mt-0.5 shrink-0" />
+                              }
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium leading-snug">{r.req_name}</p>
+                                {docUpload ? (
+                                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                    <Paperclip className="w-3 h-3 text-blue-500 shrink-0" />
+                                    <a href={`/api/storage/objects${docUpload.storage_key}`} target="_blank" rel="noopener noreferrer"
+                                      className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[200px]" onClick={e => e.stopPropagation()}>
+                                      {docUpload.filename}
+                                    </a>
+                                    {docUpload.filesize != null && <span className="text-xs text-muted-foreground shrink-0">· {fmtBytes(docUpload.filesize)}</span>}
+                                    <span className="text-xs text-muted-foreground shrink-0">· {docUpload.uploaded_by}</span>
+                                  </div>
+                                ) : acked && info ? (
+                                  <p className="text-xs text-muted-foreground mt-0.5">Acknowledged by {info.acknowledged_by} · {fmtDate(info.acknowledged_at)}</p>
+                                ) : null}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
                               {docUpload ? (
-                                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                                  <Paperclip className="w-3 h-3 text-blue-500 shrink-0" />
-                                  <a
-                                    href={`/api/storage/objects${docUpload.storage_key}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[200px]"
-                                    onClick={e => e.stopPropagation()}
-                                  >
-                                    {docUpload.filename}
-                                  </a>
-                                  {docUpload.filesize != null && (
-                                    <span className="text-xs text-muted-foreground shrink-0">
-                                      · {fmtBytes(docUpload.filesize)}
-                                    </span>
+                                <>
+                                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-blue-200 text-blue-700 hover:bg-blue-50" onClick={() => { setUploadFor(r); setPendingFile(null); }}>
+                                    <Upload className="w-3 h-3" /> Replace
+                                  </Button>
+                                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                    onClick={() => deleteUploadMut.mutate({ uploadId: docUpload.upload_id, reqId: r.req_id })} disabled={deleteUploadMut.isPending}>
+                                    <Trash2 className="w-3 h-3" /> Delete
+                                  </Button>
+                                </>
+                              ) : (
+                                <>
+                                  {!acked && (
+                                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-blue-200 text-blue-700 hover:bg-blue-50" onClick={() => { setUploadFor(r); setPendingFile(null); }}>
+                                      <Upload className="w-3 h-3" /> Upload
+                                    </Button>
                                   )}
-                                  <span className="text-xs text-muted-foreground shrink-0">
-                                    · {docUpload.uploaded_by}
-                                  </span>
-                                </div>
-                              ) : acked && info ? (
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                  Acknowledged by {info.acknowledged_by} · {fmtDate(info.acknowledged_at)}
-                                </p>
-                              ) : null}
+                                  <Button variant="ghost" size="sm"
+                                    className={`h-7 text-xs gap-1 ${acked ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10' : 'hover:bg-accent'}`}
+                                    onClick={() => acked ? unAckDocMut.mutate(r.req_id) : ackDocMut.mutate(r.req_id)}
+                                    disabled={ackDocMut.isPending || unAckDocMut.isPending}>
+                                    {acked ? <><Trash2 className="w-3 h-3" /> Remove</> : 'Acknowledge'}
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           </div>
-
-                          {/* Right: action buttons */}
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {docUpload ? (
-                              // Has an uploaded file → Replace or Delete
-                              <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs gap-1 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300"
-                                  onClick={() => { setUploadFor(r); setPendingFile(null); }}
-                                >
-                                  <Upload className="w-3 h-3" /> Replace
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 text-xs gap-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                  onClick={() => deleteUploadMut.mutate({ uploadId: docUpload.upload_id, reqId: r.req_id })}
-                                  disabled={deleteUploadMut.isPending}
-                                >
-                                  <Trash2 className="w-3 h-3" /> Delete
-                                </Button>
-                              </>
-                            ) : (
-                              // No uploaded file → Upload or Acknowledge/Remove
-                              <>
-                                {!acked && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 text-xs gap-1 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300"
-                                    onClick={() => { setUploadFor(r); setPendingFile(null); }}
-                                  >
-                                    <Upload className="w-3 h-3" /> Upload
-                                  </Button>
-                                )}
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className={`h-7 text-xs gap-1 ${
-                                    acked
-                                      ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
-                                      : 'hover:bg-accent'
-                                  }`}
-                                  onClick={() => acked ? unAckDocMut.mutate(r.req_id) : ackDocMut.mutate(r.req_id)}
-                                  disabled={ackDocMut.isPending || unAckDocMut.isPending}
-                                >
-                                  {acked ? <><Trash2 className="w-3 h-3" /> Remove</> : 'Acknowledge'}
-                                </Button>
-                              </>
-                            )}
-                          </div>
                         </div>
+                      );
+                    })}
+                    {requirements.length === 0 && (
+                      <div className="py-8 text-center text-muted-foreground">
+                        <FileCheck className="w-8 h-8 mx-auto mb-2 opacity-25" />
+                        <p className="text-sm">No document requirements found.</p>
                       </div>
-                    );
-                  })}
+                    )}
+                  </div>
 
-                  {requirements.length === 0 && (
-                    <div className="py-12 text-center text-muted-foreground">
-                      <FileCheck className="w-8 h-8 mx-auto mb-2 opacity-25" />
-                      <p className="text-sm">No document requirements found.</p>
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-            </TabsContent>
-
-            {/* ── HISTORY TAB ──────────────────────────────────────────────── */}
-            <TabsContent value="history" className="flex-1 overflow-hidden mt-0">
-              <ScrollArea className="h-full">
-                <div className="px-5 py-4 space-y-2">
-                  {history.length === 0 ? (
-                    <div className="py-12 text-center text-muted-foreground">
-                      <History className="w-8 h-8 mx-auto mb-2 opacity-25" />
-                      <p className="text-sm">No activity recorded yet.</p>
-                    </div>
-                  ) : history.map((h, i) => {
-                    const colorMap: Record<string, string> = {
-                      BT_REGISTER:      'bg-green-100 text-green-700 border-green-200',
-                      BT_UPDATE:        'bg-blue-100 text-blue-700 border-blue-200',
-                      BT_FORWARD:       'bg-purple-100 text-purple-700 border-purple-200',
-                      BT_UPLOAD:        'bg-teal-100 text-teal-700 border-teal-200',
-                      BT_DOC_COMPLETE:  'bg-amber-100 text-amber-700 border-amber-200',
-                      BT_DOC_INCOMPLETE:'bg-red-100 text-red-700 border-red-200',
-                    };
-                    const labelMap: Record<string, string> = {
-                      BT_REGISTER:      'Registered',
-                      BT_UPDATE:        'Updated',
-                      BT_FORWARD:       'Forwarded',
-                      BT_UPLOAD:        'Document Uploaded',
-                      BT_DOC_COMPLETE:  'Docs Complete',
-                      BT_DOC_INCOMPLETE:'Docs Incomplete',
-                    };
-                    return (
-                      <div key={i} className="flex items-start gap-3 p-3 rounded-lg border bg-card">
-                        <span className={`text-xs px-2 py-0.5 rounded-full border font-medium shrink-0 mt-0.5 ${colorMap[h.action] ?? 'bg-gray-100 text-gray-700 border-gray-200'}`}>
-                          {labelMap[h.action] ?? h.action}
-                        </span>
-                        <p className="text-xs text-muted-foreground flex-1 min-w-0 break-words leading-relaxed">
-                          {h.details}
-                        </p>
-                        <div className="text-right shrink-0">
-                          <div className="text-xs font-medium">{h.done_by}</div>
-                          <div className="text-xs text-muted-foreground">{fmtDate(h.done_at)}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
-            </TabsContent>
-
-            {/* ── NOTES TAB ────────────────────────────────────────────────── */}
-            <TabsContent value="notes" className="flex-1 overflow-hidden mt-0">
-              <div className="flex flex-col h-full">
-                {/* Add note */}
-                <div className="px-5 py-3 border-b shrink-0">
+                  {/* ── Notes ─────────────────────────────────────────────── */}
+                  <SectionHeader title={`Notes${notes.length > 0 ? ` (${notes.length})` : ''}`} />
                   <div className="flex gap-2">
                     <Textarea
                       value={noteText}
                       onChange={e => setNoteText(e.target.value)}
-                      placeholder="Type a note…"
-                      className="text-sm resize-none h-16"
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleAddNote();
-                      }}
+                      placeholder="Type a note… (Ctrl+Enter to submit)"
+                      className="text-sm resize-none h-16 flex-1"
+                      onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleAddNote(); }}
                     />
-                    <Button
-                      size="sm"
-                      className="shrink-0 self-end"
-                      onClick={handleAddNote}
-                      disabled={!noteText.trim() || addNoteMut.isPending}
-                    >
+                    <Button size="sm" className="shrink-0 self-end" onClick={handleAddNote} disabled={!noteText.trim() || addNoteMut.isPending}>
                       <SendHorizontal className="w-4 h-4" />
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">Ctrl+Enter to submit</p>
-                </div>
-                <ScrollArea className="flex-1">
-                  <div className="px-5 py-3 space-y-3">
-                    {notes.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-8">No notes yet.</p>
-                    ) : notes.map(n => (
-                      <div key={n.note_id} className="border rounded-lg p-3 group">
-                        <div className="flex justify-between items-center mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold">{n.note_from}</span>
-                            <span className="text-xs text-muted-foreground">{fmtDate(n.note_date)}</span>
+                  {notes.length > 0 && (
+                    <div className="space-y-2">
+                      {notes.map(n => (
+                        <div key={n.note_id} className="border rounded-lg p-3 group">
+                          <div className="flex justify-between items-center mb-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold">{n.note_from}</span>
+                              <span className="text-xs text-muted-foreground">{fmtDate(n.note_date)}</span>
+                            </div>
+                            <button onClick={() => deleteNoteMut.mutate(n.note_id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
-                          <button
-                            onClick={() => deleteNoteMut.mutate(n.note_id)}
-                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <p className="text-sm whitespace-pre-wrap">{n.notes}</p>
                         </div>
-                        <p className="text-sm whitespace-pre-wrap">{n.notes}</p>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* ── Workflow History ───────────────────────────────────── */}
+                  {history.length > 0 && (
+                    <>
+                      <SectionHeader title={`History (${history.length})`} />
+                      <div className="space-y-2">
+                        {history.map((h, i) => {
+                          const colorMap: Record<string, string> = {
+                            BT_REGISTER: 'bg-green-100 text-green-700 border-green-200',
+                            BT_UPDATE: 'bg-blue-100 text-blue-700 border-blue-200',
+                            BT_FORWARD: 'bg-purple-100 text-purple-700 border-purple-200',
+                            BT_UPLOAD: 'bg-teal-100 text-teal-700 border-teal-200',
+                            BT_DOC_COMPLETE: 'bg-amber-100 text-amber-700 border-amber-200',
+                            BT_DOC_INCOMPLETE: 'bg-red-100 text-red-700 border-red-200',
+                          };
+                          const labelMap: Record<string, string> = {
+                            BT_REGISTER: 'Registered', BT_UPDATE: 'Updated', BT_FORWARD: 'Forwarded',
+                            BT_UPLOAD: 'Doc Uploaded', BT_DOC_COMPLETE: 'Docs Complete', BT_DOC_INCOMPLETE: 'Docs Incomplete',
+                          };
+                          return (
+                            <div key={i} className="flex items-start gap-3 p-3 rounded-lg border bg-card">
+                              <span className={`text-xs px-2 py-0.5 rounded-full border font-medium shrink-0 mt-0.5 ${colorMap[h.action] ?? 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+                                {labelMap[h.action] ?? h.action}
+                              </span>
+                              <p className="text-xs text-muted-foreground flex-1 min-w-0 break-words leading-relaxed">{h.details}</p>
+                              <div className="text-right shrink-0">
+                                <div className="text-xs font-medium">{h.done_by}</div>
+                                <div className="text-xs text-muted-foreground">{fmtDate(h.done_at)}</div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </div>
-            </TabsContent>
-          </Tabs>
+                    </>
+                  )}
+                </>
+              )}
+
+            </div>
+          </ScrollArea>
         )}
 
-        {/* Footer actions */}
-        <div className="px-5 py-3 border-t shrink-0 flex items-center justify-between gap-2">
-          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <div className="flex gap-2">
-            {mode === 'edit' && !existingFile?.forwarded && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
-                onClick={() => setShowForwardDialog(true)}
-              >
-                <ArrowUpRight className="w-3.5 h-3.5" />
-                Forward
-              </Button>
-            )}
-            <Button size="sm" onClick={handleSave} disabled={isSaving} className="gap-1.5">
-              {isSaving ? (
-                <><div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" /> Saving…</>
-              ) : mode === 'register' ? (
-                <><Plus className="w-3.5 h-3.5" /> Register File</>
+        {/* ── Footer ─────────────────────────────────────────────────────── */}
+        <div className="border-t shrink-0">
+          {/* Documentation Complete — shown in edit mode, sits just above the action row */}
+          {mode === 'edit' && (
+            <div className="px-5 py-2.5 border-b flex items-center justify-between bg-slate-50 dark:bg-muted/30">
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={existingFile?.is_complete ?? isComplete}
+                  onChange={e => markCompleteMut.mutate(e.target.checked)}
+                  disabled={markCompleteMut.isPending}
+                  className="w-4 h-4 rounded border-gray-300 accent-green-600 cursor-pointer"
+                />
+                <span className="text-sm font-medium">Documentation Complete</span>
+              </label>
+              {(existingFile?.is_complete ?? isComplete) ? (
+                <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Marked complete
+                </span>
               ) : (
-                'Save Changes'
+                <span className="text-xs text-amber-600 font-medium">
+                  {ackedCount}/{requirements.length} docs acknowledged
+                </span>
               )}
-            </Button>
+            </div>
+          )}
+
+          {/* Action buttons row */}
+          <div className="px-5 py-3 flex items-center justify-between gap-2">
+            <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleSave} disabled={isSaving} className="gap-1.5">
+                {isSaving ? (
+                  <><div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" /> Saving…</>
+                ) : mode === 'register' ? (
+                  <><Plus className="w-3.5 h-3.5" /> Register File</>
+                ) : (
+                  'Save Changes'
+                )}
+              </Button>
+              {mode === 'edit' && !existingFile?.forwarded && (
+                <Button
+                  size="sm"
+                  className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={() => setShowForwardDialog(true)}
+                >
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                  Forward
+                </Button>
+              )}
+            </div>
           </div>
         </div>
         {/* ── Forward Dialog ─────────────────────────────────────────────── */}
