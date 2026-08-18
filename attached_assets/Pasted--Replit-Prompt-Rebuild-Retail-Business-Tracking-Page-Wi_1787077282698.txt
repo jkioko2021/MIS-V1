@@ -1,0 +1,689 @@
+# Replit Prompt: Rebuild Retail Business Tracking Page With Complete Field Capture
+
+I need you to rebuild the **Retail Business Tracking** page shown in the attached reference screenshot.
+
+The most important requirement is that **EVERY field, control, action, grid column, document field, notes field, and workflow element visible on the existing page must be captured, persisted, displayed, edited, and retrievable in the new application.**
+
+Use the attached screenshot as the UI/reference source and do not omit any field because it appears old, unused, or visually small.
+
+## 1. Page Title
+
+Create a page titled:
+
+**RETAIL BUSINESS TRACKING**
+
+The page must support:
+
+* Create new record
+* Search existing records
+* Select existing record
+* View record
+* Edit record
+* Save/update record
+* Attach documents
+* Add notes
+* Forward the record
+* Mark documentation as complete
+* Allocate the record to a user/team
+* Maintain a complete audit trail
+
+---
+
+# 2. Search Section
+
+At the top of the page create a **Search By** section.
+
+Capture the following:
+
+* Search By field/dropdown
+* Search value/textbox
+* Search button
+
+The Search By dropdown should be configurable to search using available identifying fields such as:
+
+* File No
+* Proposer Name
+* NID
+* PIN No
+* Receive Date
+* Client Type
+* Agent/Broker
+* Status
+
+Search results must allow the user to select a record and load the complete record into the form.
+
+---
+
+# 3. Proposer Details Section
+
+Create a section titled:
+
+**Proposer Details [FILE_NO]**
+
+The File No must be dynamically displayed once a record has been created or selected.
+
+Capture **all** of the following fields:
+
+### Left side
+
+1. **Walk-in Client**
+
+   * Checkbox
+   * Label: `Walk-in Client (Customer Service Only)`
+
+2. **Proposer Name**
+
+   * Text input
+   * Required where applicable
+
+3. **Client Type**
+
+   * Dropdown
+
+4. **Agent/Broker**
+
+   * Dropdown/searchable dropdown
+
+5. **Business**
+
+   * Dropdown
+
+6. **Business/Action Type**
+
+   * Dropdown
+
+7. **Card Type**
+
+   * Dropdown
+
+8. **Total Paid Amt**
+
+   * Numeric/currency field
+   * Default to `0.00`
+
+9. **Payment Mode**
+
+   * Dropdown
+
+### Right side
+
+10. **Receive Date**
+
+    * Date picker
+    * Include calendar selector
+    * Store date and time where appropriate
+
+11. **NID**
+
+    * Text input
+
+12. **PIN NO**
+
+    * Text input
+
+13. **County**
+
+    * Dropdown
+
+14. **GI Category**
+
+    * Dropdown
+
+15. **Allocate To**
+
+    * User/team dropdown
+    * Must support assignment/reassignment
+
+---
+
+# 4. Primary Actions
+
+Create the following actions:
+
+* **Save**
+* **Edit**
+* **New**
+
+The application must clearly distinguish between:
+
+### New
+
+Clears the form and starts a new Retail Business Tracking record.
+
+### Save
+
+Creates a new record and generates the File No.
+
+### Edit
+
+Allows an existing record to be modified.
+
+### Update
+
+If necessary, display an Update action when editing an existing record.
+
+Do not lose existing data when switching between New, Edit and Search.
+
+---
+
+# 5. Main Record Grid
+
+Below the primary actions, create a record listing/grid.
+
+The grid must capture and display at minimum:
+
+* Select
+* Receive_dt
+* File_No
+* Proposer_Name
+* Client_Type
+* Type
+* Status
+
+The grid should support:
+
+* Horizontal scrolling
+* Vertical scrolling
+* Selecting a record
+* Loading the selected record into the form
+* Sorting
+* Filtering/searching
+* Pagination where appropriate
+
+Do not hard-code the grid data.
+
+All records must come from the database.
+
+---
+
+# 6. Documentation Section
+
+Create a separate section titled:
+
+**Documentation**
+
+Capture all documentation functionality shown in the legacy page.
+
+Fields:
+
+1. **Document Type / Select**
+
+   * Dropdown
+
+2. **File Selection**
+
+   * File input
+   * Browse button
+
+3. **Upload**
+
+   * Upload button
+
+4. **Related Documents**
+
+   * Support attaching related documents as a ZIP file
+   * Preserve the original filename
+   * Store document metadata
+   * Link every document to the relevant File No
+
+Display the instruction:
+
+**Related Documents can be attached as a Zip file**
+
+---
+
+# 7. Document Grid
+
+Create a document listing/grid containing:
+
+* DOC_ID
+* File No
+* Doc Title
+* Doc Date
+* File Name
+* Upload By
+
+The document grid must support:
+
+* Selecting a document
+* Viewing document metadata
+* Downloading the document
+* Opening the document where supported
+* Deleting/replacing documents based on permissions
+* Showing upload user
+* Showing upload date/time
+* Linking the document to the parent Retail Business Tracking record
+
+Do not store documents without a valid parent File No.
+
+---
+
+# 8. Notes
+
+Create a **Notes** section containing:
+
+* Notes textarea
+* Note date
+* File No
+* From/User
+* Notes
+
+Every note must be stored as a separate record rather than overwriting previous notes.
+
+The notes history grid must display:
+
+* Note Date
+* File No
+* From
+* Notes
+
+Users should be able to see the historical notes associated with the record.
+
+---
+
+# 9. Documentation Complete
+
+Create:
+
+**Documentation Complete**
+
+* Checkbox/toggle
+
+The value must be persisted in the database.
+
+When checked, record:
+
+* User who marked it complete
+* Date/time
+* File No
+* Previous status
+* New status
+
+Do not simply change the visual checkbox without updating the database.
+
+---
+
+# 10. Forward Workflow
+
+Create a:
+
+**Forward**
+
+button.
+
+Forwarding must:
+
+* Validate required information
+* Validate documentation status where required
+* Record the current user
+* Record the destination user/team
+* Record date/time
+* Update the workflow/status
+* Create an audit entry
+* Preserve the complete history of previous assignments
+
+The existing `[lblerr]` area in the legacy screen should be replaced with a proper validation/error/message component.
+
+---
+
+# 11. Validation
+
+Implement both frontend and backend validation.
+
+At minimum validate:
+
+* Proposer Name
+* Client Type
+* Receive Date
+* Agent/Broker where applicable
+* Business
+* Business/Action Type
+* Card Type where applicable
+* Total Paid Amount
+* Payment Mode
+* NID/PIN where applicable
+* County
+* GI Category
+* Allocate To
+* Document Type before upload
+* File selection before upload
+
+Do not allow invalid or incomplete records to be saved.
+
+Clearly indicate required fields.
+
+---
+
+# 12. Database Requirements
+
+Create a proper relational database structure.
+
+At minimum create tables/entities similar to:
+
+### RetailBusinessTracking
+
+Fields should include:
+
+* ID
+* File_No
+* Walk_In_Client
+* Proposer_Name
+* Client_Type_ID
+* Agent_Broker_ID
+* Business_ID
+* Business_Action_Type_ID
+* Card_Type_ID
+* Total_Paid_Amount
+* Payment_Mode_ID
+* Receive_Date
+* NID
+* PIN_No
+* County_ID
+* GI_Category_ID
+* Allocated_To
+* Status
+* Documentation_Complete
+* Created_By
+* Created_Date
+* Modified_By
+* Modified_Date
+
+### RetailBusinessDocuments
+
+Fields:
+
+* DOC_ID
+* RetailBusinessTracking_ID
+* File_No
+* Document_Type_ID
+* Document_Title
+* Document_Date
+* File_Name
+* File_Size
+* Content_Type
+* Storage_Path/Blob_ID
+* Uploaded_By
+* Uploaded_Date
+* Is_Active
+
+### RetailBusinessNotes
+
+Fields:
+
+* Note_ID
+* RetailBusinessTracking_ID
+* File_No
+* Note_Date
+* From_User
+* Notes
+* Created_Date
+
+### RetailBusinessWorkflow
+
+Fields:
+
+* Workflow_ID
+* RetailBusinessTracking_ID
+* File_No
+* From_User
+* To_User
+* From_Status
+* To_Status
+* Action
+* Comments
+* Action_Date
+
+### RetailBusinessAudit
+
+Capture every significant change:
+
+* Audit_ID
+* RetailBusinessTracking_ID
+* File_No
+* User
+* Action
+* Field_Name
+* Old_Value
+* New_Value
+* Date_Time
+* IP/Session information where available
+
+---
+
+# 13. Lookup Data
+
+Do not hard-code dropdown values directly in the UI.
+
+Create lookup/reference tables or use the existing application master data for:
+
+* Client Type
+* Agent/Broker
+* Business
+* Business/Action Type
+* Card Type
+* Payment Mode
+* County
+* GI Category
+* Document Type
+* Users
+* Teams
+* Status
+
+The dropdowns should retrieve their values dynamically.
+
+---
+
+# 14. File Number
+
+The File No must be generated by the backend/database.
+
+Requirements:
+
+* Must be unique
+* Must never be duplicated
+* Must remain unchanged after creation
+* Must be used as the primary business reference
+* Must link the proposer, documents, notes, workflow and audit records
+
+Do not generate File No only in the browser.
+
+---
+
+# 15. Preserve Existing Data
+
+This is critical.
+
+Before creating new database tables, inspect the existing application/database and determine whether these fields already exist.
+
+Where existing tables, stored procedures, lookup tables, or business logic exist:
+
+**REUSE THEM WHERE APPROPRIATE.**
+
+Do not create duplicate master tables simply because the new UI is being redesigned.
+
+Map the legacy fields to the new page.
+
+Create a field mapping document showing:
+
+`Legacy Field → New Field → Database Table → Database Column → Data Type`
+
+No legacy field visible on the screenshot should be discarded without explicit approval.
+
+---
+
+# 16. API Requirements
+
+Create backend APIs/services for:
+
+* Create Retail Business record
+* Get Retail Business record
+* Update Retail Business record
+* Search Retail Business records
+* Get record by File No
+* Get dropdown/lookup data
+* Upload document
+* Download document
+* Delete/replace document
+* Get documents by File No
+* Add note
+* Get notes by File No
+* Forward record
+* Allocate/reallocate record
+* Mark documentation complete
+* Get workflow history
+* Get audit history
+
+All operations must be server-side validated.
+
+---
+
+# 17. UI/UX Requirements
+
+The new page should modernize the legacy screen while retaining the same business functionality.
+
+Use:
+
+* Responsive layout
+* Bootstrap 5 or the project's existing UI framework
+* Clear section headers
+* Two-column layout for Proposer Details
+* Proper labels
+* Required-field indicators
+* Searchable dropdowns
+* Date picker
+* Currency formatting
+* Validation messages
+* Success/error notifications
+* Loading indicators
+* Confirmation dialogs for important actions
+
+Do not remove functionality merely to make the page visually simpler.
+
+---
+
+# 18. Exact Field Completeness Check
+
+Before considering the implementation complete, perform a **field-by-field comparison against the supplied screenshot**.
+
+The following fields/controls MUST exist:
+
+### Proposer Details
+
+* [ ] Walk-in Client
+* [ ] Proposer Name
+* [ ] Client Type
+* [ ] Agent/Broker
+* [ ] Business
+* [ ] Business/Action Type
+* [ ] Card Type
+* [ ] Total Paid Amt
+* [ ] Payment Mode
+* [ ] Receive Date
+* [ ] NID
+* [ ] PIN NO
+* [ ] County
+* [ ] GI Category
+* [ ] Allocate To
+* [ ] Save
+* [ ] Edit
+* [ ] New
+* [ ] Record grid
+* [ ] Status
+
+### Documentation
+
+* [ ] Document Type / Select
+* [ ] Browse/File Upload
+* [ ] Upload
+* [ ] DOC_ID
+* [ ] File No
+* [ ] Doc Title
+* [ ] Doc Date
+* [ ] File Name
+* [ ] Upload By
+* [ ] ZIP upload support
+* [ ] Document Complete
+
+### Notes/Workflow
+
+* [ ] Notes
+* [ ] Note Date
+* [ ] File No
+* [ ] From
+* [ ] Notes history
+* [ ] Documentation Complete
+* [ ] Forward
+* [ ] Allocation
+* [ ] Workflow history
+* [ ] Audit history
+
+### Search
+
+* [ ] Search By
+* [ ] Search Value
+* [ ] Search button
+* [ ] Search results
+* [ ] Select record
+
+---
+
+# 19. Critical Requirement — No Data Loss
+
+The implementation is NOT complete if the UI looks correct but the fields are not persisted.
+
+For every field, verify:
+
+**UI → API → Backend → Database → Retrieval → UI**
+
+For example:
+
+`Proposer Name entered`
+→ API receives it
+→ backend validates it
+→ database stores it
+→ record is retrieved
+→ Proposer Name appears correctly when reopened.
+
+Perform this verification for **every field**.
+
+---
+
+# 20. Acceptance Test
+
+Create an automated/manual test scenario that:
+
+1. Clicks New.
+2. Enters values into every field.
+3. Saves the record.
+4. Confirms a File No is generated.
+5. Searches for the File No.
+6. Opens the saved record.
+7. Confirms every field contains the previously entered value.
+8. Edits several fields.
+9. Saves the changes.
+10. Reloads the record.
+11. Confirms the changes persisted.
+12. Uploads a document.
+13. Confirms the document appears in the document grid.
+14. Adds a note.
+15. Confirms the note appears in the notes history.
+16. Allocates the record.
+17. Forwards the record.
+18. Marks documentation complete.
+19. Confirms workflow history.
+20. Confirms audit history.
+21. Confirms no fields were lost or reset.
+
+## Final instruction
+
+**Do not start by simplifying the page. Start by ensuring 100% functional and data-field coverage of the legacy screen.**
+
+First inspect the existing application, database schema, stored procedures, APIs and business logic.
+
+Then produce a **Legacy-to-New Field Mapping**.
+
+Only after confirming the mapping should you implement the new page.
+
+If an existing field, table, stored procedure, API or business rule is discovered, preserve compatibility unless there is a documented reason to change it.
+
+The final implementation must provide **complete field capture, database persistence, retrieval, editing, document management, notes, allocation, forwarding, workflow and auditability** for the Retail Business Tracking process.
