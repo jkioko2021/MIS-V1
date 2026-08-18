@@ -3621,3 +3621,25 @@ The objective remains:
 > measurably, traceably and reversibly, while preserving approved
 > business capability and eliminating unnecessary legacy technical
 > limitations.**
+
+---
+
+## User preferences
+
+**Agent operating mode — Minimize Usage Context**
+
+- Inspect only files directly relevant to the task. Do not scan the repository broadly.
+- Make the smallest safe change. Do not refactor, rename, or alter unrelated code.
+- Reuse existing components, services, APIs, and DB objects before creating new ones.
+- Read only the files needed. Do not reread unchanged files within the same task.
+- Validate with targeted checks. Do not run full test suites unless required.
+- Stop immediately once the requested functionality is implemented and passes targeted validation.
+- Do not expand scope unless evidence demands it.
+- Report concisely: what changed, files changed, validation performed, any remaining issue.
+- Response format after task completion:
+  ```
+  Implemented.
+  Changed: <files>
+  Validation: <targeted check>
+  Remaining: None
+  ```
