@@ -47,7 +47,7 @@ router.get("/mis/business", async (req, res) => {
     if (business) { conditions.push(`bt.business = $${p++}`); params.push(business); }
     if (entered_by) { conditions.push(`bt.entered_by = $${p++}`); params.push(entered_by); }
     if (search) {
-      conditions.push(`(bt.proposer_name ILIKE $${p} OR bt.file_no ILIKE $${p} OR bt.pay_ref_no ILIKE $${p})`);
+      conditions.push(`(bt.proposer_name ILIKE $${p} OR bt.file_no ILIKE $${p} OR bt.pay_ref_no ILIKE $${p} OR bt.nid ILIKE $${p} OR bt.pin_no ILIKE $${p})`);
       params.push(`%${search}%`); p++;
     }
 

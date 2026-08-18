@@ -137,6 +137,13 @@ export interface BusinessUpload {
   uploaded_at: string;
 }
 
+export interface AuditEntry {
+  done_by: string;
+  action: string;
+  details: string;
+  done_at: string;
+}
+
 export interface SalesAgent {
   agent_id: string;
   agent_name: string;
@@ -172,8 +179,8 @@ export const misApi = {
     post<ApiResponse<{ file_no: string }>>('/business/register', body),
   businessUpdate: (fileNo: string, body: Partial<BusinessFile>) =>
     put<ApiResponse<void>>(`/business/${fileNo}`, body),
-  businessForward: (fileNo: string) =>
-    post<ApiResponse<void>>(`/business/${fileNo}/forward`),
+  businessForward: (fileNo: string, body?: { to_user?: string; comments?: string }) =>
+    post<ApiResponse<void>>(`/business/${fileNo}/forward`, body),
   businessAllocate: (fileNo: string, allocated_to: string) =>
     post<ApiResponse<void>>(`/business/${fileNo}/allocate`, { allocated_to }),
   businessAddNote: (fileNo: string, notes: string) =>
@@ -184,6 +191,12 @@ export const misApi = {
     post<ApiResponse<void>>(`/business/${fileNo}/checklist/${reqId}`),
   businessUnAckDoc: (fileNo: string, reqId: number) =>
     del<ApiResponse<void>>(`/business/${fileNo}/checklist/${reqId}`),
+
+  // History & documentation complete
+  businessGetHistory: (fileNo: string) =>
+    get<ApiResponse<AuditEntry[]>>(`/business/${fileNo}/history`),
+  businessMarkComplete: (fileNo: string, complete: boolean) =>
+    post<ApiResponse<void>>(`/business/${fileNo}/mark-complete`, { complete }),
 
   // Document uploads
   businessListUploads: (fileNo: string) =>

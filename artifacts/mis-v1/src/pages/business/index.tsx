@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { misApi, type BusinessFile, type BusinessNote, type BusinessDoc, type BusinessRequirement, type SalesAgent, type Employee, type BusinessUpload } from '@/lib/mis-api';
+import { misApi, type BusinessFile, type BusinessNote, type BusinessDoc, type BusinessRequirement, type SalesAgent, type Employee, type BusinessUpload, type AuditEntry } from '@/lib/mis-api';
 import { useAuth } from '@/lib/auth-context';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,7 +24,7 @@ import { Progress } from '@/components/ui/progress';
 import {
   Search, RefreshCw, FileText, Plus, CheckCircle2, Circle,
   SendHorizontal, ArrowUpRight, Trash2, MessageSquare, FileCheck,
-  ChevronRight, Building2, User, Upload, Paperclip, AlertCircle,
+  ChevronRight, Building2, User, Upload, Paperclip, AlertCircle, History,
 } from 'lucide-react';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -304,6 +304,11 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
   const isRetail = form.client_type === 'R';
   const isCorp   = form.client_type === 'C';
 
+  // Forward dialog state
+  const [showForwardDialog, setShowForwardDialog] = useState(false);
+  const [forwardToUser, setForwardToUser] = useState('');
+  const [forwardComments, setForwardComments] = useState('');
+
   // ─── Mutations ──────────────────────────────────────────────────────────────
   const registerMut = useMutation({
     mutationFn: () => misApi.businessRegister(form as unknown as Partial<BusinessFile>),
@@ -326,11 +331,15 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
   });
 
   const forwardMut = useMutation({
-    mutationFn: () => misApi.businessForward(fileNo!),
+    mutationFn: () => misApi.businessForward(fileNo!, { to_user: forwardToUser, comments: forwardComments }),
     onSuccess: () => {
       toast({ title: 'File forwarded', description: 'Status updated to FORWARDED.' });
+      setShowForwardDialog(false);
+      setForwardToUser('');
+      setForwardComments('');
       qc.invalidateQueries({ queryKey: ['business'] });
       qc.invalidateQueries({ queryKey: ['business-file', fileNo] });
+      qc.invalidateQueries({ queryKey: ['business-history', fileNo] });
     },
     onError: (e) => toast({ title: 'Cannot forward', description: String(e), variant: 'destructive' }),
   });
@@ -404,6 +413,24 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
     staleTime: 30_000,
   });
   const uploads: BusinessUpload[] = (uploadsRes?.data ?? []) as BusinessUpload[];
+
+  // Audit / workflow history
+  const { data: historyRes } = useQuery({
+    queryKey: ['business-history', fileNo],
+    queryFn: () => misApi.businessGetHistory(fileNo!),
+    enabled: mode === 'edit' && !!fileNo,
+    staleTime: 30_000,
+  });
+  const history: AuditEntry[] = (historyRes?.data ?? []) as AuditEntry[];
+
+  const markCompleteMut = useMutation({
+    mutationFn: (complete: boolean) => misApi.businessMarkComplete(fileNo!, complete),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['business-file', fileNo] });
+      qc.invalidateQueries({ queryKey: ['business-history', fileNo] });
+    },
+    onError: (e) => toast({ title: 'Error', description: String(e), variant: 'destructive' }),
+  });
 
   async function handleUpload() {
     if (!pendingFile || !fileNo || !uploadFor) return;
@@ -528,6 +555,9 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                   </TabsTrigger>
                   <TabsTrigger value="notes" className="text-xs gap-1.5">
                     <MessageSquare className="w-3.5 h-3.5" /> Notes {notes.length > 0 && `(${notes.length})`}
+                  </TabsTrigger>
+                  <TabsTrigger value="history" className="text-xs gap-1.5">
+                    <History className="w-3.5 h-3.5" /> History {history.length > 0 && `(${history.length})`}
                   </TabsTrigger>
                 </>
               )}
@@ -774,6 +804,25 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                     </div>
                   </div>
 
+                  {/* Documentation Complete toggle */}
+                  <div className="flex items-center justify-between rounded-xl border px-4 py-2.5 bg-card">
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={existingFile?.is_complete ?? isComplete}
+                        onChange={e => markCompleteMut.mutate(e.target.checked)}
+                        disabled={markCompleteMut.isPending}
+                        className="w-4 h-4 rounded border-gray-300 accent-green-600 cursor-pointer"
+                      />
+                      <span className="text-sm font-medium">Documentation Complete</span>
+                    </label>
+                    {(existingFile?.is_complete ?? isComplete) && (
+                      <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Marked complete
+                      </span>
+                    )}
+                  </div>
+
                   {/* Document rows */}
                   {requirements.map(r => {
                     const acked = isAcknowledged(r.req_id);
@@ -869,6 +918,51 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
               </ScrollArea>
             </TabsContent>
 
+            {/* ── HISTORY TAB ──────────────────────────────────────────────── */}
+            <TabsContent value="history" className="flex-1 overflow-hidden mt-0">
+              <ScrollArea className="h-full">
+                <div className="px-5 py-4 space-y-2">
+                  {history.length === 0 ? (
+                    <div className="py-12 text-center text-muted-foreground">
+                      <History className="w-8 h-8 mx-auto mb-2 opacity-25" />
+                      <p className="text-sm">No activity recorded yet.</p>
+                    </div>
+                  ) : history.map((h, i) => {
+                    const colorMap: Record<string, string> = {
+                      BT_REGISTER:      'bg-green-100 text-green-700 border-green-200',
+                      BT_UPDATE:        'bg-blue-100 text-blue-700 border-blue-200',
+                      BT_FORWARD:       'bg-purple-100 text-purple-700 border-purple-200',
+                      BT_UPLOAD:        'bg-teal-100 text-teal-700 border-teal-200',
+                      BT_DOC_COMPLETE:  'bg-amber-100 text-amber-700 border-amber-200',
+                      BT_DOC_INCOMPLETE:'bg-red-100 text-red-700 border-red-200',
+                    };
+                    const labelMap: Record<string, string> = {
+                      BT_REGISTER:      'Registered',
+                      BT_UPDATE:        'Updated',
+                      BT_FORWARD:       'Forwarded',
+                      BT_UPLOAD:        'Document Uploaded',
+                      BT_DOC_COMPLETE:  'Docs Complete',
+                      BT_DOC_INCOMPLETE:'Docs Incomplete',
+                    };
+                    return (
+                      <div key={i} className="flex items-start gap-3 p-3 rounded-lg border bg-card">
+                        <span className={`text-xs px-2 py-0.5 rounded-full border font-medium shrink-0 mt-0.5 ${colorMap[h.action] ?? 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+                          {labelMap[h.action] ?? h.action}
+                        </span>
+                        <p className="text-xs text-muted-foreground flex-1 min-w-0 break-words leading-relaxed">
+                          {h.details}
+                        </p>
+                        <div className="text-right shrink-0">
+                          <div className="text-xs font-medium">{h.done_by}</div>
+                          <div className="text-xs text-muted-foreground">{fmtDate(h.done_at)}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+
             {/* ── NOTES TAB ────────────────────────────────────────────────── */}
             <TabsContent value="notes" className="flex-1 overflow-hidden mt-0">
               <div className="flex flex-col h-full">
@@ -932,8 +1026,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                 variant="outline"
                 size="sm"
                 className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
-                onClick={() => forwardMut.mutate()}
-                disabled={forwardMut.isPending}
+                onClick={() => setShowForwardDialog(true)}
               >
                 <ArrowUpRight className="w-3.5 h-3.5" />
                 Forward
@@ -950,6 +1043,61 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
             </Button>
           </div>
         </div>
+        {/* ── Forward Dialog ─────────────────────────────────────────────── */}
+        <Dialog open={showForwardDialog} onOpenChange={v => { if (!v && !forwardMut.isPending) setShowForwardDialog(false); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ArrowUpRight className="w-4 h-4 text-blue-600" />
+                Forward File — {fileNo}
+              </DialogTitle>
+              <DialogDescription>
+                Select the destination employee and add an optional handover note.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Forward To</Label>
+                <Select value={forwardToUser} onValueChange={setForwardToUser}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select employee…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.map(e => (
+                      <SelectItem key={e.username} value={e.username}>{e.employee_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Comments <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Textarea
+                  value={forwardComments}
+                  onChange={e => setForwardComments(e.target.value)}
+                  placeholder="Add any handover notes…"
+                  className="text-sm resize-none h-20"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowForwardDialog(false)} disabled={forwardMut.isPending}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => forwardMut.mutate()}
+                disabled={forwardMut.isPending}
+                className="gap-1.5 bg-blue-600 hover:bg-blue-700"
+              >
+                {forwardMut.isPending ? (
+                  <><div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" /> Forwarding…</>
+                ) : (
+                  <><ArrowUpRight className="w-3.5 h-3.5" /> Forward File</>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* ── Upload Dialog ──────────────────────────────────────────────── */}
         <Dialog
           open={!!uploadFor}

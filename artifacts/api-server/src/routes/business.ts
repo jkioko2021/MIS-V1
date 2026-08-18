@@ -193,6 +193,7 @@ router.put("/business/:fileNo", async (req: Request, res: Response) => {
 // ─── POST /business/:fileNo/forward ──────────────────────────────────────────
 router.post("/business/:fileNo/forward", async (req: Request, res: Response) => {
   const { fileNo } = req.params;
+  const { to_user, comments } = req.body as { to_user?: string; comments?: string };
   try {
     const file = await queryOne<{
       file_status: string; is_complete: boolean; allocated: boolean;
@@ -231,9 +232,12 @@ router.post("/business/:fileNo/forward", async (req: Request, res: Response) => 
       [req.user!.username, fileNo]
     );
 
+    const detail = to_user
+      ? `Forwarded ${fileNo} to ${to_user}${comments ? ` — ${comments}` : ""}`
+      : `Forwarded ${fileNo}`;
     await query(
       `INSERT INTO crm.admin_audit_trail (employee_id, action, details) VALUES ($1,'BT_FORWARD',$2)`,
-      [req.user!.sub, `Forwarded ${fileNo}`]
+      [req.user!.sub, detail]
     ).catch(() => {});
 
     res.json({ ok: true });
@@ -414,6 +418,50 @@ router.delete("/business/:fileNo/uploads/:uploadId", async (req: Request, res: R
     );
     res.json({ ok: true });
   } catch (err) { handleError(res, err, "delete upload"); }
+});
+
+// ─── GET /business/:fileNo/history ───────────────────────────────────────────
+router.get("/business/:fileNo/history", async (req: Request, res: Response) => {
+  try {
+    const { fileNo } = req.params;
+    const rows = await query<{
+      done_by: string; action: string; details: string; done_at: string;
+    }>(
+      `SELECT employee_id AS done_by, action, details, created_at AS done_at
+       FROM crm.admin_audit_trail
+       WHERE details LIKE $1
+       ORDER BY created_at DESC
+       LIMIT 100`,
+      [`%${fileNo}%`]
+    );
+    res.json({ ok: true, data: rows });
+  } catch (err) { handleError(res, err, "get history"); }
+});
+
+// ─── POST /business/:fileNo/mark-complete ─────────────────────────────────────
+router.post("/business/:fileNo/mark-complete", async (req: Request, res: Response) => {
+  const { fileNo } = req.params;
+  const { complete } = req.body as { complete: boolean };
+  try {
+    const file = await queryOne<{ file_status: string; is_complete: boolean }>(
+      `SELECT file_status, is_complete FROM crm.business_tracking WHERE file_no=$1 AND is_active=TRUE`,
+      [fileNo]
+    );
+    if (!file) { res.status(404).json({ ok: false, error: "File not found." }); return; }
+
+    await query(
+      `UPDATE crm.business_tracking SET is_complete=$1, updated_at=NOW() WHERE file_no=$2`,
+      [complete, fileNo]
+    );
+    const action = complete ? "BT_DOC_COMPLETE" : "BT_DOC_INCOMPLETE";
+    const detail = `${complete ? "Marked complete" : "Marked incomplete"} ${fileNo} by ${req.user!.username}`;
+    await query(
+      `INSERT INTO crm.admin_audit_trail (employee_id, action, details) VALUES ($1,$2,$3)`,
+      [req.user!.sub, action, detail]
+    ).catch(() => {});
+
+    res.json({ ok: true });
+  } catch (err) { handleError(res, err, "mark complete"); }
 });
 
 export default router;
