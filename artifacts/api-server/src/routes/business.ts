@@ -49,7 +49,7 @@ router.post("/business/register", async (req: Request, res: Response) => {
   const {
     client_type, business_type, business, proposer_name, receive_dt,
     nid, pin_no, walk_in_client, walk_in_auth, card_type,
-    cr12, cr12_ref, corp_category, sector,
+    cr12, cr12_ref, corp_category, sector, client_sub_type,
     agent_id, county_code, gi_category,
     pay_ref_no, paid_amt, pay_mode, rate_type, family_code,
     is_mtiba, is_ipf,
@@ -103,7 +103,8 @@ router.post("/business/register", async (req: Request, res: Response) => {
            is_active, is_declined,
            pay_ref_no, paid_amt, entered_by,
            nid, pin_no, county_code, card_type, gi_category,
-           pay_mode, sector, cr12, cr12_ref, corp_category, walk_in_auth
+           pay_mode, sector, cr12, cr12_ref, corp_category, walk_in_auth,
+           client_sub_type
          ) VALUES (
            $1,$2,$3,$4,
            'REGISTERED',$5,$6,$7,
@@ -113,7 +114,8 @@ router.post("/business/register", async (req: Request, res: Response) => {
            TRUE,FALSE,
            $13,$14,$15,
            $16,$17,$18,$19,$20,
-           $21,$22,$23,$24,$25,$26
+           $21,$22,$23,$24,$25,$26,
+           $27
          )`,
         [
           newFileNo, String(proposer_name), family_code || null,
@@ -129,6 +131,7 @@ router.post("/business/register", async (req: Request, res: Response) => {
           pay_mode || null, sector || null,
           cr12 === true || cr12 === "true", cr12_ref || null,
           corp_category || null, walk_in_auth || null,
+          client_sub_type || null,
         ]
       );
 
@@ -151,7 +154,7 @@ router.put("/business/:fileNo", async (req: Request, res: Response) => {
     proposer_name, family_code, receive_dt,
     business_type, business, agent_id,
     nid, pin_no, walk_in_client, walk_in_auth, card_type,
-    cr12, cr12_ref, corp_category, sector,
+    cr12, cr12_ref, corp_category, sector, client_sub_type,
     county_code, gi_category,
     pay_ref_no, paid_amt, pay_mode, rate_type,
     is_mtiba, is_ipf,
@@ -172,8 +175,9 @@ router.put("/business/:fileNo", async (req: Request, res: Response) => {
          pay_ref_no=$18, paid_amt=$19, pay_mode=$20, rate_type=$21,
          is_mtiba=$22, is_ipf=$23,
          allocated_to=$24, medical_uw=$25, benefit_verified=$26, invoiced=$27,
+         client_sub_type=$28,
          updated_at=NOW()
-       WHERE file_no=$28`,
+       WHERE file_no=$29`,
       [
         String(proposer_name), family_code || null,
         receive_dt || null,
@@ -189,6 +193,7 @@ router.put("/business/:fileNo", async (req: Request, res: Response) => {
         !!is_mtiba, !!is_ipf,
         allocated_to || null, !!medical_uw,
         benefit_verified || "NO", !!invoiced,
+        client_sub_type || null,
         fileNo,
       ]
     );

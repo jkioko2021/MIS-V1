@@ -98,6 +98,7 @@ export interface BusinessFile {
   cr12: boolean;
   cr12_ref: string | null;
   corp_category: string | null;
+  client_sub_type: string | null;
 }
 
 export interface BusinessNote {

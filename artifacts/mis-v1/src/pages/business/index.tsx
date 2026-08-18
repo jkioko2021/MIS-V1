@@ -126,6 +126,7 @@ interface FormState {
   cr12_ref: string;
   corp_category: string;
   sector: string;
+  client_sub_type: string;
   // Shared classification
   agent_id: string;
   county_code: string;
@@ -151,7 +152,7 @@ function blankForm(clientType: 'R' | 'C' = 'R'): FormState {
     family_code: '',
     receive_dt: today(),
     nid: '', pin_no: '', walk_in_client: 'Y', walk_in_auth: '', card_type: '', is_mtiba: false, is_ipf: false,
-    cr12: false, cr12_ref: '', corp_category: '', sector: '',
+    cr12: false, cr12_ref: '', corp_category: '', sector: '', client_sub_type: '',
     agent_id: '', county_code: '', gi_category: '', rate_type: 'S',
     pay_ref_no: '', paid_amt: '', pay_mode: '',
     allocated_to: '', medical_uw: false, benefit_verified: 'NO', invoiced: false,
@@ -171,7 +172,7 @@ function fileToForm(f: BusinessFile): FormState {
     walk_in_auth: f.walk_in_auth ?? '',
     card_type: f.card_type ?? '',
     is_mtiba: !!f.is_mtiba, is_ipf: !!f.is_ipf,
-    cr12: !!f.cr12, cr12_ref: f.cr12_ref ?? '', corp_category: f.corp_category ?? '', sector: f.sector ?? '',
+    cr12: !!f.cr12, cr12_ref: f.cr12_ref ?? '', corp_category: f.corp_category ?? '', sector: f.sector ?? '', client_sub_type: f.client_sub_type ?? '',
     agent_id: f.agent_id ?? '', county_code: f.county_code ?? '',
     gi_category: f.gi_category ?? '', rate_type: (f.rate_type ?? 'S') as 'S' | 'C',
     pay_ref_no: f.pay_ref_no ?? '', paid_amt: f.paid_amt != null ? String(f.paid_amt) : '',
@@ -742,6 +743,14 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                         onChange={v => set('gi_category', v)}
                         options={GI_CATS.map(g => ({ value: g, label: g }))}
                         placeholder="Select GI category…"
+                      />
+                    </Field>
+                    <Field label="Client Type">
+                      <SelectField
+                        value={form.client_sub_type}
+                        onChange={v => set('client_sub_type', v)}
+                        options={[{ value: 'S', label: 'SME' }, { value: 'C', label: 'CORPORATE' }]}
+                        placeholder="Select client type…"
                       />
                     </Field>
                     {isRetail && form.is_mtiba && (
