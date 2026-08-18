@@ -96,6 +96,7 @@ export interface BusinessFile {
   pay_mode: string | null;
   sector: string | null;
   cr12: boolean;
+  cr12_ref: string | null;
   corp_category: string | null;
 }
 

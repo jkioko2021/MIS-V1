@@ -123,6 +123,7 @@ interface FormState {
   is_ipf: boolean;
   // Corporate
   cr12: boolean;
+  cr12_ref: string;
   corp_category: string;
   sector: string;
   // Shared classification
@@ -150,7 +151,7 @@ function blankForm(clientType: 'R' | 'C' = 'R'): FormState {
     family_code: '',
     receive_dt: today(),
     nid: '', pin_no: '', walk_in_client: 'N', walk_in_auth: '', card_type: '', is_mtiba: false, is_ipf: false,
-    cr12: false, corp_category: '', sector: '',
+    cr12: false, cr12_ref: '', corp_category: '', sector: '',
     agent_id: '', county_code: '', gi_category: '', rate_type: 'S',
     pay_ref_no: '', paid_amt: '', pay_mode: '',
     allocated_to: '', medical_uw: false, benefit_verified: 'NO', invoiced: false,
@@ -170,7 +171,7 @@ function fileToForm(f: BusinessFile): FormState {
     walk_in_auth: f.walk_in_auth ?? '',
     card_type: f.card_type ?? '',
     is_mtiba: !!f.is_mtiba, is_ipf: !!f.is_ipf,
-    cr12: !!f.cr12, corp_category: f.corp_category ?? '', sector: f.sector ?? '',
+    cr12: !!f.cr12, cr12_ref: f.cr12_ref ?? '', corp_category: f.corp_category ?? '', sector: f.sector ?? '',
     agent_id: f.agent_id ?? '', county_code: f.county_code ?? '',
     gi_category: f.gi_category ?? '', rate_type: (f.rate_type ?? 'S') as 'S' | 'C',
     pay_ref_no: f.pay_ref_no ?? '', paid_amt: f.paid_amt != null ? String(f.paid_amt) : '',
@@ -640,7 +641,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                     {/* Corporate-only fields */}
                     {isCorp && (
                       <>
-                        <Field label="Corporate Category">
+                        <Field label="Business Category">
                           <SelectField
                             value={form.corp_category}
                             onChange={v => set('corp_category', v)}
@@ -656,7 +657,14 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                             placeholder="Select sector…"
                           />
                         </Field>
-                        <div className="col-span-2">
+                        <Field label="CR12 Reference No.">
+                          <TextInput
+                            value={form.cr12_ref}
+                            onChange={v => set('cr12_ref', v)}
+                            placeholder="e.g. CR12/2024/00123"
+                          />
+                        </Field>
+                        <div className="col-span-2 flex items-center gap-6">
                           <CheckRow checked={form.cr12} onChange={v => set('cr12', v)} label="CR12 / Certificate of Incorporation submitted" />
                         </div>
                       </>
@@ -687,16 +695,14 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                         </SelectContent>
                       </Select>
                     </Field>
-                    {form.business === 'N' && (
-                      <Field label="GI Category (Non-Medical)">
-                        <SelectField
-                          value={form.gi_category}
-                          onChange={v => set('gi_category', v)}
-                          options={GI_CATS.map(g => ({ value: g, label: g }))}
-                          placeholder="Non-Medical category…"
-                        />
-                      </Field>
-                    )}
+                    <Field label="GI Category">
+                      <SelectField
+                        value={form.gi_category}
+                        onChange={v => set('gi_category', v)}
+                        options={GI_CATS.map(g => ({ value: g, label: g }))}
+                        placeholder="Select GI category…"
+                      />
+                    </Field>
                     {isRetail && form.is_mtiba && (
                       <Field label="Card Type">
                         <SelectField
