@@ -105,9 +105,17 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+type TrackingClientType = 'R' | 'S' | 'C';
+
+function clientTypeLabel(clientType: string): string {
+  if (clientType === 'R') return 'Retail';
+  if (clientType === 'S') return 'SME';
+  return 'Corporate';
+}
+
 // ─── Form state ───────────────────────────────────────────────────────────────
 interface FormState {
-  client_type: 'R' | 'C';
+  client_type: TrackingClientType;
   business_type: string;
   business: 'M' | 'N' | '';
   proposer_name: string;
@@ -143,7 +151,7 @@ interface FormState {
   invoiced: boolean;
 }
 
-function blankForm(clientType: 'R' | 'C' = 'R'): FormState {
+function blankForm(clientType: TrackingClientType = 'R'): FormState {
   return {
     client_type: clientType,
     business_type: '',
@@ -152,7 +160,7 @@ function blankForm(clientType: 'R' | 'C' = 'R'): FormState {
     family_code: '',
     receive_dt: today(),
     nid: '', pin_no: '', walk_in_client: 'Y', walk_in_auth: '', card_type: '', is_mtiba: false, is_ipf: false,
-    cr12: false, cr12_ref: '', corp_category: '', sector: '', client_sub_type: '',
+    cr12: false, cr12_ref: '', corp_category: '', sector: '', client_sub_type: clientType === 'R' ? '' : clientType,
     agent_id: '', county_code: '', gi_category: '', rate_type: 'S',
     pay_ref_no: '', paid_amt: '', pay_mode: '',
     allocated_to: '', medical_uw: false, benefit_verified: 'NO', invoiced: false,
@@ -161,7 +169,7 @@ function blankForm(clientType: 'R' | 'C' = 'R'): FormState {
 
 function fileToForm(f: BusinessFile): FormState {
   return {
-    client_type: f.client_type === 'C' ? 'C' : 'R',
+    client_type: f.client_type === 'R' ? 'R' : f.client_type === 'S' ? 'S' : 'C',
     business_type: f.business_type ?? '',
     business: f.business === 'N' ? 'N' : 'M',
     proposer_name: f.proposer_name ?? '',
@@ -172,7 +180,7 @@ function fileToForm(f: BusinessFile): FormState {
     walk_in_auth: f.walk_in_auth ?? '',
     card_type: f.card_type ?? '',
     is_mtiba: !!f.is_mtiba, is_ipf: !!f.is_ipf,
-    cr12: !!f.cr12, cr12_ref: f.cr12_ref ?? '', corp_category: f.corp_category ?? '', sector: f.sector ?? '', client_sub_type: f.client_sub_type ?? '',
+    cr12: !!f.cr12, cr12_ref: f.cr12_ref ?? '', corp_category: f.corp_category ?? '', sector: f.sector ?? '', client_sub_type: f.client_type === 'R' ? '' : f.client_type,
     agent_id: f.agent_id ?? '', county_code: f.county_code ?? '',
     gi_category: f.gi_category === 'Non-Motor' ? 'Non_Motor' : (f.gi_category ?? ''),
     rate_type: (f.rate_type ?? 'S') as 'S' | 'C',
@@ -242,7 +250,9 @@ function SearchableSelect({ value, onChange, options, placeholder, searchPlaceho
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="z-[210] w-[--radix-popover-trigger-width] min-w-[260px] p-0 bg-popover"
+        sideOffset={6}
+        collisionPadding={12}
+        className="!z-[9999] w-[--radix-popover-trigger-width] min-w-[260px] max-h-[min(420px,calc(100dvh-1.5rem))] overflow-hidden p-0 bg-white dark:bg-card shadow-xl ring-1 ring-black/10"
       >
         <Command>
           <CommandInput placeholder={searchPlaceholder ?? 'Search…'} />
@@ -321,7 +331,7 @@ function SectionHeader({ title }: { title: string }) {
 // ─── Business Sheet ───────────────────────────────────────────────────────────
 interface BusinessSheetProps {
   mode: 'register' | 'edit';
-  initialClientType?: 'R' | 'C';
+  initialClientType?: TrackingClientType;
   fileNo?: string;
   onClose: () => void;
   onSaved?: (fileNo: string) => void;
@@ -338,13 +348,13 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 
   // Reference data
   const { data: agentsRes } = useQuery({ queryKey: ['agents'], queryFn: misApi.agents, staleTime: 120_000 });
-  const { data: employeesRes } = useQuery({ queryKey: ['employees-membership'], queryFn: () => misApi.employees({ department: 'MEMBERSHIP', activated: 'true', approved: 'true' }), staleTime: 120_000 });
+  const { data: walkInStaffRes } = useQuery({ queryKey: ['walk-in-staff'], queryFn: misApi.walkInStaff, staleTime: 120_000 });
   const { data: bpoReviewersRes } = useQuery({ queryKey: ['bpo-reviewers'], queryFn: () => misApi.bpoReviewers(), staleTime: 120_000 });
   const { data: countiesRes } = useQuery({ queryKey: ['counties'], queryFn: misApi.counties, staleTime: Infinity });
   const { data: sectorsRes } = useQuery({ queryKey: ['business-sectors'], queryFn: misApi.sectors, staleTime: 300_000 });
 
   const agents: SalesAgent[] = (agentsRes?.data ?? []) as SalesAgent[];
-  const employees: Employee[] = (employeesRes?.data ?? []) as Employee[];
+  const walkInStaff: Employee[] = (walkInStaffRes?.data ?? []) as Employee[];
   const bpoReviewers: BpoReviewer[] = (bpoReviewersRes?.data ?? []) as BpoReviewer[];
   const counties: string[]    = (countiesRes?.data ?? []) as string[];
   const sectors: string[]     = (sectorsRes?.data ?? []) as string[];
@@ -383,7 +393,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
     setForm(f => ({ ...f, [k]: v }));
   }
 
-  function setClientType(clientType: 'R' | 'C') {
+  function setClientType(clientType: TrackingClientType) {
     setForm(current => ({
       ...current,
       client_type: clientType,
@@ -403,12 +413,13 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
             allocated_to: '',
             is_mtiba: false,
             is_ipf: false,
+            client_sub_type: clientType,
           }),
     }));
   }
 
   const isRetail = form.client_type === 'R';
-  const isCorp   = form.client_type === 'C';
+  const isCorp   = form.client_type !== 'R';
 
   // Forward dialog state
   const [showForwardDialog, setShowForwardDialog] = useState(false);
@@ -541,9 +552,6 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
       toast({ title: 'Validation', description: 'Select the Membership Admin who authorised the walk-in file.', variant: 'destructive' }); return;
     }
     if (isCorp) {
-      if (!form.client_sub_type) {
-        toast({ title: 'Validation', description: 'Select SME or Corporate client type.', variant: 'destructive' }); return;
-      }
       if (form.business_type === 'N' && !form.cr12_ref.trim()) {
         toast({ title: 'Validation', description: 'CR12 reference number is required for new SME/Corporate business.', variant: 'destructive' }); return;
       }
@@ -670,7 +678,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
   }
 
   const title = activeMode === 'register'
-    ? `Register ${isRetail ? 'Retail' : 'SME/Corp'} File`
+    ? `Register ${clientTypeLabel(form.client_type)} File`
     : (existingFile?.file_no ?? activeFileNo ?? 'File Details');
 
   return (
@@ -690,7 +698,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                     File No. <span className="font-mono">{activeFileNo}</span>
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {isRetail ? 'Retail' : 'SME/Corp'}{existingFile ? ` · ${existingFile.business === 'M' ? 'Medical' : 'Non-Medical'}` : ''}
+                    {clientTypeLabel(form.client_type)}{existingFile ? ` · ${existingFile.business === 'M' ? 'Medical' : 'Non-Medical'}` : ''}
                   </span>
                   {existingFile?.entered_by && (
                     <span className="text-xs text-muted-foreground">· by {existingFile.entered_by}</span>
@@ -700,7 +708,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
             </div>
             {activeMode === 'register' && (
               <div className="flex rounded-lg border bg-muted p-0.5 shrink-0">
-                {(['R','C'] as const).map(ct => (
+                {(['R', 'S', 'C'] as const).map(ct => (
                   <button
                     key={ct}
                     type="button"
@@ -712,7 +720,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                     }`}
                   >
                     {ct === 'R' ? <User className="w-3 h-3" /> : <Building2 className="w-3 h-3" />}
-                    {ct === 'R' ? 'Retail' : 'SME/Corp'}
+                    {clientTypeLabel(ct)}
                   </button>
                 ))}
               </div>
@@ -807,9 +815,9 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                         <SearchableSelect
                           value={form.walk_in_auth}
                           onChange={v => set('walk_in_auth', v)}
-                          options={employees.map(e => ({ value: e.username, label: e.employee_name }))}
-                          placeholder="Select authoriser…"
-                          searchPlaceholder="Search membership admins…"
+                            options={walkInStaff.map(e => ({ value: e.username, label: `${e.employee_name} — ${e.department}` }))}
+                            placeholder="Select authoriser…"
+                            searchPlaceholder="Search Membership or Nonmedical staff…"
                         />
                       </Field>
                     )}
@@ -818,8 +826,8 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 
                 {isCorp && (
                   <>
-                    <Field label="Client Type" required>
-                      <SelectField value={form.client_sub_type} onChange={v => set('client_sub_type', v)} options={[{ value: 'S', label: 'SME' }, { value: 'C', label: 'CORPORATE' }]} placeholder="Blank" />
+                    <Field label="Client Type">
+                      <Input value={clientTypeLabel(form.client_type)} readOnly aria-readonly="true" className="h-8 text-sm bg-muted/60 cursor-not-allowed" />
                     </Field>
                     <Field label="Business Category" required={form.business_type === 'N'}>
                       <SelectField value={form.corp_category} onChange={v => set('corp_category', v)} options={CORP_CATS.map(c => ({ value: c, label: c }))} placeholder="Blank" />
@@ -910,9 +918,9 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                           <SearchableSelect
                             value={form.allocated_to}
                             onChange={v => set('allocated_to', v)}
-                            options={employees.map(e => ({ value: e.username, label: e.employee_name }))}
+                            options={walkInStaff.map(e => ({ value: e.username, label: `${e.employee_name} — ${e.department}` }))}
                             placeholder="Assign to employee…"
-                            searchPlaceholder="Search membership admins…"
+                            searchPlaceholder="Search Membership or Nonmedical staff…"
                           />
                         </Field>
                         <Field label="Benefit Verified">
@@ -1420,7 +1428,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 export default function BusinessTrackingPage() {
   const { user } = useAuth();
   const [queue, setQueue]             = useState<'register' | 'bpo-review'>('register');
-  const [clientTab, setClientTab]     = useState<'ALL' | 'R' | 'C'>('ALL');
+  const [clientTab, setClientTab]     = useState<'ALL' | TrackingClientType>('ALL');
   const [statusFilter, setStatusFilter] = useState('');
   const [searchBy, setSearchBy]       = useState<'P' | 'F'>('P');
   const [searchDraft, setSearchDraft] = useState('');
@@ -1430,7 +1438,7 @@ export default function BusinessTrackingPage() {
   const [sortBy, setSortBy]           = useState('created_at');
   const [sortDir, setSortDir]         = useState<'asc' | 'desc'>('desc');
   const [deleteTarget, setDeleteTarget] = useState<BusinessFile | null>(null);
-  const [sheet, setSheet]             = useState<{ mode: 'closed' | 'register' | 'edit'; fileNo?: string; clientType?: 'R' | 'C' }>({ mode: 'closed' });
+  const [sheet, setSheet]             = useState<{ mode: 'closed' | 'register' | 'edit'; fileNo?: string; clientType?: TrackingClientType }>({ mode: 'closed' });
   const qc = useQueryClient();
   const { toast } = useToast();
 
@@ -1482,10 +1490,10 @@ export default function BusinessTrackingPage() {
   }, {});
 
   function openEdit(f: BusinessFile) {
-    setSheet({ mode: 'edit', fileNo: f.file_no, clientType: f.client_type as 'R' | 'C' });
+    setSheet({ mode: 'edit', fileNo: f.file_no, clientType: f.client_type as TrackingClientType });
   }
 
-  function openRegister(ct: 'R' | 'C') {
+  function openRegister(ct: TrackingClientType) {
     setSheet({ mode: 'register', clientType: ct });
   }
 
@@ -1519,7 +1527,8 @@ export default function BusinessTrackingPage() {
   const medical  = files.filter(f => f.business === 'M').length;
   const nonMed   = files.filter(f => f.business === 'N').length;
   const retail   = files.filter(f => f.client_type === 'R').length;
-  const corp     = files.filter(f => f.client_type === 'C').length;
+  const sme      = files.filter(f => f.client_type === 'S').length;
+  const corporate = files.filter(f => f.client_type === 'C').length;
   const pending  = files.filter(f => f.file_status === 'REGISTERED').length;
   const forwarded = files.filter(f => f.file_status === 'FORWARDED').length;
 
@@ -1538,7 +1547,7 @@ export default function BusinessTrackingPage() {
             <RefreshCw className={`w-4 h-4 mr-1.5 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
           </Button>
           {queue === 'register' && (
-            <Button size="sm" className="gap-1.5" onClick={() => openRegister(clientTab === 'C' ? 'C' : 'R')}>
+            <Button size="sm" className="gap-1.5" onClick={() => openRegister(clientTab === 'ALL' ? 'R' : clientTab)}>
               <Plus className="w-4 h-4" /> Register File
             </Button>
           )}
@@ -1569,11 +1578,12 @@ export default function BusinessTrackingPage() {
 
       {/* Summary stat cards */}
       {!isLoading && files.length > 0 && (
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
           {[
             { label: 'Total Files',  value: total,    color: 'text-foreground' },
             { label: 'Retail',       value: retail,   color: 'text-blue-600' },
-            { label: 'SME/Corp',     value: corp,     color: 'text-purple-600' },
+            { label: 'SME',          value: sme,      color: 'text-purple-600' },
+            { label: 'Corporate',    value: corporate, color: 'text-purple-600' },
             { label: 'Medical',      value: medical,  color: 'text-teal-600' },
             { label: 'Non-Medical',  value: nonMed,   color: 'text-orange-600' },
             { label: 'Pending',      value: pending,  color: 'text-amber-600' },
@@ -1590,7 +1600,7 @@ export default function BusinessTrackingPage() {
       <div className="space-y-2">
         {/* Client type tabs */}
         <div className="flex items-center gap-4 border-b">
-          {(['ALL', 'R', 'C'] as const).map(ct => (
+          {(['ALL', 'R', 'S', 'C'] as const).map(ct => (
             <button
               key={ct}
               onClick={() => { setClientTab(ct); setPage(1); }}
@@ -1600,9 +1610,10 @@ export default function BusinessTrackingPage() {
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
-              {ct === 'ALL' ? 'All Files' : ct === 'R' ? '👤 Retail' : '🏢 SME/Corp'}
+              {ct === 'ALL' ? 'All Files' : ct === 'R' ? '👤 Retail' : ct === 'S' ? '🏢 SME' : '🏢 Corporate'}
               {ct === 'R' && <span className="ml-1.5 text-xs text-muted-foreground">({retail})</span>}
-              {ct === 'C' && <span className="ml-1.5 text-xs text-muted-foreground">({corp})</span>}
+              {ct === 'S' && <span className="ml-1.5 text-xs text-muted-foreground">({sme})</span>}
+              {ct === 'C' && <span className="ml-1.5 text-xs text-muted-foreground">({corporate})</span>}
             </button>
           ))}
         </div>
@@ -1725,7 +1736,7 @@ export default function BusinessTrackingPage() {
                   No files match your filters.
                   {queue === 'register' && (
                     <div className="mt-2">
-                      <Button size="sm" variant="outline" onClick={() => openRegister(clientTab === 'C' ? 'C' : 'R')}>
+                      <Button size="sm" variant="outline" onClick={() => openRegister(clientTab === 'ALL' ? 'R' : clientTab)}>
                         <Plus className="w-4 h-4 mr-1.5" /> Register First File
                       </Button>
                     </div>
@@ -1748,7 +1759,7 @@ export default function BusinessTrackingPage() {
                 <td className="px-3 py-2.5">
                   <div className="flex flex-col gap-0.5">
                     <span className={`text-xs font-medium ${f.client_type === 'R' ? 'text-blue-600' : 'text-purple-600'}`}>
-                      {f.client_type === 'R' ? 'Retail' : 'SME/Corp'}
+                      {clientTypeLabel(f.client_type)}
                     </span>
                     <span className="text-xs text-muted-foreground">{f.business === 'M' ? 'Medical' : 'Non-Medical'}</span>
                   </div>
@@ -1852,7 +1863,7 @@ export default function BusinessTrackingPage() {
           key={sheet.mode === 'register' ? `register-${sheet.clientType}` : sheet.fileNo}
           mode={sheet.mode}
           fileNo={sheet.fileNo}
-          initialClientType={sheet.clientType ?? (clientTab === 'C' ? 'C' : 'R')}
+          initialClientType={sheet.clientType ?? (clientTab === 'ALL' ? 'R' : clientTab)}
           onClose={closeSheet}
           onSaved={(fn) => {
             closeSheet();

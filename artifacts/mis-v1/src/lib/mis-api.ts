@@ -231,6 +231,7 @@ export const misApi = {
   businessRequirements: (client_type?: string) =>
     get<ApiResponse<BusinessRequirement[]>>('/business/requirements', client_type ? { client_type } : undefined),
   bpoReviewers: () => get<ApiResponse<BpoReviewer[]>>('/business/bpo-reviewers'),
+  walkInStaff: () => get<ApiResponse<Employee[]>>('/business/walk-in-staff'),
   counties: () => get<ApiResponse<string[]>>('/business/counties'),
   sectors: () => get<ApiResponse<string[]>>('/business/sectors'),
 

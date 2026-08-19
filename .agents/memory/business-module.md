@@ -6,7 +6,7 @@ description: Architecture and key decisions for the Business Tracking feature (B
 # Business Tracking Module
 
 ## Key tables
-- `crm.business_tracking` — main file record; `file_no` is PK (R-MM/YY/-XXXXXX or C-…)
+- `crm.business_tracking` — main file record; `file_no` is PK (R-MM/YY/-XXXXXX, S-MM/YY/-XXXXXX, or C-MM/YY/-XXXXXX)
   - Columns added: `cr12_ref VARCHAR(200)` (Corp CR12 reference text)
 - `crm.business_tracking_notes` — notes per file
 - `crm.business_doc_checklist` — acknowledged docs (unique per file+req); has `upload_id` FK

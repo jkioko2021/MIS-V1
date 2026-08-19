@@ -11,14 +11,14 @@ function handleError(res: Response, err: unknown, ctx: string) {
   res.status(500).json({ ok: false, error: "Unable to complete the business operation." });
 }
 
-const CLIENT_TYPES = new Set(["R", "C"]);
-const CLIENT_SUB_TYPES = new Set(["S", "C"]);
+const CLIENT_TYPES = new Set(["R", "S", "C"]);
 const BUSINESS_TYPES = new Set(["N", "R", "A", "T", "RT", "CC", "PR", "NE", "FT", "SU", "LS"]);
 const COVERAGE_TYPES = new Set(["M", "N"]);
 const PAYMENT_MODES = new Set(["MPESA", "EFT", "CHEQ", "IPF"]);
 const CARD_TYPES = new Set(["MTIBA", "SMART"]);
 const GI_CATEGORIES = new Set(["Non_Motor", "Motor"]);
 const CORPORATE_CATEGORIES = new Set(["Public", "Private"]);
+const WALK_IN_DEPARTMENTS = ["MEMBERSHIP", "NONMEDICAL"];
 
 interface BusinessInput {
   client_type?: unknown;
@@ -48,10 +48,30 @@ function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+async function walkInStaffValidationError(allocatedTo: unknown, authorisedBy: unknown): Promise<string | null> {
+  const selectedUsers = [...new Set([text(allocatedTo), text(authorisedBy)].filter(Boolean))];
+  if (selectedUsers.length === 0) return null;
+
+  const rows = await query<{ username: string }>(
+    `SELECT e.username
+     FROM crm.employees e
+     WHERE e.username = ANY($1::text[])
+       AND e.department = ANY($2::text[])
+       AND e.activated=TRUE
+       AND e.approved=TRUE
+       AND e.employee_locked=FALSE
+       AND e.is_deleted=FALSE`,
+    [selectedUsers, WALK_IN_DEPARTMENTS],
+  );
+
+  return rows.length === selectedUsers.length
+    ? null
+    : "Walk-in allocation and authorisation must use an active approved Membership or Nonmedical employee.";
+}
+
 function validateBusinessInput(input: BusinessInput): string[] {
   const errors: string[] = [];
   const clientType = text(input.client_type);
-  const clientSubType = text(input.client_sub_type);
   const businessType = text(input.business_type);
   const coverageType = text(input.business);
   const paidAmountText = text(input.paid_amt);
@@ -88,8 +108,7 @@ function validateBusinessInput(input: BusinessInput): string[] {
     }
   }
 
-  if (clientType === "C") {
-    if (!CLIENT_SUB_TYPES.has(clientSubType)) errors.push("Select SME or Corporate client type.");
+  if (clientType !== "R") {
     if (businessType === "N") {
       if (!text(input.cr12_ref)) errors.push("CR12 reference number is required for new SME/Corporate business.");
       if (!text(input.county_code)) errors.push("County is required for new SME/Corporate business.");
@@ -171,6 +190,23 @@ router.get("/business/bpo-reviewers", requireBpoForwardAccess, async (_req: Requ
   } catch (err) { handleError(res, err, "get BPO reviewers"); }
 });
 
+router.get("/business/walk-in-staff", async (_req: Request, res: Response) => {
+  try {
+    const staff = await query(
+      `SELECT e.username, e.employee_name, e.department
+       FROM crm.employees e
+       WHERE e.department = ANY($1::text[])
+         AND e.activated=TRUE
+         AND e.approved=TRUE
+         AND e.employee_locked=FALSE
+         AND e.is_deleted=FALSE
+       ORDER BY e.employee_name`,
+      [WALK_IN_DEPARTMENTS],
+    );
+    res.json({ ok: true, data: staff });
+  } catch (err) { handleError(res, err, "get walk-in staff"); }
+});
+
 // ─── POST /business/register ──────────────────────────────────────────────────
 router.post("/business/register", async (req: Request, res: Response) => {
   const {
@@ -191,18 +227,29 @@ router.post("/business/register", async (req: Request, res: Response) => {
     res.status(400).json({ ok: false, error: validationErrors.join(" ") });
     return;
   }
+  if (client_type === "R" && walk_in_client === "Y") {
+    const staffError = await walkInStaffValidationError(allocated_to, walk_in_auth);
+    if (staffError) {
+      res.status(400).json({ ok: false, error: staffError });
+      return;
+    }
+  }
 
   try {
     // ── Transaction with advisory lock ─────────────────────────────────────
     // pg_advisory_xact_lock ensures only one registration per client type runs
     // at a time, preventing duplicate file numbers under concurrent load.
-    // Lock IDs: 1001 = Retail, 1002 = Corporate
+    // Keep independent sequences for the three legacy client codes.
     const file_no = await withTransaction(async (client) => {
-      const lockId = String(client_type) === "R" ? 1001 : 1002;
+      const lockId = String(client_type) === "R"
+        ? 1001
+        : String(client_type) === "S"
+          ? 1002
+          : 1003;
       await txQuery(client, "SELECT pg_advisory_xact_lock($1)", [lockId]);
 
       // Generate file_no while holding the lock
-      const prefix = String(client_type) === "R" ? "R" : "C";
+      const prefix = String(client_type);
       const now = new Date();
       const mm = String(now.getMonth() + 1).padStart(2, "0");
       const yy = String(now.getFullYear()).slice(-2);
@@ -261,12 +308,12 @@ router.post("/business/register", async (req: Request, res: Response) => {
            client_type === "R" ? pin_no || null : null,
            county_code || null,
           card_type || null, gi_category || null,
-           pay_mode || null, client_type === "C" ? sector || null : null,
-           client_type === "C" && (cr12 === true || cr12 === "true"),
-           client_type === "C" ? cr12_ref || null : null,
-           client_type === "C" ? corp_category || null : null,
+           pay_mode || null, client_type !== "R" ? sector || null : null,
+           client_type !== "R" && (cr12 === true || cr12 === "true"),
+           client_type !== "R" ? cr12_ref || null : null,
+           client_type !== "R" ? corp_category || null : null,
            client_type === "R" ? walk_in_auth || null : null,
-           client_type === "C" ? client_sub_type || null : null,
+           client_type !== "R" ? client_type : null,
         ]
       );
 
@@ -317,6 +364,16 @@ router.put("/business/:fileNo", requireBusinessFileAccess, async (req: Request, 
       res.status(400).json({ ok: false, error: validationErrors.join(" ") });
       return;
     }
+    if (text(allocated_to) || (exists.client_type === "R" && walk_in_client === "Y")) {
+      const staffError = await walkInStaffValidationError(
+        allocated_to,
+        exists.client_type === "R" && walk_in_client === "Y" ? walk_in_auth : "",
+      );
+      if (staffError) {
+        res.status(400).json({ ok: false, error: staffError });
+        return;
+      }
+    }
 
     await query(
       `UPDATE crm.business_tracking SET
@@ -327,7 +384,20 @@ router.put("/business/:fileNo", requireBusinessFileAccess, async (req: Request, 
          county_code=$16, gi_category=$17,
          pay_ref_no=$18, paid_amt=$19, pay_mode=$20, rate_type=$21,
          is_mtiba=$22, is_ipf=$23,
-         allocated_to=$24, medical_uw=$25, benefit_verified=$26, invoiced=$27,
+          allocated_to=CASE
+            WHEN NULLIF($24::text, '') IS NULL THEN allocated_to
+            ELSE $24::text
+          END,
+          allocated=CASE
+            WHEN NULLIF($24::text, '') IS NULL THEN allocated
+            ELSE TRUE
+          END,
+          allocate_dt=CASE
+            WHEN NULLIF($24::text, '') IS NULL THEN allocate_dt
+            WHEN $24::text IS DISTINCT FROM allocated_to THEN NOW()
+            ELSE allocate_dt
+          END,
+          medical_uw=$25, benefit_verified=$26, invoiced=$27,
          client_sub_type=$28,
          updated_at=NOW()
        WHERE file_no=$29`,
@@ -340,17 +410,17 @@ router.put("/business/:fileNo", requireBusinessFileAccess, async (req: Request, 
          exists.client_type === "R" && walk_in_client === "Y" ? "Y" : "N",
          exists.client_type === "R" ? walk_in_auth || null : null,
          card_type || null,
-         exists.client_type === "C" && (cr12 === true || cr12 === "true"),
-         exists.client_type === "C" ? cr12_ref || null : null,
-         exists.client_type === "C" ? corp_category || null : null,
-         exists.client_type === "C" ? sector || null : null,
+         exists.client_type !== "R" && (cr12 === true || cr12 === "true"),
+         exists.client_type !== "R" ? cr12_ref || null : null,
+         exists.client_type !== "R" ? corp_category || null : null,
+         exists.client_type !== "R" ? sector || null : null,
         county_code || null, gi_category || null,
         pay_ref_no || null, paid_amt ? Number(paid_amt) : null, pay_mode || null,
         rate_type || "S",
         !!is_mtiba, !!is_ipf,
         allocated_to || null, !!medical_uw,
         benefit_verified || "NO", !!invoiced,
-         exists.client_type === "C" ? client_sub_type || null : null,
+         exists.client_type !== "R" ? exists.client_type : null,
         fileNo,
       ]
     );
@@ -374,23 +444,19 @@ router.delete(
   async (req: Request, res: Response) => {
     const { fileNo } = req.params;
     try {
-      const file = await queryOne<{ file_status: string; forwarded: boolean; is_active: boolean }>(
-        `SELECT file_status, forwarded, is_active
-         FROM crm.business_tracking
-         WHERE file_no=$1`,
-        [fileNo]
-      );
-      if (!file?.is_active) {
-        res.status(404).json({ ok: false, error: "File not found." });
-        return;
-      }
-      if (file.file_status !== "REGISTERED" || file.forwarded) {
-        res.status(409).json({ ok: false, error: "Only unforwarded REGISTERED files can be deleted." });
-        return;
-      }
-
       await withTransaction(async (client) => {
         await txQuery(client, "SELECT pg_advisory_xact_lock(hashtext($1))", [fileNo]);
+        const [file] = await txQuery<{ file_status: string; forwarded: boolean; is_active: boolean }>(
+          client,
+          `SELECT file_status, forwarded, is_active
+           FROM crm.business_tracking
+           WHERE file_no=$1
+           FOR UPDATE`,
+          [fileNo],
+        );
+        if (!file?.is_active) throw new Error("FILE_NOT_FOUND");
+        if (file.file_status !== "REGISTERED" || file.forwarded) throw new Error("DELETE_NOT_ALLOWED");
+
         const openItems = await txQuery(
           client,
           `SELECT work_item_id FROM crm.business_work_items
@@ -400,13 +466,18 @@ router.delete(
         );
         if (openItems.length > 0) throw new Error("OPEN_WORK_ITEM");
 
-        await txQuery(
+        const updated = await txQuery<{ file_no: string }>(
           client,
           `UPDATE crm.business_tracking
            SET is_active=FALSE, updated_at=NOW()
-           WHERE file_no=$1 AND is_active=TRUE`,
-          [fileNo]
+            WHERE file_no=$1
+              AND is_active=TRUE
+              AND file_status='REGISTERED'
+              AND forwarded=FALSE
+            RETURNING file_no`,
+          [fileNo],
         );
+        if (updated.length === 0) throw new Error("DELETE_NOT_ALLOWED");
         await txQuery(
           client,
           `INSERT INTO crm.admin_audit_trail (username, action_type, description)
@@ -417,6 +488,14 @@ router.delete(
 
       res.json({ ok: true });
     } catch (err) {
+      if (err instanceof Error && err.message === "FILE_NOT_FOUND") {
+        res.status(404).json({ ok: false, error: "File not found." });
+        return;
+      }
+      if (err instanceof Error && err.message === "DELETE_NOT_ALLOWED") {
+        res.status(409).json({ ok: false, error: "Only unforwarded REGISTERED files can be deleted." });
+        return;
+      }
       if (err instanceof Error && err.message === "OPEN_WORK_ITEM") {
         res.status(409).json({ ok: false, error: "This file has an open workflow item and cannot be deleted." });
         return;
@@ -439,40 +518,6 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
   }
 
   try {
-    const file = await queryOne<{
-      file_status: string; is_complete: boolean; allocated: boolean;
-      business: string; medical_uw: boolean; invoiced: boolean;
-      benefit_verified: string; walk_in_client: string; client_type: string;
-    }>(
-      `SELECT file_status, is_complete, allocated, business, medical_uw, invoiced,
-              benefit_verified, walk_in_client, client_type
-       FROM crm.business_tracking WHERE file_no=$1 AND is_active=TRUE`,
-      [fileNo]
-    );
-    if (!file) { res.status(404).json({ ok: false, error: "File not found." }); return; }
-
-    // Gate 1: Documentation Complete must be ticked (legacy: "You Must Tick Business is complete Checkbox!")
-    if (!file.is_complete) {
-      res.status(400).json({ ok: false, error: "Mark Documentation Complete before forwarding." });
-      return;
-    }
-
-    // Gate 2: No unacknowledged required documents
-    const pending = await queryOne<{ cnt: string }>(
-      `SELECT COUNT(*) AS cnt FROM crm.business_req br
-       WHERE br.is_active=TRUE
-         AND (br.applies_to='ALL' OR br.applies_to=$1)
-         AND NOT EXISTS (
-           SELECT 1 FROM crm.business_doc_checklist dc
-           WHERE dc.file_no=$2 AND dc.req_id=br.req_id
-         )`,
-      [file.client_type, fileNo]
-    );
-    if (Number(pending?.cnt ?? 0) > 0) {
-      res.status(400).json({ ok: false, error: "Upload or acknowledge all required documents first." });
-      return;
-    }
-
     if (assignedTo) {
       const reviewer = await queryOne(
         `SELECT e.username
@@ -499,6 +544,20 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
       // Serialize handoffs per file so a retry cannot add duplicate notes/audit
       // entries while another request is creating the BPO work item.
       await txQuery(client, "SELECT pg_advisory_xact_lock(hashtext($1))", [fileNo]);
+      const [file] = await txQuery<{
+        file_status: string; is_complete: boolean; allocated: boolean; forwarded: boolean;
+        business: string; medical_uw: boolean; invoiced: boolean;
+        benefit_verified: string; walk_in_client: string; client_type: string;
+      }>(
+        client,
+        `SELECT file_status, is_complete, allocated, forwarded, business, medical_uw, invoiced,
+                benefit_verified, walk_in_client, client_type
+         FROM crm.business_tracking
+         WHERE file_no=$1 AND is_active=TRUE
+         FOR UPDATE`,
+        [fileNo],
+      );
+      if (!file) throw new Error("FILE_NOT_FOUND");
 
       const [existingWorkItem] = await txQuery<{ work_item_id: number; work_status: string }>(
         client,
@@ -520,6 +579,21 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
           alreadyRouted: true,
         };
       }
+      if (file.file_status !== "REGISTERED" || file.forwarded) throw new Error("FORWARD_NOT_ALLOWED");
+      if (!file.is_complete) throw new Error("DOCS_INCOMPLETE");
+
+      const [pending] = await txQuery<{ cnt: string }>(
+        client,
+        `SELECT COUNT(*) AS cnt FROM crm.business_req br
+         WHERE br.is_active=TRUE
+           AND (br.applies_to='ALL' OR br.applies_to=$1)
+           AND NOT EXISTS (
+             SELECT 1 FROM crm.business_doc_checklist dc
+             WHERE dc.file_no=$2 AND dc.req_id=br.req_id
+           )`,
+        [file.client_type === "R" ? "R" : "C", fileNo],
+      );
+      if (Number(pending?.cnt ?? 0) > 0) throw new Error("DOCS_PENDING");
 
       let newStatus: string;
       let updateSql: string;
@@ -530,28 +604,32 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
         updateSql = `UPDATE crm.business_tracking SET
           forwarded=TRUE, is_complete=TRUE, ready_for_update=FALSE,
           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
-          WHERE file_no=$3`;
+          WHERE file_no=$3 AND is_active=TRUE AND file_status='REGISTERED' AND forwarded=FALSE
+          RETURNING file_no`;
         updateParams = [newStatus, req.user!.username, fileNo];
       } else if (file.allocated && file.benefit_verified === "NO") {
         newStatus = "BENEFIT VERIFICATION";
         updateSql = `UPDATE crm.business_tracking SET
           forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
-          WHERE file_no=$3`;
+          WHERE file_no=$3 AND is_active=TRUE AND file_status='REGISTERED' AND forwarded=FALSE
+          RETURNING file_no`;
         updateParams = [newStatus, req.user!.username, fileNo];
       } else if (file.allocated && file.benefit_verified !== "NO" && !file.invoiced) {
         newStatus = "ALLOCATED";
         updateSql = `UPDATE crm.business_tracking SET
           forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
-          WHERE file_no=$3`;
+          WHERE file_no=$3 AND is_active=TRUE AND file_status='REGISTERED' AND forwarded=FALSE
+          RETURNING file_no`;
         updateParams = [newStatus, req.user!.username, fileNo];
       } else if (file.invoiced) {
         newStatus = "INVOICED";
         updateSql = `UPDATE crm.business_tracking SET
           forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
-          WHERE file_no=$3`;
+          WHERE file_no=$3 AND is_active=TRUE AND file_status='REGISTERED' AND forwarded=FALSE
+          RETURNING file_no`;
         updateParams = [newStatus, req.user!.username, fileNo];
       } else if (file.walk_in_client === "Y" && assignedTo) {
         newStatus = "ALLOCATED";
@@ -560,18 +638,21 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
           benefit_verified='YES', walk_in_client='Y',
           allocated_to=$1, allocate_dt=NOW(),
           file_status=$2, forward_date=NOW(), forwarded_by=$3, updated_at=NOW()
-          WHERE file_no=$4`;
+          WHERE file_no=$4 AND is_active=TRUE AND file_status='REGISTERED' AND forwarded=FALSE
+          RETURNING file_no`;
         updateParams = [assignedTo, newStatus, req.user!.username, fileNo];
       } else {
         newStatus = "FORWARDED";
         updateSql = `UPDATE crm.business_tracking SET
           forwarded=TRUE, is_complete=TRUE, allocated=FALSE, ready_for_update=TRUE,
           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
-          WHERE file_no=$3`;
+          WHERE file_no=$3 AND is_active=TRUE AND file_status='REGISTERED' AND forwarded=FALSE
+          RETURNING file_no`;
         updateParams = [newStatus, req.user!.username, fileNo];
       }
 
-      await txQuery(client, updateSql, updateParams);
+      const updated = await txQuery<{ file_no: string }>(client, updateSql, updateParams);
+      if (updated.length === 0) throw new Error("FORWARD_NOT_ALLOWED");
 
       const [workItem] = await txQuery<{ work_item_id: number }>(
         client,
@@ -616,7 +697,25 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
         already_routed: result.alreadyRouted,
       },
     });
-  } catch (err) { handleError(res, err, "forward file"); }
+  } catch (err) {
+    if (err instanceof Error && err.message === "FILE_NOT_FOUND") {
+      res.status(404).json({ ok: false, error: "File not found." });
+      return;
+    }
+    if (err instanceof Error && err.message === "FORWARD_NOT_ALLOWED") {
+      res.status(409).json({ ok: false, error: "Only an active unforwarded REGISTERED file can be forwarded." });
+      return;
+    }
+    if (err instanceof Error && err.message === "DOCS_INCOMPLETE") {
+      res.status(400).json({ ok: false, error: "Mark Documentation Complete before forwarding." });
+      return;
+    }
+    if (err instanceof Error && err.message === "DOCS_PENDING") {
+      res.status(400).json({ ok: false, error: "Upload or acknowledge all required documents first." });
+      return;
+    }
+    handleError(res, err, "forward file");
+  }
 });
 
 // The remaining file-scoped endpoints must not expose a BPO-held record to
@@ -667,7 +766,8 @@ router.post("/business/:fileNo/checklist/:reqId", async (req: Request, res: Resp
       `UPDATE crm.business_tracking bt SET is_complete = (
          SELECT COUNT(*) = (
            SELECT COUNT(*) FROM crm.business_req
-           WHERE is_active=TRUE AND (applies_to='ALL' OR applies_to=bt.client_type)
+           WHERE is_active=TRUE
+             AND (applies_to='ALL' OR applies_to=CASE WHEN bt.client_type='R' THEN 'R' ELSE 'C' END)
          )
          FROM crm.business_doc_checklist dc
          WHERE dc.file_no=bt.file_no
@@ -699,6 +799,8 @@ router.post("/business/:fileNo/allocate", async (req: Request, res: Response) =>
   const { allocated_to } = req.body as { allocated_to: string };
   if (!allocated_to) { res.status(400).json({ ok: false, error: "allocated_to is required." }); return; }
   try {
+    const staffError = await walkInStaffValidationError(allocated_to, "");
+    if (staffError) { res.status(400).json({ ok: false, error: staffError }); return; }
     await query(
       `UPDATE crm.business_tracking SET
          allocated=TRUE, allocated_to=$1, allocate_dt=NOW(),
@@ -768,7 +870,8 @@ router.post("/business/:fileNo/uploads", async (req: Request, res: Response) => 
         `UPDATE crm.business_tracking bt SET is_complete = (
            SELECT COUNT(*) = (
              SELECT COUNT(*) FROM crm.business_req
-             WHERE is_active=TRUE AND (applies_to='ALL' OR applies_to=bt.client_type)
+           WHERE is_active=TRUE
+             AND (applies_to='ALL' OR applies_to=CASE WHEN bt.client_type='R' THEN 'R' ELSE 'C' END)
            )
            FROM crm.business_doc_checklist dc
            WHERE dc.file_no=bt.file_no
