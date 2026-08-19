@@ -790,6 +790,9 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 
                 {isRetail && (
                   <>
+                    <Field label="Client Type">
+                      <Input value="Retail" readOnly disabled aria-readonly="true" className="h-8 text-sm bg-muted/60 cursor-not-allowed" />
+                    </Field>
                     <Field label="National ID (NID)">
                       <TextInput value={form.nid} onChange={v => set('nid', v)} placeholder="ID number…" />
                     </Field>
@@ -818,7 +821,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                 {isCorp && (
                   <>
                     <Field label="Client Type">
-                      <Input value={clientTypeLabel(form.client_type)} readOnly aria-readonly="true" className="h-8 text-sm bg-muted/60 cursor-not-allowed" />
+                      <Input value={clientTypeLabel(form.client_type)} readOnly disabled aria-readonly="true" className="h-8 text-sm bg-muted/60 cursor-not-allowed" />
                     </Field>
                     <Field label="Business Category" required={form.business_type === 'N'}>
                       <SelectField value={form.corp_category} onChange={v => set('corp_category', v)} options={CORP_CATS.map(c => ({ value: c, label: c }))} placeholder="Blank" />
