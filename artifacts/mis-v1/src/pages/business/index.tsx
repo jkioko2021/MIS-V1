@@ -464,6 +464,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
       qc.invalidateQueries({ queryKey: ['business'] });
       qc.invalidateQueries({ queryKey: ['business-file', activeFileNo] });
       qc.invalidateQueries({ queryKey: ['business-history', activeFileNo] });
+      onClose();
     },
     onError: (e) => toast({ title: 'Cannot forward', description: String(e), variant: 'destructive' }),
   });
