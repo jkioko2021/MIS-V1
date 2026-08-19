@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { query, queryOne } from "../lib/postgres";
+import { requireAuth } from "../lib/auth-middleware";
+import { requireBpoQueueAccess, requireBusinessFileAccess, requireBusinessTrackingAccess, setBpoReviewAccess } from "../lib/business-permissions";
 
 const router = Router();
 
@@ -34,9 +36,11 @@ router.get("/mis/staff-on-call", async (_req, res) => {
 });
 
 // ─── BUSINESS TRACKING ───────────────────────────────────────────────────────
-router.get("/mis/business", async (req, res) => {
+router.use("/mis/business", requireAuth, requireBusinessTrackingAccess, setBpoReviewAccess);
+
+router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
   try {
-    const { status, client_type, business, entered_by, search } = req.query as Record<string, string>;
+    const { status, client_type, business, entered_by, search, queue } = req.query as Record<string, string>;
 
     const conditions: string[] = ["bt.is_active = TRUE"];
     const params: unknown[] = [];
@@ -46,6 +50,19 @@ router.get("/mis/business", async (req, res) => {
     if (client_type) { conditions.push(`bt.client_type = $${p++}`); params.push(client_type); }
     if (business) { conditions.push(`bt.business = $${p++}`); params.push(business); }
     if (entered_by) { conditions.push(`bt.entered_by = $${p++}`); params.push(entered_by); }
+    if (queue === "register") {
+      conditions.push(`bt.file_status = 'REGISTERED'`);
+    } else if (queue === "bpo-review") {
+      conditions.push(`wi.work_status = 'OPEN'`);
+    } else if (!res.locals.canAccessBpoReview) {
+      // BPO-held files are not visible through the unfiltered/default list.
+      conditions.push(`NOT EXISTS (
+        SELECT 1 FROM crm.business_work_items bpo_filter
+        WHERE bpo_filter.file_no=bt.file_no
+          AND bpo_filter.queue_name='BPO_REVIEW'
+          AND bpo_filter.work_status='OPEN'
+      )`);
+    }
     if (search) {
       conditions.push(`(bt.proposer_name ILIKE $${p} OR bt.file_no ILIKE $${p} OR bt.pay_ref_no ILIKE $${p} OR bt.nid ILIKE $${p} OR bt.pin_no ILIKE $${p})`);
       params.push(`%${search}%`); p++;
@@ -57,13 +74,17 @@ router.get("/mis/business", async (req, res) => {
       SELECT
         bt.*,
         sa.agent_name,
-        COUNT(n.note_id) AS note_count
+        COUNT(n.note_id) AS note_count,
+        MAX(wi.assigned_to) AS bpo_assigned_to,
+        MAX(wi.forwarded_at) AS bpo_forwarded_at
       FROM crm.business_tracking bt
       LEFT JOIN commission.sales_agents sa ON sa.agent_id = bt.agent_id
       LEFT JOIN crm.business_tracking_notes n ON n.file_no = bt.file_no AND n.is_active = TRUE
+      LEFT JOIN crm.business_work_items wi
+        ON wi.file_no = bt.file_no AND wi.queue_name = 'BPO_REVIEW'
       ${where}
       GROUP BY bt.file_no, sa.agent_name
-      ORDER BY bt.created_at DESC
+      ORDER BY COALESCE(MAX(wi.forwarded_at), bt.created_at) DESC
     `, params);
 
     res.json({ ok: true, data: rows, total: rows.length });
@@ -72,7 +93,7 @@ router.get("/mis/business", async (req, res) => {
   }
 });
 
-router.get("/mis/business/:fileNo", async (req, res) => {
+router.get("/mis/business/:fileNo", requireBusinessFileAccess, async (req, res) => {
   try {
     const { fileNo } = req.params;
     const [file, notes, docs] = await Promise.all([

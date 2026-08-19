@@ -99,6 +99,8 @@ export interface BusinessFile {
   cr12_ref: string | null;
   corp_category: string | null;
   client_sub_type: string | null;
+  bpo_assigned_to?: string | null;
+  bpo_forwarded_at?: string | null;
 }
 
 export interface BusinessNote {
@@ -162,6 +164,12 @@ export interface Employee {
   department: string;
 }
 
+export interface BpoReviewer {
+  username: string;
+  employee_name: string;
+  department: string | null;
+}
+
 export interface BusinessSummary {
   detail: Array<{ file_status: string; business: string; client_type: string; count: number; total_premium: number }>;
   byStatus: Array<{ file_status: string; count: number; premium: number }>;
@@ -182,7 +190,7 @@ export const misApi = {
   businessUpdate: (fileNo: string, body: Partial<BusinessFile>) =>
     put<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}`, body),
   businessForward: (fileNo: string, body?: { to_user?: string; comments?: string }) =>
-    post<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}/forward`, body),
+    post<ApiResponse<{ new_status: string; queue_name: 'BPO_REVIEW'; work_item_id?: number; already_routed: boolean }>>(`/business/${encodeURIComponent(fileNo)}/forward`, body),
   businessAllocate: (fileNo: string, allocated_to: string) =>
     post<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}/allocate`, { allocated_to }),
   businessAddNote: (fileNo: string, notes: string) =>
@@ -213,6 +221,7 @@ export const misApi = {
   // Reference data
   businessRequirements: (client_type?: string) =>
     get<ApiResponse<BusinessRequirement[]>>('/business/requirements', client_type ? { client_type } : undefined),
+  bpoReviewers: () => get<ApiResponse<BpoReviewer[]>>('/business/bpo-reviewers'),
   counties: () => get<ApiResponse<string[]>>('/business/counties'),
 
   agents:   () => get<ApiResponse<SalesAgent[]>>('/mis/agents'),

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { misApi, type BusinessFile, type BusinessNote, type BusinessDoc, type BusinessRequirement, type SalesAgent, type Employee, type BusinessUpload, type AuditEntry } from '@/lib/mis-api';
+import { misApi, type BusinessFile, type BusinessNote, type BusinessDoc, type BusinessRequirement, type SalesAgent, type Employee, type BpoReviewer, type BusinessUpload, type AuditEntry } from '@/lib/mis-api';
 import { useAuth } from '@/lib/auth-context';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -292,6 +292,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
   // Reference data
   const { data: agentsRes } = useQuery({ queryKey: ['agents'], queryFn: misApi.agents, staleTime: 120_000 });
   const { data: employeesRes } = useQuery({ queryKey: ['employees-membership'], queryFn: () => misApi.employees({ department: 'MEMBERSHIP', activated: 'true', approved: 'true' }), staleTime: 120_000 });
+  const { data: bpoReviewersRes } = useQuery({ queryKey: ['bpo-reviewers'], queryFn: () => misApi.bpoReviewers(), staleTime: 120_000 });
   const { data: countiesRes } = useQuery({ queryKey: ['counties'], queryFn: misApi.counties, staleTime: Infinity });
 
   const liveAgents: SalesAgent[] = (agentsRes?.data ?? []) as SalesAgent[];
@@ -300,6 +301,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
     ...liveAgents.filter(agent => !SAMPLE_AGENTS.some(sample => sample.agent_id === agent.agent_id)),
   ];
   const employees: Employee[] = (employeesRes?.data ?? []) as Employee[];
+  const bpoReviewers: BpoReviewer[] = (bpoReviewersRes?.data ?? []) as BpoReviewer[];
   const counties: string[]    = (countiesRes?.data ?? []) as string[];
 
   // Existing file data (edit mode)
@@ -370,8 +372,11 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
   const forwardMut = useMutation({
     mutationFn: () => misApi.businessForward(activeFileNo!, { to_user: forwardToUser, comments: forwardComments }),
     onSuccess: (res) => {
-      const newStatus = (res as { data?: { new_status?: string } })?.data?.new_status ?? 'FORWARDED';
-      toast({ title: 'Registration successfully forwarded', description: `Status updated to ${newStatus}.` });
+      const newStatus = res.data.new_status;
+      toast({
+        title: res.data.already_routed ? 'Already in BPO Review' : 'Sent to BPO Review',
+        description: res.data.already_routed ? 'The existing BPO work item was kept unchanged.' : `BPO work item created. File status updated to ${newStatus}.`,
+      });
       setShowForwardDialog(false);
       setForwardToUser('');
       setForwardComments('');
@@ -1074,10 +1079,10 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <ArrowUpRight className="w-4 h-4 text-blue-600" />
-                Forward File — {activeFileNo}
+                Forward to BPO Review — {activeFileNo}
               </DialogTitle>
               <DialogDescription>
-                Select the destination employee and add a handover note. Comments are required.
+                This creates an active BPO Review work item for the same file. Add a handover note and optionally assign a reviewer.
               </DialogDescription>
             </DialogHeader>
             {!(existingFile?.is_complete) && (
@@ -1088,13 +1093,13 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
             )}
             <div className="space-y-4 py-2">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Forward To</Label>
+                <Label className="text-xs font-semibold text-slate-700">Assign BPO Reviewer</Label>
                 <Select value={forwardToUser} onValueChange={setForwardToUser}>
                   <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Select employee (optional)…" />
+                    <SelectValue placeholder="Leave unassigned for the BPO queue…" />
                   </SelectTrigger>
                   <SelectContent>
-                    {employees.map(e => (
+                    {bpoReviewers.map(e => (
                       <SelectItem key={e.username} value={e.username}>{e.employee_name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -1254,6 +1259,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function BusinessTrackingPage() {
+  const [queue, setQueue]             = useState<'register' | 'bpo-review'>('register');
   const [clientTab, setClientTab]     = useState<'ALL' | 'R' | 'C'>('ALL');
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch]           = useState('');
@@ -1261,12 +1267,13 @@ export default function BusinessTrackingPage() {
   const qc = useQueryClient();
 
   const params: Record<string, string> = {};
+  params.queue = queue;
   if (statusFilter) params.status = statusFilter;
   if (clientTab !== 'ALL') params.client_type = clientTab;
   if (search) params.search = search;
 
   const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ['business', clientTab, statusFilter, search],
+    queryKey: ['business', queue, clientTab, statusFilter, search],
     queryFn: () => misApi.business(params),
     staleTime: 30_000,
   });
@@ -1314,10 +1321,34 @@ export default function BusinessTrackingPage() {
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={`w-4 h-4 mr-1.5 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
           </Button>
-          <Button size="sm" className="gap-1.5" onClick={() => openRegister(clientTab === 'C' ? 'C' : 'R')}>
-            <Plus className="w-4 h-4" /> Register File
-          </Button>
+          {queue === 'register' && (
+            <Button size="sm" className="gap-1.5" onClick={() => openRegister(clientTab === 'C' ? 'C' : 'R')}>
+              <Plus className="w-4 h-4" /> Register File
+            </Button>
+          )}
         </div>
+      </div>
+
+      {/* Work queues */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => { setQueue('register'); setStatusFilter(''); }}
+          className={`rounded-lg border px-3 py-2 text-left transition-colors ${
+            queue === 'register' ? 'border-primary bg-primary/5 text-primary' : 'border-border bg-background hover:bg-muted'
+          }`}
+        >
+          <span className="block text-sm font-semibold">Register Queue</span>
+          <span className="block text-xs text-muted-foreground">New files awaiting forwarding</span>
+        </button>
+        <button
+          onClick={() => { setQueue('bpo-review'); setStatusFilter(''); }}
+          className={`rounded-lg border px-3 py-2 text-left transition-colors ${
+            queue === 'bpo-review' ? 'border-primary bg-primary/5 text-primary' : 'border-border bg-background hover:bg-muted'
+          }`}
+        >
+          <span className="block text-sm font-semibold">BPO Review Queue</span>
+          <span className="block text-xs text-muted-foreground">Forwarded files needing BPO review</span>
+        </button>
       </div>
 
       {/* Summary stat cards */}
@@ -1407,7 +1438,7 @@ export default function BusinessTrackingPage() {
               <th className="text-left px-3 py-2.5 font-medium">Type</th>
               <th className="text-left px-3 py-2.5 font-medium">Action</th>
               <th className="text-left px-3 py-2.5 font-medium">Status</th>
-              <th className="text-left px-3 py-2.5 font-medium">Agent</th>
+              <th className="text-left px-3 py-2.5 font-medium">{queue === 'bpo-review' ? 'BPO Reviewer' : 'Agent'}</th>
               <th className="text-right px-3 py-2.5 font-medium">Paid</th>
               <th className="text-left px-3 py-2.5 font-medium">Received</th>
               <th className="text-left px-3 py-2.5 font-medium">Notes</th>
@@ -1428,11 +1459,13 @@ export default function BusinessTrackingPage() {
                 <td colSpan={10} className="py-16 text-center text-muted-foreground">
                   <FileText className="w-8 h-8 mx-auto mb-2 opacity-30" />
                   No files match your filters.
-                  <div className="mt-2">
-                    <Button size="sm" variant="outline" onClick={() => openRegister(clientTab === 'C' ? 'C' : 'R')}>
-                      <Plus className="w-4 h-4 mr-1.5" /> Register First File
-                    </Button>
-                  </div>
+                  {queue === 'register' && (
+                    <div className="mt-2">
+                      <Button size="sm" variant="outline" onClick={() => openRegister(clientTab === 'C' ? 'C' : 'R')}>
+                        <Plus className="w-4 h-4 mr-1.5" /> Register First File
+                      </Button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ) : files.map(f => (
@@ -1461,7 +1494,7 @@ export default function BusinessTrackingPage() {
                 </td>
                 <td className="px-3 py-2.5"><StatusBadge status={f.file_status} /></td>
                 <td className="px-3 py-2.5 text-xs text-muted-foreground max-w-[120px] truncate">
-                  {f.agent_name ?? '—'}
+                  {queue === 'bpo-review' ? (f.bpo_assigned_to ?? 'Unassigned') : (f.agent_name ?? '—')}
                 </td>
                 <td className="px-3 py-2.5 text-right text-xs font-medium">
                   {f.paid_amt != null ? fmt(f.paid_amt) : '—'}
@@ -1488,7 +1521,7 @@ export default function BusinessTrackingPage() {
       {/* File count footer */}
       {!isLoading && (
         <p className="text-xs text-muted-foreground">
-          {files.length} file{files.length !== 1 ? 's' : ''} · {forwarded} forwarded · {pending} pending
+          {files.length} file{files.length !== 1 ? 's' : ''} in {queue === 'bpo-review' ? 'BPO Review' : 'Register'} queue
         </p>
       )}
 

@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { query, queryOne, withTransaction, txQuery } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
+import { requireBpoForwardAccess, requireBusinessFileAccess, requireBusinessTrackingAccess } from "../lib/business-permissions";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -41,8 +42,27 @@ router.get("/business/requirements", async (req: Request, res: Response) => {
   } catch (err) { handleError(res, err, "get requirements"); }
 });
 
-// ─── All write routes require auth ────────────────────────────────────────────
-router.use(requireAuth);
+// ─── Business workflows require both authentication and a business profile ────
+router.use(requireAuth, requireBusinessTrackingAccess);
+
+// ─── GET /business/bpo-reviewers ─────────────────────────────────────────────
+router.get("/business/bpo-reviewers", requireBpoForwardAccess, async (_req: Request, res: Response) => {
+  try {
+    const reviewers = await query(
+      `SELECT e.username, e.employee_name, e.department
+       FROM crm.employees e
+       JOIN crm.profiles p ON p.profile_id=e.profile_id
+       WHERE e.activated=TRUE
+         AND e.approved=TRUE
+         AND e.employee_locked=FALSE
+         AND e.is_deleted=FALSE
+         AND p.is_active=TRUE
+         AND LOWER(p.profile_name) IN ('bpo', 'bpo review')
+       ORDER BY e.employee_name`,
+    );
+    res.json({ ok: true, data: reviewers });
+  } catch (err) { handleError(res, err, "get BPO reviewers"); }
+});
 
 // ─── POST /business/register ──────────────────────────────────────────────────
 router.post("/business/register", async (req: Request, res: Response) => {
@@ -148,7 +168,7 @@ router.post("/business/register", async (req: Request, res: Response) => {
 });
 
 // ─── PUT /business/:fileNo ────────────────────────────────────────────────────
-router.put("/business/:fileNo", async (req: Request, res: Response) => {
+router.put("/business/:fileNo", requireBusinessFileAccess, async (req: Request, res: Response) => {
   const { fileNo } = req.params;
   const {
     proposer_name, family_code, receive_dt,
@@ -209,9 +229,10 @@ router.put("/business/:fileNo", async (req: Request, res: Response) => {
 
 // ─── POST /business/:fileNo/forward ──────────────────────────────────────────
 // Mirrors the legacy btnforward_Click state machine exactly.
-router.post("/business/:fileNo/forward", async (req: Request, res: Response) => {
+router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Request, res: Response) => {
   const { fileNo } = req.params;
   const { to_user, comments } = req.body as { to_user?: string; comments?: string };
+  const assignedTo = to_user?.trim() || null;
 
   if (!comments?.trim()) {
     res.status(400).json({ ok: false, error: "Comments are required when forwarding." });
@@ -253,88 +274,155 @@ router.post("/business/:fileNo/forward", async (req: Request, res: Response) => 
       return;
     }
 
-    // ── Status machine (mirrors legacy btnforward_Click conditions) ──────────
-    let newStatus: string;
-
-    if (file.medical_uw && !file.allocated) {
-      // Medical UW path — route to Medical UW team
-      newStatus = "MEDICAL UW-REVIEW";
-      await query(
-        `UPDATE crm.business_tracking SET
-           forwarded=TRUE, is_complete=TRUE, ready_for_update=FALSE,
-           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
-         WHERE file_no=$3`,
-        [newStatus, req.user!.username, fileNo]
+    if (assignedTo) {
+      const reviewer = await queryOne(
+        `SELECT e.username
+         FROM crm.employees e
+         JOIN crm.profiles p ON p.profile_id=e.profile_id
+         WHERE e.username=$1
+           AND e.activated=TRUE
+           AND e.approved=TRUE
+           AND e.employee_locked=FALSE
+           AND e.is_deleted=FALSE
+           AND p.is_active=TRUE
+           AND LOWER(p.profile_name) IN ('bpo', 'bpo review')`,
+        [assignedTo],
       );
-    } else if (file.allocated && file.benefit_verified === "NO") {
-      // Allocated but benefit not yet verified
-      newStatus = "BENEFIT VERIFICATION";
-      await query(
-        `UPDATE crm.business_tracking SET
-           forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
-           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
-         WHERE file_no=$3`,
-        [newStatus, req.user!.username, fileNo]
-      );
-    } else if (file.allocated && file.benefit_verified !== "NO" && !file.invoiced) {
-      // Allocated + verified, waiting for invoice
-      newStatus = "ALLOCATED";
-      await query(
-        `UPDATE crm.business_tracking SET
-           forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
-           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
-         WHERE file_no=$3`,
-        [newStatus, req.user!.username, fileNo]
-      );
-    } else if (file.invoiced) {
-      newStatus = "INVOICED";
-      await query(
-        `UPDATE crm.business_tracking SET
-           forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
-           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
-         WHERE file_no=$3`,
-        [newStatus, req.user!.username, fileNo]
-      );
-    } else if (file.walk_in_client === "Y" && to_user) {
-      // Walk-in client: allocate directly to Membership Admin (no intermediate team step)
-      newStatus = "ALLOCATED";
-      await query(
-        `UPDATE crm.business_tracking SET
-           forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
-           benefit_verified='YES', walk_in_client='Y',
-           allocated_to=$1, allocate_dt=NOW(),
-           file_status=$2, forward_date=NOW(), forwarded_by=$3, updated_at=NOW()
-         WHERE file_no=$4`,
-        [to_user, newStatus, req.user!.username, fileNo]
-      );
-    } else {
-      // Default: forward to team
-      newStatus = "FORWARDED";
-      await query(
-        `UPDATE crm.business_tracking SET
-           forwarded=TRUE, is_complete=TRUE, allocated=FALSE, ready_for_update=TRUE,
-           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
-         WHERE file_no=$3`,
-        [newStatus, req.user!.username, fileNo]
-      );
+      if (!reviewer) {
+        res.status(400).json({ ok: false, error: "Select an active BPO reviewer." });
+        return;
+      }
     }
 
-    // Persist comment as a tracking note
-    await query(
-      `INSERT INTO crm.business_tracking_notes (file_no, note_from, notes, note_date, is_active)
-       VALUES ($1, $2, $3, NOW(), TRUE)`,
-      [fileNo, req.user!.username, comments.trim()]
-    ).catch(() => {});
+    // Status transition, BPO work item, handover note, and audit entry are a
+    // single unit of work so a file can never be forwarded without reaching BPO.
+    const result = await withTransaction(async (client) => {
+      // Serialize handoffs per file so a retry cannot add duplicate notes/audit
+      // entries while another request is creating the BPO work item.
+      await txQuery(client, "SELECT pg_advisory_xact_lock(hashtext($1))", [fileNo]);
 
-    const detail = `Forwarded ${fileNo} → ${newStatus}${to_user ? ` (to: ${to_user})` : ""}. Note: ${comments}`;
-    await query(
-      `INSERT INTO crm.admin_audit_trail (username, action_type, description) VALUES ($1,'BT_FORWARD',$2)`,
-      [req.user!.username, detail]
-    ).catch(() => {});
+      const [existingWorkItem] = await txQuery<{ work_item_id: number; work_status: string }>(
+        client,
+        `SELECT work_item_id, work_status
+         FROM crm.business_work_items
+         WHERE file_no=$1 AND queue_name='BPO_REVIEW'
+         FOR UPDATE`,
+        [fileNo],
+      );
+      if (existingWorkItem?.work_status === "OPEN") {
+        const [currentFile] = await txQuery<{ file_status: string }>(
+          client,
+          `SELECT file_status FROM crm.business_tracking WHERE file_no=$1`,
+          [fileNo],
+        );
+        return {
+          newStatus: currentFile?.file_status ?? file.file_status,
+          workItemId: existingWorkItem.work_item_id,
+          alreadyRouted: true,
+        };
+      }
 
-    res.json({ ok: true, data: { new_status: newStatus } });
+      let newStatus: string;
+      let updateSql: string;
+      let updateParams: unknown[];
+
+      if (file.medical_uw && !file.allocated) {
+        newStatus = "MEDICAL UW-REVIEW";
+        updateSql = `UPDATE crm.business_tracking SET
+          forwarded=TRUE, is_complete=TRUE, ready_for_update=FALSE,
+          file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
+          WHERE file_no=$3`;
+        updateParams = [newStatus, req.user!.username, fileNo];
+      } else if (file.allocated && file.benefit_verified === "NO") {
+        newStatus = "BENEFIT VERIFICATION";
+        updateSql = `UPDATE crm.business_tracking SET
+          forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
+          file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
+          WHERE file_no=$3`;
+        updateParams = [newStatus, req.user!.username, fileNo];
+      } else if (file.allocated && file.benefit_verified !== "NO" && !file.invoiced) {
+        newStatus = "ALLOCATED";
+        updateSql = `UPDATE crm.business_tracking SET
+          forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
+          file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
+          WHERE file_no=$3`;
+        updateParams = [newStatus, req.user!.username, fileNo];
+      } else if (file.invoiced) {
+        newStatus = "INVOICED";
+        updateSql = `UPDATE crm.business_tracking SET
+          forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
+          file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
+          WHERE file_no=$3`;
+        updateParams = [newStatus, req.user!.username, fileNo];
+      } else if (file.walk_in_client === "Y" && assignedTo) {
+        newStatus = "ALLOCATED";
+        updateSql = `UPDATE crm.business_tracking SET
+          forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
+          benefit_verified='YES', walk_in_client='Y',
+          allocated_to=$1, allocate_dt=NOW(),
+          file_status=$2, forward_date=NOW(), forwarded_by=$3, updated_at=NOW()
+          WHERE file_no=$4`;
+        updateParams = [assignedTo, newStatus, req.user!.username, fileNo];
+      } else {
+        newStatus = "FORWARDED";
+        updateSql = `UPDATE crm.business_tracking SET
+          forwarded=TRUE, is_complete=TRUE, allocated=FALSE, ready_for_update=TRUE,
+          file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
+          WHERE file_no=$3`;
+        updateParams = [newStatus, req.user!.username, fileNo];
+      }
+
+      await txQuery(client, updateSql, updateParams);
+
+      const [workItem] = await txQuery<{ work_item_id: number }>(
+        client,
+        `INSERT INTO crm.business_work_items
+           (file_no, queue_name, work_status, assigned_to, assigned_by, forwarded_by, forwarded_at)
+         VALUES ($1, 'BPO_REVIEW', 'OPEN', $2, $3, $3, NOW())
+         ON CONFLICT (file_no, queue_name) DO UPDATE SET
+           work_status='OPEN',
+           assigned_to=EXCLUDED.assigned_to,
+           assigned_by=EXCLUDED.assigned_by,
+           forwarded_by=EXCLUDED.forwarded_by,
+           forwarded_at=EXCLUDED.forwarded_at,
+           updated_at=NOW()
+         RETURNING work_item_id`,
+        [fileNo, assignedTo, req.user!.username]
+      );
+
+      await txQuery(
+        client,
+        `INSERT INTO crm.business_tracking_notes (file_no, note_from, notes, note_date, is_active)
+         VALUES ($1, $2, $3, NOW(), TRUE)`,
+        [fileNo, req.user!.username, comments.trim()]
+      );
+
+      const detail = `Register → BPO Review: ${fileNo}. Forwarded by ${req.user!.username}${assignedTo ? `; assigned to ${assignedTo}` : ""}. Note: ${comments.trim()}`;
+      await txQuery(
+        client,
+        `INSERT INTO crm.admin_audit_trail (username, action_type, description)
+         VALUES ($1, 'BT_ROUTE_BPO_REVIEW', $2)`,
+        [req.user!.username, detail]
+      );
+
+      return { newStatus, workItemId: workItem?.work_item_id, alreadyRouted: false };
+    });
+
+    res.json({
+      ok: true,
+      data: {
+        new_status: result.newStatus,
+        queue_name: "BPO_REVIEW",
+        work_item_id: result.workItemId,
+        already_routed: result.alreadyRouted,
+      },
+    });
   } catch (err) { handleError(res, err, "forward file"); }
 });
+
+// The remaining file-scoped endpoints must not expose a BPO-held record to
+// Register, Finance, Dispatch, or other non-BPO operational profiles.
+router.use("/business/:fileNo", requireBusinessFileAccess);
 
 // ─── POST /business/:fileNo/notes ────────────────────────────────────────────
 router.post("/business/:fileNo/notes", async (req: Request, res: Response) => {
