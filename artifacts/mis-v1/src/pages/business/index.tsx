@@ -40,6 +40,7 @@ const STATUS_COLOURS: Record<string, string> = {
   'DECLINED':             'bg-red-100 text-red-700 border-red-200',
   'POLICY ISSUED':        'bg-teal-100 text-teal-700 border-teal-200',
 };
+const BLANK_VALUE = '__blank__';
 
 const STATUSES = [
   'REGISTERED','FORWARDED','RETURNED-INCOMPLETE',
@@ -47,22 +48,22 @@ const STATUSES = [
 ];
 
 const BUSINESS_ACTIONS: { value: string; label: string }[] = [
-  { value: 'N',  label: 'New Business' },
+  { value: 'N',  label: 'New' },
   { value: 'R',  label: 'Renewal' },
   { value: 'A',  label: 'Addon' },
   { value: 'T',  label: 'Termination' },
   { value: 'RT', label: 'Reinstatement' },
   { value: 'CC', label: 'Category Change' },
-  { value: 'PR', label: 'Premium Reconciliation' },
-  { value: 'NE', label: 'Nill Endorsement' },
-  { value: 'FT', label: 'Fund Top-up' },
+  { value: 'PR', label: 'Premium Recon' },
+  { value: 'NE', label: 'Nill_Endr' },
+  { value: 'FT', label: 'Fund_Topup' },
   { value: 'SU', label: 'Suspension' },
   { value: 'LS', label: 'Lift Suspension' },
 ];
 
 const ACTION_LABEL: Record<string, string> = Object.fromEntries(BUSINESS_ACTIONS.map(a => [a.value, a.label]));
 
-const PAY_MODES   = ['MPESA', 'EFT', 'CHEQUE', 'IPF'];
+const PAY_MODES   = ['MPESA', 'EFT', 'CHEQ', 'IPF'];
 const CARD_TYPES  = ['MTIBA', 'SMART'];
 const GI_CATS     = ['Non-Motor', 'Motor'];
 const SECTORS     = [
@@ -72,10 +73,32 @@ const SECTORS     = [
   'Media & Entertainment','NGO & Non-Profit','Real Estate','Retail & Trade',
   'Telecommunications','Transport & Logistics','Other',
 ];
-const CORP_CATS   = [
-  'SME (Small Business)','Medium Enterprise','Large Corporate',
-  'Government Agency','Parastatal','NGO/Association',
-  'International Organization','Embassy/Diplomatic Mission','Other',
+const CORP_CATS   = ['Public', 'Private'];
+const SAMPLE_AGENTS: SalesAgent[] = [
+  {
+    agent_id: '2013031715171911335500911',
+    agent_name: 'KISIMA MEDICAL AND GENERAL INSURANCE AGENCY LTD',
+    agent_email: null,
+    agent_phone: null,
+    agency_code: null,
+    is_active: true,
+  },
+  {
+    agent_id: '2013031707142198798700016',
+    agent_name: 'GREAT FIVE INS. BROKERS',
+    agent_email: null,
+    agent_phone: null,
+    agency_code: null,
+    is_active: true,
+  },
+  {
+    agent_id: '2013031707142198798700097',
+    agent_name: 'CAPSTONE INSURANCE AGENCY',
+    agent_email: null,
+    agent_phone: null,
+    agency_code: null,
+    is_active: true,
+  },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -109,7 +132,7 @@ function StatusBadge({ status }: { status: string }) {
 interface FormState {
   client_type: 'R' | 'C';
   business_type: string;
-  business: 'M' | 'N';
+  business: 'M' | 'N' | '';
   proposer_name: string;
   family_code: string;
   receive_dt: string;
@@ -146,8 +169,8 @@ interface FormState {
 function blankForm(clientType: 'R' | 'C' = 'R'): FormState {
   return {
     client_type: clientType,
-    business_type: 'N',
-    business: 'M',
+    business_type: '',
+    business: '',
     proposer_name: '',
     family_code: '',
     receive_dt: today(),
@@ -176,7 +199,7 @@ function fileToForm(f: BusinessFile): FormState {
     agent_id: f.agent_id ?? '', county_code: f.county_code ?? '',
     gi_category: f.gi_category ?? '', rate_type: (f.rate_type ?? 'S') as 'S' | 'C',
     pay_ref_no: f.pay_ref_no ?? '', paid_amt: f.paid_amt != null ? String(f.paid_amt) : '',
-    pay_mode: f.pay_mode ?? '',
+    pay_mode: f.pay_mode === 'CHEQUE' ? 'CHEQ' : (f.pay_mode ?? ''),
     allocated_to: f.allocated_to ?? '', medical_uw: !!f.medical_uw,
     benefit_verified: (f.benefit_verified ?? 'NO') as 'YES' | 'NO', invoiced: !!f.invoiced,
   };
@@ -199,11 +222,12 @@ function SelectField({ value, onChange, options, placeholder }: {
   options: { value: string; label: string }[]; placeholder?: string;
 }) {
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select value={value || BLANK_VALUE} onValueChange={v => onChange(v === BLANK_VALUE ? '' : v)}>
       <SelectTrigger className="h-8 text-sm">
         <SelectValue placeholder={placeholder ?? 'Select…'} />
       </SelectTrigger>
       <SelectContent>
+        <SelectItem value={BLANK_VALUE}>{placeholder ?? 'Blank'}</SelectItem>
         {options.map(o => (
           <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
         ))}
@@ -270,7 +294,11 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
   const { data: employeesRes } = useQuery({ queryKey: ['employees-membership'], queryFn: () => misApi.employees({ department: 'MEMBERSHIP', activated: 'true', approved: 'true' }), staleTime: 120_000 });
   const { data: countiesRes } = useQuery({ queryKey: ['counties'], queryFn: misApi.counties, staleTime: Infinity });
 
-  const agents: SalesAgent[]  = (agentsRes?.data ?? []) as SalesAgent[];
+  const liveAgents: SalesAgent[] = (agentsRes?.data ?? []) as SalesAgent[];
+  const agents: SalesAgent[] = [
+    ...SAMPLE_AGENTS,
+    ...liveAgents.filter(agent => !SAMPLE_AGENTS.some(sample => sample.agent_id === agent.agent_id)),
+  ];
   const employees: Employee[] = (employeesRes?.data ?? []) as Employee[];
   const counties: string[]    = (countiesRes?.data ?? []) as string[];
 
@@ -625,10 +653,10 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
               <SectionHeader title="File Information" />
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Business Action" required>
-                  <SelectField value={form.business_type} onChange={v => set('business_type', v)} options={BUSINESS_ACTIONS} placeholder="Select action…" />
+                  <SelectField value={form.business_type} onChange={v => set('business_type', v)} options={BUSINESS_ACTIONS} placeholder="Blank" />
                 </Field>
                 <Field label="Coverage Type" required>
-                  <SelectField value={form.business} onChange={v => set('business', v as 'M' | 'N')} options={[{ value: 'M', label: 'Medical' }, { value: 'N', label: 'Non-Medical' }]} />
+                  <SelectField value={form.business} onChange={v => set('business', v as FormState['business'])} options={[{ value: 'M', label: 'Medical' }, { value: 'N', label: 'Non Medical' }]} placeholder="Blank" />
                 </Field>
                 <Field label="Receive Date">
                   <Input type="date" value={form.receive_dt} onChange={e => set('receive_dt', e.target.value)} className="h-8 text-sm" />
@@ -671,10 +699,10 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                 {isCorp && (
                   <>
                     <Field label="Business Category">
-                      <SelectField value={form.corp_category} onChange={v => set('corp_category', v)} options={CORP_CATS.map(c => ({ value: c, label: c }))} placeholder="Select category…" />
+                      <SelectField value={form.corp_category} onChange={v => set('corp_category', v)} options={CORP_CATS.map(c => ({ value: c, label: c }))} placeholder="Blank" />
                     </Field>
                     <Field label="Industry Sector">
-                      <SelectField value={form.sector} onChange={v => set('sector', v)} options={SECTORS.map(s => ({ value: s, label: s }))} placeholder="Select sector…" />
+                      <SelectField value={form.sector} onChange={v => set('sector', v)} options={SECTORS.map(s => ({ value: s, label: s }))} placeholder="Blank" />
                     </Field>
                     <Field label="CR12 Reference No.">
                       <TextInput value={form.cr12_ref} onChange={v => set('cr12_ref', v)} placeholder="e.g. CR12/2024/00123" />
@@ -688,27 +716,33 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 
               <SectionHeader title="Classification" />
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Sales Agent" required>
-                  <Select value={form.agent_id} onValueChange={v => set('agent_id', v)}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Assign agent…" /></SelectTrigger>
-                    <SelectContent>{agents.filter(a => a.is_active).map(a => <SelectItem key={a.agent_id} value={a.agent_id}>{a.agent_name}</SelectItem>)}</SelectContent>
+                <Field label="Agent / Broker" required>
+                  <Select value={form.agent_id || BLANK_VALUE} onValueChange={v => set('agent_id', v === BLANK_VALUE ? '' : v)}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Blank" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={BLANK_VALUE}>Blank</SelectItem>
+                      {agents.filter(a => a.is_active).map(a => <SelectItem key={a.agent_id} value={a.agent_id}>{a.agent_name}</SelectItem>)}
+                    </SelectContent>
                   </Select>
                 </Field>
                 <Field label="County">
-                  <Select value={form.county_code} onValueChange={v => set('county_code', v)}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select county…" /></SelectTrigger>
-                    <SelectContent>{counties.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  <Select value={form.county_code || BLANK_VALUE} onValueChange={v => set('county_code', v === BLANK_VALUE ? '' : v)}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Blank" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={BLANK_VALUE}>Blank</SelectItem>
+                      {counties.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
                   </Select>
                 </Field>
                 <Field label="GI Category">
-                  <SelectField value={form.gi_category} onChange={v => set('gi_category', v)} options={GI_CATS.map(g => ({ value: g, label: g }))} placeholder="Select GI category…" />
+                  <SelectField value={form.gi_category} onChange={v => set('gi_category', v)} options={GI_CATS.map(g => ({ value: g, label: g }))} placeholder="Blank" />
                 </Field>
-                <Field label="Client Sub-Type">
-                  <SelectField value={form.client_sub_type} onChange={v => set('client_sub_type', v)} options={[{ value: 'S', label: 'SME' }, { value: 'C', label: 'CORPORATE' }]} placeholder="Select client type…" />
+                <Field label="Client Type">
+                  <SelectField value={form.client_sub_type} onChange={v => set('client_sub_type', v)} options={[{ value: 'S', label: 'SME' }, { value: 'C', label: 'CORPORATE' }]} placeholder="Blank" />
                 </Field>
                 {isRetail && form.is_mtiba && (
                   <Field label="Card Type">
-                    <SelectField value={form.card_type} onChange={v => set('card_type', v)} options={CARD_TYPES.map(c => ({ value: c, label: c }))} placeholder="Select card type…" />
+                    <SelectField value={form.card_type} onChange={v => set('card_type', v)} options={CARD_TYPES.map(c => ({ value: c, label: c }))} placeholder="Blank" />
                   </Field>
                 )}
               </div>
@@ -722,7 +756,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                   <TextInput value={form.paid_amt} onChange={v => set('paid_amt', v)} placeholder="0.00" />
                 </Field>
                 <Field label="Payment Mode">
-                  <SelectField value={form.pay_mode} onChange={v => set('pay_mode', v)} options={PAY_MODES.map(p => ({ value: p, label: p }))} placeholder="Select mode…" />
+                  <SelectField value={form.pay_mode} onChange={v => set('pay_mode', v)} options={PAY_MODES.map(p => ({ value: p, label: p }))} placeholder="Blank" />
                 </Field>
               </div>
 
