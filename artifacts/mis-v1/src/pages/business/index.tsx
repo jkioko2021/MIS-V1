@@ -423,7 +423,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 
   // Forward dialog state
   const [showForwardDialog, setShowForwardDialog] = useState(false);
-  const [deleteDocument, setDeleteDocument] = useState<{ uploadId: number; reqId: number; filename: string } | null>(null);
+  const [deleteDocument, setDeleteDocument] = useState<{ uploadId: number; filename: string } | null>(null);
   const [forwardToUser, setForwardToUser] = useState('');
   const [forwardComments, setForwardComments] = useState('');
   const [registrationTab, setRegistrationTab] = useState<'details' | 'documents' | 'notes'>('details');
@@ -481,22 +481,23 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
     onSuccess: () => qc.invalidateQueries({ queryKey: ['business-file', activeFileNo] }),
   });
 
-  const ackDocMut = useMutation({
+  const selectDocMut = useMutation({
     mutationFn: (reqId: number) => misApi.businessAckDoc(activeFileNo!, reqId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['business-file', activeFileNo] }),
-    onError: (e) => toast({ title: 'Error', description: String(e), variant: 'destructive' }),
+    onError: (e) => toast({ title: 'Unable to select document', description: String(e), variant: 'destructive' }),
   });
 
-  const unAckDocMut = useMutation({
+  const deselectDocMut = useMutation({
     mutationFn: (reqId: number) => misApi.businessUnAckDoc(activeFileNo!, reqId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['business-file', activeFileNo] }),
+    onError: (e) => toast({ title: 'Unable to remove document', description: String(e), variant: 'destructive' }),
   });
 
-  // Delete an uploaded file and remove its acknowledgement
+  // Removing a file keeps its document selected, so Forward remains unavailable
+  // until a replacement is uploaded.
   const deleteUploadMut = useMutation({
-    mutationFn: async ({ uploadId, reqId }: { uploadId: number; reqId: number }) => {
+    mutationFn: async ({ uploadId }: { uploadId: number }) => {
       await misApi.businessDeleteUpload(activeFileNo!, uploadId);
-      await misApi.businessUnAckDoc(activeFileNo!, reqId);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['business-file', activeFileNo] });
@@ -579,16 +580,10 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
     addNoteMut.mutate(noteText.trim(), { onSuccess: () => setNoteText('') });
   }
 
-  // Document ack
-  function isAcknowledged(reqId: number) {
-    return docChecklist.some(d => d.req_id === reqId);
+  // Document selection
+  function isSelected(reqId: number) {
+    return docChecklist.some(d => d.req_id === reqId && d.is_selected);
   }
-  function getAckInfo(reqId: number) {
-    return docChecklist.find(d => d.req_id === reqId);
-  }
-
-  const ackedCount = requirements.filter(r => isAcknowledged(r.req_id)).length;
-  const isComplete = requirements.length === 0 || ackedCount === requirements.length;
   const isSaving = registerMut.isPending || updateMut.isPending;
 
   // ─── Upload dialog state ─────────────────────────────────────────────────────
@@ -606,6 +601,10 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
     staleTime: 30_000,
   });
   const uploads: BusinessUpload[] = (uploadsRes?.data ?? []) as BusinessUpload[];
+  const selectedRequirements = requirements.filter(r => isSelected(r.req_id));
+  const selectedCount = selectedRequirements.length;
+  const uploadedSelectedCount = selectedRequirements.filter(r => uploads.some(u => u.req_id === r.req_id)).length;
+  const allSelectedDocumentsUploaded = selectedCount > 0 && uploadedSelectedCount === selectedCount;
 
   // Audit / workflow history
   const { data: historyRes } = useQuery({
@@ -615,15 +614,6 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
     staleTime: 30_000,
   });
   const history: AuditEntry[] = (historyRes?.data ?? []) as AuditEntry[];
-
-  const markCompleteMut = useMutation({
-    mutationFn: (complete: boolean) => misApi.businessMarkComplete(activeFileNo!, complete),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['business-file', activeFileNo] });
-      qc.invalidateQueries({ queryKey: ['business-history', activeFileNo] });
-    },
-    onError: (e) => toast({ title: 'Error', description: String(e), variant: 'destructive' }),
-  });
 
   async function handleUpload() {
     if (!pendingFile || !activeFileNo || !uploadFor) return;
@@ -738,7 +728,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
             <div role="tablist" aria-label="Registration workflow" className="mx-5 mt-3 flex gap-1 rounded-lg border bg-muted/40 p-1 shrink-0">
               {[
                 { value: 'details' as const, label: 'Details', icon: FileText },
-                { value: 'documents' as const, label: `Document Upload${activeMode === 'edit' && requirements.length > 0 ? ` (${ackedCount}/${requirements.length})` : ''}`, icon: FileCheck },
+                { value: 'documents' as const, label: `Document Upload${activeMode === 'edit' && selectedCount > 0 ? ` (${uploadedSelectedCount}/${selectedCount})` : ''}`, icon: FileCheck },
                 { value: 'notes' as const, label: `Notes${notes.length ? ` (${notes.length})` : ''}`, icon: MessageSquare },
               ].map(tab => {
                 const Icon = tab.icon;
@@ -962,38 +952,56 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
               {registrationTab === 'documents' && (
                 activeMode === 'edit' ? (
                 <>
-                  <SectionHeader title={`Documents ${requirements.length > 0 ? `(${ackedCount}/${requirements.length})` : ''}`} />
+                  <SectionHeader title={`Documents${selectedCount > 0 ? ` (${uploadedSelectedCount}/${selectedCount} uploaded)` : ''}`} />
 
                   {/* Progress banner */}
-                  <div className={`rounded-xl border px-4 py-3 flex items-center gap-3 ${isComplete ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50/70'}`}>
-                    {isComplete
+                  <div className={`rounded-xl border px-4 py-3 flex items-center gap-3 ${allSelectedDocumentsUploaded ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50/70'}`}>
+                    {allSelectedDocumentsUploaded
                       ? <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
                       : <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
                     }
                     <div>
-                      <p className={`text-sm font-semibold ${isComplete ? 'text-green-800' : 'text-amber-800'}`}>
-                        {isComplete ? 'All documents acknowledged' : `${requirements.length - ackedCount} document(s) still pending`}
+                      <p className={`text-sm font-semibold ${allSelectedDocumentsUploaded ? 'text-green-800' : 'text-amber-800'}`}>
+                        {allSelectedDocumentsUploaded
+                          ? 'Selected documents are ready to forward'
+                          : selectedCount === 0
+                          ? 'Select the documents you need to upload'
+                          : `${selectedCount - uploadedSelectedCount} selected document(s) still need an upload`}
                       </p>
-                      <p className="text-xs text-muted-foreground">{ackedCount} of {requirements.length} acknowledged · Upload or click Acknowledge</p>
+                      <p className="text-xs text-muted-foreground">
+                        Choose only the documents needed for this file. Forward becomes available after every selected document is uploaded.
+                      </p>
                     </div>
                   </div>
 
                   {/* Document rows */}
                   <div className="space-y-2">
                     {requirements.map(r => {
-                      const acked = isAcknowledged(r.req_id);
-                      const info  = getAckInfo(r.req_id);
+                      const selected = isSelected(r.req_id);
                       const docUpload = uploads.find(u => u.req_id === r.req_id);
                       return (
-                        <div key={r.req_id} className={`rounded-xl border transition-colors ${acked ? 'border-green-200 bg-green-50/40' : 'border-border bg-card'}`}>
+                        <div key={r.req_id} className={`rounded-xl border transition-colors ${docUpload ? 'border-green-200 bg-green-50/40' : selected ? 'border-blue-200 bg-blue-50/40' : 'border-border bg-card'}`}>
                           <div className="flex items-start justify-between gap-3 p-3.5">
                             <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                              {acked
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                onChange={() => selected ? deselectDocMut.mutate(r.req_id) : selectDocMut.mutate(r.req_id)}
+                                disabled={!!docUpload || selectDocMut.isPending || deselectDocMut.isPending}
+                                aria-label={`Select ${r.req_name} for upload`}
+                                className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 accent-blue-600 disabled:cursor-not-allowed"
+                              />
+                              {docUpload
                                 ? <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                                : selected
+                                ? <Check className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
                                 : <Circle className="w-4 h-4 text-muted-foreground/50 mt-0.5 shrink-0" />
                               }
                               <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium leading-snug">{r.req_name}</p>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-sm font-medium leading-snug">{r.req_name}</p>
+                                  {selected && !docUpload && <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 text-[10px] px-1.5 py-0">Selected</Badge>}
+                                </div>
                                 {docUpload ? (
                                   <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                                     <Paperclip className="w-3 h-3 text-blue-500 shrink-0" />
@@ -1004,9 +1012,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                                     {docUpload.filesize != null && <span className="text-xs text-muted-foreground shrink-0">· {fmtBytes(docUpload.filesize)}</span>}
                                     <span className="text-xs text-muted-foreground shrink-0">· {docUpload.uploaded_by}</span>
                                   </div>
-                                ) : acked && info ? (
-                                  <p className="text-xs text-muted-foreground mt-0.5">Acknowledged by {info.acknowledged_by} · {fmtDate(info.acknowledged_at)}</p>
-                                ) : null}
+                                ) : selected ? <p className="text-xs text-blue-700 mt-0.5">Upload a file to include this document in the handover.</p> : null}
                               </div>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
@@ -1016,26 +1022,16 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                                     <Upload className="w-3 h-3" /> Replace
                                   </Button>
                                   <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                    onClick={() => setDeleteDocument({ uploadId: docUpload.upload_id, reqId: r.req_id, filename: docUpload.filename })}
+                                    onClick={() => setDeleteDocument({ uploadId: docUpload.upload_id, filename: docUpload.filename })}
                                     disabled={deleteUploadMut.isPending}>
                                     <Trash2 className="w-3 h-3" /> Delete
                                   </Button>
                                 </>
-                              ) : (
-                                <>
-                                  {!acked && (
-                                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-blue-200 text-blue-700 hover:bg-blue-50" onClick={() => { setUploadFor(r); setPendingFile(null); }}>
-                                      <Upload className="w-3 h-3" /> Upload
-                                    </Button>
-                                  )}
-                                  <Button variant="ghost" size="sm"
-                                    className={`h-7 text-xs gap-1 ${acked ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10' : 'hover:bg-accent'}`}
-                                    onClick={() => acked ? unAckDocMut.mutate(r.req_id) : ackDocMut.mutate(r.req_id)}
-                                    disabled={ackDocMut.isPending || unAckDocMut.isPending}>
-                                    {acked ? <><Trash2 className="w-3 h-3" /> Remove</> : 'Acknowledge'}
-                                  </Button>
-                                </>
-                              )}
+                              ) : selected ? (
+                                <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-blue-200 text-blue-700 hover:bg-blue-50" onClick={() => { setUploadFor(r); setPendingFile(null); }}>
+                                  <Upload className="w-3 h-3" /> Upload
+                                </Button>
+                              ) : null}
                             </div>
                           </div>
                         </div>
@@ -1146,37 +1142,25 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 
         {/* ── Footer ─────────────────────────────────────────────────────── */}
         <div className="border-t shrink-0">
-          {/* Documentation Complete sits just above the action row throughout the workflow */}
+          {/* Document readiness sits just above the action row throughout the workflow */}
           <div className="px-5 py-2.5 border-b flex items-center justify-between bg-slate-50 dark:bg-muted/30">
             {activeMode === 'edit' ? (
               <>
-              <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={existingFile?.is_complete ?? isComplete}
-                  onChange={e => markCompleteMut.mutate(e.target.checked)}
-                  disabled={markCompleteMut.isPending}
-                  className="w-4 h-4 rounded border-gray-300 accent-green-600 cursor-pointer"
-                />
-                <span className="text-sm font-medium">Documentation Complete</span>
-              </label>
-              {(existingFile?.is_complete ?? isComplete) ? (
+              <span className="text-sm font-medium">Selected Documents</span>
+              {allSelectedDocumentsUploaded ? (
                 <span className="text-xs text-green-600 font-medium flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Marked complete
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Ready to forward
                 </span>
               ) : (
                 <span className="text-xs text-amber-600 font-medium">
-                  {ackedCount}/{requirements.length} docs acknowledged
+                  {uploadedSelectedCount}/{selectedCount} uploaded
                 </span>
               )}
               </>
             ) : (
               <>
-                <label className="flex items-center gap-2.5 cursor-not-allowed select-none opacity-60">
-                  <input type="checkbox" disabled className="w-4 h-4 rounded border-gray-300" />
-                  <span className="text-sm font-medium">Documentation Complete</span>
-                </label>
-                <span className="text-xs text-muted-foreground">Save Details to enable</span>
+                <span className="text-sm font-medium text-muted-foreground">Selected Documents</span>
+                <span className="text-xs text-muted-foreground">Save details to choose documents</span>
               </>
             )}
           </div>
@@ -1199,11 +1183,11 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                   size="sm"
                   className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
                   onClick={() => setShowForwardDialog(true)}
-                  disabled={activeMode !== 'edit' || !existingFile?.is_complete || !isComplete || forwardMut.isPending}
+                  disabled={activeMode !== 'edit' || !allSelectedDocumentsUploaded || forwardMut.isPending}
                   title={activeMode !== 'edit'
                     ? 'Save the registration details before forwarding'
-                    : !existingFile?.is_complete || !isComplete
-                    ? 'Complete all required documents before forwarding'
+                    : !allSelectedDocumentsUploaded
+                    ? 'Select documents and upload every selected file before forwarding'
                     : 'Forward to the next verification level'}
                 >
                   <ArrowUpRight className="w-3.5 h-3.5" />
@@ -1225,10 +1209,10 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                 This creates an active BPO Review work item for the same file. Add a handover note and optionally assign a reviewer.
               </DialogDescription>
             </DialogHeader>
-            {!(existingFile?.is_complete) && (
+            {!allSelectedDocumentsUploaded && (
               <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                 <AlertCircle className="w-4 h-4 shrink-0 text-amber-500" />
-                <span>Complete the documents section and tick <strong>Documentation Complete</strong> before forwarding.</span>
+                <span>Select the needed documents and upload every selected file before forwarding.</span>
               </div>
             )}
             <div className="space-y-4 py-2">
@@ -1408,7 +1392,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                   event.preventDefault();
                   if (!deleteDocument) return;
                   deleteUploadMut.mutate(
-                    { uploadId: deleteDocument.uploadId, reqId: deleteDocument.reqId },
+                    { uploadId: deleteDocument.uploadId },
                     { onSuccess: () => setDeleteDocument(null) },
                   );
                 }}

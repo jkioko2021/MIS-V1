@@ -127,6 +127,8 @@ export interface BusinessDoc {
   applies_to: string;
   acknowledged_at: string | null;
   acknowledged_by: string | null;
+  is_selected: boolean;
+  upload_id: number | null;
 }
 
 export interface BusinessRequirement {

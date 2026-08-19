@@ -125,6 +125,34 @@ function validateBusinessInput(input: BusinessInput): string[] {
   return errors;
 }
 
+async function refreshSelectedDocumentCompletion(fileNo: string) {
+  await query(
+    `UPDATE crm.business_tracking bt
+     SET is_complete = EXISTS (
+           SELECT 1
+           FROM crm.business_doc_checklist dc
+           WHERE dc.file_no=bt.file_no
+             AND dc.is_selected=TRUE
+         )
+         AND NOT EXISTS (
+           SELECT 1
+           FROM crm.business_doc_checklist dc
+           WHERE dc.file_no=bt.file_no
+             AND dc.is_selected=TRUE
+             AND NOT EXISTS (
+               SELECT 1
+               FROM crm.business_uploads bu
+               WHERE bu.file_no=bt.file_no
+                 AND bu.req_id=dc.req_id
+                 AND bu.is_active=TRUE
+             )
+         ),
+         updated_at=NOW()
+     WHERE bt.file_no=$1`,
+    [fileNo],
+  );
+}
+
 // ─── Reference data (no auth needed) ─────────────────────────────────────────
 export const COUNTIES = [
   "Baringo","Bomet","Bungoma","Busia","Elgeyo-Marakwet","Embu","Garissa",
@@ -580,20 +608,26 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
         };
       }
       if (file.file_status !== "REGISTERED" || file.forwarded) throw new Error("FORWARD_NOT_ALLOWED");
-      if (!file.is_complete) throw new Error("DOCS_INCOMPLETE");
-
-      const [pending] = await txQuery<{ cnt: string }>(
+      const [selectedDocuments] = await txQuery<{ selected_count: string; missing_upload_count: string }>(
         client,
-        `SELECT COUNT(*) AS cnt FROM crm.business_req br
-         WHERE br.is_active=TRUE
-           AND (br.applies_to='ALL' OR br.applies_to=$1)
-           AND NOT EXISTS (
-             SELECT 1 FROM crm.business_doc_checklist dc
-             WHERE dc.file_no=$2 AND dc.req_id=br.req_id
-           )`,
-        [file.client_type === "R" ? "R" : "C", fileNo],
+        `SELECT
+           COUNT(*)::text AS selected_count,
+           COUNT(*) FILTER (
+             WHERE NOT EXISTS (
+               SELECT 1
+               FROM crm.business_uploads bu
+               WHERE bu.file_no=dc.file_no
+                 AND bu.req_id=dc.req_id
+                 AND bu.is_active=TRUE
+             )
+           )::text AS missing_upload_count
+         FROM crm.business_doc_checklist dc
+         WHERE dc.file_no=$1
+           AND dc.is_selected=TRUE`,
+        [fileNo],
       );
-      if (Number(pending?.cnt ?? 0) > 0) throw new Error("DOCS_PENDING");
+      if (Number(selectedDocuments?.selected_count ?? 0) === 0) throw new Error("NO_DOCUMENTS_SELECTED");
+      if (Number(selectedDocuments?.missing_upload_count ?? 0) > 0) throw new Error("DOCS_PENDING");
 
       let newStatus: string;
       let updateSql: string;
@@ -706,12 +740,12 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
       res.status(409).json({ ok: false, error: "Only an active unforwarded REGISTERED file can be forwarded." });
       return;
     }
-    if (err instanceof Error && err.message === "DOCS_INCOMPLETE") {
-      res.status(400).json({ ok: false, error: "Mark Documentation Complete before forwarding." });
+    if (err instanceof Error && err.message === "NO_DOCUMENTS_SELECTED") {
+      res.status(400).json({ ok: false, error: "Select at least one document to upload before forwarding." });
       return;
     }
     if (err instanceof Error && err.message === "DOCS_PENDING") {
-      res.status(400).json({ ok: false, error: "Upload or acknowledge all required documents first." });
+      res.status(400).json({ ok: false, error: "Upload every selected document before forwarding." });
       return;
     }
     handleError(res, err, "forward file");
@@ -751,30 +785,33 @@ router.delete("/business/:fileNo/notes/:id", async (req: Request, res: Response)
 });
 
 // ─── POST /business/:fileNo/checklist/:reqId ─────────────────────────────────
+// Select a document requirement for this file. Only selected documents must be
+// uploaded before forwarding.
 router.post("/business/:fileNo/checklist/:reqId", async (req: Request, res: Response) => {
   const { fileNo, reqId } = req.params;
   try {
+    const file = await queryOne<{ client_type: string }>(
+      `SELECT client_type FROM crm.business_tracking WHERE file_no=$1 AND is_active=TRUE`,
+      [fileNo],
+    );
+    if (!file) { res.status(404).json({ ok: false, error: "File not found." }); return; }
+    const requirement = await queryOne(
+      `SELECT req_id
+       FROM crm.business_req
+       WHERE req_id=$1
+         AND is_active=TRUE
+         AND (applies_to='ALL' OR applies_to=$2)`,
+      [Number(reqId), file.client_type === "R" ? "R" : "C"],
+    );
+    if (!requirement) { res.status(400).json({ ok: false, error: "This document is not available for the file type." }); return; }
     await query(
-      `INSERT INTO crm.business_doc_checklist (file_no, req_id, acknowledged_by, acknowledged_at)
-       VALUES ($1,$2,$3,NOW())
+      `INSERT INTO crm.business_doc_checklist (file_no, req_id, acknowledged_by, acknowledged_at, is_selected)
+       VALUES ($1,$2,$3,NOW(),TRUE)
        ON CONFLICT (file_no, req_id) DO UPDATE
-         SET acknowledged_by=$3, acknowledged_at=NOW()`,
+          SET is_selected=TRUE`,
       [fileNo, Number(reqId), req.user!.username]
     );
-    // Check if all required docs are acknowledged → set is_complete
-    await query(
-      `UPDATE crm.business_tracking bt SET is_complete = (
-         SELECT COUNT(*) = (
-           SELECT COUNT(*) FROM crm.business_req
-           WHERE is_active=TRUE
-             AND (applies_to='ALL' OR applies_to=CASE WHEN bt.client_type='R' THEN 'R' ELSE 'C' END)
-         )
-         FROM crm.business_doc_checklist dc
-         WHERE dc.file_no=bt.file_no
-       ), updated_at=NOW()
-       WHERE bt.file_no=$1`,
-      [fileNo]
-    );
+    await refreshSelectedDocumentCompletion(fileNo);
     res.json({ ok: true });
   } catch (err) { handleError(res, err, "acknowledge doc"); }
 });
@@ -782,14 +819,21 @@ router.post("/business/:fileNo/checklist/:reqId", async (req: Request, res: Resp
 // ─── DELETE /business/:fileNo/checklist/:reqId ───────────────────────────────
 router.delete("/business/:fileNo/checklist/:reqId", async (req: Request, res: Response) => {
   try {
+    const uploaded = await queryOne(
+      `SELECT 1
+       FROM crm.business_uploads
+       WHERE file_no=$1 AND req_id=$2 AND is_active=TRUE`,
+      [req.params.fileNo, Number(req.params.reqId)],
+    );
+    if (uploaded) {
+      res.status(409).json({ ok: false, error: "Delete the uploaded file before removing this document from the selection." });
+      return;
+    }
     await query(
       `DELETE FROM crm.business_doc_checklist WHERE file_no=$1 AND req_id=$2`,
       [req.params.fileNo, Number(req.params.reqId)]
     );
-    await query(
-      `UPDATE crm.business_tracking SET is_complete=FALSE, updated_at=NOW() WHERE file_no=$1`,
-      [req.params.fileNo]
-    );
+    await refreshSelectedDocumentCompletion(req.params.fileNo);
     res.json({ ok: true });
   } catch (err) { handleError(res, err, "remove doc ack"); }
 });
@@ -840,11 +884,21 @@ router.post("/business/:fileNo/uploads", async (req: Request, res: Response) => 
       req_id?: number; filename: string; filesize?: number;
       mime_type?: string; storage_key: string;
     };
-  if (!filename || !storage_key) {
-    res.status(400).json({ ok: false, error: "filename and storage_key are required." });
+  if (!filename || !storage_key || !req_id) {
+    res.status(400).json({ ok: false, error: "Select a document and provide its filename and storage key." });
     return;
   }
   try {
+    const selected = await queryOne(
+      `SELECT 1
+       FROM crm.business_doc_checklist
+       WHERE file_no=$1 AND req_id=$2 AND is_selected=TRUE`,
+      [fileNo, req_id],
+    );
+    if (!selected) {
+      res.status(400).json({ ok: false, error: "Select this document from the list before uploading it." });
+      return;
+    }
     // Insert upload record
     const row = await queryOne<{ upload_id: number }>(
       `INSERT INTO crm.business_uploads
@@ -855,30 +909,14 @@ router.post("/business/:fileNo/uploads", async (req: Request, res: Response) => 
        storage_key, req.user!.username]
     );
 
-    // Auto-acknowledge the requirement if req_id provided
-    if (req_id && row?.upload_id) {
+    if (row?.upload_id) {
       await query(
-        `INSERT INTO crm.business_doc_checklist
-           (file_no, req_id, acknowledged_by, acknowledged_at, upload_id)
-         VALUES ($1,$2,$3,NOW(),$4)
-         ON CONFLICT (file_no, req_id) DO UPDATE
-           SET acknowledged_by=$3, acknowledged_at=NOW(), upload_id=$4`,
-        [fileNo, req_id, req.user!.username, row.upload_id]
+        `UPDATE crm.business_doc_checklist
+         SET acknowledged_by=$3, acknowledged_at=NOW(), upload_id=$4
+         WHERE file_no=$1 AND req_id=$2 AND is_selected=TRUE`,
+        [fileNo, req_id, req.user!.username, row.upload_id],
       );
-      // Recompute is_complete
-      await query(
-        `UPDATE crm.business_tracking bt SET is_complete = (
-           SELECT COUNT(*) = (
-             SELECT COUNT(*) FROM crm.business_req
-           WHERE is_active=TRUE
-             AND (applies_to='ALL' OR applies_to=CASE WHEN bt.client_type='R' THEN 'R' ELSE 'C' END)
-           )
-           FROM crm.business_doc_checklist dc
-           WHERE dc.file_no=bt.file_no
-         ), updated_at=NOW()
-         WHERE bt.file_no=$1`,
-        [fileNo]
-      );
+      await refreshSelectedDocumentCompletion(fileNo);
     }
 
     await query(
@@ -902,6 +940,13 @@ router.delete("/business/:fileNo/uploads/:uploadId", async (req: Request, res: R
       `UPDATE crm.business_uploads SET is_active=FALSE WHERE upload_id=$1 AND file_no=$2`,
       [Number(uploadId), fileNo]
     );
+    await query(
+      `UPDATE crm.business_doc_checklist
+       SET upload_id=NULL
+       WHERE file_no=$1 AND upload_id=$2`,
+      [fileNo, Number(uploadId)],
+    );
+    await refreshSelectedDocumentCompletion(fileNo);
     await query(
       `INSERT INTO crm.admin_audit_trail (username, action_type, description) VALUES ($1,'BT_DOC_DELETE',$2)`,
       [req.user!.sub, `Deleted ${upload?.filename ?? "file"} from ${fileNo}`]
@@ -939,10 +984,22 @@ router.post("/business/:fileNo/mark-complete", async (req: Request, res: Respons
     );
     if (!file) { res.status(404).json({ ok: false, error: "File not found." }); return; }
 
-    await query(
-      `UPDATE crm.business_tracking SET is_complete=$1, updated_at=NOW() WHERE file_no=$2`,
-      [complete, fileNo]
-    );
+    if (complete) {
+      await refreshSelectedDocumentCompletion(fileNo);
+      const refreshed = await queryOne<{ is_complete: boolean }>(
+        `SELECT is_complete FROM crm.business_tracking WHERE file_no=$1`,
+        [fileNo],
+      );
+      if (!refreshed?.is_complete) {
+        res.status(400).json({ ok: false, error: "Select at least one document and upload every selected document before completion." });
+        return;
+      }
+    } else {
+      await query(
+        `UPDATE crm.business_tracking SET is_complete=FALSE, updated_at=NOW() WHERE file_no=$1`,
+        [fileNo],
+      );
+    }
     const action = complete ? "BT_DOC_COMPLETE" : "BT_DOC_INCOMPLETE";
     const detail = `${complete ? "Marked complete" : "Marked incomplete"} ${fileNo} by ${req.user!.username}`;
     await query(

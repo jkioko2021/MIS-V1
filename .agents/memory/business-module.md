@@ -43,7 +43,7 @@ Order of evaluation determines which status is set:
 5. `walk_in_client='Y' AND to_user provided` → "ALLOCATED" (with allocated_to + benefit_verified='YES')
 6. Default → "FORWARDED" (allocated=FALSE, ready_for_update=TRUE)
 
-Forward gates: (1) is_complete must be TRUE, (2) no unacknowledged requirements, (3) comments required
+Forward gates: (1) at least one document must be selected for the file, (2) every selected document must have an active upload, (3) comments required. The whole requirement catalog is optional until selected.
 
 ## Legacy retail business rules applied
 - Non-Medical Retail: NID + County + PIN + GI Category all required on save
@@ -55,7 +55,7 @@ Forward gates: (1) is_complete must be TRUE, (2) no unacknowledged requirements,
 ## Registration UI workflow
 - Retail and SME/Corp share a three-tab sheet: Details | Document Upload | Notes. History appears beneath Notes.
 - A new record remains in the same sheet after its initial save; document uploads and notes become available once it has a file number.
-- Documentation Complete and Forward stay fixed in the footer. Forward is unavailable until all document requirements are acknowledged and completion is confirmed.
+- The document list is populated from the requirement catalog, but staff explicitly select the documents needed for each file. Forward activates automatically once every selected document is uploaded; unselected catalog items do not block forwarding.
 - The registration footer must keep the save action visible. After a save, show the generated file number prominently in the open sheet header.
 
 **Why:** The user selected a focused three-tab registration experience that preserves entered data while moving between stages, rather than a long continuous form.
