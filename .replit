@@ -25,7 +25,7 @@ timeoutMs = 20000
 MSSQL_ENCRYPT = "true"
 MSSQL_HOST = "192.168.1.66"
 MSSQL_TRUST_SERVER_CERT = "true"
-MSSQL_INSTANCE = "SQLSERVER_2012"
+MSSQL_PORT = "1433"
 
 [nix]
 channel = "stable-25_05"
