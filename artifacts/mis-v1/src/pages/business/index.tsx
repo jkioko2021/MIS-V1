@@ -259,6 +259,11 @@ interface BusinessSheetProps {
 function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved }: BusinessSheetProps) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  // A new registration becomes an editable file in this same sheet as soon as
+  // the server assigns its file number. This keeps registration, documents,
+  // notes, and forwarding in one uninterrupted SME/Corp workflow.
+  const [activeFileNo, setActiveFileNo] = useState<string | undefined>(fileNo);
+  const activeMode: 'register' | 'edit' = activeFileNo ? 'edit' : mode;
 
   // Reference data
   const { data: agentsRes } = useQuery({ queryKey: ['agents'], queryFn: misApi.agents, staleTime: 120_000 });
@@ -271,9 +276,9 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 
   // Existing file data (edit mode)
   const { data: fileRes, isLoading: fileLoading } = useQuery({
-    queryKey: ['business-file', fileNo],
-    queryFn: () => misApi.businessFile(fileNo!),
-    enabled: mode === 'edit' && !!fileNo,
+    queryKey: ['business-file', activeFileNo],
+    queryFn: () => misApi.businessFile(activeFileNo!),
+    enabled: activeMode === 'edit' && !!activeFileNo,
   });
   const existingFile = fileRes?.data as (BusinessFile & { notes: BusinessNote[]; docs: BusinessDoc[] }) | undefined;
 
@@ -315,72 +320,72 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
   const registerMut = useMutation({
     mutationFn: () => misApi.businessRegister(form as unknown as Partial<BusinessFile>),
     onSuccess: (res) => {
-      toast({ title: 'File registered', description: `File No: ${res.data.file_no}` });
+      setActiveFileNo(res.data.file_no);
+      toast({ title: 'File registered', description: `File No: ${res.data.file_no}. Continue below to upload documents, add notes, and forward.` });
       qc.invalidateQueries({ queryKey: ['business'] });
-      onSaved?.(res.data.file_no);
     },
     onError: (e) => toast({ title: 'Error', description: String(e), variant: 'destructive' }),
   });
 
   const updateMut = useMutation({
-    mutationFn: () => misApi.businessUpdate(fileNo!, form as unknown as Partial<BusinessFile>),
+    mutationFn: () => misApi.businessUpdate(activeFileNo!, form as unknown as Partial<BusinessFile>),
     onSuccess: () => {
       toast({ title: 'File updated' });
       qc.invalidateQueries({ queryKey: ['business'] });
-      qc.invalidateQueries({ queryKey: ['business-file', fileNo] });
+      qc.invalidateQueries({ queryKey: ['business-file', activeFileNo] });
     },
     onError: (e) => toast({ title: 'Error', description: String(e), variant: 'destructive' }),
   });
 
   const forwardMut = useMutation({
-    mutationFn: () => misApi.businessForward(fileNo!, { to_user: forwardToUser, comments: forwardComments }),
+    mutationFn: () => misApi.businessForward(activeFileNo!, { to_user: forwardToUser, comments: forwardComments }),
     onSuccess: (res) => {
       const newStatus = (res as { data?: { new_status?: string } })?.data?.new_status ?? 'FORWARDED';
-      toast({ title: 'File forwarded', description: `Status updated to ${newStatus}.` });
+      toast({ title: 'Registration successfully forwarded', description: `Status updated to ${newStatus}.` });
       setShowForwardDialog(false);
       setForwardToUser('');
       setForwardComments('');
       qc.invalidateQueries({ queryKey: ['business'] });
-      qc.invalidateQueries({ queryKey: ['business-file', fileNo] });
-      qc.invalidateQueries({ queryKey: ['business-history', fileNo] });
+      qc.invalidateQueries({ queryKey: ['business-file', activeFileNo] });
+      qc.invalidateQueries({ queryKey: ['business-history', activeFileNo] });
     },
     onError: (e) => toast({ title: 'Cannot forward', description: String(e), variant: 'destructive' }),
   });
 
   const addNoteMut = useMutation({
-    mutationFn: (text: string) => misApi.businessAddNote(fileNo!, text),
+    mutationFn: (text: string) => misApi.businessAddNote(activeFileNo!, text),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['business-file', fileNo] });
+      qc.invalidateQueries({ queryKey: ['business-file', activeFileNo] });
     },
     onError: (e) => toast({ title: 'Error', description: String(e), variant: 'destructive' }),
   });
 
   const deleteNoteMut = useMutation({
-    mutationFn: (noteId: number) => misApi.businessDeleteNote(fileNo!, noteId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['business-file', fileNo] }),
+    mutationFn: (noteId: number) => misApi.businessDeleteNote(activeFileNo!, noteId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['business-file', activeFileNo] }),
   });
 
   const ackDocMut = useMutation({
-    mutationFn: (reqId: number) => misApi.businessAckDoc(fileNo!, reqId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['business-file', fileNo] }),
+    mutationFn: (reqId: number) => misApi.businessAckDoc(activeFileNo!, reqId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['business-file', activeFileNo] }),
     onError: (e) => toast({ title: 'Error', description: String(e), variant: 'destructive' }),
   });
 
   const unAckDocMut = useMutation({
-    mutationFn: (reqId: number) => misApi.businessUnAckDoc(fileNo!, reqId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['business-file', fileNo] }),
+    mutationFn: (reqId: number) => misApi.businessUnAckDoc(activeFileNo!, reqId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['business-file', activeFileNo] }),
   });
 
   // Delete an uploaded file and remove its acknowledgement
   const deleteUploadMut = useMutation({
     mutationFn: async ({ uploadId, reqId }: { uploadId: number; reqId: number }) => {
-      await misApi.businessDeleteUpload(fileNo!, uploadId);
-      await misApi.businessUnAckDoc(fileNo!, reqId);
+      await misApi.businessDeleteUpload(activeFileNo!, uploadId);
+      await misApi.businessUnAckDoc(activeFileNo!, reqId);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['business-file', fileNo] });
-      qc.invalidateQueries({ queryKey: ['business-uploads', fileNo] });
-      qc.invalidateQueries({ queryKey: ['business-history', fileNo] });
+      qc.invalidateQueries({ queryKey: ['business-file', activeFileNo] });
+      qc.invalidateQueries({ queryKey: ['business-uploads', activeFileNo] });
+      qc.invalidateQueries({ queryKey: ['business-history', activeFileNo] });
       toast({ title: 'Document removed' });
     },
     onError: (e) => toast({ title: 'Error removing document', description: String(e), variant: 'destructive' }),
@@ -418,7 +423,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
     if (isRetail && form.walk_in_client === 'Y' && !form.allocated_to) {
       toast({ title: 'Validation', description: 'Select a Membership Admin to allocate the walk-in file.', variant: 'destructive' }); return;
     }
-    if (mode === 'register') registerMut.mutate();
+    if (activeMode === 'register') registerMut.mutate();
     else updateMut.mutate();
   }
 
@@ -438,7 +443,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
   }
 
   const ackedCount = requirements.filter(r => isAcknowledged(r.req_id)).length;
-  const isComplete = ackedCount === requirements.length && requirements.length > 0;
+  const isComplete = requirements.length === 0 || ackedCount === requirements.length;
   const isSaving = registerMut.isPending || updateMut.isPending;
 
   // ─── Upload dialog state ─────────────────────────────────────────────────────
@@ -450,33 +455,33 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 
   // Uploads for this file
   const { data: uploadsRes } = useQuery({
-    queryKey: ['business-uploads', fileNo],
-    queryFn: () => misApi.businessListUploads(fileNo!),
-    enabled: mode === 'edit' && !!fileNo,
+    queryKey: ['business-uploads', activeFileNo],
+    queryFn: () => misApi.businessListUploads(activeFileNo!),
+    enabled: activeMode === 'edit' && !!activeFileNo,
     staleTime: 30_000,
   });
   const uploads: BusinessUpload[] = (uploadsRes?.data ?? []) as BusinessUpload[];
 
   // Audit / workflow history
   const { data: historyRes } = useQuery({
-    queryKey: ['business-history', fileNo],
-    queryFn: () => misApi.businessGetHistory(fileNo!),
-    enabled: mode === 'edit' && !!fileNo,
+    queryKey: ['business-history', activeFileNo],
+    queryFn: () => misApi.businessGetHistory(activeFileNo!),
+    enabled: activeMode === 'edit' && !!activeFileNo,
     staleTime: 30_000,
   });
   const history: AuditEntry[] = (historyRes?.data ?? []) as AuditEntry[];
 
   const markCompleteMut = useMutation({
-    mutationFn: (complete: boolean) => misApi.businessMarkComplete(fileNo!, complete),
+    mutationFn: (complete: boolean) => misApi.businessMarkComplete(activeFileNo!, complete),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['business-file', fileNo] });
-      qc.invalidateQueries({ queryKey: ['business-history', fileNo] });
+      qc.invalidateQueries({ queryKey: ['business-file', activeFileNo] });
+      qc.invalidateQueries({ queryKey: ['business-history', activeFileNo] });
     },
     onError: (e) => toast({ title: 'Error', description: String(e), variant: 'destructive' }),
   });
 
   async function handleUpload() {
-    if (!pendingFile || !fileNo || !uploadFor) return;
+    if (!pendingFile || !activeFileNo || !uploadFor) return;
     setIsUploading(true);
     setUploadProgress(10);
     try {
@@ -505,7 +510,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
       setUploadProgress(75);
 
       // 3. Record in DB and auto-acknowledge the requirement
-      await misApi.businessRecordUpload(fileNo, {
+      await misApi.businessRecordUpload(activeFileNo, {
         req_id: uploadFor.req_id,
         filename: pendingFile.name,
         filesize: pendingFile.size,
@@ -515,8 +520,8 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
       setUploadProgress(100);
 
       toast({ title: 'Document uploaded', description: `${pendingFile.name} uploaded and acknowledged.` });
-      qc.invalidateQueries({ queryKey: ['business-file', fileNo] });
-      qc.invalidateQueries({ queryKey: ['business-uploads', fileNo] });
+      qc.invalidateQueries({ queryKey: ['business-file', activeFileNo] });
+      qc.invalidateQueries({ queryKey: ['business-uploads', activeFileNo] });
       setUploadFor(null);
       setPendingFile(null);
     } catch (err) {
@@ -527,9 +532,9 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
     }
   }
 
-  const title = mode === 'register'
+  const title = activeMode === 'register'
     ? `Register ${isRetail ? 'Retail' : 'SME/Corp'} File`
-    : (existingFile?.file_no ?? fileNo ?? 'File Details');
+    : (existingFile?.file_no ?? activeFileNo ?? 'File Details');
 
   return (
     <Sheet open onOpenChange={v => !v && onClose()}>
@@ -541,7 +546,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
               <SheetTitle className="flex items-center gap-2 text-base">
                 <FileText className="w-4 h-4" /> {title}
               </SheetTitle>
-              {mode === 'edit' && existingFile && (
+              {activeMode === 'edit' && existingFile && (
                 <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                   <StatusBadge status={existingFile.file_status} />
                   <span className="text-xs text-muted-foreground">
@@ -553,7 +558,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                 </div>
               )}
             </div>
-            {mode === 'register' && (
+            {activeMode === 'register' && (
               <div className="flex rounded-lg border bg-muted p-0.5 shrink-0">
                 {(['R','C'] as const).map(ct => (
                   <button
@@ -575,7 +580,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
         </SheetHeader>
 
         {/* Body — single scrollable page */}
-        {mode === 'edit' && fileLoading ? (
+        {activeMode === 'edit' && fileLoading ? (
           <div className="p-5 space-y-3">
             {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-8" />)}
           </div>
@@ -689,9 +694,9 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
               </div>
 
               {/* Processing Status — edit mode or walk-in register */}
-              {(mode === 'edit' || (isRetail && form.walk_in_client === 'Y')) && (
+              {(activeMode === 'edit' || (isRetail && form.walk_in_client === 'Y')) && (
                 <>
-                  <SectionHeader title={mode === 'edit' ? 'Processing Status' : 'Walk-in Allocation'} />
+                  <SectionHeader title={activeMode === 'edit' ? 'Processing Status' : 'Walk-in Allocation'} />
                   <div className="grid grid-cols-2 gap-3">
                     <Field label="Allocated To *">
                       <Select value={form.allocated_to} onValueChange={v => set('allocated_to', v)}>
@@ -711,7 +716,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
               )}
 
               {/* ── Document Upload ────────────────────────────────────────── */}
-              {mode === 'edit' && (
+              {activeMode === 'edit' && (
                 <>
                   <SectionHeader title={`Documents ${requirements.length > 0 ? `(${ackedCount}/${requirements.length})` : ''}`} />
 
@@ -876,7 +881,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
         {/* ── Footer ─────────────────────────────────────────────────────── */}
         <div className="border-t shrink-0">
           {/* Documentation Complete — shown in edit mode, sits just above the action row */}
-          {mode === 'edit' && (
+          {activeMode === 'edit' && (
             <div className="px-5 py-2.5 border-b flex items-center justify-between bg-slate-50 dark:bg-muted/30">
               <label className="flex items-center gap-2.5 cursor-pointer select-none">
                 <input
@@ -907,17 +912,19 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
               <Button size="sm" onClick={handleSave} disabled={isSaving} className="gap-1.5">
                 {isSaving ? (
                   <><div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" /> Saving…</>
-                ) : mode === 'register' ? (
+                ) : activeMode === 'register' ? (
                   <><Plus className="w-3.5 h-3.5" /> Register File</>
                 ) : (
                   'Save Changes'
                 )}
               </Button>
-              {mode === 'edit' && !existingFile?.forwarded && (
+              {activeMode === 'edit' && !existingFile?.forwarded && (
                 <Button
                   size="sm"
                   className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
                   onClick={() => setShowForwardDialog(true)}
+                  disabled={!existingFile?.is_complete || !isComplete || forwardMut.isPending}
+                  title={!existingFile?.is_complete || !isComplete ? 'Complete all required documents before forwarding' : 'Forward to the next verification level'}
                 >
                   <ArrowUpRight className="w-3.5 h-3.5" />
                   Forward
@@ -932,7 +939,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <ArrowUpRight className="w-4 h-4 text-blue-600" />
-                Forward File — {fileNo}
+                Forward File — {activeFileNo}
               </DialogTitle>
               <DialogDescription>
                 Select the destination employee and add a handover note. Comments are required.
@@ -941,7 +948,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
             {!(existingFile?.is_complete) && (
               <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                 <AlertCircle className="w-4 h-4 shrink-0 text-amber-500" />
-                <span>Tick <strong>Documentation Complete</strong> in the Documents tab before forwarding.</span>
+                <span>Complete the documents section and tick <strong>Documentation Complete</strong> before forwarding.</span>
               </div>
             )}
             <div className="space-y-4 py-2">
