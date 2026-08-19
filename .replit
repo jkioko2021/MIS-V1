@@ -22,10 +22,10 @@ timeoutMs = 20000
 [userenv]
 
 [userenv.shared]
-MSSQL_ENCRYPT = "true"
-MSSQL_HOST = "192.168.1.66"
+MSSQL_ENCRYPT = "false"
+MSSQL_HOST = "0.tcp.in.ngrok.io"
 MSSQL_TRUST_SERVER_CERT = "true"
-MSSQL_PORT = "1433"
+MSSQL_PORT = "22741"
 
 [nix]
 channel = "stable-25_05"
