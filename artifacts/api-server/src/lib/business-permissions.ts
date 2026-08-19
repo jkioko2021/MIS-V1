@@ -29,6 +29,11 @@ const BPO_REVIEW_PROFILES = new Set([
   "bpo review",
 ]);
 
+const BUSINESS_DELETE_PROFILES = new Set([
+  "superadmin",
+  "system admin",
+]);
+
 function profileKey(profileName: string): string {
   return profileName.trim().replace(/\s+/g, " ").toLowerCase();
 }
@@ -79,6 +84,11 @@ export const requireBpoForwardAccess = requireBusinessProfile(
 export const requireBpoReviewAccess = requireBusinessProfile(
   BPO_REVIEW_PROFILES,
   "bpo_review",
+);
+
+export const requireBusinessDeleteAccess = requireBusinessProfile(
+  BUSINESS_DELETE_PROFILES,
+  "delete_business_tracking",
 );
 
 export async function setBpoReviewAccess(req: Request, res: Response, next: NextFunction): Promise<void> {

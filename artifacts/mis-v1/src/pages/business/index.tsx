@@ -20,12 +20,22 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from '@/components/ui/command';
 import { Progress } from '@/components/ui/progress';
 import {
   Search, RefreshCw, FileText, Plus, CheckCircle2, Circle,
   SendHorizontal, ArrowUpRight, Trash2, MessageSquare, FileCheck,
-  ChevronRight, Building2, User, Upload, Paperclip, AlertCircle, History,
+  ChevronRight, ChevronLeft, Building2, User, Upload, Paperclip, AlertCircle,
+  Check, ChevronsUpDown, ArrowUpDown, X,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STATUS_COLOURS: Record<string, string> = {
@@ -65,41 +75,8 @@ const ACTION_LABEL: Record<string, string> = Object.fromEntries(BUSINESS_ACTIONS
 
 const PAY_MODES   = ['MPESA', 'EFT', 'CHEQ', 'IPF'];
 const CARD_TYPES  = ['MTIBA', 'SMART'];
-const GI_CATS     = ['Non-Motor', 'Motor'];
-const SECTORS     = [
-  'Agriculture','Banking & Finance','Construction','Education','Energy',
-  'Government & Public Sector','Healthcare','Hospitality & Tourism',
-  'IT & Technology','Legal & Professional Services','Manufacturing',
-  'Media & Entertainment','NGO & Non-Profit','Real Estate','Retail & Trade',
-  'Telecommunications','Transport & Logistics','Other',
-];
+const GI_CATS     = [{ value: 'Non_Motor', label: 'Non-Motor' }, { value: 'Motor', label: 'Motor' }];
 const CORP_CATS   = ['Public', 'Private'];
-const SAMPLE_AGENTS: SalesAgent[] = [
-  {
-    agent_id: '2013031715171911335500911',
-    agent_name: 'KISIMA MEDICAL AND GENERAL INSURANCE AGENCY LTD',
-    agent_email: null,
-    agent_phone: null,
-    agency_code: null,
-    is_active: true,
-  },
-  {
-    agent_id: '2013031707142198798700016',
-    agent_name: 'GREAT FIVE INS. BROKERS',
-    agent_email: null,
-    agent_phone: null,
-    agency_code: null,
-    is_active: true,
-  },
-  {
-    agent_id: '2013031707142198798700097',
-    agent_name: 'CAPSTONE INSURANCE AGENCY',
-    agent_email: null,
-    agent_phone: null,
-    agency_code: null,
-    is_active: true,
-  },
-];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmt(n: number | null | undefined) {
@@ -197,7 +174,8 @@ function fileToForm(f: BusinessFile): FormState {
     is_mtiba: !!f.is_mtiba, is_ipf: !!f.is_ipf,
     cr12: !!f.cr12, cr12_ref: f.cr12_ref ?? '', corp_category: f.corp_category ?? '', sector: f.sector ?? '', client_sub_type: f.client_sub_type ?? '',
     agent_id: f.agent_id ?? '', county_code: f.county_code ?? '',
-    gi_category: f.gi_category ?? '', rate_type: (f.rate_type ?? 'S') as 'S' | 'C',
+    gi_category: f.gi_category === 'Non-Motor' ? 'Non_Motor' : (f.gi_category ?? ''),
+    rate_type: (f.rate_type ?? 'S') as 'S' | 'C',
     pay_ref_no: f.pay_ref_no ?? '', paid_amt: f.paid_amt != null ? String(f.paid_amt) : '',
     pay_mode: f.pay_mode === 'CHEQUE' ? 'CHEQ' : (f.pay_mode ?? ''),
     allocated_to: f.allocated_to ?? '', medical_uw: !!f.medical_uw,
@@ -233,6 +211,75 @@ function SelectField({ value, onChange, options, placeholder }: {
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+function SearchableSelect({ value, onChange, options, placeholder, searchPlaceholder, disabled }: {
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+  searchPlaceholder?: string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find(option => option.value === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled}
+          className="h-8 w-full justify-between px-3 text-sm font-normal"
+        >
+          <span className="truncate">{selected?.label ?? placeholder ?? 'Select…'}</span>
+          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="z-[210] w-[--radix-popover-trigger-width] min-w-[260px] p-0 bg-popover"
+      >
+        <Command>
+          <CommandInput placeholder={searchPlaceholder ?? 'Search…'} />
+          <CommandList>
+            <CommandEmpty>No matching option found.</CommandEmpty>
+            <CommandGroup>
+              {value && (
+                <CommandItem
+                  value="clear-selection"
+                  onSelect={() => {
+                    onChange('');
+                    setOpen(false);
+                  }}
+                >
+                  <X className="mr-2 h-3.5 w-3.5" />
+                  Clear selection
+                </CommandItem>
+              )}
+              {options.map(option => (
+                <CommandItem
+                  key={option.value}
+                  value={option.label}
+                  keywords={[option.value]}
+                  onSelect={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={cn('mr-2 h-3.5 w-3.5', value === option.value ? 'opacity-100' : 'opacity-0')} />
+                  <span className="truncate">{option.label}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -294,15 +341,13 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
   const { data: employeesRes } = useQuery({ queryKey: ['employees-membership'], queryFn: () => misApi.employees({ department: 'MEMBERSHIP', activated: 'true', approved: 'true' }), staleTime: 120_000 });
   const { data: bpoReviewersRes } = useQuery({ queryKey: ['bpo-reviewers'], queryFn: () => misApi.bpoReviewers(), staleTime: 120_000 });
   const { data: countiesRes } = useQuery({ queryKey: ['counties'], queryFn: misApi.counties, staleTime: Infinity });
+  const { data: sectorsRes } = useQuery({ queryKey: ['business-sectors'], queryFn: misApi.sectors, staleTime: 300_000 });
 
-  const liveAgents: SalesAgent[] = (agentsRes?.data ?? []) as SalesAgent[];
-  const agents: SalesAgent[] = [
-    ...SAMPLE_AGENTS,
-    ...liveAgents.filter(agent => !SAMPLE_AGENTS.some(sample => sample.agent_id === agent.agent_id)),
-  ];
+  const agents: SalesAgent[] = (agentsRes?.data ?? []) as SalesAgent[];
   const employees: Employee[] = (employeesRes?.data ?? []) as Employee[];
   const bpoReviewers: BpoReviewer[] = (bpoReviewersRes?.data ?? []) as BpoReviewer[];
   const counties: string[]    = (countiesRes?.data ?? []) as string[];
+  const sectors: string[]     = (sectorsRes?.data ?? []) as string[];
 
   // Existing file data (edit mode)
   const { data: fileRes, isLoading: fileLoading } = useQuery({
@@ -338,11 +383,36 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
     setForm(f => ({ ...f, [k]: v }));
   }
 
+  function setClientType(clientType: 'R' | 'C') {
+    setForm(current => ({
+      ...current,
+      client_type: clientType,
+      ...(clientType === 'R'
+        ? {
+            cr12: false,
+            cr12_ref: '',
+            corp_category: '',
+            sector: '',
+            client_sub_type: '',
+          }
+        : {
+            nid: '',
+            pin_no: '',
+            walk_in_client: 'N' as const,
+            walk_in_auth: '',
+            allocated_to: '',
+            is_mtiba: false,
+            is_ipf: false,
+          }),
+    }));
+  }
+
   const isRetail = form.client_type === 'R';
   const isCorp   = form.client_type === 'C';
 
   // Forward dialog state
   const [showForwardDialog, setShowForwardDialog] = useState(false);
+  const [deleteDocument, setDeleteDocument] = useState<{ uploadId: number; reqId: number; filename: string } | null>(null);
   const [forwardToUser, setForwardToUser] = useState('');
   const [forwardComments, setForwardComments] = useState('');
   const [registrationTab, setRegistrationTab] = useState<'details' | 'documents' | 'notes'>('details');
@@ -439,6 +509,15 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
     if (!form.agent_id) {
       toast({ title: 'Validation', description: 'Sales agent/broker is required.', variant: 'destructive' }); return;
     }
+    if (form.paid_amt || form.pay_mode) {
+      const paidAmount = Number(form.paid_amt);
+      if (!form.paid_amt || !Number.isFinite(paidAmount) || paidAmount < 0) {
+        toast({ title: 'Validation', description: 'Paid amount must be a valid non-negative number.', variant: 'destructive' }); return;
+      }
+      if (!form.pay_mode) {
+        toast({ title: 'Validation', description: 'Select a payment mode for the paid amount.', variant: 'destructive' }); return;
+      }
+    }
     // Retail Non-Medical: NID, County, PIN and GI Category are all mandatory (legacy rule)
     if (isRetail && form.business === 'N') {
       if (!form.nid.trim()) {
@@ -457,6 +536,29 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
     // Walk-in: Membership Admin must be selected
     if (isRetail && form.walk_in_client === 'Y' && !form.allocated_to) {
       toast({ title: 'Validation', description: 'Select a Membership Admin to allocate the walk-in file.', variant: 'destructive' }); return;
+    }
+    if (isRetail && form.walk_in_client === 'Y' && !form.walk_in_auth) {
+      toast({ title: 'Validation', description: 'Select the Membership Admin who authorised the walk-in file.', variant: 'destructive' }); return;
+    }
+    if (isCorp) {
+      if (!form.client_sub_type) {
+        toast({ title: 'Validation', description: 'Select SME or Corporate client type.', variant: 'destructive' }); return;
+      }
+      if (form.business_type === 'N' && !form.cr12_ref.trim()) {
+        toast({ title: 'Validation', description: 'CR12 reference number is required for new SME/Corporate business.', variant: 'destructive' }); return;
+      }
+      if (form.business_type === 'N' && !form.county_code) {
+        toast({ title: 'Validation', description: 'County is required for new SME/Corporate business.', variant: 'destructive' }); return;
+      }
+      if (form.business_type === 'N' && !form.corp_category) {
+        toast({ title: 'Validation', description: 'Business Category is required for new SME/Corporate business.', variant: 'destructive' }); return;
+      }
+      if (form.business_type === 'N' && !form.sector) {
+        toast({ title: 'Validation', description: 'Industry Sector is required for new SME/Corporate business.', variant: 'destructive' }); return;
+      }
+      if (form.business === 'N' && !form.gi_category) {
+        toast({ title: 'Validation', description: 'GI Category is required for Non-Medical business.', variant: 'destructive' }); return;
+      }
     }
     if (activeMode === 'register') registerMut.mutate();
     else updateMut.mutate();
@@ -573,7 +675,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 
   return (
     <Sheet open onOpenChange={v => !v && onClose()}>
-      <SheetContent className="w-[720px] sm:max-w-[720px] h-[100dvh] min-h-0 gap-0 overflow-hidden p-0 flex flex-col !bg-white dark:!bg-card border-l-2 border-slate-200">
+      <SheetContent className="w-full sm:w-[720px] sm:max-w-[720px] h-[100dvh] min-h-0 gap-0 overflow-hidden p-0 flex flex-col !bg-white dark:!bg-card border-l-2 border-slate-200">
         {/* Header */}
         <SheetHeader className="px-5 pt-5 pb-3 border-b shrink-0">
           <div className="flex items-start justify-between gap-3">
@@ -601,7 +703,8 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                 {(['R','C'] as const).map(ct => (
                   <button
                     key={ct}
-                    onClick={() => set('client_type', ct)}
+                    type="button"
+                    onClick={() => setClientType(ct)}
                     className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
                       form.client_type === ct
                         ? 'bg-background shadow text-foreground'
@@ -656,7 +759,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
               {registrationTab === 'details' && (
                 <>
               <SectionHeader title="File Information" />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Business Action" required>
                   <SelectField value={form.business_type} onChange={v => set('business_type', v)} options={BUSINESS_ACTIONS} placeholder="Blank" />
                 </Field>
@@ -664,7 +767,13 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                   <SelectField value={form.business} onChange={v => set('business', v as FormState['business'])} options={[{ value: 'M', label: 'Medical' }, { value: 'N', label: 'Non Medical' }]} placeholder="Blank" />
                 </Field>
                 <Field label="Receive Date">
-                  <Input type="date" value={form.receive_dt} onChange={e => set('receive_dt', e.target.value)} className="h-8 text-sm" />
+                  <Input
+                    type="date"
+                    value={form.receive_dt}
+                    readOnly
+                    aria-readonly="true"
+                    className="h-8 text-sm bg-muted/60 cursor-not-allowed"
+                  />
                 </Field>
                 <Field label="Rate Type">
                   <SelectField value={form.rate_type} onChange={v => set('rate_type', v as 'S' | 'C')} options={[{ value: 'S', label: 'Standard' }, { value: 'C', label: 'Corporate' }]} />
@@ -672,7 +781,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
               </div>
 
               <SectionHeader title="Proposer Details" />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Proposer Name" required>
                   <TextInput value={form.proposer_name} onChange={v => set('proposer_name', v)} placeholder="Full name…" />
                 </Field>
@@ -688,14 +797,20 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                     <Field label="KRA PIN">
                       <TextInput value={form.pin_no} onChange={v => set('pin_no', v)} placeholder="PIN certificate no." />
                     </Field>
-                    <div className="col-span-2 flex items-center gap-6">
-                      <CheckRow checked={form.walk_in_client === 'Y'} onChange={v => set('walk_in_client', v ? 'Y' : 'N')} label="Walk-in Client" />
+                    <div className="sm:col-span-2 flex flex-wrap items-center gap-4 sm:gap-6">
+                      <CheckRow checked={form.walk_in_client === 'Y'} onChange={v => set('walk_in_client', v ? 'Y' : 'N')} label="Walk-in Client (Customer Service Only)" />
                       <CheckRow checked={form.is_mtiba} onChange={v => set('is_mtiba', v)} label="M-TIBA Card" />
                       <CheckRow checked={form.is_ipf} onChange={v => set('is_ipf', v)} label="IPF (Insurance Premium Financing)" />
                     </div>
                     {form.walk_in_client === 'Y' && (
-                      <Field label="Walk-in Authorised By">
-                        <SelectField value={form.walk_in_auth} onChange={v => set('walk_in_auth', v)} options={employees.map(e => ({ value: e.username, label: e.employee_name }))} placeholder="Select authoriser…" />
+                      <Field label="Walk-in Authorised By" required>
+                        <SearchableSelect
+                          value={form.walk_in_auth}
+                          onChange={v => set('walk_in_auth', v)}
+                          options={employees.map(e => ({ value: e.username, label: e.employee_name }))}
+                          placeholder="Select authoriser…"
+                          searchPlaceholder="Search membership admins…"
+                        />
                       </Field>
                     )}
                   </>
@@ -703,16 +818,25 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 
                 {isCorp && (
                   <>
-                    <Field label="Business Category">
+                    <Field label="Client Type" required>
+                      <SelectField value={form.client_sub_type} onChange={v => set('client_sub_type', v)} options={[{ value: 'S', label: 'SME' }, { value: 'C', label: 'CORPORATE' }]} placeholder="Blank" />
+                    </Field>
+                    <Field label="Business Category" required={form.business_type === 'N'}>
                       <SelectField value={form.corp_category} onChange={v => set('corp_category', v)} options={CORP_CATS.map(c => ({ value: c, label: c }))} placeholder="Blank" />
                     </Field>
-                    <Field label="Industry Sector">
-                      <SelectField value={form.sector} onChange={v => set('sector', v)} options={SECTORS.map(s => ({ value: s, label: s }))} placeholder="Blank" />
+                    <Field label="Industry Sector" required={form.business_type === 'N'}>
+                      <SearchableSelect
+                        value={form.sector}
+                        onChange={v => set('sector', v)}
+                        options={sectors.map(s => ({ value: s, label: s }))}
+                        placeholder="Select sector…"
+                        searchPlaceholder="Search sectors…"
+                      />
                     </Field>
-                    <Field label="CR12 Reference No.">
+                    <Field label="CR12 Reference No." required={form.business_type === 'N'}>
                       <TextInput value={form.cr12_ref} onChange={v => set('cr12_ref', v)} placeholder="e.g. CR12/2024/00123" />
                     </Field>
-                    <div className="col-span-2 flex items-center gap-6">
+                    <div className="sm:col-span-2 flex items-center gap-6">
                       <CheckRow checked={form.cr12} onChange={v => set('cr12', v)} label="CR12 / Certificate of Incorporation submitted" />
                     </div>
                   </>
@@ -720,45 +844,49 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
               </div>
 
               <SectionHeader title="Classification" />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Agent / Broker" required>
-                  <Select value={form.agent_id || BLANK_VALUE} onValueChange={v => set('agent_id', v === BLANK_VALUE ? '' : v)}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Blank" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={BLANK_VALUE}>Blank</SelectItem>
-                      {agents.filter(a => a.is_active).map(a => <SelectItem key={a.agent_id} value={a.agent_id}>{a.agent_name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={form.agent_id}
+                    onChange={v => set('agent_id', v)}
+                    options={agents.filter(a => a.is_active).map(a => ({ value: a.agent_id, label: a.agent_name }))}
+                    placeholder="Select agent or broker…"
+                    searchPlaceholder="Search agents and brokers…"
+                  />
                 </Field>
-                <Field label="County">
-                  <Select value={form.county_code || BLANK_VALUE} onValueChange={v => set('county_code', v === BLANK_VALUE ? '' : v)}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Blank" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={BLANK_VALUE}>Blank</SelectItem>
-                      {counties.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                <Field label="County" required={(isRetail && form.business === 'N') || (isCorp && form.business_type === 'N')}>
+                  <SearchableSelect
+                    value={form.county_code}
+                    onChange={v => set('county_code', v)}
+                    options={counties.map(c => ({ value: c, label: c }))}
+                    placeholder="Select county…"
+                    searchPlaceholder="Search counties…"
+                  />
                 </Field>
-                <Field label="GI Category">
-                  <SelectField value={form.gi_category} onChange={v => set('gi_category', v)} options={GI_CATS.map(g => ({ value: g, label: g }))} placeholder="Blank" />
+                <Field label="GI Category" required={form.business === 'N'}>
+                  <SelectField value={form.gi_category} onChange={v => set('gi_category', v)} options={GI_CATS} placeholder="Blank" />
                 </Field>
-                <Field label="Client Type">
-                  <SelectField value={form.client_sub_type} onChange={v => set('client_sub_type', v)} options={[{ value: 'S', label: 'SME' }, { value: 'C', label: 'CORPORATE' }]} placeholder="Blank" />
+                <Field label="Card Type">
+                  <SelectField value={form.card_type} onChange={v => set('card_type', v)} options={CARD_TYPES.map(c => ({ value: c, label: c }))} placeholder="Blank" />
                 </Field>
-                {isRetail && form.is_mtiba && (
-                  <Field label="Card Type">
-                    <SelectField value={form.card_type} onChange={v => set('card_type', v)} options={CARD_TYPES.map(c => ({ value: c, label: c }))} placeholder="Blank" />
-                  </Field>
-                )}
               </div>
 
               <SectionHeader title="Payment" />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Payment Reference No.">
                   <TextInput value={form.pay_ref_no} onChange={v => set('pay_ref_no', v)} placeholder="e.g. MPESA ref…" />
                 </Field>
                 <Field label="Paid Amount (KES)">
-                  <TextInput value={form.paid_amt} onChange={v => set('paid_amt', v)} placeholder="0.00" />
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    value={form.paid_amt}
+                    onChange={e => set('paid_amt', e.target.value)}
+                    placeholder="0.00"
+                    className="h-8 text-sm"
+                  />
                 </Field>
                 <Field label="Payment Mode">
                   <SelectField value={form.pay_mode} onChange={v => set('pay_mode', v)} options={PAY_MODES.map(p => ({ value: p, label: p }))} placeholder="Blank" />
@@ -775,14 +903,17 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                       ? 'Walk-in Allocation'
                       : 'Registration Actions'
                   } />
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {(activeMode === 'edit' || (isRetail && form.walk_in_client === 'Y')) && (
                       <>
                         <Field label="Allocated To *">
-                          <Select value={form.allocated_to} onValueChange={v => set('allocated_to', v)}>
-                            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Assign to employee…" /></SelectTrigger>
-                            <SelectContent>{employees.map(e => <SelectItem key={e.username} value={e.username}>{e.employee_name}</SelectItem>)}</SelectContent>
-                          </Select>
+                          <SearchableSelect
+                            value={form.allocated_to}
+                            onChange={v => set('allocated_to', v)}
+                            options={employees.map(e => ({ value: e.username, label: e.employee_name }))}
+                            placeholder="Assign to employee…"
+                            searchPlaceholder="Search membership admins…"
+                          />
                         </Field>
                         <Field label="Benefit Verified">
                           <SelectField value={form.benefit_verified} onChange={v => set('benefit_verified', v as 'YES' | 'NO')} options={[{ value: 'YES', label: 'Yes — Verified' }, { value: 'NO', label: 'No — Pending' }]} />
@@ -790,13 +921,13 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                       </>
                     )}
                     {activeMode === 'edit' && (
-                      <div className="col-span-2 flex items-center gap-6">
+                      <div className="sm:col-span-2 flex flex-wrap items-center gap-4 sm:gap-6">
                         <CheckRow checked={form.medical_uw} onChange={v => set('medical_uw', v)} label="Medical UW Reviewed" />
                         <CheckRow checked={form.invoiced} onChange={v => set('invoiced', v)} label="Invoiced" />
                       </div>
                     )}
                     {activeMode === 'register' && (
-                      <div className="col-span-2 flex justify-end pt-1">
+                      <div className="sm:col-span-2 flex justify-end pt-1">
                         <Button
                           type="button"
                           size="sm"
@@ -877,7 +1008,8 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                                     <Upload className="w-3 h-3" /> Replace
                                   </Button>
                                   <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                    onClick={() => deleteUploadMut.mutate({ uploadId: docUpload.upload_id, reqId: r.req_id })} disabled={deleteUploadMut.isPending}>
+                                    onClick={() => setDeleteDocument({ uploadId: docUpload.upload_id, reqId: r.req_id, filename: docUpload.filename })}
+                                    disabled={deleteUploadMut.isPending}>
                                     <Trash2 className="w-3 h-3" /> Delete
                                   </Button>
                                 </>
@@ -1042,7 +1174,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
           </div>
 
           {/* Action buttons row */}
-          <div className="px-5 py-3 flex items-center justify-between gap-2 bg-background">
+          <div className="px-5 py-3 flex flex-wrap items-center justify-between gap-2 bg-background">
             <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
             <div className="flex gap-2">
               {activeMode === 'edit' && (
@@ -1094,16 +1226,13 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
             <div className="space-y-4 py-2">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-700">Assign BPO Reviewer</Label>
-                <Select value={forwardToUser} onValueChange={setForwardToUser}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Leave unassigned for the BPO queue…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {bpoReviewers.map(e => (
-                      <SelectItem key={e.username} value={e.username}>{e.employee_name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={forwardToUser}
+                  onChange={setForwardToUser}
+                  options={bpoReviewers.map(e => ({ value: e.username, label: e.employee_name }))}
+                  placeholder="Leave unassigned for the BPO queue…"
+                  searchPlaceholder="Search BPO reviewers…"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-700">
@@ -1252,6 +1381,36 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
           </DialogContent>
         </Dialog>
 
+        <AlertDialog open={!!deleteDocument} onOpenChange={open => !open && setDeleteDocument(null)}>
+          <AlertDialogContent className="z-[220]">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this document?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {deleteDocument
+                  ? `${deleteDocument.filename} will be removed from this file and the requirement will return to pending.`
+                  : 'The document will be removed from this file.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleteUploadMut.isPending}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground"
+                disabled={deleteUploadMut.isPending}
+                onClick={event => {
+                  event.preventDefault();
+                  if (!deleteDocument) return;
+                  deleteUploadMut.mutate(
+                    { uploadId: deleteDocument.uploadId, reqId: deleteDocument.reqId },
+                    { onSuccess: () => setDeleteDocument(null) },
+                  );
+                }}
+              >
+                {deleteUploadMut.isPending ? 'Deleting…' : 'Delete document'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
       </SheetContent>
     </Sheet>
   );
@@ -1259,26 +1418,62 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function BusinessTrackingPage() {
+  const { user } = useAuth();
   const [queue, setQueue]             = useState<'register' | 'bpo-review'>('register');
   const [clientTab, setClientTab]     = useState<'ALL' | 'R' | 'C'>('ALL');
   const [statusFilter, setStatusFilter] = useState('');
-  const [search, setSearch]           = useState('');
+  const [searchBy, setSearchBy]       = useState<'P' | 'F'>('P');
+  const [searchDraft, setSearchDraft] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [page, setPage]               = useState(1);
+  const [pageSize, setPageSize]       = useState(20);
+  const [sortBy, setSortBy]           = useState('created_at');
+  const [sortDir, setSortDir]         = useState<'asc' | 'desc'>('desc');
+  const [deleteTarget, setDeleteTarget] = useState<BusinessFile | null>(null);
   const [sheet, setSheet]             = useState<{ mode: 'closed' | 'register' | 'edit'; fileNo?: string; clientType?: 'R' | 'C' }>({ mode: 'closed' });
   const qc = useQueryClient();
+  const { toast } = useToast();
 
-  const params: Record<string, string> = {};
-  params.queue = queue;
+  const params: Record<string, string> = {
+    queue,
+    page: String(page),
+    page_size: String(pageSize),
+    sort_by: sortBy,
+    sort_dir: sortDir,
+  };
   if (statusFilter) params.status = statusFilter;
   if (clientTab !== 'ALL') params.client_type = clientTab;
-  if (search) params.search = search;
+  if (appliedSearch) {
+    params.search = appliedSearch;
+    params.search_by = searchBy;
+  }
 
-  const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ['business', queue, clientTab, statusFilter, search],
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
+    queryKey: ['business', queue, clientTab, statusFilter, appliedSearch, searchBy, page, pageSize, sortBy, sortDir],
     queryFn: () => misApi.business(params),
     staleTime: 30_000,
   });
 
   const files: BusinessFile[] = data?.data ?? [];
+  const totalRecords = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  const canDelete = ['superadmin', 'system admin'].includes((user?.profileName ?? '').trim().toLowerCase());
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const deleteBusinessMut = useMutation({
+    mutationFn: (fileNo: string) => misApi.businessDelete(fileNo),
+    onSuccess: () => {
+      toast({ title: 'Tracking record deleted', description: 'The file was removed from active tracking.' });
+      setDeleteTarget(null);
+      qc.invalidateQueries({ queryKey: ['business'] });
+    },
+    onError: (mutationError) => {
+      toast({ title: 'Unable to delete record', description: String(mutationError), variant: 'destructive' });
+    },
+  });
 
   // Status counts for pills
   const countByStatus = STATUSES.reduce<Record<string, number>>((acc, s) => {
@@ -1298,8 +1493,29 @@ export default function BusinessTrackingPage() {
     setSheet({ mode: 'closed' });
   }
 
+  function applySearch() {
+    setPage(1);
+    setAppliedSearch(searchDraft.trim());
+  }
+
+  function clearSearch() {
+    setSearchDraft('');
+    setAppliedSearch('');
+    setPage(1);
+  }
+
+  function toggleSort(column: string) {
+    setPage(1);
+    if (sortBy === column) {
+      setSortDir(direction => direction === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortDir('asc');
+    }
+  }
+
   // Summary stats
-  const total    = files.length;
+  const total    = totalRecords;
   const medical  = files.filter(f => f.business === 'M').length;
   const nonMed   = files.filter(f => f.business === 'N').length;
   const retail   = files.filter(f => f.client_type === 'R').length;
@@ -1308,7 +1524,7 @@ export default function BusinessTrackingPage() {
   const forwarded = files.filter(f => f.file_status === 'FORWARDED').length;
 
   return (
-    <div className="p-6 space-y-4 max-w-screen-2xl mx-auto">
+    <div className="p-4 sm:p-6 space-y-4 max-w-screen-2xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
@@ -1332,7 +1548,7 @@ export default function BusinessTrackingPage() {
       {/* Work queues */}
       <div className="flex flex-wrap gap-2">
         <button
-          onClick={() => { setQueue('register'); setStatusFilter(''); }}
+          onClick={() => { setQueue('register'); setStatusFilter(''); setPage(1); }}
           className={`rounded-lg border px-3 py-2 text-left transition-colors ${
             queue === 'register' ? 'border-primary bg-primary/5 text-primary' : 'border-border bg-background hover:bg-muted'
           }`}
@@ -1341,7 +1557,7 @@ export default function BusinessTrackingPage() {
           <span className="block text-xs text-muted-foreground">New files awaiting forwarding</span>
         </button>
         <button
-          onClick={() => { setQueue('bpo-review'); setStatusFilter(''); }}
+          onClick={() => { setQueue('bpo-review'); setStatusFilter(''); setPage(1); }}
           className={`rounded-lg border px-3 py-2 text-left transition-colors ${
             queue === 'bpo-review' ? 'border-primary bg-primary/5 text-primary' : 'border-border bg-background hover:bg-muted'
           }`}
@@ -1377,7 +1593,7 @@ export default function BusinessTrackingPage() {
           {(['ALL', 'R', 'C'] as const).map(ct => (
             <button
               key={ct}
-              onClick={() => setClientTab(ct)}
+              onClick={() => { setClientTab(ct); setPage(1); }}
               className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
                 clientTab === ct
                   ? 'border-primary text-foreground'
@@ -1393,18 +1609,42 @@ export default function BusinessTrackingPage() {
 
         {/* Search + status pills */}
         <div className="flex flex-wrap gap-2 items-center">
+          <Select value={searchBy} onValueChange={value => { setSearchBy(value as 'P' | 'F'); setPage(1); }}>
+            <SelectTrigger className="h-8 w-full sm:w-[155px] text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="P">Proposer Name</SelectItem>
+              <SelectItem value="F">File No.</SelectItem>
+            </SelectContent>
+          </Select>
           <div className="relative min-w-[220px] max-w-sm flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               className="pl-9 h-8 text-sm"
-              placeholder="Search name, file no, reference…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
+              placeholder={searchBy === 'F' ? 'Enter file number…' : 'Enter proposer name…'}
+              value={searchDraft}
+              onChange={e => setSearchDraft(e.target.value)}
+              onKeyDown={event => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  applySearch();
+                }
+              }}
             />
           </div>
+          <Button size="sm" onClick={applySearch} disabled={isFetching} className="gap-1.5">
+            <Search className="w-3.5 h-3.5" />
+            {isFetching && appliedSearch ? 'Searching…' : 'Search'}
+          </Button>
+          {(searchDraft || appliedSearch) && (
+            <Button size="sm" variant="outline" onClick={clearSearch} className="gap-1.5">
+              <X className="w-3.5 h-3.5" /> Clear
+            </Button>
+          )}
           <div className="flex flex-wrap gap-1">
             <button
-              onClick={() => setStatusFilter('')}
+              onClick={() => { setStatusFilter(''); setPage(1); }}
               className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
                 !statusFilter ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border hover:bg-muted'
               }`}
@@ -1414,7 +1654,7 @@ export default function BusinessTrackingPage() {
             {STATUSES.map(s => (
               <button
                 key={s}
-                onClick={() => setStatusFilter(prev => prev === s ? '' : s)}
+                onClick={() => { setStatusFilter(prev => prev === s ? '' : s); setPage(1); }}
                 className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
                   statusFilter === s
                     ? 'bg-primary text-primary-foreground border-primary'
@@ -1429,19 +1669,32 @@ export default function BusinessTrackingPage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="rounded-lg border overflow-x-auto">
+        <table className="w-full min-w-[940px] text-sm">
           <thead>
             <tr className="bg-muted/40 border-b text-xs text-muted-foreground">
-              <th className="text-left px-3 py-2.5 font-medium">File No</th>
-              <th className="text-left px-3 py-2.5 font-medium">Proposer</th>
-              <th className="text-left px-3 py-2.5 font-medium">Type</th>
-              <th className="text-left px-3 py-2.5 font-medium">Action</th>
-              <th className="text-left px-3 py-2.5 font-medium">Status</th>
-              <th className="text-left px-3 py-2.5 font-medium">{queue === 'bpo-review' ? 'BPO Reviewer' : 'Agent'}</th>
-              <th className="text-right px-3 py-2.5 font-medium">Paid</th>
-              <th className="text-left px-3 py-2.5 font-medium">Received</th>
-              <th className="text-left px-3 py-2.5 font-medium">Notes</th>
+              {[
+                { key: 'file_no', label: 'File No', align: 'text-left' },
+                { key: 'proposer_name', label: 'Proposer', align: 'text-left' },
+                { key: 'client_type', label: 'Type', align: 'text-left' },
+                { key: 'business_type', label: 'Action', align: 'text-left' },
+                { key: 'file_status', label: 'Status', align: 'text-left' },
+                { key: queue === 'bpo-review' ? 'bpo_assigned_to' : 'agent_name', label: queue === 'bpo-review' ? 'BPO Reviewer' : 'Agent', align: 'text-left' },
+                { key: 'paid_amt', label: 'Paid', align: 'text-right' },
+                { key: 'receive_dt', label: 'Received', align: 'text-left' },
+                { key: 'note_count', label: 'Notes', align: 'text-left' },
+              ].map(column => (
+                <th key={column.key} className={`${column.align} px-3 py-2.5 font-medium`}>
+                  <button
+                    type="button"
+                    onClick={() => toggleSort(column.key)}
+                    className={cn('inline-flex items-center gap-1 hover:text-foreground', column.align === 'text-right' && 'ml-auto')}
+                  >
+                    {column.label}
+                    <ArrowUpDown className={cn('w-3 h-3', sortBy === column.key ? 'text-primary' : 'opacity-40')} />
+                  </button>
+                </th>
+              ))}
               <th className="px-3 py-2.5" />
             </tr>
           </thead>
@@ -1454,6 +1707,17 @@ export default function BusinessTrackingPage() {
                   ))}
                 </tr>
               ))
+            ) : isError ? (
+              <tr>
+                <td colSpan={10} className="py-12 text-center">
+                  <AlertCircle className="w-8 h-8 mx-auto mb-2 text-destructive/70" />
+                  <p className="text-sm font-medium">Unable to load business tracking records.</p>
+                  <p className="text-xs text-muted-foreground mt-1">{String(error)}</p>
+                  <Button size="sm" variant="outline" className="mt-3" onClick={() => refetch()}>
+                    Try again
+                  </Button>
+                </td>
+              </tr>
             ) : files.length === 0 ? (
               <tr>
                 <td colSpan={10} className="py-16 text-center text-muted-foreground">
@@ -1510,7 +1774,24 @@ export default function BusinessTrackingPage() {
                   ) : '—'}
                 </td>
                 <td className="px-3 py-2.5">
-                  <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex items-center justify-end gap-1">
+                    {canDelete && queue === 'register' && f.file_status === 'REGISTERED' && !f.forwarded && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        aria-label={`Delete ${f.file_no}`}
+                        onClick={event => {
+                          event.stopPropagation();
+                          setDeleteTarget(f);
+                        }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                    <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                 </td>
               </tr>
             ))}
@@ -1519,10 +1800,50 @@ export default function BusinessTrackingPage() {
       </div>
 
       {/* File count footer */}
-      {!isLoading && (
-        <p className="text-xs text-muted-foreground">
-          {files.length} file{files.length !== 1 ? 's' : ''} in {queue === 'bpo-review' ? 'BPO Review' : 'Register'} queue
-        </p>
+      {!isLoading && !isError && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">
+            {totalRecords === 0
+              ? 'No files'
+              : `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, totalRecords)} of ${totalRecords}`}
+            {' '}in {queue === 'bpo-review' ? 'BPO Review' : 'Register'} queue
+          </p>
+          <div className="flex items-center gap-2">
+            <Select value={String(pageSize)} onValueChange={value => { setPageSize(Number(value)); setPage(1); }}>
+              <SelectTrigger className="h-8 w-[105px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10 / page</SelectItem>
+                <SelectItem value="20">20 / page</SelectItem>
+                <SelectItem value="50">50 / page</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setPage(current => Math.max(1, current - 1))}
+              disabled={page <= 1 || isFetching}
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <span className="min-w-[78px] text-center text-xs text-muted-foreground">
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setPage(current => Math.min(totalPages, current + 1))}
+              disabled={page >= totalPages || isFetching}
+              aria-label="Next page"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Sheet */}
@@ -1540,6 +1861,32 @@ export default function BusinessTrackingPage() {
           }}
         />
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete tracking record?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget
+                ? `${deleteTarget.file_no} for ${deleteTarget.proposer_name} will be removed from active tracking. Notes, documents, and audit history will be retained.`
+                : 'This record will be removed from active tracking.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBusinessMut.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground"
+              disabled={deleteBusinessMut.isPending}
+              onClick={event => {
+                event.preventDefault();
+                if (deleteTarget) deleteBusinessMut.mutate(deleteTarget.file_no);
+              }}
+            >
+              {deleteBusinessMut.isPending ? 'Deleting…' : 'Delete record'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

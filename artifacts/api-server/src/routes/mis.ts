@@ -2,6 +2,7 @@ import { Router } from "express";
 import { query, queryOne } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
 import { requireBpoQueueAccess, requireBusinessFileAccess, requireBusinessTrackingAccess, setBpoReviewAccess } from "../lib/business-permissions";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -40,7 +41,13 @@ router.use("/mis/business", requireAuth, requireBusinessTrackingAccess, setBpoRe
 
 router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
   try {
-    const { status, client_type, business, entered_by, search, queue } = req.query as Record<string, string>;
+    const {
+      status, client_type, business, entered_by, search, search_by, queue,
+      page: rawPage, page_size: rawPageSize, sort_by, sort_dir,
+    } = req.query as Record<string, string>;
+    const page = Math.max(1, Number.parseInt(rawPage ?? "1", 10) || 1);
+    const pageSize = Math.min(100, Math.max(10, Number.parseInt(rawPageSize ?? "20", 10) || 20));
+    const offset = (page - 1) * pageSize;
 
     const conditions: string[] = ["bt.is_active = TRUE"];
     const params: unknown[] = [];
@@ -63,33 +70,71 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
           AND bpo_filter.work_status='OPEN'
       )`);
     }
-    if (search) {
-      conditions.push(`(bt.proposer_name ILIKE $${p} OR bt.file_no ILIKE $${p} OR bt.pay_ref_no ILIKE $${p} OR bt.nid ILIKE $${p} OR bt.pin_no ILIKE $${p})`);
+    if (search?.trim()) {
+      if (search_by === "F") {
+        conditions.push(`bt.file_no ILIKE $${p}`);
+      } else {
+        conditions.push(`bt.proposer_name ILIKE $${p}`);
+      }
       params.push(`%${search}%`); p++;
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    const sortableColumns: Record<string, string> = {
+      file_no: "bt.file_no",
+      proposer_name: "bt.proposer_name",
+      client_type: "bt.client_type",
+      business_type: "bt.business_type",
+      file_status: "bt.file_status",
+      agent_name: "sa.agent_name",
+      paid_amt: "bt.paid_amt",
+      receive_dt: "bt.receive_dt",
+      note_count: "notes.note_count",
+      bpo_assigned_to: "wi.assigned_to",
+      created_at: "bt.created_at",
+    };
+    const sortColumn = sortableColumns[sort_by] ?? "bt.created_at";
+    const sortDirection = sort_dir === "asc" ? "ASC" : "DESC";
 
     const rows = await query(`
       SELECT
         bt.*,
         sa.agent_name,
-        COUNT(n.note_id) AS note_count,
-        MAX(wi.assigned_to) AS bpo_assigned_to,
-        MAX(wi.forwarded_at) AS bpo_forwarded_at
+        notes.note_count,
+        wi.assigned_to AS bpo_assigned_to,
+        wi.forwarded_at AS bpo_forwarded_at
       FROM crm.business_tracking bt
       LEFT JOIN commission.sales_agents sa ON sa.agent_id = bt.agent_id
-      LEFT JOIN crm.business_tracking_notes n ON n.file_no = bt.file_no AND n.is_active = TRUE
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS note_count
+        FROM crm.business_tracking_notes n
+        WHERE n.file_no = bt.file_no AND n.is_active = TRUE
+      ) notes ON TRUE
       LEFT JOIN crm.business_work_items wi
         ON wi.file_no = bt.file_no AND wi.queue_name = 'BPO_REVIEW'
       ${where}
-      GROUP BY bt.file_no, sa.agent_name
-      ORDER BY COALESCE(MAX(wi.forwarded_at), bt.created_at) DESC
+      ORDER BY ${sortColumn} ${sortDirection} NULLS LAST, bt.file_no ASC
+      LIMIT $${p++} OFFSET $${p++}
+    `, [...params, pageSize, offset]);
+
+    const totalRow = await queryOne<{ total: number }>(`
+      SELECT COUNT(*)::int AS total
+      FROM crm.business_tracking bt
+      LEFT JOIN crm.business_work_items wi
+        ON wi.file_no = bt.file_no AND wi.queue_name = 'BPO_REVIEW'
+      ${where}
     `, params);
 
-    res.json({ ok: true, data: rows, total: rows.length });
+    res.json({
+      ok: true,
+      data: rows,
+      total: totalRow?.total ?? 0,
+      page,
+      page_size: pageSize,
+    });
   } catch (err: unknown) {
-    res.status(500).json({ ok: false, error: String(err) });
+    logger.error({ err }, "Business tracking list failed");
+    res.status(500).json({ ok: false, error: "Unable to load business tracking records." });
   }
 });
 
@@ -116,7 +161,10 @@ router.get("/mis/business/:fileNo", requireBusinessFileAccess, async (req, res) 
         ORDER BY br.req_name
       `, [fileNo]),
     ]);
-    if (!file) return res.status(404).json({ ok: false, error: "File not found" });
+    if (!file) {
+      res.status(404).json({ ok: false, error: "File not found" });
+      return;
+    }
     res.json({ ok: true, data: { ...file, notes, docs } });
   } catch (err: unknown) {
     res.status(500).json({ ok: false, error: String(err) });

@@ -1,14 +1,109 @@
 import { Router, type Request, type Response } from "express";
 import { query, queryOne, withTransaction, txQuery } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
-import { requireBpoForwardAccess, requireBusinessFileAccess, requireBusinessTrackingAccess } from "../lib/business-permissions";
+import { requireBpoForwardAccess, requireBusinessDeleteAccess, requireBusinessFileAccess, requireBusinessTrackingAccess } from "../lib/business-permissions";
 import { logger } from "../lib/logger";
 
 const router = Router();
 
 function handleError(res: Response, err: unknown, ctx: string) {
   logger.error({ err, ctx }, "Business route error");
-  res.status(500).json({ ok: false, error: String(err) });
+  res.status(500).json({ ok: false, error: "Unable to complete the business operation." });
+}
+
+const CLIENT_TYPES = new Set(["R", "C"]);
+const CLIENT_SUB_TYPES = new Set(["S", "C"]);
+const BUSINESS_TYPES = new Set(["N", "R", "A", "T", "RT", "CC", "PR", "NE", "FT", "SU", "LS"]);
+const COVERAGE_TYPES = new Set(["M", "N"]);
+const PAYMENT_MODES = new Set(["MPESA", "EFT", "CHEQ", "IPF"]);
+const CARD_TYPES = new Set(["MTIBA", "SMART"]);
+const GI_CATEGORIES = new Set(["Non_Motor", "Motor"]);
+const CORPORATE_CATEGORIES = new Set(["Public", "Private"]);
+
+interface BusinessInput {
+  client_type?: unknown;
+  client_sub_type?: unknown;
+  business_type?: unknown;
+  business?: unknown;
+  proposer_name?: unknown;
+  nid?: unknown;
+  pin_no?: unknown;
+  county_code?: unknown;
+  gi_category?: unknown;
+  agent_id?: unknown;
+  walk_in_client?: unknown;
+  walk_in_auth?: unknown;
+  allocated_to?: unknown;
+  cr12?: unknown;
+  cr12_ref?: unknown;
+  corp_category?: unknown;
+  sector?: unknown;
+  pay_ref_no?: unknown;
+  paid_amt?: unknown;
+  pay_mode?: unknown;
+  card_type?: unknown;
+}
+
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function validateBusinessInput(input: BusinessInput): string[] {
+  const errors: string[] = [];
+  const clientType = text(input.client_type);
+  const clientSubType = text(input.client_sub_type);
+  const businessType = text(input.business_type);
+  const coverageType = text(input.business);
+  const paidAmountText = text(input.paid_amt);
+  const paymentMode = text(input.pay_mode);
+  const cardType = text(input.card_type);
+
+  if (!CLIENT_TYPES.has(clientType)) errors.push("Select Retail or SME/Corporate.");
+  if (!text(input.proposer_name)) errors.push("Proposer name is required.");
+  if (!BUSINESS_TYPES.has(businessType)) errors.push("Select a valid business action.");
+  if (!COVERAGE_TYPES.has(coverageType)) errors.push("Select Medical or Non Medical coverage.");
+  if (!text(input.agent_id)) errors.push("Agent/Broker is required.");
+  if (cardType && !CARD_TYPES.has(cardType)) errors.push("Select a valid card type.");
+
+  if (paidAmountText || paymentMode) {
+    const paidAmount = Number(paidAmountText);
+    if (!paidAmountText || !Number.isFinite(paidAmount) || paidAmount < 0) {
+      errors.push("Paid amount must be a valid non-negative number.");
+    }
+    if (!PAYMENT_MODES.has(paymentMode)) errors.push("Select a valid payment mode.");
+  }
+
+  if (clientType === "R") {
+    if (coverageType === "N") {
+      if (!text(input.nid)) errors.push("NID is required for Non-Medical Retail.");
+      if (!text(input.pin_no)) errors.push("PIN No. is required for Non-Medical Retail.");
+      if (!text(input.county_code)) errors.push("County is required for Non-Medical Retail.");
+      if (!GI_CATEGORIES.has(text(input.gi_category))) errors.push("GI Category is required for Non-Medical Retail.");
+    }
+    if (text(input.walk_in_client) === "Y" && !text(input.allocated_to)) {
+      errors.push("Allocate To is required for a walk-in Retail file.");
+    }
+    if (text(input.walk_in_client) === "Y" && !text(input.walk_in_auth)) {
+      errors.push("Walk-in authoriser is required for a walk-in Retail file.");
+    }
+  }
+
+  if (clientType === "C") {
+    if (!CLIENT_SUB_TYPES.has(clientSubType)) errors.push("Select SME or Corporate client type.");
+    if (businessType === "N") {
+      if (!text(input.cr12_ref)) errors.push("CR12 reference number is required for new SME/Corporate business.");
+      if (!text(input.county_code)) errors.push("County is required for new SME/Corporate business.");
+      if (!CORPORATE_CATEGORIES.has(text(input.corp_category))) errors.push("Business Category is required for new SME/Corporate business.");
+      if (!text(input.sector)) errors.push("Industry Sector is required for new SME/Corporate business.");
+    } else if (text(input.corp_category) && !CORPORATE_CATEGORIES.has(text(input.corp_category))) {
+      errors.push("Business Category is invalid.");
+    }
+    if (coverageType === "N" && !GI_CATEGORIES.has(text(input.gi_category))) {
+      errors.push("GI Category is required for Non-Medical business.");
+    }
+  }
+
+  return errors;
 }
 
 // ─── Reference data (no auth needed) ─────────────────────────────────────────
@@ -24,6 +119,18 @@ export const COUNTIES = [
 
 router.get("/business/counties", (_req: Request, res: Response) => {
   res.json({ ok: true, data: COUNTIES });
+});
+
+router.get("/business/sectors", async (_req: Request, res: Response) => {
+  try {
+    const rows = await query<{ sector_name: string }>(
+      `SELECT sector_name
+       FROM crm.business_sectors
+       WHERE is_active=TRUE
+       ORDER BY sector_name`
+    );
+    res.json({ ok: true, data: rows.map((row) => row.sector_name) });
+  } catch (err) { handleError(res, err, "get sectors"); }
 });
 
 router.get("/business/requirements", async (req: Request, res: Response) => {
@@ -72,11 +179,16 @@ router.post("/business/register", async (req: Request, res: Response) => {
     cr12, cr12_ref, corp_category, sector, client_sub_type,
     agent_id, county_code, gi_category,
     pay_ref_no, paid_amt, pay_mode, rate_type, family_code,
-    is_mtiba, is_ipf,
+    is_mtiba, is_ipf, allocated_to,
   } = req.body as Record<string, unknown>;
 
   if (!client_type || !business_type || !business || !proposer_name) {
     res.status(400).json({ ok: false, error: "client_type, business_type, business, proposer_name are required." });
+    return;
+  }
+  const validationErrors = validateBusinessInput(req.body as BusinessInput);
+  if (validationErrors.length > 0) {
+    res.status(400).json({ ok: false, error: validationErrors.join(" ") });
     return;
   }
 
@@ -126,34 +238,47 @@ router.post("/business/register", async (req: Request, res: Response) => {
            pay_mode, sector, cr12, cr12_ref, corp_category, walk_in_auth,
            client_sub_type
          ) VALUES (
-           $1,$2,$3,$4,
-           'REGISTERED',$5,$6,$7,
-           $8,$9,$10,$11,
-           $12,'NO',FALSE,
+           $1,$2,$3,CURRENT_DATE,
+           'REGISTERED',$4,$5,$6,
+           $7,$8,$9,$10,
+           $11,'NO',FALSE,
            FALSE,FALSE,FALSE,FALSE,FALSE,
            TRUE,FALSE,
-           $13,$14,$15,
-           $16,$17,$18,$19,$20,
-           $21,$22,$23,$24,$25,$26,
-           $27
+           $12,$13,$14,
+           $15,$16,$17,$18,$19,
+           $20,$21,$22,$23,$24,$25,
+           $26
          )`,
         [
-          newFileNo, String(proposer_name), family_code || null,
-          receive_dt || new Date().toISOString().split("T")[0],
+           newFileNo, String(proposer_name).trim(), family_code || null,
           String(business_type), String(client_type), String(business),
           agent_id || null, !!is_mtiba, !!is_ipf,
           client_type === "R" && walk_in_client === "Y" ? "Y" : "N",
           rate_type || "S",
           pay_ref_no || null, paid_amt ? Number(paid_amt) : null,
           req.user!.username,
-          nid || null, pin_no || null, county_code || null,
+           client_type === "R" ? nid || null : null,
+           client_type === "R" ? pin_no || null : null,
+           county_code || null,
           card_type || null, gi_category || null,
-          pay_mode || null, sector || null,
-          cr12 === true || cr12 === "true", cr12_ref || null,
-          corp_category || null, walk_in_auth || null,
-          client_sub_type || null,
+           pay_mode || null, client_type === "C" ? sector || null : null,
+           client_type === "C" && (cr12 === true || cr12 === "true"),
+           client_type === "C" ? cr12_ref || null : null,
+           client_type === "C" ? corp_category || null : null,
+           client_type === "R" ? walk_in_auth || null : null,
+           client_type === "C" ? client_sub_type || null : null,
         ]
       );
+
+      if (client_type === "R" && walk_in_client === "Y" && allocated_to) {
+        await txQuery(
+          client,
+          `UPDATE crm.business_tracking
+           SET allocated=TRUE, allocated_to=$2, allocate_dt=NOW()
+           WHERE file_no=$1`,
+          [newFileNo, allocated_to]
+        );
+      }
 
       return newFileNo;
     });
@@ -182,8 +307,16 @@ router.put("/business/:fileNo", requireBusinessFileAccess, async (req: Request, 
   } = req.body as Record<string, unknown>;
 
   try {
-    const exists = await queryOne(`SELECT file_no, client_type FROM crm.business_tracking WHERE file_no=$1`, [fileNo]);
+    const exists = await queryOne<{ file_no: string; client_type: string; receive_dt: string }>(
+      `SELECT file_no, client_type, receive_dt FROM crm.business_tracking WHERE file_no=$1`,
+      [fileNo]
+    );
     if (!exists) { res.status(404).json({ ok: false, error: "File not found." }); return; }
+    const validationErrors = validateBusinessInput({ ...(req.body as BusinessInput), client_type: exists.client_type });
+    if (validationErrors.length > 0) {
+      res.status(400).json({ ok: false, error: validationErrors.join(" ") });
+      return;
+    }
 
     await query(
       `UPDATE crm.business_tracking SET
@@ -200,20 +333,24 @@ router.put("/business/:fileNo", requireBusinessFileAccess, async (req: Request, 
        WHERE file_no=$29`,
       [
         String(proposer_name), family_code || null,
-        receive_dt || null,
+        exists.receive_dt,
         String(business_type), String(business), agent_id || null,
-        nid || null, pin_no || null,
-        walk_in_client === "Y" ? "Y" : "N",
-        walk_in_auth || null, card_type || null,
-        cr12 === true || cr12 === "true", cr12_ref || null,
-        corp_category || null, sector || null,
+         exists.client_type === "R" ? nid || null : null,
+         exists.client_type === "R" ? pin_no || null : null,
+         exists.client_type === "R" && walk_in_client === "Y" ? "Y" : "N",
+         exists.client_type === "R" ? walk_in_auth || null : null,
+         card_type || null,
+         exists.client_type === "C" && (cr12 === true || cr12 === "true"),
+         exists.client_type === "C" ? cr12_ref || null : null,
+         exists.client_type === "C" ? corp_category || null : null,
+         exists.client_type === "C" ? sector || null : null,
         county_code || null, gi_category || null,
         pay_ref_no || null, paid_amt ? Number(paid_amt) : null, pay_mode || null,
         rate_type || "S",
         !!is_mtiba, !!is_ipf,
         allocated_to || null, !!medical_uw,
         benefit_verified || "NO", !!invoiced,
-        client_sub_type || null,
+         exists.client_type === "C" ? client_sub_type || null : null,
         fileNo,
       ]
     );
@@ -226,6 +363,68 @@ router.put("/business/:fileNo", requireBusinessFileAccess, async (req: Request, 
     res.json({ ok: true });
   } catch (err) { handleError(res, err, "update file"); }
 });
+
+// ─── DELETE /business/:fileNo ─────────────────────────────────────────────────
+// Tracking deletion remains a soft delete and is deliberately limited to
+// unforwarded REGISTERED files so workflow history and related records survive.
+router.delete(
+  "/business/:fileNo",
+  requireBusinessDeleteAccess,
+  requireBusinessFileAccess,
+  async (req: Request, res: Response) => {
+    const { fileNo } = req.params;
+    try {
+      const file = await queryOne<{ file_status: string; forwarded: boolean; is_active: boolean }>(
+        `SELECT file_status, forwarded, is_active
+         FROM crm.business_tracking
+         WHERE file_no=$1`,
+        [fileNo]
+      );
+      if (!file?.is_active) {
+        res.status(404).json({ ok: false, error: "File not found." });
+        return;
+      }
+      if (file.file_status !== "REGISTERED" || file.forwarded) {
+        res.status(409).json({ ok: false, error: "Only unforwarded REGISTERED files can be deleted." });
+        return;
+      }
+
+      await withTransaction(async (client) => {
+        await txQuery(client, "SELECT pg_advisory_xact_lock(hashtext($1))", [fileNo]);
+        const openItems = await txQuery(
+          client,
+          `SELECT work_item_id FROM crm.business_work_items
+           WHERE file_no=$1 AND work_status='OPEN'
+           FOR UPDATE`,
+          [fileNo]
+        );
+        if (openItems.length > 0) throw new Error("OPEN_WORK_ITEM");
+
+        await txQuery(
+          client,
+          `UPDATE crm.business_tracking
+           SET is_active=FALSE, updated_at=NOW()
+           WHERE file_no=$1 AND is_active=TRUE`,
+          [fileNo]
+        );
+        await txQuery(
+          client,
+          `INSERT INTO crm.admin_audit_trail (username, action_type, description)
+           VALUES ($1, 'BT_DELETE', $2)`,
+          [req.user!.username, `Soft-deleted ${fileNo}`]
+        );
+      });
+
+      res.json({ ok: true });
+    } catch (err) {
+      if (err instanceof Error && err.message === "OPEN_WORK_ITEM") {
+        res.status(409).json({ ok: false, error: "This file has an open workflow item and cannot be deleted." });
+        return;
+      }
+      handleError(res, err, "delete business file");
+    }
+  }
+);
 
 // ─── POST /business/:fileNo/forward ──────────────────────────────────────────
 // Mirrors the legacy btnforward_Click state machine exactly.

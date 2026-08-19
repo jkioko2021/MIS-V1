@@ -48,7 +48,14 @@ async function del<T>(path: string): Promise<T> {
   return data;
 }
 
-export interface ApiResponse<T> { ok: boolean; data: T; total?: number; error?: string; }
+export interface ApiResponse<T> {
+  ok: boolean;
+  data: T;
+  total?: number;
+  page?: number;
+  page_size?: number;
+  error?: string;
+}
 
 // ── Business Tracking ──────────────────────────────────────────────────────
 export interface BusinessFile {
@@ -189,6 +196,8 @@ export const misApi = {
     post<ApiResponse<{ file_no: string }>>('/business/register', body),
   businessUpdate: (fileNo: string, body: Partial<BusinessFile>) =>
     put<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}`, body),
+  businessDelete: (fileNo: string) =>
+    del<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}`),
   businessForward: (fileNo: string, body?: { to_user?: string; comments?: string }) =>
     post<ApiResponse<{ new_status: string; queue_name: 'BPO_REVIEW'; work_item_id?: number; already_routed: boolean }>>(`/business/${encodeURIComponent(fileNo)}/forward`, body),
   businessAllocate: (fileNo: string, allocated_to: string) =>
@@ -223,6 +232,7 @@ export const misApi = {
     get<ApiResponse<BusinessRequirement[]>>('/business/requirements', client_type ? { client_type } : undefined),
   bpoReviewers: () => get<ApiResponse<BpoReviewer[]>>('/business/bpo-reviewers'),
   counties: () => get<ApiResponse<string[]>>('/business/counties'),
+  sectors: () => get<ApiResponse<string[]>>('/business/sectors'),
 
   agents:   () => get<ApiResponse<SalesAgent[]>>('/mis/agents'),
   employees:(params?: Record<string, string>) => get<ApiResponse<Employee[]>>('/mis/employees', params),
