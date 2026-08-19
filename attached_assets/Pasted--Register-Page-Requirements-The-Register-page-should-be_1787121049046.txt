@@ -1,0 +1,128 @@
+### Register Page Requirements
+
+The **Register** page should be organized into three tabs:
+
+1. **Details**
+
+   * Capture all registration/detail fields.
+   * Validate mandatory fields before allowing the user to proceed.
+   * Retain entered information when switching between tabs.
+
+2. **Document Upload**
+
+   * Allow users to upload the required supporting documents.
+   * Display uploaded documents with:
+
+     * File name
+     * Document type
+     * Upload status
+     * View/download option
+     * Remove option where applicable
+   * Validate that all mandatory documents have been uploaded.
+   * Retain uploaded documents when switching between tabs.
+
+3. **Notes**
+
+   * Provide a text area for users to enter relevant notes/comments.
+   * Save the notes as part of the registration record.
+   * Retain entered notes when switching between tabs.
+
+### Bottom Navigation
+
+At the bottom of the Register page, display:
+
+**Documentation Complete**
+`☐ Documentation Complete`
+
+**Forward Button**
+`[ Forward ]`
+
+The **Forward** button must remain disabled until:
+
+* All mandatory Details fields are completed.
+* All mandatory documents have been uploaded.
+* **Documentation Complete** has been selected.
+
+### Forward Workflow
+
+When the user clicks **Forward**:
+
+1. Validate all mandatory information.
+2. Save the complete registration record.
+3. Save all uploaded documents.
+4. Save the Notes.
+5. Save the Documentation Complete confirmation.
+6. Move the workflow from:
+
+**Register → BPO Review**
+
+7. Create/assign the work item to the **BPO Review** queue.
+8. The BPO Review user must receive access to the complete registration record, including:
+
+   * Registration details
+   * Uploaded documents
+   * Notes
+   * Previous workflow information
+   * Audit history
+9. Record the workflow transaction in the audit trail:
+
+   * Action: **Forwarded**
+   * From: **Register**
+   * To: **BPO Review**
+   * Forwarded by: Current user
+   * Date/time: System timestamp
+10. Prevent duplicate submissions if the user clicks **Forward** more than once.
+11. After successful forwarding, display:
+
+**"Registration successfully forwarded to BPO Review."**
+
+### Workflow Status
+
+Before forwarding:
+
+**Register — Pending Completion**
+
+After forwarding:
+
+**Register — Completed → BPO Review — Pending Review**
+
+The record must no longer appear as an active item in the **Register** queue after successful forwarding.
+
+### BPO Review
+
+The **BPO Review** stage must use the same workflow/registration record rather than creating a separate unrelated record.
+
+The BPO Review user should be able to open the record and review all information submitted from Register.
+
+The workflow history should clearly show:
+
+**Register → BPO Review**
+
+This ensures complete traceability of the registration throughout the workflow.
+
+### UI Layout
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ REGISTER                                                    │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  [ Details ]   [ Document Upload ]   [ Notes ]              │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  Tab Content                                                │
+│                                                             │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ☐ Documentation Complete                    [ Forward ]    │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+
+                    ↓
+
+              BPO REVIEW QUEUE
+
+        Register → BPO Review
+```
