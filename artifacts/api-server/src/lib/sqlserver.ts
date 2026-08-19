@@ -3,7 +3,8 @@ import { logger } from "./logger";
 
 export interface ConnectionConfig {
   host: string;
-  port: number;
+  port?: number;
+  instance?: string;
   user: string;
   password: string;
   database?: string;
@@ -15,7 +16,13 @@ function getDefaultConfig(): ConnectionConfig {
   const host = process.env.MSSQL_HOST;
   const user = process.env.MSSQL_USER;
   const password = process.env.MSSQL_PASSWORD;
-  const port = Number(process.env.MSSQL_PORT ?? "1433");
+  const instance = process.env.MSSQL_INSTANCE?.trim() || undefined;
+  const configuredPort = process.env.MSSQL_PORT?.trim();
+  const port = configuredPort
+    ? Number(configuredPort)
+    : instance
+      ? undefined
+      : 1433;
   const encrypt = process.env.MSSQL_ENCRYPT !== "false";
   const trustServerCertificate = process.env.MSSQL_TRUST_SERVER_CERT === "true";
 
@@ -25,7 +32,11 @@ function getDefaultConfig(): ConnectionConfig {
     );
   }
 
-  return { host, port, user, password, encrypt, trustServerCertificate };
+  if (port !== undefined && (!Number.isInteger(port) || port <= 0 || port > 65535)) {
+    throw new Error(`Invalid MSSQL_PORT value: "${configuredPort}"`);
+  }
+
+  return { host, port, instance, user, password, encrypt, trustServerCertificate };
 }
 
 const pools = new Map<string, sql.ConnectionPool>();
@@ -42,13 +53,14 @@ export async function getPool(database?: string): Promise<sql.ConnectionPool> {
   const cfg = getDefaultConfig();
   const config: sql.config = {
     server: cfg.host,
-    port: cfg.port,
+    ...(cfg.port !== undefined ? { port: cfg.port } : {}),
     user: cfg.user,
     password: cfg.password,
     database: database,
     options: {
       encrypt: cfg.encrypt ?? true,
       trustServerCertificate: cfg.trustServerCertificate ?? false,
+      ...(cfg.instance ? { instanceName: cfg.instance } : {}),
       enableArithAbort: true,
       connectTimeout: 30000,
       requestTimeout: 60000,
@@ -60,7 +72,10 @@ export async function getPool(database?: string): Promise<sql.ConnectionPool> {
     },
   };
 
-  logger.info({ server: cfg.host, database }, "Opening SQL Server connection pool");
+  logger.info(
+    { server: cfg.host, instance: cfg.instance, port: cfg.port, database },
+    "Opening SQL Server connection pool",
+  );
   const pool = new sql.ConnectionPool(config);
   await pool.connect();
   pools.set(key, pool);
