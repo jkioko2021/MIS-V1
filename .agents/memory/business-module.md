@@ -56,10 +56,11 @@ Forward gates: (1) is_complete must be TRUE, (2) no unacknowledged requirements,
 - Retail and SME/Corp share a three-tab sheet: Details | Document Upload | Notes. History appears beneath Notes.
 - A new record remains in the same sheet after its initial save; document uploads and notes become available once it has a file number.
 - Documentation Complete and Forward stay fixed in the footer. Forward is unavailable until all document requirements are acknowledged and completion is confirmed.
+- The registration footer must keep the save action visible. After a save, show the generated file number prominently in the open sheet header.
 
 **Why:** The user selected a focused three-tab registration experience that preserves entered data while moving between stages, rather than a long continuous form.
 
-**How to apply:** Keep the same tab order, retained in-sheet state, and fixed footer for any future Retail or SME/Corp registration changes.
+**How to apply:** Keep the same tab order, retained in-sheet state, visible save footer, generated file-number badge, and fixed workflow controls for any future Retail or SME/Corp registration changes.
 
 ## Corp/SME field mapping
 - "Business Category" → `corp_category` (SME/Medium/Large Corporate etc.)

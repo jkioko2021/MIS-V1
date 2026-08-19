@@ -161,9 +161,9 @@ function blankForm(clientType: 'R' | 'C' = 'R'): FormState {
 
 function fileToForm(f: BusinessFile): FormState {
   return {
-    client_type: f.client_type as 'R' | 'C',
-    business_type: f.business_type,
-    business: f.business as 'M' | 'N',
+    client_type: f.client_type === 'C' ? 'C' : 'R',
+    business_type: f.business_type ?? '',
+    business: f.business === 'N' ? 'N' : 'M',
     proposer_name: f.proposer_name ?? '',
     family_code: f.family_code ?? '',
     receive_dt: f.receive_dt ? f.receive_dt.split('T')[0] : today(),
@@ -540,7 +540,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 
   return (
     <Sheet open onOpenChange={v => !v && onClose()}>
-      <SheetContent className="w-[720px] sm:max-w-[720px] p-0 flex flex-col !bg-white dark:!bg-card border-l-2 border-slate-200">
+      <SheetContent className="w-[720px] sm:max-w-[720px] h-[100dvh] min-h-0 gap-0 overflow-hidden p-0 flex flex-col !bg-white dark:!bg-card border-l-2 border-slate-200">
         {/* Header */}
         <SheetHeader className="px-5 pt-5 pb-3 border-b shrink-0">
           <div className="flex items-start justify-between gap-3">
@@ -548,13 +548,16 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
               <SheetTitle className="flex items-center gap-2 text-base">
                 <FileText className="w-4 h-4" /> {title}
               </SheetTitle>
-              {activeMode === 'edit' && existingFile && (
+              {activeMode === 'edit' && activeFileNo && (
                 <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                  <StatusBadge status={existingFile.file_status} />
-                  <span className="text-xs text-muted-foreground">
-                    {isRetail ? 'Retail' : 'SME/Corp'} · {existingFile.business === 'M' ? 'Medical' : 'Non-Medical'}
+                  {existingFile && <StatusBadge status={existingFile.file_status} />}
+                  <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                    File No. <span className="font-mono">{activeFileNo}</span>
                   </span>
-                  {existingFile.entered_by && (
+                  <span className="text-xs text-muted-foreground">
+                    {isRetail ? 'Retail' : 'SME/Corp'}{existingFile ? ` · ${existingFile.business === 'M' ? 'Medical' : 'Non-Medical'}` : ''}
+                  </span>
+                  {existingFile?.entered_by && (
                     <span className="text-xs text-muted-foreground">· by {existingFile.entered_by}</span>
                   )}
                 </div>
@@ -970,14 +973,14 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
           </div>
 
           {/* Action buttons row */}
-          <div className="px-5 py-3 flex items-center justify-between gap-2">
+          <div className="px-5 py-3 flex items-center justify-between gap-2 bg-background">
             <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
             <div className="flex gap-2">
-              <Button size="sm" onClick={handleSave} disabled={isSaving} className="gap-1.5">
+              <Button size="sm" onClick={handleSave} disabled={isSaving} className="gap-1.5 whitespace-nowrap" aria-label={activeMode === 'register' ? 'Save and generate file number' : 'Save changes'}>
                 {isSaving ? (
                   <><div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" /> Saving…</>
                 ) : activeMode === 'register' ? (
-                  <><Plus className="w-3.5 h-3.5" /> Register File</>
+                  <><Plus className="w-3.5 h-3.5" /> Save &amp; Generate File No.</>
                 ) : (
                   'Save Changes'
                 )}
