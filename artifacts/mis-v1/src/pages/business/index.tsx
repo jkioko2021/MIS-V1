@@ -726,24 +726,54 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                 </Field>
               </div>
 
-              {/* Processing Status — edit mode or walk-in register */}
-              {(activeMode === 'edit' || (isRetail && form.walk_in_client === 'Y')) && (
+              {/* Processing Status / registration action area */}
+              {(activeMode === 'edit' || activeMode === 'register') && (
                 <>
-                  <SectionHeader title={activeMode === 'edit' ? 'Processing Status' : 'Walk-in Allocation'} />
+                  <SectionHeader title={
+                    activeMode === 'edit'
+                      ? 'Processing Status'
+                      : isRetail && form.walk_in_client === 'Y'
+                      ? 'Walk-in Allocation'
+                      : 'Registration Actions'
+                  } />
                   <div className="grid grid-cols-2 gap-3">
-                    <Field label="Allocated To *">
-                      <Select value={form.allocated_to} onValueChange={v => set('allocated_to', v)}>
-                        <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Assign to employee…" /></SelectTrigger>
-                        <SelectContent>{employees.map(e => <SelectItem key={e.username} value={e.username}>{e.employee_name}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </Field>
-                    <Field label="Benefit Verified">
-                      <SelectField value={form.benefit_verified} onChange={v => set('benefit_verified', v as 'YES' | 'NO')} options={[{ value: 'YES', label: 'Yes — Verified' }, { value: 'NO', label: 'No — Pending' }]} />
-                    </Field>
-                    <div className="col-span-2 flex items-center gap-6">
-                      <CheckRow checked={form.medical_uw} onChange={v => set('medical_uw', v)} label="Medical UW Reviewed" />
-                      <CheckRow checked={form.invoiced} onChange={v => set('invoiced', v)} label="Invoiced" />
-                    </div>
+                    {(activeMode === 'edit' || (isRetail && form.walk_in_client === 'Y')) && (
+                      <>
+                        <Field label="Allocated To *">
+                          <Select value={form.allocated_to} onValueChange={v => set('allocated_to', v)}>
+                            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Assign to employee…" /></SelectTrigger>
+                            <SelectContent>{employees.map(e => <SelectItem key={e.username} value={e.username}>{e.employee_name}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </Field>
+                        <Field label="Benefit Verified">
+                          <SelectField value={form.benefit_verified} onChange={v => set('benefit_verified', v as 'YES' | 'NO')} options={[{ value: 'YES', label: 'Yes — Verified' }, { value: 'NO', label: 'No — Pending' }]} />
+                        </Field>
+                      </>
+                    )}
+                    {activeMode === 'edit' && (
+                      <div className="col-span-2 flex items-center gap-6">
+                        <CheckRow checked={form.medical_uw} onChange={v => set('medical_uw', v)} label="Medical UW Reviewed" />
+                        <CheckRow checked={form.invoiced} onChange={v => set('invoiced', v)} label="Invoiced" />
+                      </div>
+                    )}
+                    {activeMode === 'register' && (
+                      <div className="col-span-2 flex justify-end pt-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={handleSave}
+                          disabled={isSaving}
+                          className="gap-1.5 whitespace-nowrap"
+                          aria-label="Save and generate file number"
+                        >
+                          {isSaving ? (
+                            <><div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" /> Saving…</>
+                          ) : (
+                            <><Plus className="w-3.5 h-3.5" /> Save &amp; Generate File No.</>
+                          )}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
@@ -976,15 +1006,15 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
           <div className="px-5 py-3 flex items-center justify-between gap-2 bg-background">
             <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
             <div className="flex gap-2">
-              <Button size="sm" onClick={handleSave} disabled={isSaving} className="gap-1.5 whitespace-nowrap" aria-label={activeMode === 'register' ? 'Save and generate file number' : 'Save changes'}>
-                {isSaving ? (
-                  <><div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" /> Saving…</>
-                ) : activeMode === 'register' ? (
-                  <><Plus className="w-3.5 h-3.5" /> Save &amp; Generate File No.</>
-                ) : (
-                  'Save Changes'
-                )}
-              </Button>
+              {activeMode === 'edit' && (
+                <Button size="sm" onClick={handleSave} disabled={isSaving} className="gap-1.5 whitespace-nowrap" aria-label="Save changes">
+                  {isSaving ? (
+                    <><div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" /> Saving…</>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </Button>
+              )}
               {!existingFile?.forwarded && (
                 <Button
                   size="sm"
