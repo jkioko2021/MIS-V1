@@ -275,12 +275,13 @@ function SectionHeader({ title }: { title: string }) {
 interface BusinessSheetProps {
   mode: 'register' | 'edit';
   initialClientType?: 'R' | 'C';
+  showClientTypeSwitch?: boolean;
   fileNo?: string;
   onClose: () => void;
   onSaved?: (fileNo: string) => void;
 }
 
-function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved }: BusinessSheetProps) {
+function BusinessSheet({ mode, initialClientType = 'R', showClientTypeSwitch = true, fileNo, onClose, onSaved }: BusinessSheetProps) {
   const { toast } = useToast();
   const qc = useQueryClient();
   // A new registration becomes an editable file in this same sheet as soon as
@@ -596,7 +597,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                 </div>
               )}
             </div>
-            {activeMode === 'register' && (
+            {activeMode === 'register' && showClientTypeSwitch && initialClientType !== 'R' && (
               <div className="flex rounded-lg border bg-muted p-0.5 shrink-0">
                 {(['R','C'] as const).map(ct => (
                   <button
@@ -1263,7 +1264,7 @@ export default function BusinessTrackingPage() {
   const [clientTab, setClientTab]     = useState<'ALL' | 'R' | 'C'>('ALL');
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch]           = useState('');
-  const [sheet, setSheet]             = useState<{ mode: 'closed' | 'register' | 'edit'; fileNo?: string; clientType?: 'R' | 'C' }>({ mode: 'closed' });
+  const [sheet, setSheet]             = useState<{ mode: 'closed' | 'register' | 'edit'; fileNo?: string; clientType?: 'R' | 'C'; showClientTypeSwitch?: boolean }>({ mode: 'closed' });
   const qc = useQueryClient();
 
   const params: Record<string, string> = {};
@@ -1291,7 +1292,7 @@ export default function BusinessTrackingPage() {
   }
 
   function openRegister(ct: 'R' | 'C') {
-    setSheet({ mode: 'register', clientType: ct });
+    setSheet({ mode: 'register', clientType: ct, showClientTypeSwitch: clientTab === 'ALL' });
   }
 
   function closeSheet() {
@@ -1532,6 +1533,7 @@ export default function BusinessTrackingPage() {
           mode={sheet.mode}
           fileNo={sheet.fileNo}
           initialClientType={sheet.clientType ?? (clientTab === 'C' ? 'C' : 'R')}
+          showClientTypeSwitch={sheet.showClientTypeSwitch}
           onClose={closeSheet}
           onSaved={(fn) => {
             closeSheet();
