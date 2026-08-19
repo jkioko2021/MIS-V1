@@ -52,13 +52,14 @@ Forward gates: (1) is_complete must be TRUE, (2) no unacknowledged requirements,
 - Forward comments are mandatory (not optional)
 - Forward dialog shows amber warning if Documentation Complete not ticked
 
-## Frontend pages
-- `artifacts/mis-v1/src/pages/business/index.tsx` — unified list + BusinessSheet (680px side panel)
-- Sheet tabs: Details | Documents (with Upload dialogs + Documentation Complete checkbox) | Notes | History
-- History tab: reads audit trail via `GET /business/:fileNo/history`
-- Documents tab: uploaded docs show Replace + Delete buttons; unuploaded show Upload + Acknowledge
-- Forward button: opens Forward dialog (employee dropdown + required comments); shows is_complete gate warning
-- `artifacts/mis-v1/src/lib/mis-api.ts` — all API methods
+## Registration UI workflow
+- Retail and SME/Corp share a three-tab sheet: Details | Document Upload | Notes. History appears beneath Notes.
+- A new record remains in the same sheet after its initial save; document uploads and notes become available once it has a file number.
+- Documentation Complete and Forward stay fixed in the footer. Forward is unavailable until all document requirements are acknowledged and completion is confirmed.
+
+**Why:** The user selected a focused three-tab registration experience that preserves entered data while moving between stages, rather than a long continuous form.
+
+**How to apply:** Keep the same tab order, retained in-sheet state, and fixed footer for any future Retail or SME/Corp registration changes.
 
 ## Corp/SME field mapping
 - "Business Category" → `corp_category` (SME/Medium/Large Corporate etc.)

@@ -315,12 +315,14 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
   const [showForwardDialog, setShowForwardDialog] = useState(false);
   const [forwardToUser, setForwardToUser] = useState('');
   const [forwardComments, setForwardComments] = useState('');
+  const [registrationTab, setRegistrationTab] = useState<'details' | 'documents' | 'notes'>('details');
 
   // ─── Mutations ──────────────────────────────────────────────────────────────
   const registerMut = useMutation({
     mutationFn: () => misApi.businessRegister(form as unknown as Partial<BusinessFile>),
     onSuccess: (res) => {
       setActiveFileNo(res.data.file_no);
+      setRegistrationTab('documents');
       toast({ title: 'File registered', description: `File No: ${res.data.file_no}. Continue below to upload documents, add notes, and forward.` });
       qc.invalidateQueries({ queryKey: ['business'] });
     },
@@ -579,16 +581,44 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
           </div>
         </SheetHeader>
 
-        {/* Body — single scrollable page */}
+        {/* Register workflow tabs */}
         {activeMode === 'edit' && fileLoading ? (
           <div className="p-5 space-y-3">
             {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-8" />)}
           </div>
         ) : (
-          <ScrollArea className="flex-1">
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div role="tablist" aria-label="Registration workflow" className="mx-5 mt-3 flex gap-1 rounded-lg border bg-muted/40 p-1 shrink-0">
+              {[
+                { value: 'details' as const, label: 'Details', icon: FileText },
+                { value: 'documents' as const, label: `Document Upload${activeMode === 'edit' && requirements.length > 0 ? ` (${ackedCount}/${requirements.length})` : ''}`, icon: FileCheck },
+                { value: 'notes' as const, label: `Notes${notes.length ? ` (${notes.length})` : ''}`, icon: MessageSquare },
+              ].map(tab => {
+                const Icon = tab.icon;
+                const selected = registrationTab === tab.value;
+                return (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setRegistrationTab(tab.value)}
+                    className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+                      selected ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-background/60'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+            <ScrollArea className="flex-1 mt-2">
             <div className="px-5 pb-4 space-y-3">
 
               {/* ── Registration / Edit Form ─────────────────────────────── */}
+              {registrationTab === 'details' && (
+                <>
               <SectionHeader title="File Information" />
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Business Action" required>
@@ -714,9 +744,12 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                   </div>
                 </>
               )}
+                </>
+              )}
 
               {/* ── Document Upload ────────────────────────────────────────── */}
-              {activeMode === 'edit' && (
+              {registrationTab === 'documents' && (
+                activeMode === 'edit' ? (
                 <>
                   <SectionHeader title={`Documents ${requirements.length > 0 ? `(${ackedCount}/${requirements.length})` : ''}`} />
 
@@ -804,7 +837,20 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                     )}
                   </div>
 
-                  {/* ── Notes ─────────────────────────────────────────────── */}
+                </>
+              ) : (
+                <div className="rounded-xl border border-dashed px-5 py-10 text-center text-muted-foreground">
+                  <FileCheck className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm font-medium text-foreground">Save the registration details first</p>
+                  <p className="text-xs mt-1">A file number is required before supporting documents can be uploaded.</p>
+                </div>
+              )
+              )}
+
+              {/* ── Notes ─────────────────────────────────────────────────── */}
+              {registrationTab === 'notes' && (
+                activeMode === 'edit' ? (
+                <>
                   <SectionHeader title={`Notes${notes.length > 0 ? ` (${notes.length})` : ''}`} />
                   <div className="flex gap-2">
                     <Textarea
@@ -872,17 +918,26 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                     </>
                   )}
                 </>
+              ) : (
+                <div className="rounded-xl border border-dashed px-5 py-10 text-center text-muted-foreground">
+                  <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm font-medium text-foreground">Save the registration details first</p>
+                  <p className="text-xs mt-1">A file number is required before notes can be attached to this registration.</p>
+                </div>
+              )
               )}
 
             </div>
           </ScrollArea>
+          </div>
         )}
 
         {/* ── Footer ─────────────────────────────────────────────────────── */}
         <div className="border-t shrink-0">
-          {/* Documentation Complete — shown in edit mode, sits just above the action row */}
-          {activeMode === 'edit' && (
-            <div className="px-5 py-2.5 border-b flex items-center justify-between bg-slate-50 dark:bg-muted/30">
+          {/* Documentation Complete sits just above the action row throughout the workflow */}
+          <div className="px-5 py-2.5 border-b flex items-center justify-between bg-slate-50 dark:bg-muted/30">
+            {activeMode === 'edit' ? (
+              <>
               <label className="flex items-center gap-2.5 cursor-pointer select-none">
                 <input
                   type="checkbox"
@@ -902,8 +957,17 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                   {ackedCount}/{requirements.length} docs acknowledged
                 </span>
               )}
-            </div>
-          )}
+              </>
+            ) : (
+              <>
+                <label className="flex items-center gap-2.5 cursor-not-allowed select-none opacity-60">
+                  <input type="checkbox" disabled className="w-4 h-4 rounded border-gray-300" />
+                  <span className="text-sm font-medium">Documentation Complete</span>
+                </label>
+                <span className="text-xs text-muted-foreground">Save Details to enable</span>
+              </>
+            )}
+          </div>
 
           {/* Action buttons row */}
           <div className="px-5 py-3 flex items-center justify-between gap-2">
@@ -918,13 +982,17 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                   'Save Changes'
                 )}
               </Button>
-              {activeMode === 'edit' && !existingFile?.forwarded && (
+              {!existingFile?.forwarded && (
                 <Button
                   size="sm"
                   className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
                   onClick={() => setShowForwardDialog(true)}
-                  disabled={!existingFile?.is_complete || !isComplete || forwardMut.isPending}
-                  title={!existingFile?.is_complete || !isComplete ? 'Complete all required documents before forwarding' : 'Forward to the next verification level'}
+                  disabled={activeMode !== 'edit' || !existingFile?.is_complete || !isComplete || forwardMut.isPending}
+                  title={activeMode !== 'edit'
+                    ? 'Save the registration details before forwarding'
+                    : !existingFile?.is_complete || !isComplete
+                    ? 'Complete all required documents before forwarding'
+                    : 'Forward to the next verification level'}
                 >
                   <ArrowUpRight className="w-3.5 h-3.5" />
                   Forward
