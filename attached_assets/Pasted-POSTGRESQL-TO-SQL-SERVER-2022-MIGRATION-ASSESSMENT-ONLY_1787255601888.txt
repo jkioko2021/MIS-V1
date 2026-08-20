@@ -1,0 +1,1034 @@
+POSTGRESQL TO SQL SERVER 2022 — MIGRATION ASSESSMENT ONLY
+0. CRITICAL OPERATING RULE
+
+This is an ASSESSMENT ONLY phase.
+
+The existing Replit application is currently operational using:
+
+PostgreSQL
+Replit-managed PostgreSQL
+Node.js
+pg / node-postgres
+Drizzle ORM
+Raw parameterized SQL
+PostgreSQL connection pools
+PostgreSQL transactions
+
+The target database platform is:
+
+Microsoft SQL Server 2022
+
+The target SQL Server will be hosted outside Replit and accessed securely through Cloudflare Tunnel.
+
+ABSOLUTELY NO IMPLEMENTATION IN THIS PHASE
+
+Do NOT:
+
+modify application source code
+modify package.json
+install packages
+uninstall packages
+upgrade packages
+downgrade packages
+change dependencies
+modify package-lock.json
+modify pnpm-lock.yaml
+modify yarn.lock
+modify bun.lock
+change database configuration
+change DATABASE_URL
+change Replit database configuration
+modify PostgreSQL
+create SQL Server database
+create SQL Server tables
+migrate data
+delete data
+modify existing SQL Server databases
+remove PostgreSQL
+remove pg
+remove Drizzle PostgreSQL configuration
+change application startup behaviour
+change deployment configuration
+run destructive commands
+run database migrations against PostgreSQL
+run database migrations against SQL Server
+perform automated schema conversion
+
+The existing application must remain fully operational against its current PostgreSQL database after this assessment.
+
+1. FIRST: INSPECT THE ACTUAL REPOSITORY
+
+Before making any conclusions, inspect the complete repository.
+
+Do not assume that all database access is through Drizzle.
+
+Search for:
+
+Drizzle ORM
+pg
+node-postgres
+raw SQL
+database utility modules
+repository classes
+services
+API routes
+background jobs
+scripts
+migrations
+seed scripts
+tests
+authentication
+reporting
+scheduled jobs
+workers
+CLI scripts
+
+The assessment must be based on actual repository evidence.
+
+Do not infer functionality that cannot be verified.
+
+For every important conclusion, identify the relevant file path.
+
+2. IDENTIFY CURRENT TECHNOLOGY STACK
+
+Determine:
+
+Node.js version
+package manager
+PostgreSQL version if detectable
+pg / node-postgres version
+Drizzle ORM version
+Drizzle Kit version if installed
+current database driver
+database dialect
+application framework
+API framework
+build system
+deployment configuration
+startup command
+development command
+test command
+
+Inspect:
+
+package.json
+lock files
+drizzle.config.*
+schema files
+migration files
+database configuration files
+.replit
+deployment configuration
+relevant environment configuration
+
+Do not modify any of these files.
+
+3. DATABASE CONNECTION ARCHITECTURE
+
+Identify every location where the PostgreSQL connection is established.
+
+Search for:
+
+Pool
+Client
+new Pool
+new Client
+pool.query
+client.query
+pool.connect
+client.connect
+pool.end
+client.end
+connection strings
+DATABASE_URL
+PGHOST
+PGPORT
+PGDATABASE
+PGUSER
+PGPASSWORD
+
+Document:
+
+file
+function/module
+connection method
+pool configuration
+maximum pool size
+idle timeout
+connection timeout
+SSL configuration
+retry behaviour
+error handling
+transaction handling
+4. DRIZZLE ASSESSMENT
+
+Inspect all Drizzle configuration and schema files.
+
+Determine:
+
+Drizzle version
+Drizzle Kit version
+current dialect
+schema location
+migration location
+table definitions
+relations
+indexes
+constraints
+generated columns
+defaults
+enums
+custom SQL
+raw SQL integrations
+transactions
+query builders
+prepared statements
+
+Identify all PostgreSQL-specific Drizzle constructs.
+
+For every PostgreSQL-specific construct provide:
+
+file
+line/function if identifiable
+current implementation
+SQL Server consideration
+migration risk
+
+Do NOT modify the Drizzle configuration.
+
+5. VERIFY SQL SERVER SUPPORT
+
+Determine whether the currently installed Drizzle version provides the required SQL Server support for this application's architecture.
+
+Do not upgrade or downgrade Drizzle.
+
+Report:
+
+whether SQL Server is supported
+which SQL Server dialect/driver would be required
+compatibility concerns
+unsupported features currently used
+features that would need to move from Drizzle to raw SQL or another data-access mechanism
+
+Do not assume that PostgreSQL and SQL Server are interchangeable in Drizzle.
+
+6. COMPLETE RAW SQL INVENTORY
+
+Search the entire repository for SQL statements.
+
+Do not limit the search to .sql files.
+
+SQL may exist inside:
+
+.ts
+.tsx
+.js
+.jsx
+.mjs
+.cjs
+services
+repositories
+API routes
+scripts
+migrations
+tests
+configuration
+template literals
+
+Identify PostgreSQL-specific syntax including:
+
+$1
+$2
+$3
+$n
+RETURNING
+ILIKE
+ON CONFLICT
+DO UPDATE
+DO NOTHING
+::type
+CAST
+jsonb
+JSONB operators
+PostgreSQL arrays
+ARRAY_AGG
+STRING_AGG
+FILTER
+DISTINCT ON
+generate_series
+NOW()
+CURRENT_DATE
+CURRENT_TIMESTAMP
+INTERVAL
+PostgreSQL date arithmetic
+PostgreSQL string functions
+PostgreSQL regular-expression features
+PostgreSQL UUID functions
+PostgreSQL JSON functions
+PostgreSQL-specific window functions
+PostgreSQL pagination
+PostgreSQL locking
+FOR UPDATE
+PostgreSQL-specific transaction syntax
+
+For every occurrence provide:
+
+file
+function/module
+SQL statement or representative SQL
+PostgreSQL-specific feature
+SQL Server equivalent
+migration complexity
+migration risk
+recommended conversion approach
+7. PARAMETER BINDING INVENTORY
+
+Identify every raw SQL parameter pattern.
+
+Example:
+
+$1
+$2
+$3
+
+Determine:
+
+where parameters are constructed
+whether parameters are positional
+whether dynamic SQL exists
+whether parameters are reused
+whether arrays are passed
+whether JSON objects are passed
+whether dates are passed
+whether UUIDs are passed
+whether numeric values are passed
+
+Document the changes required for the target SQL Server driver.
+
+Do not modify the queries.
+
+8. TRANSACTION INVENTORY
+
+Find all transaction implementations.
+
+Search for:
+
+BEGIN
+COMMIT
+ROLLBACK
+pool.connect
+transaction callbacks
+Drizzle transaction APIs
+nested transactions
+savepoints
+retry logic
+
+For every transaction implementation document:
+
+file
+operation
+isolation requirements if detectable
+queries executed
+error handling
+rollback behaviour
+SQL Server compatibility considerations
+
+Pay particular attention to:
+
+isolation levels
+locking
+deadlocks
+retry behaviour
+transaction scope
+9. DATABASE SCHEMA INVENTORY
+
+Generate a complete inventory of the PostgreSQL schema.
+
+Identify:
+
+tables
+columns
+data types
+nullable properties
+defaults
+primary keys
+foreign keys
+unique constraints
+check constraints
+indexes
+sequences
+identity/serial behaviour
+views
+functions
+triggers
+enums
+extensions
+generated columns
+
+For every table document:
+
+table name
+column name
+PostgreSQL type
+nullable
+default
+primary key
+foreign key
+unique constraint
+check constraint
+index
+identity/sequence
+estimated row count if available
+
+Do not change the schema.
+
+10. POSTGRESQL → SQL SERVER TYPE MAPPING
+
+Create a complete type conversion matrix based on the actual types used by the application.
+
+At minimum assess:
+
+integer
+bigint
+smallint
+numeric
+decimal
+real
+double precision
+boolean
+varchar
+text
+char
+timestamp
+timestamp with time zone
+date
+time
+uuid
+json
+jsonb
+arrays
+serial
+bigserial
+enums
+bytea
+
+Do not blindly map numeric values to FLOAT.
+
+For monetary/financial values recommend suitable:
+
+DECIMAL(precision, scale)
+
+based on actual application usage.
+
+Identify fields where precision must be preserved exactly.
+
+11. JSON / JSONB ASSESSMENT
+
+Identify every JSON/JSONB field.
+
+For each document:
+
+table
+column
+purpose
+example structure if available
+whether it is queried
+whether it is indexed
+whether application logic depends on JSON operators
+whether it should remain JSON in SQL Server
+whether it should be normalized into relational tables
+
+Do not automatically convert JSONB to NVARCHAR(MAX) without assessing usage.
+
+12. ARRAY ASSESSMENT
+
+Identify every PostgreSQL array.
+
+For each determine whether the correct SQL Server representation should be:
+
+normalized child table
+JSON
+delimited text only if unavoidable
+
+Prefer normalized relational structures for business-critical data.
+
+13. ENUM ASSESSMENT
+
+Identify PostgreSQL enums.
+
+For each determine whether SQL Server should use:
+
+lookup/reference table
+constrained NVARCHAR
+INT reference key
+
+Prefer lookup/reference tables where the value is business-controlled or likely to change.
+
+14. IDENTITY / SEQUENCE ASSESSMENT
+
+Identify:
+
+serial
+bigserial
+sequences
+generated identifiers
+UUID generation
+
+For each determine:
+
+current generation mechanism
+current application expectations
+SQL Server equivalent
+migration requirements
+preservation requirements
+
+Existing identifiers must be preserved during migration unless there is an explicitly approved reason to change them.
+
+15. AUTHENTICATION AND AUTHORIZATION
+
+Determine whether authentication or authorization depends on PostgreSQL.
+
+Inspect:
+
+users
+roles
+permissions
+sessions
+refresh tokens
+password records
+MFA records
+audit logs
+security tables
+
+Identify:
+
+password hashing
+unique constraints
+token generation
+session expiration
+authentication queries
+authorization queries
+
+Do not modify anything.
+
+16. BACKGROUND JOBS AND WORKERS
+
+Search for:
+
+cron
+scheduled jobs
+workers
+queues
+background services
+notification jobs
+email jobs
+SMS jobs
+document processing
+OCR
+reconciliation
+reporting jobs
+
+For every database-dependent job identify:
+
+job name
+file
+SQL operations
+transaction requirements
+PostgreSQL-specific dependencies
+SQL Server migration impact
+17. REPORTING AND ANALYTICS
+
+Identify all:
+
+reports
+dashboards
+analytics
+exports
+reconciliation queries
+summary queries
+aggregation queries
+
+Pay particular attention to:
+
+complex joins
+GROUP BY
+window functions
+date filtering
+date arithmetic
+JSON
+pagination
+sorting
+filtering
+large aggregations
+
+Identify likely SQL Server performance considerations.
+
+18. APPLICATION FEATURE INVENTORY
+
+Map database usage to application modules.
+
+For example:
+
+Authentication
+User Management
+Product Configuration
+Corporate Management
+Broker/Agent Management
+Policy Administration
+Underwriting
+Provider Management
+Pre-Authorization
+Claims
+Billing
+Finance
+CRM
+Workflow
+Notifications
+Reports
+Audit
+Provider Portal
+Corporate Portal
+Member Portal
+APIs
+Integration services
+
+Do not assume every module exists.
+
+Only report modules actually identified in the repository.
+
+19. SQL SERVER TARGET ARCHITECTURE
+
+Propose:
+
+Replit Application
+→ Data Access Layer
+→ SQL Server Driver
+→ Local TCP Listener
+→ Cloudflare Access / Tunnel
+→ SQL Server 2020
+→ eOxegen_Modern
+
+The existing legacy SQL Server repository must remain completely separate and untouched.
+
+Recommended logical separation:
+
+SQL Server 2020
+
+eOxegen_Modern
+existing legacy repository database
+
+Do not merge the schemas during this phase.
+
+20. SQL SERVER DATABASE DESIGN
+
+Design the proposed SQL Server database:
+
+eOxegen_Modern
+
+Provide:
+
+table list
+column mapping
+data types
+primary keys
+foreign keys
+unique constraints
+check constraints
+indexes
+views
+stored procedures if required
+reference data
+audit structures
+
+Do not create the database.
+
+Do not generate executable migration scripts yet.
+
+21. APPLICATION MIGRATION IMPACT
+
+Categorize required changes.
+
+A. Database Driver
+
+Current:
+
+pg / node-postgres
+
+Target:
+
+SQL Server-compatible Node.js driver.
+
+Identify the recommended driver and compatibility considerations.
+
+B. Drizzle
+
+Identify whether Drizzle remains appropriate.
+
+Document:
+
+supported SQL Server capabilities
+unsupported features
+required configuration changes
+schema changes
+migration tooling implications
+C. Raw SQL
+
+Identify every query requiring conversion.
+
+D. Transactions
+
+Identify every transaction requiring conversion.
+
+E. Parameter Binding
+
+Identify every positional PostgreSQL parameter.
+
+F. Error Handling
+
+Identify PostgreSQL-specific error codes and behaviours.
+
+G. Pagination
+
+Identify PostgreSQL-specific pagination.
+
+H. Date/Time
+
+Identify PostgreSQL-specific date/time behaviour.
+
+I. JSON
+
+Identify PostgreSQL JSON behaviour.
+
+J. Case Sensitivity
+
+Identify application assumptions regarding case-sensitive/case-insensitive searches.
+
+22. DATABASE MIGRATION STRATEGY
+
+Design the migration process:
+
+PostgreSQL
+→ Extract
+→ Transform
+→ SQL Server
+→ Validate
+
+The process must preserve:
+
+identifiers
+relationships
+timestamps
+financial precision
+reference data
+audit data
+business history
+
+PostgreSQL must remain intact throughout the migration.
+
+23. DATA VALIDATION STRATEGY
+
+Define validation for:
+
+Structure
+tables
+columns
+data types
+primary keys
+foreign keys
+indexes
+constraints
+Data
+row counts
+null counts
+distinct counts
+min/max values
+duplicate detection
+Business
+users
+policies
+claims
+members
+providers
+invoices
+transactions
+financial totals
+workflow records
+Application
+authentication
+authorization
+APIs
+reports
+workflows
+notifications
+transactions
+background jobs
+
+Provide example reconciliation queries where useful.
+
+24. PERFORMANCE ASSESSMENT
+
+Identify PostgreSQL queries that are likely to behave differently in SQL Server.
+
+Identify:
+
+large joins
+aggregation
+sorting
+pagination
+filtering
+reporting
+full-text search
+JSON queries
+high-volume transactions
+
+Recommend indexes and SQL Server-specific optimizations.
+
+Do not implement them.
+
+25. SECURITY ASSESSMENT
+
+Document requirements for:
+
+SQL Server login
+least-privilege permissions
+encrypted connection
+Cloudflare Access
+Cloudflare Tunnel
+Replit Secrets
+credential rotation
+firewall
+SQL Server authentication
+audit logging
+
+The SQL Server sa account must not be used by the application.
+
+Do not expose TCP 1433 directly to the Internet.
+
+26. CLOUDFARE CONNECTIVITY
+
+Document the target connectivity:
+
+Replit
+→ cloudflared/client connection
+→ Cloudflare Zero Trust
+→ Cloudflare Tunnel
+→ Windows Server
+→ SQL Server 2020
+
+Identify:
+
+hostname
+local SQL Server port
+Replit local listener port
+required Cloudflare authentication method
+required environment variables
+connectivity risks
+connection timeout considerations
+reconnection considerations
+
+Do not configure the tunnel.
+
+27. RISKS
+
+Produce a risk register with:
+
+risk
+affected area
+severity
+probability
+impact
+mitigation
+testing requirement
+
+At minimum assess:
+
+Drizzle SQL Server compatibility
+raw SQL conversion
+parameter conversion
+transaction behaviour
+data type differences
+JSON
+arrays
+enums
+identity values
+timestamps
+financial precision
+SQL Server performance
+Cloudflare connectivity
+connection pooling
+deployment restarts
+connection failures
+rollback
+28. ROLLBACK STRATEGY
+
+Define a complete rollback strategy.
+
+The PostgreSQL database must remain operational and unchanged until SQL Server migration has been formally approved.
+
+Define:
+
+application rollback
+configuration rollback
+database rollback
+data rollback
+Cloudflare rollback
+PostgreSQL retention period
+cutover procedure
+rollback trigger conditions
+29. MIGRATION PHASES
+
+Provide a detailed plan:
+
+PHASE 1
+
+Assessment
+
+PHASE 2
+
+SQL Server schema generation
+
+PHASE 3
+
+SQL Server database creation
+
+PHASE 4
+
+Reference data migration
+
+PHASE 5
+
+Application data migration
+
+PHASE 6
+
+Data validation
+
+PHASE 7
+
+SQL Server driver implementation
+
+PHASE 8
+
+Drizzle adaptation
+
+PHASE 9
+
+Raw SQL conversion
+
+PHASE 10
+
+Integration testing
+
+PHASE 11
+
+Performance testing
+
+PHASE 12
+
+Security testing
+
+PHASE 13
+
+User Acceptance Testing
+
+PHASE 14
+
+Production cutover
+
+PHASE 15
+
+Post-cutover monitoring
+
+PHASE 16
+
+Post-migration PostgreSQL retirement
+
+PostgreSQL must NOT be retired until formal approval is provided.
+
+30. FILE CHANGE MATRIX
+
+Produce a table containing:
+
+File	Current Purpose	PostgreSQL Dependency	Required SQL Server Change	Risk	Phase
+
+Do not modify the files.
+
+31. FINAL DELIVERABLE
+
+Create:
+
+POSTGRESQL_TO_SQLSERVER_MIGRATION_ASSESSMENT.md
+
+The document must contain:
+
+Executive Summary
+Current Architecture
+Technology Stack
+Database Connection Architecture
+Drizzle Assessment
+node-postgres Assessment
+Database Schema Inventory
+Raw SQL Inventory
+PostgreSQL-Specific SQL Inventory
+Parameter Binding Inventory
+Transaction Inventory
+PostgreSQL Data Type Inventory
+SQL Server Type Mapping
+JSON/JSONB Assessment
+Array Assessment
+Enum Assessment
+Identity/Sequence Assessment
+Authentication/Authorization Assessment
+Background Jobs Assessment
+Reporting Assessment
+Application Module Impact
+Target SQL Server Architecture
+Proposed eOxegen_Modern Database Design
+Application Migration Impact
+Data Migration Strategy
+Validation Strategy
+Performance Assessment
+Security Assessment
+Cloudflare Connectivity Requirements
+Risk Register
+Rollback Strategy
+Migration Phases
+File Change Matrix
+Recommended Next Steps
+32. QUALITY CONTROL
+
+Before completing the assessment:
+
+Verify the repository was actually searched.
+Verify all database access mechanisms were considered.
+Verify Drizzle and raw SQL were both inspected.
+Verify all PostgreSQL-specific SQL identified is documented.
+Verify all database schema objects identified are documented.
+Verify no application files were modified.
+Verify no dependencies were changed.
+Verify PostgreSQL was not modified.
+Verify no SQL Server database was created or modified.
+Verify no destructive command was executed.
+
+If any information cannot be determined from the repository, explicitly mark it:
+
+NOT DETERMINED FROM REPOSITORY
+
+Do not guess.
+
+33. FINAL RESPONSE FROM AGENT
+
+After completing the assessment, provide a concise summary containing:
+
+Total tables identified
+Total views identified
+Total indexes identified
+Total PostgreSQL-specific SQL statements identified
+Total files requiring changes
+Drizzle SQL Server compatibility assessment
+Recommended SQL Server driver
+Highest-risk migration areas
+Estimated migration complexity: Low / Medium / High / Very High
+Whether the migration can proceed safely to Phase 2
+
+Do not implement Phase 2.
