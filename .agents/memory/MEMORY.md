@@ -11,3 +11,4 @@
 - [Admin module](admin-module.md) — User enrollment, profiles/roles CRUD, access rights matrix; MENU_MASTER defines all pages
 - [Business Tracking module](business-module.md) — BT pages, upload flow, Object Storage setup, security gap on downloads
 - [BPO Review workflow](bpo-review-workflow.md) — Forwarded registrations use one authorized BPO work item linked to the original file, not a copied record
+- [Managed rebase conflicts](managed-rebase-conflicts.md) — Structural auto-merges can displace code outside visible conflict markers; compare the whole resolved file with both stages
