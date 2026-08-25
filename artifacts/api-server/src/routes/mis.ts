@@ -187,6 +187,7 @@ router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res
     const conditions: string[] = [
       "bt.is_active = TRUE",
       "bt.allocated = TRUE",
+      "bt.file_status = 'ALLOCATED'",
     ];
     const params: unknown[] = [];
     let p = 1;
