@@ -192,14 +192,10 @@ router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res
     const params: unknown[] = [];
     let p = 1;
     if (!isSuperAdmin) {
-      conditions.push(
-        "bt.forwarded = TRUE",
-        "bt.ready_for_update = TRUE",
-        "bt.invoiced = FALSE",
-        "bt.benefit_verified = 'YES'",
-        "bt.is_declined = FALSE",
-        `bt.allocated_to = $${p++}`,
-      );
+      // Allocation Files is a status-based queue. Operational flags such as
+      // benefit verification are action gates, not visibility gates; otherwise
+      // an allocated file disappears from the administrator's work queue.
+      conditions.push(`bt.allocated_to = $${p++}`);
       params.push(req.user!.username);
     }
 
