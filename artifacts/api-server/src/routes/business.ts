@@ -51,6 +51,8 @@ const ALLOCATED_FILE_ACTION_OPTIONS = [
     requires_payment_status: false,
   },
 ] as const;
+const DOCUMENT_EXTENSIONS = new Set([".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".rar", ".zip"]);
+const AML_RISK_RATES = new Set(["Low", "Medium", "High"]);
 
 function bpoQueueName(clientType: string): "BPO_REVIEW_RETAIL" | "BPO_REVIEW_CORPORATE_SME" {
   return clientType === "R" ? "BPO_REVIEW_RETAIL" : "BPO_REVIEW_CORPORATE_SME";
@@ -82,6 +84,62 @@ interface BusinessInput {
 
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function safeUploadFilename(filename: string): string {
+  return filename
+    .replace(/[/\\]/g, "_")
+    .replace(/[^\w.\- ()]/g, "_")
+    .replace(/\.{2,}/g, ".")
+    .slice(0, 255);
+}
+
+function uploadDocumentValidation(input: {
+  filename: string;
+  filesize?: number;
+  reqName: string;
+  invoiceNo?: unknown;
+  amount?: unknown;
+  policyCode?: unknown;
+  riskRate?: unknown;
+  riskReason?: unknown;
+}): string | null {
+  const filename = safeUploadFilename(input.filename);
+  const extension = filename.slice(filename.lastIndexOf(".")).toLowerCase();
+  if (!filename || !DOCUMENT_EXTENSIONS.has(extension)) {
+    return "Upload a supported Word, Excel, image, PDF, RAR, or ZIP document.";
+  }
+  if (input.filesize != null && (!Number.isFinite(input.filesize) || input.filesize <= 0 || input.filesize > 10 * 1024 * 1024)) {
+    return "Documents must be between 1 byte and 10 MB.";
+  }
+
+  const requirementName = input.reqName.toLowerCase();
+  const invoiceNo = text(input.invoiceNo);
+  const amountText = text(input.amount);
+  const riskRate = text(input.riskRate);
+  const riskReason = text(input.riskReason);
+  const isCreditNote = requirementName.includes("credit note");
+  const isInvoice = requirementName.includes("invoice") && !isCreditNote;
+  // The legacy special case is RET43 (AML risk details), not the AML Report
+  // document required for a Cashier handoff.
+  const isAmlRisk = /aml\s*risk|risk\s*rating/.test(requirementName);
+
+  if ((isInvoice || isCreditNote) && (invoiceNo.length < 1 || invoiceNo.length > 25)) {
+    return "Enter an invoice or credit-note number between 1 and 25 characters.";
+  }
+  if (isCreditNote) {
+    const amount = Number(amountText);
+    if (!amountText || !Number.isFinite(amount) || amount < 0) {
+      return "Enter a valid non-negative amount for a credit note.";
+    }
+  }
+  if (input.policyCode != null && text(input.policyCode).length > 100) {
+    return "Policy code must be 100 characters or fewer.";
+  }
+  if (isAmlRisk && (!AML_RISK_RATES.has(riskRate) || !riskReason)) {
+    return "AML risk documents require a risk rate and rating reason.";
+  }
+  return null;
 }
 
 async function walkInStaffValidationError(allocatedTo: unknown, authorisedBy: unknown): Promise<string | null> {
@@ -280,6 +338,19 @@ router.get("/business/bpo-reviewers", requireBpoForwardAccess, async (_req: Requ
 // not become the source of truth for permitted workflow outcomes.
 router.get("/business/allocated/action-options", requireBpoAllocatedAccess, (_req: Request, res: Response) => {
   res.json({ ok: true, data: ALLOCATED_FILE_ACTION_OPTIONS });
+});
+
+// The legacy rating-reason list belongs to the separate AAR Risk database.
+// Keep this dependency explicit until it is connected to the approved platform.
+router.get("/business/aml/risk-reasons", (_req: Request, res: Response) => {
+  res.json({
+    ok: true,
+    data: {
+      available: false,
+      reasons: [],
+      message: "AML rating reasons are unavailable because the legacy AAR Risk reference source is not connected.",
+    },
+  });
 });
 
 router.get("/business/walk-in-staff", async (_req: Request, res: Response) => {
@@ -856,9 +927,12 @@ router.get("/business/allocated/:fileNo/uploads", requireAllocatedFileReadAccess
       upload_id: number; req_id: number | null; filename: string;
       filesize: number | null; mime_type: string | null;
       storage_key: string; uploaded_by: string; uploaded_at: string;
+      invoice_no: string | null; amount: number | null; policy_code: string | null;
+      risk_rate: string | null; risk_reason: string | null;
     }>(
       `SELECT upload_id, req_id, filename, filesize, mime_type,
-              storage_key, uploaded_by, uploaded_at
+              storage_key, uploaded_by, uploaded_at, invoice_no, amount,
+              policy_code, risk_rate, risk_reason
        FROM crm.business_uploads
        WHERE file_no=$1 AND is_active=TRUE
        ORDER BY uploaded_at DESC`,
@@ -867,6 +941,104 @@ router.get("/business/allocated/:fileNo/uploads", requireAllocatedFileReadAccess
     res.json({ ok: true, data: rows });
   } catch (err) {
     handleError(res, err, "list allocated uploads");
+  }
+});
+
+// Document bytes use the existing presigned object-storage flow. This route
+// records the allocation-scoped transaction after that upload succeeds.
+router.post("/business/allocated/:fileNo/uploads", requireAllocatedFileReadAccess, async (req: Request, res: Response): Promise<void> => {
+  const fileNo = Array.isArray(req.params.fileNo) ? req.params.fileNo[0] : req.params.fileNo;
+  if (!fileNo) {
+    res.status(400).json({ ok: false, error: "A file number is required." });
+    return;
+  }
+  const { req_id, filename, filesize, mime_type, storage_key, invoice_no, amount, policy_code, risk_rate, risk_reason } =
+    req.body as {
+      req_id?: number; filename?: string; filesize?: number; mime_type?: string; storage_key?: string;
+      invoice_no?: unknown; amount?: unknown; policy_code?: unknown; risk_rate?: unknown; risk_reason?: unknown;
+    };
+  if (!filename || !storage_key || !req_id) {
+    res.status(400).json({ ok: false, error: "Select a document and provide its filename and storage key." });
+    return;
+  }
+  try {
+    const [file, requirement] = await Promise.all([
+      queryOne<{ client_type: string }>(
+        `SELECT client_type FROM crm.business_tracking
+         WHERE file_no=$1 AND is_active=TRUE AND allocated=TRUE AND file_status='ALLOCATED'`,
+        [fileNo],
+      ),
+      queryOne<{ req_id: number; req_name: string }>(
+        `SELECT req_id, req_name FROM crm.business_req
+         WHERE req_id=$1 AND is_active=TRUE`,
+        [Number(req_id)],
+      ),
+    ]);
+    if (!file || !requirement) {
+      res.status(404).json({ ok: false, error: "Allocated file or document requirement not found." });
+      return;
+    }
+    const applies = await queryOne<{ req_id: number }>(
+      `SELECT req_id FROM crm.business_req
+       WHERE req_id=$1 AND is_active=TRUE AND (applies_to='ALL' OR applies_to=$2)`,
+      [Number(req_id), file.client_type === "R" ? "R" : "C"],
+    );
+    if (!applies) {
+      res.status(400).json({ ok: false, error: "This document is not available for the file type." });
+      return;
+    }
+    const validationError = uploadDocumentValidation({
+      filename, filesize, reqName: requirement.req_name, invoiceNo: invoice_no,
+      amount, policyCode: policy_code, riskRate: risk_rate, riskReason: risk_reason,
+    });
+    if (validationError) {
+      res.status(400).json({ ok: false, error: validationError });
+      return;
+    }
+
+    const cleanFilename = safeUploadFilename(filename);
+    const amountValue = text(amount) ? Number(text(amount)) : null;
+    const result = await withTransaction(async (client) => {
+      const selected = await txQuery(client,
+        `SELECT 1 FROM crm.business_doc_checklist
+         WHERE file_no=$1 AND req_id=$2 AND is_selected=TRUE`,
+        [fileNo, Number(req_id)],
+      );
+      if (!selected.length) throw new Error("DOCUMENT_NOT_SELECTED");
+      const [upload] = await txQuery<{ upload_id: number }>(client,
+        `INSERT INTO crm.business_uploads
+           (file_no, req_id, filename, filesize, mime_type, storage_key, uploaded_by,
+            invoice_no, amount, policy_code, risk_rate, risk_reason)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+         RETURNING upload_id`,
+        [
+          fileNo, Number(req_id), cleanFilename, filesize ?? null, mime_type ?? null, storage_key,
+          req.user!.username, text(invoice_no) || null, amountValue, text(policy_code) || null,
+          text(risk_rate) || null, text(risk_reason) || null,
+        ],
+      );
+      if (!upload) throw new Error("UPLOAD_RECORD_FAILED");
+      await txQuery(client,
+        `UPDATE crm.business_doc_checklist
+         SET acknowledged_by=$3, acknowledged_at=NOW(), upload_id=$4
+         WHERE file_no=$1 AND req_id=$2 AND is_selected=TRUE`,
+        [fileNo, Number(req_id), req.user!.username, upload.upload_id],
+      );
+      await txQuery(client,
+        `INSERT INTO crm.admin_audit_trail (username, action_type, description)
+         VALUES ($1,'BT_UPLOAD',$2)`,
+        [req.user!.username, `Uploaded ${cleanFilename} for ${fileNo}`],
+      );
+      return upload;
+    });
+    await refreshSelectedDocumentCompletion(fileNo);
+    res.status(201).json({ ok: true, data: result });
+  } catch (err) {
+    if (err instanceof Error && err.message === "DOCUMENT_NOT_SELECTED") {
+      res.status(400).json({ ok: false, error: "Select this document from the list before uploading it." });
+      return;
+    }
+    handleError(res, err, "record allocated document upload");
   }
 });
 

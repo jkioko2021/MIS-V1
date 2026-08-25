@@ -32,6 +32,10 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  BusinessTransactionPanel,
+  type AllocationDocumentTransaction,
+} from '@/components/business/BusinessTransactionPanel';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -140,6 +144,14 @@ function AllocatedFileSheet({
   const [comments, setComments] = useState('');
   const [invoiceNo, setInvoiceNo] = useState('');
   const [paidStatus, setPaidStatus] = useState<'FULL-PAID' | 'PART-PAID' | 'NOT-PAID' | ''>('');
+  const [documentTransaction, setDocumentTransaction] = useState<AllocationDocumentTransaction>({
+    reqId: '',
+    invoiceNo: '',
+    amount: '',
+    policyCode: '',
+    riskRate: '',
+  });
+  const [pendingDocumentFile, setPendingDocumentFile] = useState<File | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -171,16 +183,22 @@ function AllocatedFileSheet({
     queryFn: () => misApi.businessAllocatedAmlStatus(fileNo),
     enabled: !!fileNo,
   });
+  const { data: amlRiskReasonSourceRes } = useQuery({
+    queryKey: ['aml-risk-reason-source'],
+    queryFn: () => misApi.amlRiskReasons(),
+  });
 
   const file = fileRes?.data as DetailedFile | undefined;
   const uploads = (uploadsRes?.data ?? []) as BusinessUpload[];
   const history = (historyRes?.data ?? []) as AuditEntry[];
   const actionOptions = (actionOptionsRes?.data ?? []) as AllocatedFileActionOption[];
   const amlStatus = amlStatusRes?.data as AllocatedFileAmlStatus | undefined;
+  const amlRiskReasonSource = amlRiskReasonSourceRes?.data;
   const selectedAction = actionOptions.find(option => option.code === action);
   const cashierAction = selectedAction?.requires_invoice === true;
   const notes = file?.notes ?? [];
   const docs = file?.docs ?? [];
+  const selectedDocuments = docs.filter(doc => doc.is_selected);
 
   const actionMutation = useMutation({
     mutationFn: () =>
@@ -213,6 +231,70 @@ function AllocatedFileSheet({
     onError: error =>
       toast({
         title: 'Action failed',
+        description: String(error),
+        variant: 'destructive',
+      }),
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: async () => {
+      const document = selectedDocuments.find(item => item.req_id === documentTransaction.reqId);
+      if (!document || !pendingDocumentFile) {
+        throw new Error('Select a document type and file before uploading.');
+      }
+      if (pendingDocumentFile.size > 10 * 1024 * 1024) {
+        throw new Error('Documents must be 10 MB or smaller.');
+      }
+
+      const uploadUrlResponse = await fetch('/api/storage/uploads/request-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: pendingDocumentFile.name,
+          size: pendingDocumentFile.size,
+          contentType: pendingDocumentFile.type || 'application/octet-stream',
+        }),
+      });
+      if (!uploadUrlResponse.ok) {
+        throw new Error('Unable to prepare a secure document upload.');
+      }
+      const { uploadURL, objectPath } = await uploadUrlResponse.json();
+      const objectUploadResponse = await fetch(uploadURL, {
+        method: 'PUT',
+        body: pendingDocumentFile,
+        headers: { 'Content-Type': pendingDocumentFile.type || 'application/octet-stream' },
+      });
+      if (!objectUploadResponse.ok) {
+        throw new Error('The document could not be uploaded to private storage.');
+      }
+
+      return misApi.businessAllocatedRecordUpload(fileNo, {
+        req_id: document.req_id,
+        filename: pendingDocumentFile.name,
+        filesize: pendingDocumentFile.size,
+        mime_type: pendingDocumentFile.type || 'application/octet-stream',
+        storage_key: objectPath,
+        invoice_no: documentTransaction.invoiceNo || undefined,
+        amount: documentTransaction.amount || undefined,
+        policy_code: documentTransaction.policyCode || undefined,
+        risk_rate: documentTransaction.riskRate || undefined,
+      });
+    },
+    onSuccess: async () => {
+      toast({ title: 'Document uploaded', description: 'The document has been added to this allocation record.' });
+      setDocumentTransaction({ reqId: '', invoiceNo: '', amount: '', policyCode: '', riskRate: '' });
+      setPendingDocumentFile(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['allocated-business-file', fileNo] }),
+        queryClient.invalidateQueries({ queryKey: ['allocated-business-uploads', fileNo] }),
+        queryClient.invalidateQueries({ queryKey: ['allocated-business-aml-status', fileNo] }),
+        queryClient.invalidateQueries({ queryKey: ['allocated-business-history', fileNo] }),
+      ]);
+    },
+    onError: error =>
+      toast({
+        title: 'Document upload failed',
         description: String(error),
         variant: 'destructive',
       }),
@@ -382,106 +464,6 @@ function AllocatedFileSheet({
                     ))}
                   </div>
 
-                  <div className="rounded-lg border border-[#a9d7d1] bg-[#e7f5f2] p-4">
-                    <div className="flex items-center gap-2 text-sm font-bold text-[#195f5a]">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Membership update handoff
-                    </div>
-                    {file.benefit_verified !== 'YES' ? (
-                      <p className="mt-1 text-xs text-[#356c67]">
-                        Benefit verification must be complete before this file can be
-                        handed to another operational destination.
-                      </p>
-                    ) : (
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-1.5">
-                          <Label htmlFor="allocated-action">Next destination</Label>
-                          <select
-                            id="allocated-action"
-                            data-testid="select-allocated-action"
-                            value={action}
-                            onChange={event => {
-                              setAction(event.target.value as AllocatedFileActionOption['code'] | '');
-                              setPaidStatus('');
-                              setInvoiceNo('');
-                            }}
-                            disabled={actionMutation.isPending || actionOptionsLoading || actionOptionsError}
-                            className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm"
-                          >
-                            <option value="">
-                              {actionOptionsLoading ? 'Loading permitted handoffs…' : 'Select destination…'}
-                            </option>
-                            {actionOptions.map(option => (
-                              <option key={option.code} value={option.code}>
-                                {option.label} — {option.destination}
-                              </option>
-                            ))}
-                          </select>
-                          {actionOptionsError && (
-                            <p className="text-xs text-destructive">
-                              Permitted handoffs could not be loaded. Please refresh and try again.
-                            </p>
-                          )}
-                        </div>
-                        {cashierAction && (
-                          <div className="space-y-1.5">
-                            <Label htmlFor="allocated-payment-status">
-                              Payment status
-                            </Label>
-                            <select
-                              id="allocated-payment-status"
-                              data-testid="select-payment-status"
-                              value={paidStatus}
-                                onChange={event =>
-                                  setPaidStatus(event.target.value as typeof paidStatus)
-                                }
-                              className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm"
-                            >
-                              <option value="">Select status…</option>
-                              <option value="FULL-PAID">Full paid</option>
-                              <option value="PART-PAID">Part paid</option>
-                              <option value="NOT-PAID">Not paid</option>
-                            </select>
-                          </div>
-                        )}
-                        {cashierAction && (
-                          <div className="space-y-1.5 sm:col-span-2">
-                            <Label htmlFor="allocated-invoice-number">
-                              Invoice number
-                            </Label>
-                            <Input
-                              id="allocated-invoice-number"
-                              data-testid="input-invoice-number"
-                              value={invoiceNo}
-                              onChange={event => setInvoiceNo(event.target.value)}
-                              maxLength={25}
-                              placeholder="20–25 character invoice number"
-                            />
-                          </div>
-                        )}
-                        <div className="space-y-1.5 sm:col-span-2">
-                          <Label htmlFor="allocated-action-notes">Handover notes</Label>
-                          <Textarea
-                            id="allocated-action-notes"
-                            data-testid="input-handover-notes"
-                            value={comments}
-                            onChange={event => setComments(event.target.value)}
-                            placeholder="Briefly explain the handover…"
-                            rows={3}
-                          />
-                        </div>
-                        <Button
-                          data-testid="button-confirm-handover"
-                          onClick={submitAction}
-                          disabled={actionMutation.isPending}
-                          className="gap-1.5 sm:col-span-2"
-                        >
-                          <SendHorizontal className="h-4 w-4" />
-                          {actionMutation.isPending ? 'Saving action…' : 'Confirm handover'}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
                 </TabsContent>
 
                 <TabsContent value="documentation" className="mt-6">
@@ -536,9 +518,21 @@ function AllocatedFileSheet({
                                 <p className="text-sm font-medium">{doc.req_name}</p>
                                 {upload ? (
                                   <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-                                    <span>
-                                      {upload.filename} · uploaded {fmtDate(upload.uploaded_at)}
-                                    </span>
+                                     <div>
+                                       <p>{upload.filename} · uploaded {fmtDate(upload.uploaded_at)}</p>
+                                       {(upload.invoice_no || upload.amount != null || upload.policy_code || upload.risk_rate) && (
+                                         <p className="mt-0.5">
+                                           {[
+                                             upload.invoice_no && `Ref ${upload.invoice_no}`,
+                                             upload.amount != null && fmtMoney(upload.amount),
+                                             upload.policy_code && `Policy ${upload.policy_code}`,
+                                             upload.risk_rate && `${upload.risk_rate} risk`,
+                                           ]
+                                             .filter(Boolean)
+                                             .join(' · ')}
+                                         </p>
+                                       )}
+                                     </div>
                                     <Button
                                       variant="outline"
                                       size="sm"
@@ -672,6 +666,125 @@ function AllocatedFileSheet({
                     )}
                   </TabsContent>
                 </Tabs>
+              </div>
+
+              <div className="mt-8 border-t border-[#d8e5e1] pt-6">
+                <div className="mb-4">
+                  <p className="text-xs font-bold uppercase tracking-[.16em] text-[#28746e]">
+                    Allocation controls
+                  </p>
+                  <h3 className="mt-1 text-lg font-semibold">Transaction handoff</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Complete the document, payment, and accountable-destination steps from one place.
+                  </p>
+                </div>
+
+                <BusinessTransactionPanel
+                  documents={selectedDocuments}
+                  value={documentTransaction}
+                  file={pendingDocumentFile}
+                  isUploading={uploadMutation.isPending}
+                  riskReasonSourceAvailable={amlRiskReasonSource?.available ?? false}
+                  riskReasonSourceMessage={amlRiskReasonSource?.message}
+                  onChange={setDocumentTransaction}
+                  onFileChange={setPendingDocumentFile}
+                  onUpload={() => uploadMutation.mutate()}
+                />
+
+                <div className="rounded-xl border border-[#a9d7d1] bg-[#e7f5f2] p-4">
+                  <div className="flex items-center gap-2 text-sm font-bold text-[#195f5a]">
+                    <SendHorizontal className="h-4 w-4" />
+                    Forward allocation
+                  </div>
+                  {file.benefit_verified !== 'YES' ? (
+                    <p className="mt-1 text-xs text-[#356c67]">
+                      Benefit verification must be complete before this file can be handed to another operational destination.
+                    </p>
+                  ) : (
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="allocated-action">Forward to</Label>
+                        <select
+                          id="allocated-action"
+                          data-testid="select-allocated-action"
+                          value={action}
+                          onChange={event => {
+                            setAction(event.target.value as AllocatedFileActionOption['code'] | '');
+                            setPaidStatus('');
+                            setInvoiceNo('');
+                          }}
+                          disabled={actionMutation.isPending || actionOptionsLoading || actionOptionsError}
+                          className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm"
+                        >
+                          <option value="">
+                            {actionOptionsLoading ? 'Loading permitted handoffs…' : 'Select destination…'}
+                          </option>
+                          {actionOptions.map(option => (
+                            <option key={option.code} value={option.code}>
+                              {option.label} — {option.destination}
+                            </option>
+                          ))}
+                        </select>
+                        {actionOptionsError && (
+                          <p className="text-xs text-destructive">
+                            Permitted handoffs could not be loaded. Please refresh and try again.
+                          </p>
+                        )}
+                      </div>
+                      {cashierAction && (
+                        <div className="space-y-1.5">
+                          <Label htmlFor="allocated-payment-status">Payment status</Label>
+                          <select
+                            id="allocated-payment-status"
+                            data-testid="select-payment-status"
+                            value={paidStatus}
+                            onChange={event => setPaidStatus(event.target.value as typeof paidStatus)}
+                            className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm"
+                          >
+                            <option value="">Select status…</option>
+                            <option value="FULL-PAID">Full paid</option>
+                            <option value="PART-PAID">Part paid</option>
+                            <option value="NOT-PAID">Not paid</option>
+                          </select>
+                        </div>
+                      )}
+                      {cashierAction && (
+                        <div className="space-y-1.5">
+                          <Label htmlFor="allocated-invoice-number">Invoice number</Label>
+                          <Input
+                            id="allocated-invoice-number"
+                            data-testid="input-invoice-number"
+                            value={invoiceNo}
+                            onChange={event => setInvoiceNo(event.target.value)}
+                            maxLength={25}
+                            placeholder="20–25 character invoice number"
+                          />
+                        </div>
+                      )}
+                      <ReadOnlyField label="Entered By" value={file.entered_by} />
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label htmlFor="allocated-action-notes">Notes</Label>
+                        <Textarea
+                          id="allocated-action-notes"
+                          data-testid="input-handover-notes"
+                          value={comments}
+                          onChange={event => setComments(event.target.value)}
+                          placeholder="Briefly explain the handover…"
+                          rows={3}
+                        />
+                      </div>
+                      <Button
+                        data-testid="button-confirm-handover"
+                        onClick={submitAction}
+                        disabled={actionMutation.isPending}
+                        className="gap-1.5 sm:col-span-2"
+                      >
+                        <SendHorizontal className="h-4 w-4" />
+                        {actionMutation.isPending ? 'Saving action…' : 'Forward'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

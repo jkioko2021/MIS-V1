@@ -18,3 +18,4 @@
 - [Allocation handoff actions](allocation-handoff-actions.md) — Allocated files support only accountable Cashier, Medical UW, and return-for-correction outcomes
 - [Allocation record access](allocation-record-access.md) — Allocation detail, history, upload lists, and documents must enforce assigned-user or SuperAdmin access
 - [Allocation AML gate](allocation-aml-gate.md) — New and renewal files require an uploaded AML Report before the allocated Cashier handoff
+- [Allocation document transactions](allocation-document-transactions.md) — Keep document-specific invoice, credit-note, policy, and AML-risk metadata on uploads, not file handoffs

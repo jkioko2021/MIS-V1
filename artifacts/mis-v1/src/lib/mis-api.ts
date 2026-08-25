@@ -191,6 +191,17 @@ export interface BusinessUpload {
   storage_key: string;
   uploaded_by: string;
   uploaded_at: string;
+  invoice_no?: string | null;
+  amount?: number | null;
+  policy_code?: string | null;
+  risk_rate?: string | null;
+  risk_reason?: string | null;
+}
+
+export interface AmlRiskReasonSource {
+  available: boolean;
+  reasons: Array<{ value: string; label: string }>;
+  message?: string;
 }
 
 export interface AuditEntry {
@@ -289,12 +300,18 @@ export const misApi = {
     req_id?: number; filename: string; filesize?: number;
     mime_type?: string; storage_key: string;
   }) => post<ApiResponse<{ upload_id: number }>>(`/business/${encodeURIComponent(fileNo)}/uploads`, body),
+  businessAllocatedRecordUpload: (fileNo: string, body: {
+    req_id: number; filename: string; filesize?: number;
+    mime_type?: string; storage_key: string;
+    invoice_no?: string; amount?: string; policy_code?: string; risk_rate?: string; risk_reason?: string;
+  }) => post<ApiResponse<{ upload_id: number }>>(`/business/allocated/${encodeURIComponent(fileNo)}/uploads`, body),
   businessDeleteUpload: (fileNo: string, uploadId: number) =>
     del<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}/uploads/${uploadId}`),
 
   // Reference data
   businessRequirements: (client_type?: string) =>
     get<ApiResponse<BusinessRequirement[]>>('/business/requirements', client_type ? { client_type } : undefined),
+  amlRiskReasons: () => get<ApiResponse<AmlRiskReasonSource>>('/business/aml/risk-reasons'),
   bpoReviewers: () => get<ApiResponse<BpoReviewer[]>>('/business/bpo-reviewers'),
   walkInStaff: () => get<ApiResponse<Employee[]>>('/business/walk-in-staff'),
   counties: () => get<ApiResponse<string[]>>('/business/counties'),

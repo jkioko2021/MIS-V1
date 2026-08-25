@@ -1,0 +1,205 @@
+import { AlertCircle, FileUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import type { BusinessDoc } from '@/lib/mis-api';
+
+export type AllocationDocumentTransaction = {
+  reqId: number | '';
+  invoiceNo: string;
+  amount: string;
+  policyCode: string;
+  riskRate: string;
+};
+
+type Props = {
+  documents: BusinessDoc[];
+  value: AllocationDocumentTransaction;
+  file: File | null;
+  isUploading: boolean;
+  riskReasonSourceAvailable: boolean;
+  riskReasonSourceMessage?: string;
+  onChange: (next: AllocationDocumentTransaction) => void;
+  onFileChange: (file: File | null) => void;
+  onUpload: () => void;
+};
+
+function documentFlags(name: string) {
+  const normalized = name.toLowerCase();
+  const isCreditNote = normalized.includes('credit note');
+  return {
+    isCreditNote,
+    isInvoice: normalized.includes('invoice') && !isCreditNote,
+    isAmlRisk: /aml\s*risk|risk\s*rating/.test(normalized),
+  };
+}
+
+export function BusinessTransactionPanel({
+  documents,
+  value,
+  file,
+  isUploading,
+  riskReasonSourceAvailable,
+  riskReasonSourceMessage,
+  onChange,
+  onFileChange,
+  onUpload,
+}: Props) {
+  const selectedDocument = documents.find(document => document.req_id === value.reqId);
+  const flags = selectedDocument ? documentFlags(selectedDocument.req_name) : null;
+  const canUpload =
+    !!selectedDocument &&
+    !!file &&
+    !isUploading &&
+    (!flags?.isAmlRisk || riskReasonSourceAvailable);
+
+  return (
+    <section className="mb-5 rounded-xl border border-[#bfd9d5] bg-[#f7fbfa] p-4">
+      <div className="flex items-start gap-3">
+        <div className="rounded-lg bg-[#dff1ed] p-2 text-[#176861]">
+          <FileUp className="h-4 w-4" />
+        </div>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[.16em] text-[#28746e]">
+            Document transaction
+          </p>
+          <h4 className="mt-0.5 font-semibold text-[#173d38]">Upload selected documentation</h4>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Document types come from this file’s selected checklist. Files are stored privately and linked to this allocation record.
+          </p>
+        </div>
+      </div>
+
+      {documents.length === 0 ? (
+        <p className="mt-4 rounded-md border border-dashed bg-background px-3 py-2 text-sm text-muted-foreground">
+          No document requirements are selected for this file.
+        </p>
+      ) : (
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="transaction-document-type">Document type</Label>
+            <select
+              id="transaction-document-type"
+              data-testid="select-transaction-document"
+              value={value.reqId}
+              onChange={event =>
+                onChange({
+                  reqId: event.target.value ? Number(event.target.value) : '',
+                  invoiceNo: '',
+                  amount: '',
+                  policyCode: '',
+                  riskRate: '',
+                })
+              }
+              disabled={isUploading}
+              className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm"
+            >
+              <option value="">Select document type…</option>
+              {documents.map(document => (
+                <option key={document.req_id} value={document.req_id}>
+                  {document.req_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {(flags?.isInvoice || flags?.isCreditNote) && (
+            <div className="space-y-1.5">
+              <Label htmlFor="transaction-invoice-number">
+                {flags.isCreditNote ? 'Credit note number' : 'Invoice number'}
+              </Label>
+              <Input
+                id="transaction-invoice-number"
+                value={value.invoiceNo}
+                maxLength={25}
+                onChange={event => onChange({ ...value, invoiceNo: event.target.value })}
+                placeholder="Reference number"
+                disabled={isUploading}
+              />
+            </div>
+          )}
+
+          {flags?.isCreditNote && (
+            <div className="space-y-1.5">
+              <Label htmlFor="transaction-credit-amount">Credit note amount</Label>
+              <Input
+                id="transaction-credit-amount"
+                inputMode="decimal"
+                value={value.amount}
+                onChange={event => onChange({ ...value, amount: event.target.value })}
+                placeholder="0.00"
+                disabled={isUploading}
+              />
+            </div>
+          )}
+
+          {(flags?.isInvoice || flags?.isAmlRisk) && (
+            <div className="space-y-1.5">
+              <Label htmlFor="transaction-policy-code">Policy code</Label>
+              <Input
+                id="transaction-policy-code"
+                value={value.policyCode}
+                maxLength={100}
+                onChange={event => onChange({ ...value, policyCode: event.target.value })}
+                placeholder="Policy code, if applicable"
+                disabled={isUploading}
+              />
+            </div>
+          )}
+
+          {flags?.isAmlRisk && (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="transaction-aml-rate">AML risk rate</Label>
+                <select
+                  id="transaction-aml-rate"
+                  value={value.riskRate}
+                  onChange={event => onChange({ ...value, riskRate: event.target.value })}
+                  disabled={isUploading || !riskReasonSourceAvailable}
+                  className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm"
+                >
+                  <option value="">Select rate…</option>
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                </select>
+              </div>
+              {!riskReasonSourceAvailable && (
+                <div className="sm:col-span-2 flex gap-2 rounded-md border border-[#e9c98d] bg-[#fff6df] p-3 text-xs leading-5 text-[#855c16]">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{riskReasonSourceMessage ?? 'AML rating reasons are currently unavailable.'}</span>
+                </div>
+              )}
+            </>
+          )}
+
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="transaction-file">Document file</Label>
+            <Input
+              id="transaction-file"
+              data-testid="input-transaction-file"
+              type="file"
+              accept=".doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.pdf,.rar,.zip"
+              onChange={event => onFileChange(event.target.files?.[0] ?? null)}
+              disabled={isUploading}
+            />
+            <p className="text-xs text-muted-foreground">
+              Supported: Word, Excel, image, PDF, RAR, or ZIP. Maximum 10 MB.
+            </p>
+          </div>
+
+          <Button
+            type="button"
+            data-testid="button-upload-transaction-document"
+            onClick={onUpload}
+            disabled={!canUpload}
+            className="gap-1.5 sm:col-span-2"
+          >
+            <FileUp className="h-4 w-4" />
+            {isUploading ? 'Uploading document…' : 'Upload document'}
+          </Button>
+        </div>
+      )}
+    </section>
+  );
+}

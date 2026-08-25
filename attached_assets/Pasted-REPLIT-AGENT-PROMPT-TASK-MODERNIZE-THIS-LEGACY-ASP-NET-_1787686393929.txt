@@ -1,0 +1,1195 @@
+REPLIT AGENT PROMPT
+===================
+
+TASK: MODERNIZE THIS LEGACY ASP.NET WEB FORMS / TELERIK BUSINESS TRANSACTION PANEL
+
+You are modernizing an existing legacy ASP.NET Web Forms application that uses VB.NET and Telerik controls.
+
+The following legacy UI is the source-of-truth for the Business Transaction / Document / Payment / Workflow panel.
+
+DO NOT simply recreate the HTML.
+
+You must identify and preserve the business functionality represented by every control.
+
+
+========================================================
+1. LEGACY CONTROL MAPPING
+========================================================
+
+Map the legacy controls exactly as follows:
+
+cbodoc
+    → Invoice/Credit Note document type
+
+txtinv
+    → Invoice/Credit Note Number
+
+FL1
+    → Document File Upload
+
+txtamount
+    → Transaction Amount
+
+txtpolicy
+    → Policy Code
+
+cboRate
+    → AML Risk Rate
+
+cboRiskReason
+    → AML Rating Reason
+
+btnupload
+    → Upload Document
+
+cbopayment
+    → Payment Status
+
+cboAction
+    → Workflow Action
+
+cboAllocateto
+    → Forward To / Assigned User
+
+lblenteredby
+    → Entered By
+
+txtcomment
+    → Workflow Notes
+
+btnforward
+    → Forward / Submit Workflow Action
+
+
+========================================================
+2. MODERN UI
+========================================================
+
+Replace the Telerik/Web Forms controls with:
+
+React
+TypeScript
+Bootstrap 5
+
+Create:
+
+BusinessTransactionPanel.tsx
+
+
+The page must contain these sections:
+
+--------------------------------------------------------
+DOCUMENT / INVOICE
+--------------------------------------------------------
+
+Invoice/Credit Note
+[ Select Document Type ]
+
+Invoice/Cr No
+[ Enter Invoice/Credit Note Number ]
+
+File
+[ Choose File ]
+
+Amount
+[ Enter Amount ]
+
+Policy Code
+[ Enter Policy Code ]
+
+AML Risk Rate
+[ Select Risk ]
+
+Rating Reason
+[ Select Reason ]
+
+[ UPLOAD ]
+
+
+--------------------------------------------------------
+PAYMENT
+--------------------------------------------------------
+
+Payment
+[ FULL-PAID ▼ ]
+
+
+--------------------------------------------------------
+WORKFLOW
+--------------------------------------------------------
+
+Action
+[ Select Action ▼ ]
+
+Forward To
+[ Select User ▼ ]
+
+Entered By
+[ Read Only ]
+
+Notes
+[ Multi-line text area ]
+
+[ FORWARD ]
+
+
+========================================================
+3. DOCUMENT TYPE
+========================================================
+
+The document dropdown must be populated from the backend.
+
+Do NOT hard-code the database values in the React component unless the legacy source confirms they are static.
+
+Create:
+
+GET /api/business-tracking/document-types
+
+
+The frontend must load the available document types dynamically.
+
+
+========================================================
+4. INVOICE / CREDIT NOTE NUMBER
+========================================================
+
+Field:
+
+invoiceNumber
+
+Legacy control:
+
+txtinv
+
+Rules:
+
+- Trim whitespace.
+- Validate on the backend.
+- Do not trust frontend validation.
+- Validate based on selected document type.
+- Preserve the legacy invoice-number business rules.
+- Do not invent a new invoice-number format.
+
+Display a validation message next to the field.
+
+
+========================================================
+5. FILE UPLOAD
+========================================================
+
+Legacy control:
+
+FL1
+
+Create:
+
+POST /api/business-tracking/{fileNo}/documents
+
+Use:
+
+multipart/form-data
+
+Send:
+
+file
+documentType
+invoiceNumber
+amount
+policyCode
+riskRate
+riskReason
+
+
+Validate:
+
+- File exists
+- File extension
+- MIME type
+- File size
+- Document type
+- Business/FileNo exists
+- User permission
+- Invoice number where required
+- AML information where required
+
+
+Do not trust the client-provided MIME type.
+
+Sanitize filenames.
+
+Prevent path traversal.
+
+Store the document using the application's configured document storage mechanism.
+
+
+========================================================
+6. AMOUNT
+========================================================
+
+Legacy:
+
+txtamount
+
+Modern:
+
+amount
+
+Requirements:
+
+- Numeric only
+- Decimal precision must match the legacy database
+- No negative values unless legacy logic explicitly permits them
+- Format using the applicable currency/locale
+- Validate on the backend
+
+
+========================================================
+7. POLICY CODE
+========================================================
+
+Legacy:
+
+txtpolicy
+
+Modern:
+
+policyCode
+
+Requirements:
+
+- Preserve existing policy-code format.
+- Validate against the business/policy where applicable.
+- Do not blindly accept a policy code that does not belong to the selected business.
+
+
+========================================================
+8. AML RISK
+========================================================
+
+Legacy:
+
+cboRate
+
+Values shown in the legacy source:
+
+Low
+Medium
+High
+
+
+Modern:
+
+<select>
+
+Risk Reason:
+
+cboRiskReason
+
+
+Create:
+
+GET /api/business-tracking/aml/risk-reasons
+
+
+Do not hard-code risk reasons unless they are confirmed to be static reference data.
+
+
+If the selected document/action requires AML information:
+
+Risk Rate = REQUIRED
+Risk Reason = REQUIRED
+
+
+The API must enforce this even if the frontend hides/shows the fields.
+
+
+========================================================
+9. UPLOAD BUTTON
+========================================================
+
+Legacy:
+
+btnupload
+
+Modern:
+
+Upload Document
+
+When clicked:
+
+1. Validate fields
+2. Validate selected document type
+3. Validate file
+4. Upload document
+5. Execute document-specific business logic
+6. Update related business information
+7. Create audit entry
+8. Return document ID
+9. Refresh document list
+10. Show success message
+
+
+Do not reload the entire page.
+
+Use API calls and update the React state.
+
+
+========================================================
+10. SPECIAL DOCUMENT TYPES
+========================================================
+
+The legacy system contains special document processing.
+
+Known legacy document codes include:
+
+RET27
+RET30
+RET43
+
+
+DO NOT assume these are ordinary documents.
+
+Inspect the legacy backend before implementing their exact behaviour.
+
+
+RET27
+------
+
+Known purpose:
+
+Credit Note processing.
+
+Equivalent legacy processing must be identified and preserved.
+
+
+RET30
+------
+
+Known purpose:
+
+Invoice processing.
+
+The existing application associates the invoice number and policy code with the business record.
+
+Preserve this behaviour.
+
+
+RET43
+------
+
+Known purpose:
+
+AML/Risk processing.
+
+The selected:
+
+Risk Rate
+Rating Reason
+
+must be recorded against the appropriate business record.
+
+
+IMPORTANT:
+
+Do not invent stored procedures, table names or business rules.
+
+Search the legacy source for the actual implementation.
+
+
+========================================================
+11. PAYMENT STATUS
+========================================================
+
+Legacy:
+
+cbopayment
+
+The available values are:
+
+FULL-PAID
+PART-PAID
+NOT-PAID
+CREDIT NOTE
+
+
+Underlying value:
+
+CREDIT NOTE = CR
+
+
+Preserve the existing database semantics.
+
+Do not rename database values without confirming the existing schema.
+
+
+Create:
+
+GET /api/business-tracking/payment-statuses
+
+
+The API must determine whether a payment status is valid for the current business.
+
+
+========================================================
+12. ACTION
+========================================================
+
+Legacy:
+
+cboAction
+
+Values:
+
+Cashier
+Code: C
+
+Medical UW
+Code: MU
+
+Closed
+Code: CL
+
+IT Support
+Code: IT
+
+Return-Incomplete
+Code: RI
+
+RM
+Code: RM
+
+
+Create:
+
+GET /api/business-tracking/actions
+
+
+The API should return:
+
+[
+  {
+    "code": "C",
+    "name": "Cashier"
+  },
+  {
+    "code": "MU",
+    "name": "Medical UW"
+  },
+  {
+    "code": "CL",
+    "name": "Closed"
+  },
+  {
+    "code": "IT",
+    "name": "IT Support"
+  },
+  {
+    "code": "RI",
+    "name": "Return-Incomplete"
+  },
+  {
+    "code": "RM",
+    "name": "RM"
+  }
+]
+
+
+Do not allow users to execute actions they do not have permission for.
+
+
+========================================================
+13. FORWARD TO
+========================================================
+
+Legacy:
+
+cboAllocateto
+
+Initially:
+
+HIDDEN
+
+
+When the selected action requires allocation:
+
+SHOW Forward To
+
+
+Create:
+
+GET /api/business-tracking/{fileNo}/eligible-users?action={action}
+
+
+The backend must determine eligible users based on:
+
+- User role
+- Department
+- Branch
+- Permission
+- Active status
+- Workflow responsibility
+
+
+Never trust the user ID supplied by the browser.
+
+
+========================================================
+14. ENTERED BY
+========================================================
+
+Legacy:
+
+lblenteredby
+
+Modern:
+
+Entered By
+
+
+This field is:
+
+READ ONLY
+
+
+It must be populated from the authenticated/business record.
+
+Never accept the Entered By value from the frontend as authoritative.
+
+
+========================================================
+15. NOTES
+========================================================
+
+Legacy:
+
+txtcomment
+
+Modern:
+
+Notes
+
+Create:
+
+POST /api/business-tracking/{fileNo}/notes
+
+
+Store:
+
+FileNo
+Comment
+CreatedBy
+CreatedDate
+
+
+Notes entered during workflow processing must also appear in workflow history.
+
+
+========================================================
+16. FORWARD BUTTON
+========================================================
+
+Legacy:
+
+btnforward
+
+Modern:
+
+Forward
+
+
+Create:
+
+POST /api/business-tracking/{fileNo}/workflow
+
+
+Example:
+
+{
+    "action": "C",
+    "allocateTo": "USER_ID",
+    "paymentStatus": "FULL-PAID",
+    "comment": "Payment verified."
+}
+
+
+The backend must:
+
+1. Authenticate the user.
+2. Authorize the requested action.
+3. Load the business.
+4. Verify the business exists.
+5. Verify the current business state.
+6. Validate payment status.
+7. Validate invoice information where required.
+8. Validate AML information where required.
+9. Validate Forward To.
+10. Update the business.
+11. Create workflow history.
+12. Create tracking note.
+13. Create notification.
+14. Create audit entry.
+15. Commit the transaction.
+
+
+========================================================
+17. WORKFLOW ACTION BEHAVIOUR
+========================================================
+
+Cashier
+-------
+
+Code:
+
+C
+
+Route business to Cashier/Finance workflow.
+
+Preserve the legacy notification and routing behaviour.
+
+
+Medical UW
+----------
+
+Code:
+
+MU
+
+Route to Medical Underwriting.
+
+
+Closed
+------
+
+Code:
+
+CL
+
+Close the business only if all legacy completion requirements have been satisfied.
+
+
+IT Support
+----------
+
+Code:
+
+IT
+
+Route to IT Support.
+
+
+Return-Incomplete
+-----------------
+
+Code:
+
+RI
+
+Return the business according to the legacy allocation/originating-user logic.
+
+
+RM
+--
+
+Code:
+
+RM
+
+Preserve the legacy RM/payment workflow behaviour.
+
+
+IMPORTANT:
+
+Find the existing VB.NET implementation before determining exactly how each action changes:
+
+Status
+Allocated
+Allocated_To
+Forwarded
+Paid
+Ready_For_Update
+Workflow history
+Notifications
+
+
+========================================================
+18. TRANSACTION SAFETY
+========================================================
+
+Document processing and workflow updates must be transactional.
+
+For example:
+
+BEGIN TRANSACTION
+
+Upload document
+
+Update invoice/policy information
+
+Update payment status
+
+Update business status
+
+Create workflow history
+
+Create note
+
+Create notification
+
+Create audit record
+
+COMMIT
+
+
+If any operation fails:
+
+ROLLBACK
+
+
+Never leave the business in a partially updated state.
+
+
+========================================================
+19. DATABASE
+========================================================
+
+The new application MUST use the external SQL Server database.
+
+DO NOT use Replit's built-in database.
+
+Use environment variables/secrets:
+
+SQL_SERVER_HOST
+SQL_SERVER_PORT
+SQL_SERVER_DATABASE
+SQL_SERVER_USER
+SQL_SERVER_PASSWORD
+
+
+Use parameterized queries.
+
+Never construct SQL using string concatenation.
+
+
+========================================================
+20. DATABASE DISCOVERY
+========================================================
+
+Before implementation, inspect the existing database references.
+
+Identify the actual:
+
+Tables
+Views
+Stored Procedures
+Functions
+Columns
+Keys
+Relationships
+
+
+Especially search for:
+
+Business
+Tracking
+Document
+Invoice
+Credit Note
+Payment
+AML
+Risk
+Workflow
+Allocation
+Employee
+User
+Notification
+Audit
+
+
+Create:
+
+/docs/BUSINESS_TRANSACTION_DATABASE_MAP.md
+
+
+Include:
+
+Legacy Table
+Legacy Column
+Purpose
+New Entity
+New API
+Notes
+
+
+========================================================
+21. API STRUCTURE
+========================================================
+
+Create:
+
+GET
+/api/business-tracking/{fileNo}
+
+GET
+/api/business-tracking/{fileNo}/documents
+
+GET
+/api/business-tracking/{fileNo}/workflow-history
+
+GET
+/api/business-tracking/{fileNo}/payment
+
+GET
+/api/business-tracking/{fileNo}/eligible-users
+
+GET
+/api/business-tracking/document-types
+
+GET
+/api/business-tracking/payment-statuses
+
+GET
+/api/business-tracking/actions
+
+GET
+/api/business-tracking/aml/risk-reasons
+
+POST
+/api/business-tracking/{fileNo}/documents
+
+POST
+/api/business-tracking/{fileNo}/notes
+
+POST
+/api/business-tracking/{fileNo}/workflow
+
+
+========================================================
+22. SECURITY
+========================================================
+
+Implement:
+
+Authentication
+Authorization
+RBAC
+Permission validation
+Server-side validation
+Audit logging
+
+
+Permissions should include:
+
+BUSINESS_VIEW
+BUSINESS_UPLOAD
+BUSINESS_UPDATE
+BUSINESS_FORWARD
+BUSINESS_CLOSE
+BUSINESS_RETURN
+PAYMENT_UPDATE
+AML_UPDATE
+DOCUMENT_VIEW
+DOCUMENT_UPLOAD
+DOCUMENT_DOWNLOAD
+WORKFLOW_EXECUTE
+
+
+The API must enforce permissions.
+
+Frontend hiding buttons is NOT security.
+
+
+========================================================
+23. AUDIT
+========================================================
+
+Every important operation must be audited.
+
+Audit:
+
+Document Upload
+Document Download
+Invoice Update
+Credit Note
+Payment Update
+AML Update
+Workflow Forward
+Workflow Return
+Workflow Close
+Notes
+Allocation
+
+
+Audit fields:
+
+Id
+UserId
+Username
+Action
+Entity
+EntityId
+OldValue
+NewValue
+IPAddress
+CreatedDate
+CorrelationId
+
+
+========================================================
+24. UI BEHAVIOUR
+========================================================
+
+The new UI must be responsive.
+
+Use Bootstrap 5.
+
+Use:
+
+Cards
+Tabs
+Form validation
+Loading indicators
+Confirmation dialogs
+Toast notifications
+Error messages
+
+
+Do not reproduce the old table layout exactly.
+
+Modernize the presentation while preserving the workflow.
+
+
+Use two-column layout on desktop:
+
+LEFT:
+Document Processing
+
+RIGHT:
+Payment / Workflow
+
+
+On mobile:
+
+Stack all fields vertically.
+
+
+========================================================
+25. CONDITIONAL UI
+========================================================
+
+The UI must dynamically respond to:
+
+Document Type
+Payment Status
+Action
+
+
+Examples:
+
+If AML document selected:
+
+SHOW:
+AML Risk Rate
+Rating Reason
+
+
+If action requires allocation:
+
+SHOW:
+Forward To
+
+
+If action does not require allocation:
+
+HIDE:
+Forward To
+
+
+If required document information is missing:
+
+DISABLE:
+Upload
+
+
+If workflow validation fails:
+
+DISABLE:
+Forward
+
+
+However:
+
+Frontend conditions are for user experience only.
+
+Backend validation remains authoritative.
+
+
+========================================================
+26. DO NOT CREATE PLACEHOLDERS
+========================================================
+
+Do NOT create:
+
+fake users
+fake workflow responses
+fake database records
+fake payment results
+fake document IDs
+mock production APIs
+
+
+If a dependency is missing, clearly mark it:
+
+TODO: LEGACY DEPENDENCY REQUIRED
+
+
+Do not silently replace it with mock functionality.
+
+
+========================================================
+27. CODE STRUCTURE
+========================================================
+
+Use:
+
+/frontend
+    /src
+        /components
+            /business
+                BusinessTransactionPanel.tsx
+                DocumentUpload.tsx
+                PaymentSection.tsx
+                WorkflowSection.tsx
+                NotesSection.tsx
+                WorkflowHistory.tsx
+
+/backend
+    /Controllers
+    /Services
+    /Repositories
+    /Models
+    /DTOs
+    /Validators
+    /Middleware
+
+/database
+    /migrations
+    /scripts
+
+/docs
+    LEGACY_CONTROL_MAPPING.md
+    BUSINESS_TRANSACTION_DATABASE_MAP.md
+    BUSINESS_WORKFLOW.md
+    API_CONTRACTS.md
+
+
+========================================================
+28. LEGACY CONTROL MAPPING DOCUMENT
+========================================================
+
+Create:
+
+/docs/LEGACY_CONTROL_MAPPING.md
+
+
+Use this structure:
+
+| Legacy Control | New Component | API | Database | Business Rule |
+|----------------|---------------|-----|----------|---------------|
+
+Include every control from the supplied ASP.NET markup.
+
+
+========================================================
+29. TESTING
+========================================================
+
+Create tests for:
+
+Document selection
+Invoice number
+File upload
+Amount
+Policy code
+AML risk
+AML reason
+Payment status
+Action selection
+Forward To
+Notes
+Invoice processing
+Credit note processing
+AML processing
+Cashier forwarding
+Medical UW forwarding
+IT forwarding
+Return-Incomplete
+RM
+Closed
+Audit
+Authorization
+
+
+Test:
+
+VALID
+INVALID
+UNAUTHORIZED
+DATABASE FAILURE
+UPLOAD FAILURE
+WORKFLOW FAILURE
+
+
+========================================================
+30. FINAL REQUIREMENT
+========================================================
+
+The purpose of this modernization is:
+
+LEGACY BUSINESS FUNCTIONALITY
+        +
+MODERN UI
+        +
+MODERN API
+        +
+EXTERNAL SQL SERVER
+        +
+SECURITY
+        +
+AUDIT
+        +
+WORKFLOW
+        +
+DOCUMENT MANAGEMENT
+
+
+Do not treat the supplied ASP.NET markup as merely visual HTML.
+
+It is a representation of a live business process.
+
+Every control must be traced back to its:
+
+UI behaviour
+VB.NET event handler
+Database operation
+Stored procedure
+Business rule
+Workflow transition
+Notification
+Audit requirement
+
+
+Before declaring this module complete, produce:
+
+1. Legacy control mapping
+2. Database dependency mapping
+3. API specification
+4. Workflow specification
+5. React implementation
+6. Backend implementation
+7. SQL implementation
+8. Automated tests
+9. Security review
+10. Legacy-vs-new functional gap report
+
+
+DO NOT DECLARE SUCCESS UNTIL ALL TEN ITEMS HAVE BEEN COMPLETED.
