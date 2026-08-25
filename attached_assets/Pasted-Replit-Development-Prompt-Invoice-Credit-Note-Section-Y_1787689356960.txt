@@ -1,0 +1,526 @@
+Replit Development Prompt — Invoice / Credit Note Section
+
+You are working on an existing enterprise application. Implement and modernize the Invoice / Credit Note section while preserving all existing functionality, business rules, database structures, APIs, authentication, and workflows.
+
+1. Section Title
+
+Create the section:
+
+Invoice / Credit Note
+
+The UI must be clean, professional, responsive, and suitable for an insurance/financial enterprise application.
+
+2. Required Fields
+
+Implement the following fields in this exact business order:
+
+#	Field	Control Type	Required
+1	Invoice/Credit Note	Dropdown	Yes
+2	Invoice/Cr No	Textbox / searchable selector	Yes
+3	Amount	Numeric / currency input	Yes
+4	Policy Code	Textbox / searchable selector	Yes
+5	AML Risk Rate	Dropdown	Yes
+6	Rating Reason	Dropdown	Conditional
+7	Upload	File upload	Conditional
+8	Payment	Dropdown / selector	Yes
+9	Action	Dropdown / action selector	Yes
+10	Forward To	User/department selector	Conditional
+11	Entered By	Read-only user field	Automatic
+12	Notes	Multiline textarea	Optional
+3. Invoice/Credit Note
+
+Provide a dropdown with at least:
+
+Invoice
+Credit Note
+
+The selected document type must control downstream validation and processing.
+
+When Credit Note is selected:
+
+Apply existing credit-note business rules.
+Do not assume the amount is positive or negative; inspect the existing application/database logic.
+Preserve existing approval and authorization rules.
+Display any credit-note-specific fields or validation already implemented in the legacy application.
+
+When Invoice is selected:
+
+Apply existing invoice validation and workflow.
+
+Do not hard-code business rules that already exist in the database or legacy application.
+
+4. Invoice/Cr No
+
+Provide a searchable input.
+
+Requirements:
+
+Allow lookup of existing invoice/credit-note numbers.
+Validate that the document exists where required.
+Prevent duplicate processing where the existing application does so.
+Retrieve associated policy/customer information when available.
+Display validation errors clearly.
+Do not expose internal database IDs to the user.
+5. Amount
+
+Use a numeric currency input.
+
+Requirements:
+
+Decimal precision must match the existing database/business rules.
+Prevent invalid characters.
+Apply proper thousand separators where appropriate.
+Do not silently round values.
+Validate against the source invoice/credit-note amount where applicable.
+Use the existing currency configuration instead of hard-coding a currency.
+
+Example display:
+
+1,250,000.00
+
+Store the underlying numeric value correctly in the database.
+
+6. Policy Code
+
+Provide a searchable policy selector/input.
+
+Requirements:
+
+Search by Policy Code.
+Retrieve the policy details from the existing database/API.
+Validate that the policy exists.
+Where applicable, automatically retrieve:
+Policy holder
+Product
+Policy status
+Effective date
+Expiry date
+Currency
+Do not duplicate policy data unnecessarily.
+7. AML Risk Rate
+
+Create a dropdown for AML Risk Rate.
+
+The values must come from the application's existing configuration/reference data where available.
+
+Do NOT hard-code values if a database/configuration table already exists.
+
+Example conceptual values:
+
+Low
+Medium
+High
+Very High
+
+The actual production values must be discovered from the existing application/database.
+
+8. Rating Reason
+
+Create a dropdown for Rating Reason.
+
+Requirements:
+
+Populate from existing reference/configuration data.
+Support conditional display/validation based on AML Risk Rate.
+If the selected AML Risk Rate requires a reason, make this field mandatory.
+Store the selected reason correctly.
+Preserve existing AML/business rules.
+9. Upload
+
+Implement a secure document upload component.
+
+Requirements:
+
+Support the file types already allowed by the existing system.
+Enforce configurable file-size limits.
+Validate MIME type and file extension.
+Rename files safely.
+Prevent executable file uploads.
+Do not trust the original filename.
+Store documents using the existing EDMS/document-storage architecture where available.
+Maintain document metadata.
+Record:
+Uploaded by
+Upload date/time
+Document type
+Related invoice/credit note
+Related policy
+Provide upload status and validation messages.
+
+If the existing application stores documents in the database as binary data, preserve that architecture unless the migration design explicitly provides another document-storage mechanism.
+
+10. Payment
+
+Implement a Payment selector.
+
+Discover the existing payment statuses/types from the legacy application/database.
+
+Do not invent production payment statuses.
+
+The component should support the existing workflow, including statuses such as pending/processed/failed where applicable.
+
+Payment information must be validated before the transaction can proceed.
+
+11. Action
+
+Create an Action selector/button area based on the existing workflow.
+
+Possible actions may include:
+
+Save
+Submit
+Approve
+Reject
+Forward
+Return
+Cancel
+
+However, ONLY expose actions that the current user's role is authorized to perform.
+
+Do not allow the frontend to bypass server-side authorization.
+
+12. Forward To
+
+Create a searchable user/department selector.
+
+Requirements:
+
+Display only valid workflow recipients.
+Filter based on the current user's permissions and workflow rules.
+Do not expose unauthorized users.
+Store the workflow transition correctly.
+Record the forwarding user and recipient.
+Trigger existing notifications where applicable.
+13. Entered By
+
+This must be automatically populated from the authenticated user.
+
+It must be:
+
+Read-only
+
+Do not allow the user to manually change this value.
+
+Store the authenticated user's internal ID rather than relying only on the displayed username.
+
+14. Notes
+
+Provide a multiline Notes field.
+
+Requirements:
+
+Support sufficient text length based on the existing database column.
+Prevent HTML/script injection.
+Preserve line breaks.
+Display existing notes when editing an existing transaction.
+Maintain an audit trail if the existing application supports note history.
+15. UI Layout
+
+Use a responsive enterprise layout.
+
+Desktop:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                     INVOICE / CREDIT NOTE                           │
+├─────────────────────────────────────────────────────────────────────┤
+│ Invoice/Credit Note │ Invoice/Cr No │ Amount │ Policy Code          │
+├─────────────────────────────────────────────────────────────────────┤
+│ AML Risk Rate       │ Rating Reason │ Upload │ Payment              │
+├─────────────────────────────────────────────────────────────────────┤
+│ Action              │ Forward To    │ Entered By                    │
+├─────────────────────────────────────────────────────────────────────┤
+│ Notes                                                               │
+│                                                                     │
+├─────────────────────────────────────────────────────────────────────┤
+│                         [Save] [Submit] [Cancel]                    │
+└─────────────────────────────────────────────────────────────────────┘
+
+Use:
+
+Bootstrap 5
+Responsive grid
+Consistent labels
+Clear validation messages
+Accessible controls
+Keyboard navigation
+Proper loading indicators
+Confirmation dialogs for destructive actions
+
+Do not use obsolete Telerik styling unless the existing application requires it.
+
+16. Legacy Web Forms Mapping
+
+The current legacy screen contains controls similar to:
+
+Invoice/Credit Note
+Invoice/Cr No
+Amount
+Policy Code
+AML Risk Rate
+Rating Reason
+Upload
+Payment
+Action
+Forward To
+Entered By
+Notes
+
+Search the existing solution to identify the actual:
+
+ASPX controls
+Code-behind logic
+Stored procedures
+SQL queries
+Database tables
+Validation rules
+Workflow logic
+User permissions
+Upload handling
+Payment processing
+Audit logging
+
+Do NOT recreate business logic blindly.
+
+Before implementing, produce a dependency map:
+
+UI
+ ↓
+Controller/API
+ ↓
+Service
+ ↓
+Business Rules
+ ↓
+Repository
+ ↓
+Stored Procedures / SQL
+ ↓
+Database Tables
+17. Database Discovery
+
+Before creating new tables, inspect the existing database.
+
+Search for tables, columns and stored procedures related to:
+
+Invoice
+Credit Note
+InvoiceNo
+CreditNote
+Policy
+AML
+Risk
+Rating
+Payment
+Workflow
+Forward
+User
+Notes
+Document
+Attachment
+Upload
+Audit
+
+Reuse existing structures wherever possible.
+
+Only create new tables when the required functionality genuinely does not exist.
+
+18. API Requirements
+
+If the application uses APIs, expose clean endpoints such as:
+
+GET    /api/invoice-credit-notes
+GET    /api/invoice-credit-notes/{id}
+POST   /api/invoice-credit-notes
+PUT    /api/invoice-credit-notes/{id}
+POST   /api/invoice-credit-notes/{id}/submit
+POST   /api/invoice-credit-notes/{id}/approve
+POST   /api/invoice-credit-notes/{id}/reject
+POST   /api/invoice-credit-notes/{id}/forward
+POST   /api/invoice-credit-notes/{id}/upload
+
+Only implement endpoints that align with the existing application's architecture.
+
+19. Validation
+
+Implement both client-side and server-side validation.
+
+Required validations include:
+
+Document type required
+Invoice/Credit Note number required
+Amount required and numeric
+Policy Code required
+AML Risk Rate required
+Rating Reason required when applicable
+Upload required when applicable
+Payment required
+Action required
+Forward To required for forwarding actions
+Notes length validation
+Authorization validation
+Duplicate transaction validation
+
+Server-side validation is authoritative.
+
+20. Security
+
+Apply enterprise security standards.
+
+Ensure:
+
+Authentication is mandatory.
+Authorization is enforced server-side.
+Users cannot manipulate Entered By.
+Users cannot submit unauthorized Actions.
+SQL injection is prevented.
+XSS is prevented.
+File uploads are securely validated.
+Sensitive financial information is not exposed in logs.
+Audit records are generated for important changes.
+API endpoints validate authorization independently of the UI.
+21. Audit Trail
+
+For every important transaction, capture:
+
+Transaction ID
+Document Type
+Invoice/Credit Note Number
+Policy Code
+Amount
+Previous Status
+New Status
+Action
+Performed By
+Forwarded To
+Date/Time
+Notes
+IP Address where supported
+
+Do not remove existing audit functionality.
+
+22. Error Handling
+
+Use user-friendly messages.
+
+Examples:
+
+Invoice/Credit Note number is required.
+
+The selected policy could not be found.
+
+The amount entered is invalid.
+
+A Rating Reason is required for the selected AML Risk Rate.
+
+You are not authorized to perform this action.
+
+The transaction could not be submitted. Please try again.
+
+The document upload failed. Please verify the file and try again.
+
+Do not display raw SQL exceptions, stack traces, connection strings, or internal infrastructure details to users.
+
+23. Implementation Process
+
+Follow this sequence:
+
+Step 1 — Discover
+
+Inspect the existing application and identify all code related to this screen.
+
+Step 2 — Document
+
+Create:
+
+INVOICE_CREDIT_NOTE_DISCOVERY.md
+
+Document:
+
+Existing UI
+Existing controls
+Tables
+Stored procedures
+APIs
+Business rules
+Workflow
+Permissions
+Upload architecture
+Audit logic
+Step 3 — Implement
+
+Build the modern UI and backend using the existing architecture.
+
+Step 4 — Integrate
+
+Connect the UI to the real database/API.
+
+Do NOT use mock data in production code.
+
+Step 5 — Test
+
+Test:
+
+Invoice creation
+Credit note creation
+Existing invoice lookup
+Policy lookup
+AML validation
+Rating reason validation
+Upload
+Payment
+Workflow forwarding
+Authorization
+Audit trail
+Error handling
+Duplicate submissions
+Step 6 — Regression Test
+
+Confirm that existing Invoice/Credit Note functionality still works.
+
+24. Important Rules
+
+DO NOT:
+
+Replace the existing database without approval.
+Create duplicate tables unnecessarily.
+Remove existing business rules.
+Hard-code reference data that already exists in the database.
+Hard-code users or workflow recipients.
+Use mock data in production.
+Bypass authorization.
+expose database credentials.
+remove existing audit logging.
+break existing APIs.
+rename database columns without a migration plan.
+
+DO:
+
+Reuse existing services.
+Reuse existing stored procedures where appropriate.
+Reuse existing database tables.
+Preserve business logic.
+Preserve workflow.
+Preserve audit history.
+Add automated tests.
+Keep the implementation modular.
+Follow the existing project's coding standards.
+25. Deliverables
+
+After implementation, provide:
+
+1. INVOICE_CREDIT_NOTE_DISCOVERY.md
+2. Updated UI
+3. Backend/API implementation
+4. Database changes only where necessary
+5. Validation implementation
+6. Upload implementation
+7. Workflow integration
+8. Audit integration
+9. Automated tests
+10. Migration/deployment script
+11. API documentation
+12. Updated README/documentation
+
+Before modifying production database objects, show the proposed schema changes and explain why each change is required.
+
+Start by inspecting the existing project. Do no
