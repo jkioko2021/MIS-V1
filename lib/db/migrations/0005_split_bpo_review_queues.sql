@@ -27,7 +27,8 @@ ALTER TABLE crm.business_work_items
 UPDATE crm.business_work_items wi
 SET queue_name = CASE
       WHEN bt.client_type = 'R' THEN 'BPO_REVIEW_RETAIL'
-      ELSE 'BPO_REVIEW_CORPORATE_SME'
+      WHEN bt.client_type IN ('S', 'C') THEN 'BPO_REVIEW_CORPORATE_SME'
+      ELSE NULL
     END,
     updated_at = NOW()
 FROM crm.business_tracking bt

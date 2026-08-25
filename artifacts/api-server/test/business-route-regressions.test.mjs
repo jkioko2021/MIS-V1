@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -11,6 +11,7 @@ const testDir = path.dirname(fileURLToPath(import.meta.url));
 const artifactDir = path.resolve(testDir, "..");
 const sourceFile = path.join(artifactDir, "src/routes/business.ts");
 const doublesFile = path.join(testDir, "doubles/business-route-deps.mjs");
+const queueMigrationFile = path.resolve(artifactDir, "../../lib/db/migrations/0005_split_bpo_review_queues.sql");
 
 let builtDir;
 let businessRouter;
@@ -20,13 +21,13 @@ function normalise(sql) {
 }
 
 class BusinessRouteState {
-  constructor() {
+  constructor({ clientType = "R", fileStatus = "REGISTERED", forwarded = false } = {}) {
     this.file = {
-      file_no: "R-08/26/-000001",
-      file_status: "REGISTERED",
+      file_no: `${clientType}-08/26/-000001`,
+      file_status: fileStatus,
       is_active: true,
-      forwarded: false,
-      is_complete: true,
+      forwarded,
+      is_complete: !forwarded,
       allocated: false,
       business: "M",
       medical_uw: false,
@@ -37,7 +38,7 @@ class BusinessRouteState {
       allocated_to: null,
       allocate_dt: null,
       walk_in_client: "N",
-      client_type: "R",
+      client_type: clientType,
       business_type: "N",
       rate_type: "S",
       receive_dt: "2026-08-19",
@@ -54,6 +55,8 @@ class BusinessRouteState {
     this.updates = 0;
     this.allocations = 0;
     this.locks = new Map();
+    this.selectedDocumentCount = 1;
+    this.missingUploadCount = 0;
   }
 
   eligibleStaff(usernames) {
@@ -81,8 +84,20 @@ class BusinessRouteState {
 
   async withTransaction(fn) {
     const client = { releases: [] };
+    const snapshot = {
+      file: structuredClone(this.file),
+      workItems: structuredClone(this.workItems),
+      notes: structuredClone(this.notes),
+      audits: structuredClone(this.audits),
+    };
     try {
       return await fn(client);
+    } catch (error) {
+      this.file = snapshot.file;
+      this.workItems = snapshot.workItems;
+      this.notes = snapshot.notes;
+      this.audits = snapshot.audits;
+      throw error;
     } finally {
       for (const release of client.releases.reverse()) release();
     }
@@ -127,6 +142,15 @@ class BusinessRouteState {
     if (statement.includes("SELECT file_no, client_type, receive_dt FROM crm.business_tracking")) {
       return this.file
         ? { file_no: this.file.file_no, client_type: this.file.client_type, receive_dt: this.file.receive_dt }
+        : null;
+    }
+    if (statement.includes("department='MEMBERSHIP'")) {
+      return this.staff.get(params[0])?.department === "MEMBERSHIP"
+        && this.staff.get(params[0])?.activated
+        && this.staff.get(params[0])?.approved
+        && !this.staff.get(params[0])?.locked
+        && !this.staff.get(params[0])?.deleted
+        ? { username: params[0] }
         : null;
     }
     if (statement.includes("JOIN crm.profiles p")) {
@@ -177,6 +201,20 @@ class BusinessRouteState {
         client_type: this.file.client_type,
       }] : [];
     }
+    if (statement.startsWith("SELECT file_no, is_active, client_type FROM crm.business_tracking")) {
+      return this.file?.is_active ? [{
+        file_no: this.file.file_no,
+        is_active: this.file.is_active,
+        client_type: this.file.client_type,
+      }] : [];
+    }
+    if (statement.startsWith("SELECT work_item_id FROM crm.business_work_items") && statement.includes("queue_name=$2")) {
+      return this.workItems
+        .filter((item) => item.file_no === params[0]
+          && item.queue_name === params[1]
+          && item.work_status === "OPEN")
+        .map((item) => ({ work_item_id: item.work_item_id }));
+    }
     if (statement.startsWith("SELECT work_item_id FROM crm.business_work_items")) {
       return this.workItems
         .filter((item) => item.file_no === params[0] && item.work_status === "OPEN")
@@ -184,8 +222,14 @@ class BusinessRouteState {
     }
     if (statement.startsWith("SELECT work_item_id, work_status FROM crm.business_work_items")) {
       return this.workItems
-        .filter((item) => item.file_no === params[0] && item.queue_name === "BPO_REVIEW")
+        .filter((item) => item.file_no === params[0] && item.queue_name === params[1])
         .map((item) => ({ work_item_id: item.work_item_id, work_status: item.work_status }));
+    }
+    if (statement.startsWith("SELECT COUNT(*)") && statement.includes("business_doc_checklist")) {
+      return [{
+        selected_count: String(this.selectedDocumentCount),
+        missing_upload_count: String(this.missingUploadCount),
+      }];
     }
     if (statement.startsWith("SELECT COUNT(*) AS cnt FROM crm.business_req")) {
       return [{ cnt: "0" }];
@@ -196,20 +240,24 @@ class BusinessRouteState {
       return [{ file_no: this.file.file_no }];
     }
     if (statement.includes("UPDATE crm.business_tracking SET") && statement.includes("forwarded=TRUE")) {
-      if (!this.file?.is_active || this.file.file_status !== "REGISTERED" || this.file.forwarded) return [];
+      if (!this.file?.is_active
+        || !["REGISTERED", "RETURNED-INCOMPLETE"].includes(this.file.file_status)
+        || this.file.forwarded) return [];
       this.file.forwarded = true;
       this.file.is_complete = true;
-      this.file.file_status = params.find((value) => typeof value === "string" && value !== this.file.file_no)
-        ?? "FORWARDED";
+      this.file.file_status = statement.includes("allocated_to=$1") ? params[1] : params[0];
       return [{ file_no: this.file.file_no }];
     }
+    if (statement.startsWith("SELECT file_status FROM crm.business_tracking")) {
+      return this.file ? [{ file_status: this.file.file_status }] : [];
+    }
     if (statement.startsWith("INSERT INTO crm.business_work_items")) {
-      let workItem = this.workItems.find((item) => item.file_no === params[0] && item.queue_name === "BPO_REVIEW");
+      let workItem = this.workItems.find((item) => item.file_no === params[0] && item.queue_name === params[1]);
       if (!workItem) {
         workItem = {
           work_item_id: this.workItems.length + 1,
           file_no: params[0],
-          queue_name: "BPO_REVIEW",
+          queue_name: params[1],
           work_status: "OPEN",
         };
         this.workItems.push(workItem);
@@ -217,6 +265,21 @@ class BusinessRouteState {
         workItem.work_status = "OPEN";
       }
       return [{ work_item_id: workItem.work_item_id }];
+    }
+    if (statement.startsWith("UPDATE crm.business_tracking") && statement.includes("forwarded=CASE WHEN")) {
+      const [newStatus, returnIncomplete, allocated, allocatedTo, hold] = params;
+      this.file.file_status = newStatus;
+      this.file.forwarded = !returnIncomplete;
+      this.file.allocated = allocated;
+      this.file.allocated_to = allocated ? allocatedTo : null;
+      this.file.is_complete = !returnIncomplete;
+      this.file.ready_for_update = !returnIncomplete && !hold;
+      return [];
+    }
+    if (statement.startsWith("UPDATE crm.business_work_items")) {
+      const workItem = this.workItems.find((item) => item.work_item_id === params[0]);
+      if (workItem) workItem.work_status = "COMPLETED";
+      return [];
     }
     if (statement.startsWith("INSERT INTO crm.business_tracking_notes")) {
       this.notes.push({ file_no: params[0], notes: params[2] });
@@ -321,6 +384,28 @@ function fileEndpoint(fileNo) {
   return `/business/${encodeURIComponent(fileNo)}`;
 }
 
+function bpoQueue(clientType) {
+  return clientType === "R" ? "BPO_REVIEW_RETAIL" : "BPO_REVIEW_CORPORATE_SME";
+}
+
+function seedOpenWorkItem(state, workItemId = 1) {
+  state.workItems.push({
+    work_item_id: workItemId,
+    file_no: state.file.file_no,
+    queue_name: bpoQueue(state.file.client_type),
+    work_status: "OPEN",
+  });
+}
+
+function reviewPayload(queueName, action, product = "T") {
+  return {
+    action,
+    product,
+    comments: `${action} decision recorded`,
+    queue_name: queueName,
+  };
+}
+
 before(async () => {
   builtDir = await mkdtemp(path.join(tmpdir(), "mis-business-route-tests-"));
   const aliases = new Map([
@@ -379,6 +464,154 @@ test("concurrent delete and BPO forward commit exactly one valid outcome", async
     assert.deepEqual(state.audits.map((entry) => entry.action_type), ["BT_ROUTE_BPO_REVIEW"]);
     assert.equal(result.find(({ status }) => status !== 200)?.status, 409);
   }
+});
+
+test("migration maps legacy BPO work items from the authoritative client type", async () => {
+  const migration = await readFile(queueMigrationFile, "utf8");
+  const compact = normalise(migration);
+
+  assert.match(compact, /UPDATE crm\.business_work_items wi SET queue_name = CASE/);
+  assert.match(compact, /WHEN bt\.client_type = 'R' THEN 'BPO_REVIEW_RETAIL'/);
+  assert.match(compact, /WHEN bt\.client_type IN \('S', 'C'\) THEN 'BPO_REVIEW_CORPORATE_SME'/);
+  assert.match(compact, /FROM crm\.business_tracking bt WHERE bt\.file_no = wi\.file_no/);
+  assert.match(compact, /wi\.queue_name IN \(\s*'BPO_REVIEW', 'BPO_REVIEW_RETAIL', 'BPO_REVIEW_CORPORATE_SME'\s*\)/);
+  assert.match(compact, /CHECK \(queue_name IN \('BPO_REVIEW_RETAIL', 'BPO_REVIEW_CORPORATE_SME'\)\)/);
+});
+
+test("forwarding creates the client-type-specific BPO queue and transitions the file", async () => {
+  for (const [clientType, expectedQueue] of [
+    ["R", "BPO_REVIEW_RETAIL"],
+    ["S", "BPO_REVIEW_CORPORATE_SME"],
+    ["C", "BPO_REVIEW_CORPORATE_SME"],
+  ]) {
+    const state = new BusinessRouteState({ clientType });
+    const result = await withServer(
+      state,
+      (request) => request("POST", `${fileEndpoint(state.file.file_no)}/forward`, {
+        comments: "Ready for BPO review.",
+      }),
+    );
+
+    assert.equal(result.status, 200, clientType);
+    assert.equal(result.body.data.queue_name, expectedQueue);
+    assert.equal(state.file.file_status, "FORWARDED");
+    assert.equal(state.file.forwarded, true);
+    assert.deepEqual(state.workItems, [{
+      work_item_id: 1,
+      file_no: state.file.file_no,
+      queue_name: expectedQueue,
+      work_status: "OPEN",
+    }]);
+    assert.equal(state.notes.length, 1);
+    assert.match(state.notes[0].notes, new RegExp(expectedQueue));
+  }
+});
+
+test("a corporate file cannot be reviewed through the Retail queue", async () => {
+  const state = new BusinessRouteState({ clientType: "C", fileStatus: "FORWARDED", forwarded: true });
+  seedOpenWorkItem(state, 42);
+  const before = structuredClone(state.file);
+
+  const result = await withServer(
+    state,
+    (request) => request(
+      "POST",
+      `${fileEndpoint(state.file.file_no)}/review-action`,
+      reviewPayload("BPO_REVIEW_RETAIL", "CA"),
+    ),
+  );
+
+  assert.equal(result.status, 409);
+  assert.equal(result.body.error, "The supplied BPO queue does not match this file.");
+  assert.deepEqual(state.file, before);
+  assert.equal(state.workItems[0].work_status, "OPEN");
+  assert.equal(state.notes.length, 0);
+  assert.equal(state.audits.length, 0);
+});
+
+test("Retail Hold completes the Retail work item with the matching file status", async () => {
+  const state = new BusinessRouteState({ clientType: "R", fileStatus: "FORWARDED", forwarded: true });
+  seedOpenWorkItem(state, 7);
+
+  const result = await withServer(
+    state,
+    (request) => request(
+      "POST",
+      `${fileEndpoint(state.file.file_no)}/review-action`,
+      reviewPayload("BPO_REVIEW_RETAIL", "HO"),
+    ),
+  );
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.data.file_status, "ON HOLD");
+  assert.equal(result.body.data.queue_name, "BPO_REVIEW_RETAIL");
+  assert.equal(state.file.file_status, "ON HOLD");
+  assert.equal(state.file.forwarded, true);
+  assert.equal(state.file.ready_for_update, false);
+  assert.equal(state.workItems[0].work_status, "COMPLETED");
+  assert.equal(state.notes.length, 1);
+  assert.equal(state.audits[0].action_type, "BT_BPO_HO");
+});
+
+test("Corporate/SME Cashier completes the Corporate/SME work item with CASHIER status", async () => {
+  const state = new BusinessRouteState({ clientType: "S", fileStatus: "FORWARDED", forwarded: true });
+  seedOpenWorkItem(state, 8);
+
+  const result = await withServer(
+    state,
+    (request) => request(
+      "POST",
+      `${fileEndpoint(state.file.file_no)}/review-action`,
+      reviewPayload("BPO_REVIEW_CORPORATE_SME", "CA", "AS"),
+    ),
+  );
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.data.file_status, "CASHIER");
+  assert.equal(result.body.data.queue_name, "BPO_REVIEW_CORPORATE_SME");
+  assert.equal(state.file.file_status, "CASHIER");
+  assert.equal(state.file.forwarded, true);
+  assert.equal(state.workItems[0].work_status, "COMPLETED");
+  assert.equal(state.notes.length, 1);
+  assert.equal(state.audits[0].action_type, "BT_BPO_CA");
+});
+
+test("Return-Incomplete closes the old work item and allows the same file to be re-forwarded", async () => {
+  const state = new BusinessRouteState({ clientType: "C", fileStatus: "FORWARDED", forwarded: true });
+  seedOpenWorkItem(state, 9);
+  const queueName = "BPO_REVIEW_CORPORATE_SME";
+
+  const returned = await withServer(
+    state,
+    (request) => request(
+      "POST",
+      `${fileEndpoint(state.file.file_no)}/review-action`,
+      reviewPayload(queueName, "RI"),
+    ),
+  );
+
+  assert.equal(returned.status, 200);
+  assert.equal(state.file.file_status, "RETURNED-INCOMPLETE");
+  assert.equal(state.file.forwarded, false);
+  assert.equal(state.file.is_complete, false);
+  assert.equal(state.workItems[0].work_status, "COMPLETED");
+
+  const forwarded = await withServer(
+    state,
+    (request) => request("POST", `${fileEndpoint(state.file.file_no)}/forward`, {
+      comments: "Corrections received; return to BPO.",
+    }),
+  );
+
+  assert.equal(forwarded.status, 200);
+  assert.equal(forwarded.body.data.queue_name, queueName);
+  assert.equal(state.file.file_status, "FORWARDED");
+  assert.equal(state.file.forwarded, true);
+  assert.equal(state.file.is_complete, true);
+  assert.equal(state.workItems.length, 1, "re-forward must reopen the original work item");
+  assert.equal(state.workItems[0].work_item_id, 9);
+  assert.equal(state.workItems[0].queue_name, queueName);
+  assert.equal(state.workItems[0].work_status, "OPEN");
 });
 
 test("inactive and already-forwarded files cannot create BPO side effects", async () => {
