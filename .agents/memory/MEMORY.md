@@ -17,3 +17,4 @@
 - [BPO allocation schema](bpo-allocation-schema.md) — Verify BPO allocation columns are present in development before testing review-action handoffs
 - [Allocation handoff actions](allocation-handoff-actions.md) — Allocated files support only accountable Cashier, Medical UW, and return-for-correction outcomes
 - [Allocation record access](allocation-record-access.md) — Allocation detail, history, upload lists, and documents must enforce assigned-user or SuperAdmin access
+- [Allocation AML gate](allocation-aml-gate.md) — New and renewal files require an uploaded AML Report before the allocated Cashier handoff

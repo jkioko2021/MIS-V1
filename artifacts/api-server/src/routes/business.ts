@@ -27,7 +27,30 @@ const BPO_REVIEW_ACTIONS = new Set(["RI", "A", "MU", "HO", "CA"]);
 const CORPORATE_SME_BPO_REVIEW_ACTIONS = new Set(["RI", "A", "MU", "CA"]);
 const BPO_PRODUCTS = new Set(["T", "S", "AS"]);
 const ALLOCATED_FILE_ACTIONS = new Set(["RI", "MU", "CA"]);
-const PAYMENT_STATUSES = new Set(["FULL-PAID", "PART-PAID", "NOT-PAID", "CR"]);
+const PAYMENT_STATUSES = new Set(["FULL-PAID", "PART-PAID", "NOT-PAID"]);
+const ALLOCATED_FILE_ACTION_OPTIONS = [
+  {
+    code: "CA",
+    label: "Cashier",
+    destination: "Cashier / Finance",
+    requires_invoice: true,
+    requires_payment_status: true,
+  },
+  {
+    code: "MU",
+    label: "Medical UW",
+    destination: "Medical Underwriting",
+    requires_invoice: false,
+    requires_payment_status: false,
+  },
+  {
+    code: "RI",
+    label: "Return Incomplete",
+    destination: "Originating registration team",
+    requires_invoice: false,
+    requires_payment_status: false,
+  },
+] as const;
 
 function bpoQueueName(clientType: string): "BPO_REVIEW_RETAIL" | "BPO_REVIEW_CORPORATE_SME" {
   return clientType === "R" ? "BPO_REVIEW_RETAIL" : "BPO_REVIEW_CORPORATE_SME";
@@ -251,6 +274,12 @@ router.get("/business/bpo-reviewers", requireBpoForwardAccess, async (_req: Requ
     );
     res.json({ ok: true, data: reviewers });
   } catch (err) { handleError(res, err, "get BPO reviewers"); }
+});
+
+// Allocation handoffs are intentionally server-defined so that the client does
+// not become the source of truth for permitted workflow outcomes.
+router.get("/business/allocated/action-options", requireBpoAllocatedAccess, (_req: Request, res: Response) => {
+  res.json({ ok: true, data: ALLOCATED_FILE_ACTION_OPTIONS });
 });
 
 router.get("/business/walk-in-staff", async (_req: Request, res: Response) => {
@@ -787,6 +816,40 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
 
 // The Allocation Files workspace has its own owner-or-SuperAdmin boundary.
 // These routes must be registered before the broad file-scoped middleware below.
+router.get("/business/allocated/:fileNo/aml-status", requireAllocatedFileReadAccess, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const file = await queryOne<{ business_type: string; uploaded: boolean }>(
+      `SELECT bt.business_type,
+              EXISTS (
+                SELECT 1
+                FROM crm.business_uploads bu
+                JOIN crm.business_req br ON br.req_id=bu.req_id
+                WHERE bu.file_no=bt.file_no
+                  AND bu.is_active=TRUE
+                  AND LOWER(TRIM(br.req_name))='aml report'
+              ) AS uploaded
+       FROM crm.business_tracking bt
+       WHERE bt.file_no=$1 AND bt.is_active=TRUE`,
+      [req.params.fileNo],
+    );
+    if (!file) {
+      res.status(404).json({ ok: false, error: "Allocated file not found." });
+      return;
+    }
+    const required = ["N", "R"].includes(file.business_type);
+    res.json({
+      ok: true,
+      data: {
+        required,
+        uploaded: file.uploaded,
+        valid: !required || file.uploaded,
+      },
+    });
+  } catch (err) {
+    handleError(res, err, "get allocated AML status");
+  }
+});
+
 router.get("/business/allocated/:fileNo/uploads", requireAllocatedFileReadAccess, async (req: Request, res: Response): Promise<void> => {
   try {
     const rows = await query<{
@@ -1127,9 +1190,10 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
         allocated: boolean;
         allocated_to: string | null;
         benefit_verified: string;
+        business_type: string;
       }>(
         client,
-        `SELECT file_no, is_active, file_status, allocated, allocated_to, benefit_verified
+        `SELECT file_no, is_active, file_status, allocated, allocated_to, benefit_verified, business_type
          FROM crm.business_tracking
          WHERE file_no=$1
          FOR UPDATE`,
@@ -1144,7 +1208,24 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
       const isSuperAdmin = req.user?.profileId === 1;
       if (!isSuperAdmin && file.allocated_to !== req.user!.username) throw new Error("FILE_NOT_ASSIGNED");
 
+      if (isCashier && ["N", "R"].includes(file.business_type)) {
+        const [amlStatus] = await txQuery<{ uploaded: boolean }>(
+          client,
+          `SELECT EXISTS (
+             SELECT 1
+             FROM crm.business_uploads bu
+             JOIN crm.business_req br ON br.req_id=bu.req_id
+             WHERE bu.file_no=$1
+               AND bu.is_active=TRUE
+               AND LOWER(TRIM(br.req_name))='aml report'
+           ) AS uploaded`,
+          [fileNo],
+        );
+        if (!amlStatus?.uploaded) throw new Error("AML_REQUIRED");
+      }
+
       const returnIncomplete = requestedAction === "RI";
+      const paid = paidStatus !== "NOT-PAID";
       const [updatedFile] = await txQuery<{ file_status: string }>(
         client,
         `UPDATE crm.business_tracking
@@ -1158,11 +1239,20 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
              invoice_no=CASE WHEN $3 THEN $4 ELSE invoice_no END,
              paid_status=CASE WHEN $3 THEN $5 ELSE paid_status END,
              invoice_date=CASE WHEN $3 THEN NOW() ELSE invoice_date END,
+              paid=CASE WHEN $3 THEN $6 ELSE paid END,
              updated_at=NOW()
-         WHERE file_no=$6
+          WHERE file_no=$7
            AND is_active=TRUE
          RETURNING file_status`,
-        [statusByAction[requestedAction], returnIncomplete, isCashier, invoiceNo || null, paidStatus || null, fileNo],
+        [
+          statusByAction[requestedAction],
+          returnIncomplete,
+          isCashier,
+          invoiceNo || null,
+          paidStatus || null,
+          paid,
+          fileNo,
+        ],
       );
 
       const paymentDetail = isCashier ? `; invoice ${invoiceNo}; payment ${paidStatus}` : "";
@@ -1199,6 +1289,10 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
     }
     if (err instanceof Error && err.message === "BENEFIT_NOT_VERIFIED") {
       res.status(409).json({ ok: false, error: "Benefit verification must be complete before an allocated-file action." });
+      return;
+    }
+    if (err instanceof Error && err.message === "AML_REQUIRED") {
+      res.status(409).json({ ok: false, error: "You Must Upload AML Report before handing a new or renewal file to Cashier." });
       return;
     }
     if (err instanceof Error && err.message === "FILE_NOT_ASSIGNED") {

@@ -37,6 +37,8 @@ import { useToast } from '@/hooks/use-toast';
 import {
   misApi,
   type AuditEntry,
+  type AllocatedFileActionOption,
+  type AllocatedFileAmlStatus,
   type BusinessDoc,
   type BusinessFile,
   type BusinessNote,
@@ -134,12 +136,10 @@ function AllocatedFileSheet({
   onClose: () => void;
 }) {
   const [tab, setTab] = useState('register');
-  const [action, setAction] = useState<'RI' | 'MU' | 'CA' | ''>('');
+  const [action, setAction] = useState<AllocatedFileActionOption['code'] | ''>('');
   const [comments, setComments] = useState('');
   const [invoiceNo, setInvoiceNo] = useState('');
-  const [paidStatus, setPaidStatus] = useState<
-    'FULL-PAID' | 'PART-PAID' | 'NOT-PAID' | 'CR' | ''
-  >('');
+  const [paidStatus, setPaidStatus] = useState<'FULL-PAID' | 'PART-PAID' | 'NOT-PAID' | ''>('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -158,22 +158,39 @@ function AllocatedFileSheet({
     queryFn: () => misApi.businessAllocatedHistory(fileNo),
     enabled: !!fileNo,
   });
+  const {
+    data: actionOptionsRes,
+    isError: actionOptionsError,
+    isLoading: actionOptionsLoading,
+  } = useQuery({
+    queryKey: ['allocated-business-action-options'],
+    queryFn: () => misApi.businessAllocatedActionOptions(),
+  });
+  const { data: amlStatusRes } = useQuery({
+    queryKey: ['allocated-business-aml-status', fileNo],
+    queryFn: () => misApi.businessAllocatedAmlStatus(fileNo),
+    enabled: !!fileNo,
+  });
 
   const file = fileRes?.data as DetailedFile | undefined;
   const uploads = (uploadsRes?.data ?? []) as BusinessUpload[];
   const history = (historyRes?.data ?? []) as AuditEntry[];
+  const actionOptions = (actionOptionsRes?.data ?? []) as AllocatedFileActionOption[];
+  const amlStatus = amlStatusRes?.data as AllocatedFileAmlStatus | undefined;
+  const selectedAction = actionOptions.find(option => option.code === action);
+  const cashierAction = selectedAction?.requires_invoice === true;
   const notes = file?.notes ?? [];
   const docs = file?.docs ?? [];
 
   const actionMutation = useMutation({
     mutationFn: () =>
       misApi.businessAllocatedFileAction(fileNo, {
-        action: action as 'RI' | 'MU' | 'CA',
+        action: action as AllocatedFileActionOption['code'],
         comments,
-        invoice_no: action === 'CA' ? invoiceNo : undefined,
+        invoice_no: cashierAction ? invoiceNo : undefined,
         paid_status:
-          action === 'CA'
-            ? (paidStatus as 'FULL-PAID' | 'PART-PAID' | 'NOT-PAID' | 'CR')
+          cashierAction
+            ? (paidStatus as 'FULL-PAID' | 'PART-PAID' | 'NOT-PAID')
             : undefined,
       }),
     onSuccess: async response => {
@@ -219,7 +236,7 @@ function AllocatedFileSheet({
       return;
     }
     if (
-      action === 'CA' &&
+      cashierAction &&
       (invoiceNo.trim().length < 20 || invoiceNo.trim().length > 25)
     ) {
       toast({
@@ -229,7 +246,7 @@ function AllocatedFileSheet({
       });
       return;
     }
-    if (action === 'CA' && !paidStatus) {
+    if (cashierAction && !paidStatus) {
       toast({
         title: 'Payment status required',
         description: 'Select the payment status for the Cashier handoff.',
@@ -383,21 +400,30 @@ function AllocatedFileSheet({
                             id="allocated-action"
                             data-testid="select-allocated-action"
                             value={action}
-                            onChange={event =>
-                              setAction(
-                                event.target.value as 'RI' | 'MU' | 'CA' | '',
-                              )
-                            }
-                            disabled={actionMutation.isPending}
+                            onChange={event => {
+                              setAction(event.target.value as AllocatedFileActionOption['code'] | '');
+                              setPaidStatus('');
+                              setInvoiceNo('');
+                            }}
+                            disabled={actionMutation.isPending || actionOptionsLoading || actionOptionsError}
                             className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm"
                           >
-                            <option value="">Select destination…</option>
-                            <option value="CA">Cashier</option>
-                            <option value="MU">Medical UW</option>
-                            <option value="RI">Return Incomplete</option>
+                            <option value="">
+                              {actionOptionsLoading ? 'Loading permitted handoffs…' : 'Select destination…'}
+                            </option>
+                            {actionOptions.map(option => (
+                              <option key={option.code} value={option.code}>
+                                {option.label} — {option.destination}
+                              </option>
+                            ))}
                           </select>
+                          {actionOptionsError && (
+                            <p className="text-xs text-destructive">
+                              Permitted handoffs could not be loaded. Please refresh and try again.
+                            </p>
+                          )}
                         </div>
-                        {action === 'CA' && (
+                        {cashierAction && (
                           <div className="space-y-1.5">
                             <Label htmlFor="allocated-payment-status">
                               Payment status
@@ -406,20 +432,19 @@ function AllocatedFileSheet({
                               id="allocated-payment-status"
                               data-testid="select-payment-status"
                               value={paidStatus}
-                              onChange={event =>
-                                setPaidStatus(event.target.value as typeof paidStatus)
-                              }
+                                onChange={event =>
+                                  setPaidStatus(event.target.value as typeof paidStatus)
+                                }
                               className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm"
                             >
                               <option value="">Select status…</option>
                               <option value="FULL-PAID">Full paid</option>
                               <option value="PART-PAID">Part paid</option>
                               <option value="NOT-PAID">Not paid</option>
-                              <option value="CR">Credit note</option>
                             </select>
                           </div>
                         )}
-                        {action === 'CA' && (
+                        {cashierAction && (
                           <div className="space-y-1.5 sm:col-span-2">
                             <Label htmlFor="allocated-invoice-number">
                               Invoice number
@@ -468,6 +493,25 @@ function AllocatedFileSheet({
                       Required documentation
                     </h3>
                   </div>
+                  {amlStatus?.required && (
+                    <div
+                      className={cn(
+                        'mb-4 rounded-lg border p-3 text-sm',
+                        amlStatus.valid
+                          ? 'border-[#9dd9d4] bg-[#e4f5f2] text-[#176861]'
+                          : 'border-[#e9c98d] bg-[#fff6df] text-[#855c16]',
+                      )}
+                    >
+                      <p className="font-semibold">
+                        AML report {amlStatus.uploaded ? 'available' : 'required'}
+                      </p>
+                      <p className="mt-0.5 text-xs">
+                        {amlStatus.uploaded
+                          ? 'This New/Renewal file can be handed to Cashier once the remaining handoff checks are complete.'
+                          : 'Upload an AML Report before handing this New/Renewal file to Cashier.'}
+                      </p>
+                    </div>
+                  )}
                   <div className="overflow-hidden rounded-lg border bg-card">
                     {docs.length === 0 ? (
                       <div className="p-10 text-center text-sm text-muted-foreground">

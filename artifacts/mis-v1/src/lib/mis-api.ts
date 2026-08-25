@@ -136,7 +136,21 @@ export interface AllocatedFileActionBody {
   action: 'RI' | 'MU' | 'CA';
   comments: string;
   invoice_no?: string;
-  paid_status?: 'FULL-PAID' | 'PART-PAID' | 'NOT-PAID' | 'CR';
+  paid_status?: 'FULL-PAID' | 'PART-PAID' | 'NOT-PAID';
+}
+
+export interface AllocatedFileActionOption {
+  code: 'RI' | 'MU' | 'CA';
+  label: string;
+  destination: string;
+  requires_invoice: boolean;
+  requires_payment_status: boolean;
+}
+
+export interface AllocatedFileAmlStatus {
+  required: boolean;
+  uploaded: boolean;
+  valid: boolean;
 }
 
 export interface BusinessNote {
@@ -241,6 +255,10 @@ export const misApi = {
     }>>(`/business/${encodeURIComponent(fileNo)}/review-action`, body),
   businessAllocatedFileAction: (fileNo: string, body: AllocatedFileActionBody) =>
     post<ApiResponse<{ file_status: string }>>(`/business/${encodeURIComponent(fileNo)}/allocation-action`, body),
+  businessAllocatedActionOptions: () =>
+    get<ApiResponse<AllocatedFileActionOption[]>>('/business/allocated/action-options'),
+  businessAllocatedAmlStatus: (fileNo: string) =>
+    get<ApiResponse<AllocatedFileAmlStatus>>(`/business/allocated/${encodeURIComponent(fileNo)}/aml-status`),
   businessForward: (fileNo: string, body?: { to_user?: string; comments?: string }) =>
     post<ApiResponse<{ new_status: string; queue_name: 'BPO_REVIEW_RETAIL' | 'BPO_REVIEW_CORPORATE_SME'; work_item_id?: number; already_routed: boolean }>>(`/business/${encodeURIComponent(fileNo)}/forward`, body),
   businessAllocate: (fileNo: string, allocated_to: string) =>

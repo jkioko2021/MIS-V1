@@ -37,6 +37,7 @@ class BusinessRouteState {
       to_pricing_dt: null,
       invoice_no: null,
       paid_status: null,
+      paid: false,
       allocated_to: null,
       allocate_dt: null,
       walk_in_client: "N",
@@ -60,6 +61,7 @@ class BusinessRouteState {
     this.locks = new Map();
     this.selectedDocumentCount = 1;
     this.missingUploadCount = 0;
+    this.amlReportUploaded = true;
   }
 
   eligibleStaff(usernames) {
@@ -190,7 +192,7 @@ class BusinessRouteState {
         invoiced: this.file.invoiced,
       }] : [];
     }
-    if (statement.startsWith("SELECT file_no, is_active, file_status, allocated, allocated_to, benefit_verified FROM crm.business_tracking")) {
+    if (statement.startsWith("SELECT file_no, is_active, file_status, allocated, allocated_to, benefit_verified, business_type FROM crm.business_tracking")) {
       return this.file?.is_active ? [{
         file_no: this.file.file_no,
         is_active: this.file.is_active,
@@ -198,6 +200,7 @@ class BusinessRouteState {
         allocated: this.file.allocated,
         allocated_to: this.file.allocated_to,
         benefit_verified: this.file.benefit_verified,
+        business_type: this.file.business_type,
       }] : [];
     }
     if (statement.startsWith("SELECT file_status, is_complete, allocated, forwarded, business")) {
@@ -246,6 +249,9 @@ class BusinessRouteState {
     }
     if (statement.startsWith("SELECT COUNT(*) AS cnt FROM crm.business_req")) {
       return [{ cnt: "0" }];
+    }
+    if (statement.startsWith("SELECT EXISTS ( SELECT 1 FROM crm.business_uploads bu JOIN crm.business_req br")) {
+      return [{ uploaded: this.amlReportUploaded }];
     }
     if (statement.includes("UPDATE crm.business_tracking SET is_active=FALSE")) {
       if (!this.file?.is_active || this.file.file_status !== "REGISTERED" || this.file.forwarded) return [];
@@ -301,7 +307,7 @@ class BusinessRouteState {
       return [{ to_pricing_dt: this.file.to_pricing_dt }];
     }
     if (statement.startsWith("UPDATE crm.business_tracking SET file_status=$1,") && statement.includes("invoice_no=CASE WHEN")) {
-      const [newStatus, returnIncomplete, isCashier, invoiceNo, paidStatus] = params;
+      const [newStatus, returnIncomplete, isCashier, invoiceNo, paidStatus, paid] = params;
       this.file.file_status = newStatus;
       this.file.forwarded = returnIncomplete ? false : this.file.forwarded;
       this.file.allocated = false;
@@ -312,6 +318,7 @@ class BusinessRouteState {
       if (isCashier) {
         this.file.invoice_no = invoiceNo;
         this.file.paid_status = paidStatus;
+        this.file.paid = paid;
       }
       return [{ file_status: this.file.file_status }];
     }
@@ -849,8 +856,34 @@ test("allocated-file Cashier handoff persists payment context and releases the a
   assert.equal(state.file.allocate_dt, null);
   assert.equal(state.file.invoice_no, "INV-20260825-00000001");
   assert.equal(state.file.paid_status, "FULL-PAID");
+  assert.equal(state.file.paid, true);
   assert.match(state.notes.at(-1).notes, /Cashier handoff.*FULL-PAID/);
   assert.equal(state.audits.at(-1).action_type, "BT_ALLOCATED_CA");
+});
+
+test("allocated-file Cashier handoff rejects new or renewal files without an AML report", async () => {
+  const state = new BusinessRouteState({ fileStatus: "ALLOCATED", forwarded: true });
+  state.file.allocated = true;
+  state.file.allocated_to = "business-entry";
+  state.file.benefit_verified = "YES";
+  state.amlReportUploaded = false;
+
+  const result = await withServer(
+    state,
+    (request) => request("POST", `${fileEndpoint(state.file.file_no)}/allocation-action`, {
+      action: "CA",
+      comments: "Ready for cashier.",
+      invoice_no: "INV-20260825-00000001",
+      paid_status: "FULL-PAID",
+    }),
+  );
+
+  assert.equal(result.status, 409);
+  assert.match(result.body.error, /AML Report/);
+  assert.equal(state.file.file_status, "ALLOCATED");
+  assert.equal(state.file.allocated, true);
+  assert.equal(state.notes.length, 0);
+  assert.equal(state.audits.length, 0);
 });
 
 test("allocated-file actions require completed benefit verification", async () => {
