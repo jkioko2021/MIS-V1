@@ -13,3 +13,4 @@
 - [BPO Review workflow](bpo-review-workflow.md) — Forwarded registrations use one authorized BPO work item linked to the original file, not a copied record
 - [Managed rebase conflicts](managed-rebase-conflicts.md) — Structural auto-merges can displace code outside visible conflict markers; compare the whole resolved file with both stages
 - [Post-login navigation claims](post-login-navigation-claims.md) — Role-based sidebar visibility needs profile claims in the OTP verification response, not only the session refresh endpoint
+- [Sheet popover stacking](sheet-popover-stacking.md) — Portalled dropdowns inside sheets must layer above both the sheet and its overlay to remain visible

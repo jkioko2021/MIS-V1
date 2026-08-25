@@ -43,7 +43,10 @@ function SearchableSelect({ value, onChange, options, placeholder }: any) {
           {selected ? selected.label : placeholder}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
+      <PopoverContent
+        className="z-[110] w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-2rem)] p-0"
+        align="start"
+      >
         <Command>
           <CommandInput placeholder="Search..." />
           <CommandList>
