@@ -110,6 +110,20 @@ export interface BusinessFile {
   bpo_forwarded_at?: string | null;
 }
 
+export interface BusinessReviewActionBody {
+  action: 'RI' | 'A' | 'MU' | 'HO' | 'CA';
+  allocated_to?: string;
+  product: 'T' | 'S' | 'AS';
+  comments: string;
+  county_code?: string;
+  nid?: string;
+  pin_no?: string;
+  business_type?: string;
+  business?: string;
+  card_type?: string;
+  pay_mode?: string;
+}
+
 export interface BusinessNote {
   note_id: number;
   file_no: string;
@@ -200,6 +214,8 @@ export const misApi = {
     put<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}`, body),
   businessDelete: (fileNo: string) =>
     del<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}`),
+  businessReviewAction: (fileNo: string, body: BusinessReviewActionBody) =>
+    post<ApiResponse<{ file_status: string; work_item_id: number }>>(`/business/${encodeURIComponent(fileNo)}/review-action`, body),
   businessForward: (fileNo: string, body?: { to_user?: string; comments?: string }) =>
     post<ApiResponse<{ new_status: string; queue_name: 'BPO_REVIEW'; work_item_id?: number; already_routed: boolean }>>(`/business/${encodeURIComponent(fileNo)}/forward`, body),
   businessAllocate: (fileNo: string, allocated_to: string) =>

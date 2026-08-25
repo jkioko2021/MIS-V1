@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { query, queryOne, withTransaction, txQuery } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
-import { requireBpoForwardAccess, requireBusinessDeleteAccess, requireBusinessFileAccess, requireBusinessTrackingAccess } from "../lib/business-permissions";
+import { requireBpoForwardAccess, requireBpoReviewAccess, requireBusinessDeleteAccess, requireBusinessFileAccess, requireBusinessTrackingAccess } from "../lib/business-permissions";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -19,6 +19,8 @@ const CARD_TYPES = new Set(["MTIBA", "SMART"]);
 const GI_CATEGORIES = new Set(["Non_Motor", "Motor"]);
 const CORPORATE_CATEGORIES = new Set(["Public", "Private"]);
 const WALK_IN_DEPARTMENTS = ["MEMBERSHIP", "NONMEDICAL"];
+const BPO_REVIEW_ACTIONS = new Set(["RI", "A", "MU", "HO", "CA"]);
+const BPO_PRODUCTS = new Set(["T", "S", "AS"]);
 
 interface BusinessInput {
   client_type?: unknown;
@@ -607,7 +609,7 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
           alreadyRouted: true,
         };
       }
-      if (file.file_status !== "REGISTERED" || file.forwarded) throw new Error("FORWARD_NOT_ALLOWED");
+      if (!["REGISTERED", "RETURNED-INCOMPLETE"].includes(file.file_status) || file.forwarded) throw new Error("FORWARD_NOT_ALLOWED");
       const [selectedDocuments] = await txQuery<{ selected_count: string; missing_upload_count: string }>(
         client,
         `SELECT
@@ -638,7 +640,7 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
         updateSql = `UPDATE crm.business_tracking SET
           forwarded=TRUE, is_complete=TRUE, ready_for_update=FALSE,
           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
-          WHERE file_no=$3 AND is_active=TRUE AND file_status='REGISTERED' AND forwarded=FALSE
+          WHERE file_no=$3 AND is_active=TRUE AND file_status IN ('REGISTERED', 'RETURNED-INCOMPLETE') AND forwarded=FALSE
           RETURNING file_no`;
         updateParams = [newStatus, req.user!.username, fileNo];
       } else if (file.allocated && file.benefit_verified === "NO") {
@@ -646,7 +648,7 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
         updateSql = `UPDATE crm.business_tracking SET
           forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
-          WHERE file_no=$3 AND is_active=TRUE AND file_status='REGISTERED' AND forwarded=FALSE
+          WHERE file_no=$3 AND is_active=TRUE AND file_status IN ('REGISTERED', 'RETURNED-INCOMPLETE') AND forwarded=FALSE
           RETURNING file_no`;
         updateParams = [newStatus, req.user!.username, fileNo];
       } else if (file.allocated && file.benefit_verified !== "NO" && !file.invoiced) {
@@ -654,7 +656,7 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
         updateSql = `UPDATE crm.business_tracking SET
           forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
-          WHERE file_no=$3 AND is_active=TRUE AND file_status='REGISTERED' AND forwarded=FALSE
+          WHERE file_no=$3 AND is_active=TRUE AND file_status IN ('REGISTERED', 'RETURNED-INCOMPLETE') AND forwarded=FALSE
           RETURNING file_no`;
         updateParams = [newStatus, req.user!.username, fileNo];
       } else if (file.invoiced) {
@@ -662,7 +664,7 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
         updateSql = `UPDATE crm.business_tracking SET
           forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
-          WHERE file_no=$3 AND is_active=TRUE AND file_status='REGISTERED' AND forwarded=FALSE
+          WHERE file_no=$3 AND is_active=TRUE AND file_status IN ('REGISTERED', 'RETURNED-INCOMPLETE') AND forwarded=FALSE
           RETURNING file_no`;
         updateParams = [newStatus, req.user!.username, fileNo];
       } else if (file.walk_in_client === "Y" && assignedTo) {
@@ -672,7 +674,7 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
           benefit_verified='YES', walk_in_client='Y',
           allocated_to=$1, allocate_dt=NOW(),
           file_status=$2, forward_date=NOW(), forwarded_by=$3, updated_at=NOW()
-          WHERE file_no=$4 AND is_active=TRUE AND file_status='REGISTERED' AND forwarded=FALSE
+          WHERE file_no=$4 AND is_active=TRUE AND file_status IN ('REGISTERED', 'RETURNED-INCOMPLETE') AND forwarded=FALSE
           RETURNING file_no`;
         updateParams = [assignedTo, newStatus, req.user!.username, fileNo];
       } else {
@@ -680,7 +682,7 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
         updateSql = `UPDATE crm.business_tracking SET
           forwarded=TRUE, is_complete=TRUE, allocated=FALSE, ready_for_update=TRUE,
           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
-          WHERE file_no=$3 AND is_active=TRUE AND file_status='REGISTERED' AND forwarded=FALSE
+          WHERE file_no=$3 AND is_active=TRUE AND file_status IN ('REGISTERED', 'RETURNED-INCOMPLETE') AND forwarded=FALSE
           RETURNING file_no`;
         updateParams = [newStatus, req.user!.username, fileNo];
       }
@@ -737,7 +739,7 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
       return;
     }
     if (err instanceof Error && err.message === "FORWARD_NOT_ALLOWED") {
-      res.status(409).json({ ok: false, error: "Only an active unforwarded REGISTERED file can be forwarded." });
+        res.status(409).json({ ok: false, error: "Only an active unforwarded REGISTERED or RETURNED-INCOMPLETE file can be forwarded." });
       return;
     }
     if (err instanceof Error && err.message === "NO_DOCUMENTS_SELECTED") {
@@ -755,6 +757,148 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
 // The remaining file-scoped endpoints must not expose a BPO-held record to
 // Register, Finance, Dispatch, or other non-BPO operational profiles.
 router.use("/business/:fileNo", requireBusinessFileAccess);
+
+// ─── POST /business/:fileNo/review-action ────────────────────────────────────
+// The BPO decision, its handover note, audit entry, file state, and work-item
+// completion must succeed or fail together. This prevents a file from leaving
+// BPO without an accountable decision trail.
+router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (req: Request, res: Response) => {
+  const { fileNo } = req.params;
+  const { action, allocated_to, product, comments } = req.body as {
+    action?: string;
+    allocated_to?: string;
+    product?: string;
+    comments?: string;
+  };
+  const requestedAction = text(action);
+  const allocatedTo = text(allocated_to);
+  const selectedProduct = text(product);
+  const note = text(comments);
+
+  if (!BPO_REVIEW_ACTIONS.has(requestedAction)) {
+    res.status(400).json({ ok: false, error: "Select a valid BPO action." });
+    return;
+  }
+  if (!BPO_PRODUCTS.has(selectedProduct)) {
+    res.status(400).json({ ok: false, error: "Select a valid product." });
+    return;
+  }
+  if (!note) {
+    res.status(400).json({ ok: false, error: "Short notes are required for a BPO decision." });
+    return;
+  }
+  if (requestedAction === "A" && !allocatedTo) {
+    res.status(400).json({ ok: false, error: "Select a Membership Admin for allocation." });
+    return;
+  }
+  if (requestedAction === "A") {
+    const staffError = await walkInStaffValidationError(allocatedTo, "");
+    if (staffError) {
+      res.status(400).json({ ok: false, error: staffError });
+      return;
+    }
+  }
+
+  const statusByAction: Record<string, string> = {
+    A: "ALLOCATED",
+    RI: "RETURNED-INCOMPLETE",
+    MU: "MEDICAL UW-REVIEW",
+    HO: "ON HOLD",
+    CA: "CASHIER",
+  };
+  const productLabel: Record<string, string> = {
+    T: "Traditional",
+    S: "Shwaari",
+    AS: "Afya Shwaari",
+  };
+
+  try {
+    const result = await withTransaction(async (client) => {
+      await txQuery(client, "SELECT pg_advisory_xact_lock(hashtext($1))", [fileNo]);
+      const [file] = await txQuery<{ file_no: string; is_active: boolean }>(
+        client,
+        `SELECT file_no, is_active
+         FROM crm.business_tracking
+         WHERE file_no=$1
+         FOR UPDATE`,
+        [fileNo],
+      );
+      if (!file?.is_active) throw new Error("FILE_NOT_FOUND");
+
+      const [workItem] = await txQuery<{ work_item_id: number }>(
+        client,
+        `SELECT work_item_id
+         FROM crm.business_work_items
+         WHERE file_no=$1
+           AND queue_name='BPO_REVIEW'
+           AND work_status='OPEN'
+         FOR UPDATE`,
+        [fileNo],
+      );
+      if (!workItem) throw new Error("BPO_WORK_ITEM_NOT_OPEN");
+
+      const newStatus = statusByAction[requestedAction];
+      const returnIncomplete = requestedAction === "RI";
+      const allocated = requestedAction === "A";
+      await txQuery(
+        client,
+        `UPDATE crm.business_tracking
+         SET file_status=$1,
+             forwarded=CASE WHEN $2 THEN FALSE ELSE forwarded END,
+             allocated=$3,
+             allocated_to=CASE WHEN $3 THEN $4 ELSE NULL END,
+             allocate_dt=CASE WHEN $3 THEN NOW() ELSE allocate_dt END,
+             is_complete=CASE WHEN $2 THEN FALSE ELSE is_complete END,
+             ready_for_update=CASE WHEN $2 OR $5 THEN FALSE ELSE TRUE END,
+             updated_at=NOW()
+         WHERE file_no=$6
+           AND is_active=TRUE`,
+        [newStatus, returnIncomplete, allocated, allocatedTo || null, requestedAction === "HO", fileNo],
+      );
+
+      await txQuery(
+        client,
+        `UPDATE crm.business_work_items
+         SET work_status='COMPLETED', updated_at=NOW()
+         WHERE work_item_id=$1`,
+        [workItem.work_item_id],
+      );
+
+      const target = allocatedTo ? `; forwarded to ${allocatedTo}` : "";
+      const noteText = `BPO ${requestedAction} · ${productLabel[selectedProduct]}${target}: ${note}`;
+      await txQuery(
+        client,
+        `INSERT INTO crm.business_tracking_notes (file_no, note_from, notes, note_date, is_active)
+         VALUES ($1,$2,$3,NOW(),TRUE)`,
+        [fileNo, req.user!.username, noteText],
+      );
+      await txQuery(
+        client,
+        `INSERT INTO crm.admin_audit_trail (username, action_type, description)
+         VALUES ($1,$2,$3)`,
+        [
+          req.user!.username,
+          `BT_BPO_${requestedAction}`,
+          `BPO review completed for ${fileNo}: ${productLabel[selectedProduct]}, ${newStatus}${target}. Notes: ${note}`,
+        ],
+      );
+
+      return { file_status: newStatus, work_item_id: workItem.work_item_id };
+    });
+
+    res.json({ ok: true, data: result });
+  } catch (err) {
+    if (err instanceof Error && err.message === "FILE_NOT_FOUND") {
+      res.status(404).json({ ok: false, error: "File not found." });
+      return;
+    }
+    if (err instanceof Error && err.message === "BPO_WORK_ITEM_NOT_OPEN") {
+      res.status(409).json({ ok: false, error: "This BPO work item is no longer open." });
+      return;
+    }
+    handleError(res, err, "complete BPO review action");
+  }
+});
 
 // ─── POST /business/:fileNo/notes ────────────────────────────────────────────
 router.post("/business/:fileNo/notes", async (req: Request, res: Response) => {

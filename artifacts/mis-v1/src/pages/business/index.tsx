@@ -36,6 +36,8 @@ import {
   Check, ChevronsUpDown, ArrowUpDown, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BpoReviewQueue } from './bpo-review-queue';
+import { BpoReviewSheet } from './bpo-review-sheet';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STATUS_COLOURS: Record<string, string> = {
@@ -1598,7 +1600,7 @@ export default function BusinessTrackingPage() {
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
-              {ct === 'ALL' ? 'All Files' : ct === 'R' ? '👤 Retail' : ct === 'S' ? '🏢 SME' : '🏢 Corporate'}
+              {ct === 'ALL' ? 'All Files' : ct === 'R' ? 'Retail' : ct === 'S' ? 'SME' : 'Corporate'}
               {ct === 'R' && <span className="ml-1.5 text-xs text-muted-foreground">({retail})</span>}
               {ct === 'S' && <span className="ml-1.5 text-xs text-muted-foreground">({sme})</span>}
               {ct === 'C' && <span className="ml-1.5 text-xs text-muted-foreground">({corporate})</span>}
@@ -1667,36 +1669,48 @@ export default function BusinessTrackingPage() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="rounded-lg border overflow-x-auto">
-        <table className="w-full min-w-[940px] text-sm">
-          <thead>
-            <tr className="bg-muted/40 border-b text-xs text-muted-foreground">
-              {[
-                { key: 'file_no', label: 'File No', align: 'text-left' },
-                { key: 'proposer_name', label: 'Proposer', align: 'text-left' },
-                { key: 'client_type', label: 'Type', align: 'text-left' },
-                { key: 'business_type', label: 'Action', align: 'text-left' },
-                { key: 'file_status', label: 'Status', align: 'text-left' },
-                { key: queue === 'bpo-review' ? 'bpo_assigned_to' : 'agent_name', label: queue === 'bpo-review' ? 'BPO Reviewer' : 'Agent', align: 'text-left' },
-                { key: 'paid_amt', label: 'Paid', align: 'text-right' },
-                { key: 'receive_dt', label: 'Received', align: 'text-left' },
-                { key: 'note_count', label: 'Notes', align: 'text-left' },
-              ].map(column => (
-                <th key={column.key} className={`${column.align} px-3 py-2.5 font-medium`}>
-                  <button
-                    type="button"
-                    onClick={() => toggleSort(column.key)}
-                    className={cn('inline-flex items-center gap-1 hover:text-foreground', column.align === 'text-right' && 'ml-auto')}
-                  >
-                    {column.label}
-                    <ArrowUpDown className={cn('w-3 h-3', sortBy === column.key ? 'text-primary' : 'opacity-40')} />
-                  </button>
-                </th>
-              ))}
-              <th className="px-3 py-2.5" />
-            </tr>
-          </thead>
+      {/* Main Content Area */}
+      {queue === 'bpo-review' ? (
+        <BpoReviewQueue
+          files={files}
+          isLoading={isLoading}
+          isError={isError}
+          error={error}
+          refetch={refetch}
+          onSelectFile={openEdit}
+          sortBy={sortBy}
+          toggleSort={toggleSort}
+        />
+      ) : (
+        <div className="rounded-lg border overflow-x-auto bg-card shadow-sm">
+          <table className="w-full min-w-[940px] text-sm">
+            <thead>
+              <tr className="bg-muted/40 border-b text-xs text-muted-foreground uppercase tracking-wider">
+                {[
+                  { key: 'file_no', label: 'File No', align: 'text-left' },
+                  { key: 'proposer_name', label: 'Proposer', align: 'text-left' },
+                  { key: 'client_type', label: 'Type', align: 'text-left' },
+                  { key: 'business_type', label: 'Action', align: 'text-left' },
+                  { key: 'file_status', label: 'Status', align: 'text-left' },
+                  { key: 'agent_name', label: 'Agent', align: 'text-left' },
+                  { key: 'paid_amt', label: 'Paid', align: 'text-right' },
+                  { key: 'receive_dt', label: 'Received', align: 'text-left' },
+                  { key: 'note_count', label: 'Notes', align: 'text-left' },
+                ].map(column => (
+                  <th key={column.key} className={`${column.align} px-3 py-3 font-semibold`}>
+                    <button
+                      type="button"
+                      onClick={() => toggleSort(column.key)}
+                      className={cn('inline-flex items-center gap-1 hover:text-foreground', column.align === 'text-right' && 'ml-auto')}
+                    >
+                      {column.label}
+                      <ArrowUpDown className={cn('w-3 h-3', sortBy === column.key ? 'text-primary' : 'opacity-30')} />
+                    </button>
+                  </th>
+                ))}
+                <th className="px-3 py-3" />
+              </tr>
+            </thead>
           <tbody>
             {isLoading ? (
               Array.from({ length: 8 }).map((_, i) => (
@@ -1757,7 +1771,7 @@ export default function BusinessTrackingPage() {
                 </td>
                 <td className="px-3 py-2.5"><StatusBadge status={f.file_status} /></td>
                 <td className="px-3 py-2.5 text-xs text-muted-foreground max-w-[120px] truncate">
-                  {queue === 'bpo-review' ? (f.bpo_assigned_to ?? 'Unassigned') : (f.agent_name ?? '—')}
+                  {f.agent_name ?? '—'}
                 </td>
                 <td className="px-3 py-2.5 text-right text-xs font-medium">
                   {f.paid_amt != null ? fmt(f.paid_amt) : '—'}
@@ -1797,6 +1811,7 @@ export default function BusinessTrackingPage() {
           </tbody>
         </table>
       </div>
+      )}
 
       {/* File count footer */}
       {!isLoading && !isError && (
@@ -1847,18 +1862,26 @@ export default function BusinessTrackingPage() {
 
       {/* Sheet */}
       {sheet.mode !== 'closed' && (
-        <BusinessSheet
-          key={sheet.mode === 'register' ? `register-${sheet.clientType}` : sheet.fileNo}
-          mode={sheet.mode}
-          fileNo={sheet.fileNo}
-          initialClientType={sheet.clientType ?? (clientTab === 'ALL' ? 'R' : clientTab)}
-          onClose={closeSheet}
-          onSaved={(fn) => {
-            closeSheet();
-            qc.invalidateQueries({ queryKey: ['business'] });
-            setSheet({ mode: 'edit', fileNo: fn });
-          }}
-        />
+        queue === 'bpo-review' && sheet.fileNo ? (
+          <BpoReviewSheet
+            key={sheet.fileNo}
+            fileNo={sheet.fileNo}
+            onClose={closeSheet}
+          />
+        ) : (
+          <BusinessSheet
+            key={sheet.mode === 'register' ? `register-${sheet.clientType}` : sheet.fileNo}
+            mode={sheet.mode}
+            fileNo={sheet.fileNo}
+            initialClientType={sheet.clientType ?? (clientTab === 'ALL' ? 'R' : clientTab as TrackingClientType)}
+            onClose={closeSheet}
+            onSaved={(fn) => {
+              closeSheet();
+              qc.invalidateQueries({ queryKey: ['business'] });
+              setSheet({ mode: 'edit', fileNo: fn });
+            }}
+          />
+        )
       )}
 
       <AlertDialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>

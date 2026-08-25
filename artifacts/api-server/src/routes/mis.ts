@@ -58,7 +58,9 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
     if (business) { conditions.push(`bt.business = $${p++}`); params.push(business); }
     if (entered_by) { conditions.push(`bt.entered_by = $${p++}`); params.push(entered_by); }
     if (queue === "register") {
-      conditions.push(`bt.file_status = 'REGISTERED'`);
+      // Returned files go back to their originating registration workflow for
+      // correction, document review, and a fresh BPO handover.
+      conditions.push(`bt.file_status IN ('REGISTERED', 'RETURNED-INCOMPLETE')`);
     } else if (queue === "bpo-review") {
       conditions.push(`wi.work_status = 'OPEN'`);
     } else if (!res.locals.canAccessBpoReview) {
