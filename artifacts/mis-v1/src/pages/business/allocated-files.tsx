@@ -1026,7 +1026,7 @@ export default function AllocatedFilesPage() {
                 }}
                 className="h-9 rounded-md border border-[#cbded9] bg-[#f7faf8] px-2 text-sm"
               >
-                <option value="P">Proposer</option>
+                <option value="P">Proposer Name</option>
                 <option value="F">File No.</option>
               </select>
               <Button data-testid="button-search-allocated" size="sm" onClick={applySearch}>
@@ -1163,7 +1163,21 @@ export default function AllocatedFilesPage() {
                       <td className="px-4 py-4 text-xs">{PRODUCT_LABELS[file.product ?? ''] ?? file.product ?? '—'}</td>
                       <td className="px-4 py-4 text-xs font-medium">{file.allocated_to || '—'}</td>
                       <td className="px-4 py-4"><span data-testid={`status-${file.file_no}`} className={`rounded-full border px-2 py-1 text-xs font-medium ${statusClass(file.file_status)}`}>{file.file_status}</span></td>
-                      <td className="px-4 py-4 text-right text-xs font-bold text-primary opacity-0 transition-opacity group-hover:opacity-100">Open</td>
+                       <td className="px-4 py-4 text-right">
+                         <Button
+                           type="button"
+                           size="sm"
+                           variant="outline"
+                           data-testid={`button-open-allocated-${file.file_no}`}
+                           onClick={event => {
+                             event.stopPropagation();
+                             setSelectedFile(file.file_no);
+                           }}
+                           className="h-8 border-[#a8d1ca] bg-[#f7fbfa] text-xs text-[#28746e] hover:bg-[#e5f3ef]"
+                         >
+                           Open
+                         </Button>
+                       </td>
                     </tr>
                   ))
                 )}
