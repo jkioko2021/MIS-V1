@@ -3,6 +3,7 @@ import { query, queryOne } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
 import { requireAllocatedFileReadAccess, requireBpoAllocatedAccess, requireBpoQueueAccess, requireBusinessFileAccess, requireBusinessTrackingAccess, setBpoReviewAccess } from "../lib/business-permissions";
 import { logger } from "../lib/logger";
+import { getPool, sql } from "../lib/sqlserver";
 
 const router = Router();
 
@@ -232,20 +233,7 @@ router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res
       ? "bt.walk_in_client DESC, bt.allocate_dt ASC NULLS LAST, bt.file_no ASC"
       : `${sortColumn} ${sortDirection} NULLS LAST, bt.file_no ASC`;
 
-    const refundSummaryConditions = [
-      "bt.is_active = TRUE",
-      "bt.allocated = TRUE",
-      "bt.file_status = 'ALLOCATED'",
-      "bt.business_type = 'PR'",
-    ];
-    const refundSummaryParams: unknown[] = [];
-    if (!isSuperAdmin) {
-      refundSummaryConditions.push(`bt.allocated_to = $1`);
-      refundSummaryParams.push(req.user!.username);
-    }
-    const refundSummaryWhere = `WHERE ${refundSummaryConditions.join(" AND ")}`;
-
-    const [rows, totalRow, refundSummary] = await Promise.all([
+    const [rows, totalRow] = await Promise.all([
       query(`
         SELECT
           bt.*,
@@ -268,18 +256,6 @@ router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res
         FROM crm.business_tracking bt
         ${where}
       `, params),
-      queryOne<{
-        allocated_count: number;
-        allocated_admin_count: number;
-        oldest_allocation_date: string | null;
-      }>(`
-        SELECT
-          COUNT(*)::int AS allocated_count,
-          COUNT(DISTINCT NULLIF(bt.allocated_to, ''))::int AS allocated_admin_count,
-          MIN(bt.allocate_dt) AS oldest_allocation_date
-        FROM crm.business_tracking bt
-        ${refundSummaryWhere}
-      `, refundSummaryParams),
     ]);
 
     res.json({
@@ -288,15 +264,98 @@ router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res
       total: totalRow?.total ?? 0,
       page,
       page_size: pageSize,
-      refund_summary: {
-        allocated_count: refundSummary?.allocated_count ?? 0,
-        allocated_admin_count: refundSummary?.allocated_admin_count ?? 0,
-        oldest_allocation_date: refundSummary?.oldest_allocation_date ?? null,
-      },
     });
   } catch (err: unknown) {
     logger.error({ err, employeeId: req.user?.sub }, "Allocated business list failed");
     res.status(500).json({ ok: false, error: "Unable to load your allocated business files." });
+  }
+});
+
+function decimalOrNull(value: unknown): number | null {
+  if (value == null || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+// The refund ledger remains in the legacy CRM database. This route is read-only
+// and applies the same ownership boundary as the modern allocation queue.
+router.get("/mis/business/allocated/refunds-summary", requireBpoAllocatedAccess, async (req, res) => {
+  try {
+    const isSuperAdmin = req.user?.profileId === 1;
+    const pool = await getPool("CRM");
+    const result = await pool.request()
+      .input("username", sql.VarChar(200), req.user?.username ?? "")
+      .input("isSuperAdmin", sql.Bit, isSuperAdmin)
+      .query(`
+        SELECT
+          Refund_No AS refund_no,
+          File_No AS file_no,
+          Amount_Paid AS amount_paid,
+          Refund_Amt AS refund_amount,
+          Payee_Name AS payee_name,
+          Payee_eMail AS payee_email,
+          Payee_Mobile AS payee_mobile,
+          Refund_Status AS refund_status,
+          Refund_Type AS refund_type,
+          Request_Dt AS request_date,
+          Entered_By AS entered_by,
+          Client_Type AS client_type,
+          Allocate_To AS allocated_to
+        FROM dbo.TBL_MIS_BUSINESS_TRACKING_REFUNDS
+        WHERE Requested = 1
+          AND Allocated = 1
+          AND Processed = 0
+          AND Is_Active = 1
+          AND (@isSuperAdmin = 1 OR Allocate_To = @username)
+        ORDER BY Request_Dt ASC, Refund_No ASC
+      `);
+
+    const refunds = result.recordset.map(row => ({
+      refund_no: String(row.refund_no ?? ""),
+      file_no: String(row.file_no ?? ""),
+      amount_paid: decimalOrNull(row.amount_paid),
+      refund_amount: decimalOrNull(row.refund_amount),
+      payee_name: row.payee_name == null ? null : String(row.payee_name),
+      payee_email: row.payee_email == null ? null : String(row.payee_email),
+      payee_mobile: row.payee_mobile == null ? null : String(row.payee_mobile),
+      refund_status: row.refund_status == null ? null : String(row.refund_status),
+      refund_type: row.refund_type == null ? null : String(row.refund_type),
+      request_date: row.request_date == null ? null : new Date(row.request_date).toISOString(),
+      entered_by: row.entered_by == null ? null : String(row.entered_by),
+      client_type: row.client_type == null ? null : String(row.client_type),
+      allocated_to: row.allocated_to == null ? null : String(row.allocated_to),
+    }));
+
+    const sum = (field: "amount_paid" | "refund_amount") => {
+      const values = refunds.map(refund => refund[field]).filter((value): value is number => value != null);
+      return values.length ? values.reduce((total, value) => total + value, 0) : null;
+    };
+
+    res.json({
+      ok: true,
+      data: {
+        available: true,
+        allocated_count: refunds.length,
+        allocated_admin_count: new Set(refunds.map(refund => refund.allocated_to).filter(Boolean)).size,
+        total_amount_paid: sum("amount_paid"),
+        total_refund_amount: sum("refund_amount"),
+        refunds,
+      },
+    });
+  } catch (err: unknown) {
+    logger.error({ err, employeeId: req.user?.sub }, "Legacy refund allocation summary unavailable");
+    res.json({
+      ok: true,
+      data: {
+        available: false,
+        message: "The legacy CRM refund ledger is unavailable. No refund amounts or payee details are shown.",
+        allocated_count: 0,
+        allocated_admin_count: 0,
+        total_amount_paid: null,
+        total_refund_amount: null,
+        refunds: [],
+      },
+    });
   }
 });
 

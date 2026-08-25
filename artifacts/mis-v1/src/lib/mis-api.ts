@@ -254,14 +254,30 @@ export interface BusinessSummary {
   byStatus: Array<{ file_status: string; count: number; premium: number }>;
 }
 
-export interface AllocatedRefundSummary {
-  allocated_count: number;
-  allocated_admin_count: number;
-  oldest_allocation_date: string | null;
+export interface AllocatedRefundLedgerRow {
+  refund_no: string;
+  file_no: string;
+  amount_paid: number | null;
+  refund_amount: number | null;
+  payee_name: string | null;
+  payee_email: string | null;
+  payee_mobile: string | null;
+  refund_status: string | null;
+  refund_type: string | null;
+  request_date: string | null;
+  entered_by: string | null;
+  client_type: string | null;
+  allocated_to: string | null;
 }
 
-export interface AllocatedBusinessResponse extends ApiResponse<BusinessFile[]> {
-  refund_summary?: AllocatedRefundSummary;
+export interface AllocatedRefundLedgerSummary {
+  available: boolean;
+  message?: string;
+  allocated_count: number;
+  allocated_admin_count: number;
+  total_amount_paid: number | null;
+  total_refund_amount: number | null;
+  refunds: AllocatedRefundLedgerRow[];
 }
 
 export const misApi = {
@@ -270,7 +286,7 @@ export const misApi = {
 
   // Business tracking - reads
   business:        (params?: Record<string, string>) => get<ApiResponse<BusinessFile[]>>('/mis/business', params),
-  businessAllocated: (params?: Record<string, string>) => get<AllocatedBusinessResponse>('/mis/business/allocated', params),
+  businessAllocated: (params?: Record<string, string>) => get<ApiResponse<BusinessFile[]>>('/mis/business/allocated', params),
   businessAllocatedFile: (fileNo: string) => get<ApiResponse<BusinessFile & { notes: BusinessNote[]; docs: BusinessDoc[] }>>(`/mis/business/allocated/${encodeURIComponent(fileNo)}`),
   businessFile:    (fileNo: string) => get<ApiResponse<BusinessFile & { notes: BusinessNote[]; docs: BusinessDoc[] }>>(`/mis/business/${encodeURIComponent(fileNo)}`),
   businessSummary: () => get<ApiResponse<BusinessSummary>>('/mis/business/summary/counts'),
@@ -294,6 +310,8 @@ export const misApi = {
     post<ApiResponse<{ file_status: string; work_item_id?: number; queue_name: string; team_name: string }>>(`/business/${encodeURIComponent(fileNo)}/allocation-action`, body),
   businessAllocatedActionOptions: () =>
     get<ApiResponse<AllocatedFileActionOption[]>>('/business/allocated/action-options'),
+  businessAllocatedRefundsSummary: () =>
+    get<ApiResponse<AllocatedRefundLedgerSummary>>('/mis/business/allocated/refunds-summary'),
   allocationDestination: (action: AllocatedFileActionBody['action']) =>
     get<ApiResponse<AllocationDestination>>('/business/allocation-destinations', { action }),
   businessAllocatedAmlStatus: (fileNo: string) =>
