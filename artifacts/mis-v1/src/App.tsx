@@ -56,9 +56,10 @@ const NAV_SECTIONS: Array<{
         label: 'Business Tracking',
         icon: FileText,
         children: [
+          { href: '/business', label: 'Register Queue', icon: FileText },
           { href: '/business/bpo-retail', label: 'BPO Review-Retail', icon: FileText, bpoReviewOnly: true },
-          { href: '/business/bpo-corporate-sme', label: 'BPO Review Corporate/SME', icon: FileText, bpoReviewOnly: true },
-          { href: '/business/allocated', label: 'Allocated Files', icon: FileText, bpoOnly: true },
+          { href: '/business/bpo-corporate-sme', label: 'BPO Review-Corporates/SME', icon: FileText, bpoReviewOnly: true },
+          { href: '/business/allocated', label: 'Allocation Files', icon: FileText, bpoOnly: true },
         ],
       },
       { href: '/risk',      label: 'Risk Register',     icon: Shield },
@@ -140,7 +141,8 @@ function Sidebar() {
                     {visibleChildren.length > 0 && (
                       <div className="ml-5 border-l border-border/70 pl-2">
                         {visibleChildren.map(child => {
-                          const childActive = location === child.href || location.startsWith(`${child.href}/`);
+                          const childActive = location === child.href
+                            || (child.href !== '/business' && location.startsWith(`${child.href}/`));
                           const ChildIcon = child.icon;
                           return (
                             <Link
