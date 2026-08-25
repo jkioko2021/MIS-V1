@@ -26,3 +26,11 @@ Retail and Corporate/SME work must use distinct canonical work queues, derived f
 **Why:** A queue-name-only migration can silently strand Corporate/SME work in Retail, while a client-side queue filter is not access control. The status allowlist must also retain every server-supported BPO destination, including Retail Hold and Cashier.
 
 **How to apply:** Map `R` to the Retail queue and `S`/`C` to the Corporate/SME queue on forward, review, list, permissions, and migration paths. Validate any supplied queue identifier against that derived value; do not trust a UI label or request field.
+
+## Forwarded-status invariant
+
+Every open BPO work item must have the original business file in `FORWARDED` status. A BPO decision may set a later status only as it completes and closes that work item.
+
+**Why:** BPO review is a handoff state, not a downstream processing state. Showing allocated, medical-review, cashier, or other final statuses inside an open review queue makes the queue ambiguous and breaks its operational meaning.
+
+**How to apply:** Set `FORWARDED` whenever opening or reopening BPO work, require `FORWARDED` when listing open BPO work, and normalize historic open records during migrations. Keep action-specific statuses on the completed side of the workflow.

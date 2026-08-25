@@ -78,6 +78,9 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
       conditions.push(`bt.file_status IN ('REGISTERED', 'RETURNED-INCOMPLETE')`);
     } else if (isBpoQueue) {
       conditions.push(`wi.work_status = 'OPEN'`);
+      // An open BPO work item represents a handoff awaiting review. Final
+      // business statuses are written only when the reviewer completes it.
+      conditions.push(`bt.file_status = 'FORWARDED'`);
       conditions.push(queue === "bpo-corporate-sme" ? `bt.client_type IN ('S', 'C')` : `bt.client_type = 'R'`);
     } else if (!res.locals.canAccessBpoReview) {
       // BPO-held files are not visible through the unfiltered/default list.

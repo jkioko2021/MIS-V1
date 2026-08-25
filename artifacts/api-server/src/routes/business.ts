@@ -655,12 +655,13 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
       if (Number(selectedDocuments?.selected_count ?? 0) === 0) throw new Error("NO_DOCUMENTS_SELECTED");
       if (Number(selectedDocuments?.missing_upload_count ?? 0) > 0) throw new Error("DOCS_PENDING");
 
-      let newStatus: string;
+      // An open BPO work item is always a forwarded file. Any subsequent BPO
+      // decision sets its own final status only after completing that work item.
+      const newStatus = "FORWARDED";
       let updateSql: string;
       let updateParams: unknown[];
 
       if (file.medical_uw && !file.allocated) {
-        newStatus = "MEDICAL UW-REVIEW";
         updateSql = `UPDATE crm.business_tracking SET
           forwarded=TRUE, is_complete=TRUE, ready_for_update=FALSE,
           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
@@ -668,7 +669,6 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
           RETURNING file_no`;
         updateParams = [newStatus, req.user!.username, fileNo];
       } else if (file.allocated && file.benefit_verified === "NO") {
-        newStatus = "BENEFIT VERIFICATION";
         updateSql = `UPDATE crm.business_tracking SET
           forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
@@ -676,7 +676,6 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
           RETURNING file_no`;
         updateParams = [newStatus, req.user!.username, fileNo];
       } else if (file.allocated && file.benefit_verified !== "NO" && !file.invoiced) {
-        newStatus = "ALLOCATED";
         updateSql = `UPDATE crm.business_tracking SET
           forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
@@ -684,7 +683,6 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
           RETURNING file_no`;
         updateParams = [newStatus, req.user!.username, fileNo];
       } else if (file.invoiced) {
-        newStatus = "INVOICED";
         updateSql = `UPDATE crm.business_tracking SET
           forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
@@ -692,7 +690,6 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
           RETURNING file_no`;
         updateParams = [newStatus, req.user!.username, fileNo];
       } else if (file.walk_in_client === "Y" && assignedTo) {
-        newStatus = "ALLOCATED";
         updateSql = `UPDATE crm.business_tracking SET
           forwarded=TRUE, is_complete=TRUE, allocated=TRUE, ready_for_update=TRUE,
           benefit_verified='YES', walk_in_client='Y',
@@ -702,7 +699,6 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
           RETURNING file_no`;
         updateParams = [assignedTo, newStatus, req.user!.username, fileNo];
       } else {
-        newStatus = "FORWARDED";
         updateSql = `UPDATE crm.business_tracking SET
           forwarded=TRUE, is_complete=TRUE, allocated=FALSE, ready_for_update=TRUE,
           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
