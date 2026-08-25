@@ -35,6 +35,8 @@ class BusinessRouteState {
       benefit_verified: "NO",
       product: null,
       to_pricing_dt: null,
+      invoice_no: null,
+      paid_status: null,
       allocated_to: null,
       allocate_dt: null,
       walk_in_client: "N",
@@ -188,6 +190,16 @@ class BusinessRouteState {
         invoiced: this.file.invoiced,
       }] : [];
     }
+    if (statement.startsWith("SELECT file_no, is_active, file_status, allocated, allocated_to, benefit_verified FROM crm.business_tracking")) {
+      return this.file?.is_active ? [{
+        file_no: this.file.file_no,
+        is_active: this.file.is_active,
+        file_status: this.file.file_status,
+        allocated: this.file.allocated,
+        allocated_to: this.file.allocated_to,
+        benefit_verified: this.file.benefit_verified,
+      }] : [];
+    }
     if (statement.startsWith("SELECT file_status, is_complete, allocated, forwarded, business")) {
       return this.file?.is_active ? [{
         file_status: this.file.file_status,
@@ -287,6 +299,21 @@ class BusinessRouteState {
       this.file.is_complete = params[2] ? false : this.file.is_complete;
       this.file.ready_for_update = params[2] || params[7] ? false : true;
       return [{ to_pricing_dt: this.file.to_pricing_dt }];
+    }
+    if (statement.startsWith("UPDATE crm.business_tracking SET file_status=$1,") && statement.includes("invoice_no=CASE WHEN")) {
+      const [newStatus, returnIncomplete, isCashier, invoiceNo, paidStatus] = params;
+      this.file.file_status = newStatus;
+      this.file.forwarded = returnIncomplete ? false : this.file.forwarded;
+      this.file.allocated = false;
+      this.file.allocated_to = null;
+      this.file.allocate_dt = null;
+      this.file.is_complete = returnIncomplete ? false : this.file.is_complete;
+      this.file.ready_for_update = returnIncomplete ? false : true;
+      if (isCashier) {
+        this.file.invoice_no = invoiceNo;
+        this.file.paid_status = paidStatus;
+      }
+      return [{ file_status: this.file.file_status }];
     }
     if (statement.startsWith("UPDATE crm.business_tracking") && statement.includes("forwarded=CASE WHEN")) {
       const [newStatus, returnIncomplete, allocated, allocatedTo, hold] = params;
@@ -781,4 +808,68 @@ test("SME Custom-rate allocations and queue mismatches keep existing BPO behavio
   assert.equal(mismatchResult.status, 409);
   assert.equal(retailState.file.product, null);
   assert.equal(retailState.workItems[0].work_status, "OPEN");
+});
+
+test("allocated-file Cashier handoff persists payment context and releases the allocation", async () => {
+  const state = new BusinessRouteState({ fileStatus: "ALLOCATED", forwarded: true });
+  state.file.allocated = true;
+  state.file.allocated_to = "business-entry";
+  state.file.allocate_dt = "2026-08-25T00:00:00.000Z";
+  state.file.benefit_verified = "YES";
+
+  const invalid = await withServer(
+    state,
+    (request) => request("POST", `${fileEndpoint(state.file.file_no)}/allocation-action`, {
+      action: "CA",
+      comments: "Ready for cashier.",
+      invoice_no: "too-short",
+      paid_status: "FULL-PAID",
+    }),
+  );
+  assert.equal(invalid.status, 400);
+  assert.equal(state.file.file_status, "ALLOCATED");
+  assert.equal(state.file.allocated, true);
+  assert.equal(state.notes.length, 0);
+
+  const result = await withServer(
+    state,
+    (request) => request("POST", `${fileEndpoint(state.file.file_no)}/allocation-action`, {
+      action: "CA",
+      comments: "Invoice attached and payment confirmed.",
+      invoice_no: "INV-20260825-00000001",
+      paid_status: "FULL-PAID",
+    }),
+  );
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.data.file_status, "CASHIER");
+  assert.equal(state.file.file_status, "CASHIER");
+  assert.equal(state.file.allocated, false);
+  assert.equal(state.file.allocated_to, null);
+  assert.equal(state.file.allocate_dt, null);
+  assert.equal(state.file.invoice_no, "INV-20260825-00000001");
+  assert.equal(state.file.paid_status, "FULL-PAID");
+  assert.match(state.notes.at(-1).notes, /Cashier handoff.*FULL-PAID/);
+  assert.equal(state.audits.at(-1).action_type, "BT_ALLOCATED_CA");
+});
+
+test("allocated-file actions require completed benefit verification", async () => {
+  const state = new BusinessRouteState({ fileStatus: "ALLOCATED", forwarded: true });
+  state.file.allocated = true;
+  state.file.allocated_to = "business-entry";
+  state.file.benefit_verified = "NO";
+
+  const result = await withServer(
+    state,
+    (request) => request("POST", `${fileEndpoint(state.file.file_no)}/allocation-action`, {
+      action: "RI",
+      comments: "Missing information.",
+    }),
+  );
+
+  assert.equal(result.status, 409);
+  assert.equal(state.file.file_status, "ALLOCATED");
+  assert.equal(state.file.allocated, true);
+  assert.equal(state.notes.length, 0);
+  assert.equal(state.audits.length, 0);
 });

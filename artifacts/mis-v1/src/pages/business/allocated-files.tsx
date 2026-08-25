@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, ArrowUpDown, CheckCircle2, Clock3, FileText, RefreshCw, Search, UserRound } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertCircle, ArrowUpDown, CheckCircle2, Clock3, FileText, RefreshCw, Search, SendHorizontal, UserRound } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/lib/auth-context';
+import { useToast } from '@/hooks/use-toast';
 import { misApi, type AuditEntry, type BusinessDoc, type BusinessFile, type BusinessNote, type BusinessUpload } from '@/lib/mis-api';
 import { cn } from '@/lib/utils';
 
@@ -77,6 +79,12 @@ type DetailedFile = BusinessFile & {
 
 function AllocatedFileSheet({ fileNo, onClose }: { fileNo: string; onClose: () => void }) {
   const [tab, setTab] = useState('summary');
+  const [action, setAction] = useState<'RI' | 'MU' | 'CA' | ''>('');
+  const [comments, setComments] = useState('');
+  const [invoiceNo, setInvoiceNo] = useState('');
+  const [paidStatus, setPaidStatus] = useState<'FULL-PAID' | 'PART-PAID' | 'NOT-PAID' | 'CR' | ''>('');
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { data: fileRes, isLoading, isError } = useQuery({
     queryKey: ['allocated-business-file', fileNo],
     queryFn: () => misApi.businessFile(fileNo),
@@ -98,6 +106,50 @@ function AllocatedFileSheet({ fileNo, onClose }: { fileNo: string; onClose: () =
   const history = (historyRes?.data ?? []) as AuditEntry[];
   const notes = file?.notes ?? [];
   const docs = file?.docs ?? [];
+  const isBenefitVerified = file?.benefit_verified === 'YES';
+
+  const actionMutation = useMutation({
+    mutationFn: () => misApi.businessAllocatedFileAction(fileNo, {
+      action: action as 'RI' | 'MU' | 'CA',
+      comments,
+      invoice_no: action === 'CA' ? invoiceNo : undefined,
+      paid_status: action === 'CA' ? paidStatus as 'FULL-PAID' | 'PART-PAID' | 'NOT-PAID' | 'CR' : undefined,
+    }),
+    onSuccess: async (response) => {
+      toast({
+        title: 'Allocation action completed',
+        description: `The file moved to ${response.data.file_status}.`,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['business-allocated'] }),
+        queryClient.invalidateQueries({ queryKey: ['allocated-business-file', fileNo] }),
+        queryClient.invalidateQueries({ queryKey: ['allocated-business-history', fileNo] }),
+        queryClient.invalidateQueries({ queryKey: ['business'] }),
+      ]);
+      onClose();
+    },
+    onError: (error) => toast({ title: 'Action failed', description: String(error), variant: 'destructive' }),
+  });
+
+  function submitAction() {
+    if (!action) {
+      toast({ title: 'Action required', description: 'Select the next operational destination.', variant: 'destructive' });
+      return;
+    }
+    if (!comments.trim()) {
+      toast({ title: 'Notes required', description: 'Add a short handover note before continuing.', variant: 'destructive' });
+      return;
+    }
+    if (action === 'CA' && (invoiceNo.trim().length < 20 || invoiceNo.trim().length > 25)) {
+      toast({ title: 'Invoice number required', description: 'Enter an invoice number between 20 and 25 characters.', variant: 'destructive' });
+      return;
+    }
+    if (action === 'CA' && !paidStatus) {
+      toast({ title: 'Payment status required', description: 'Select the payment status for the Cashier handoff.', variant: 'destructive' });
+      return;
+    }
+    actionMutation.mutate();
+  }
 
   return (
     <Sheet open={!!fileNo} onOpenChange={open => !open && onClose()}>
@@ -174,11 +226,79 @@ function AllocatedFileSheet({ fileNo, onClose }: { fileNo: string; onClose: () =
                   <div className="rounded-lg border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-950">
                     <div className="flex items-center gap-2 font-semibold">
                       <CheckCircle2 className="h-4 w-4" />
-                      Membership update queue
+                      Membership action
                     </div>
-                    <p className="mt-1 text-xs text-cyan-900/80">
-                      This is the original registration record allocated to the membership workflow. It is read-only here; operational updates continue through the authorized workflow.
-                    </p>
+                    {!isBenefitVerified ? (
+                      <p className="mt-1 text-xs text-cyan-900/80">
+                        Benefit verification must be complete before this file can be handed to Cashier, Medical UW, or returned for correction.
+                      </p>
+                    ) : (
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="allocated-action">Action</Label>
+                          <select
+                            id="allocated-action"
+                            value={action}
+                            onChange={event => setAction(event.target.value as 'RI' | 'MU' | 'CA' | '')}
+                            disabled={actionMutation.isPending}
+                            className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+                          >
+                            <option value="">Select an action…</option>
+                            <option value="CA">Cashier</option>
+                            <option value="MU">Medical UW</option>
+                            <option value="RI">Return Incomplete</option>
+                          </select>
+                        </div>
+                        {action === 'CA' && (
+                          <div className="space-y-1.5">
+                            <Label htmlFor="allocated-payment-status">Payment status</Label>
+                            <select
+                              id="allocated-payment-status"
+                              value={paidStatus}
+                              onChange={event => setPaidStatus(event.target.value as typeof paidStatus)}
+                              disabled={actionMutation.isPending}
+                              className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+                            >
+                              <option value="">Select payment status…</option>
+                              <option value="FULL-PAID">Full paid</option>
+                              <option value="PART-PAID">Part paid</option>
+                              <option value="NOT-PAID">Not paid</option>
+                              <option value="CR">Credit note</option>
+                            </select>
+                          </div>
+                        )}
+                        {action === 'CA' && (
+                          <div className="space-y-1.5 sm:col-span-2">
+                            <Label htmlFor="allocated-invoice-number">Invoice number</Label>
+                            <Input
+                              id="allocated-invoice-number"
+                              value={invoiceNo}
+                              onChange={event => setInvoiceNo(event.target.value)}
+                              disabled={actionMutation.isPending}
+                              maxLength={25}
+                              placeholder="20–25 character invoice number"
+                            />
+                          </div>
+                        )}
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label htmlFor="allocated-action-notes">Handover notes</Label>
+                          <Textarea
+                            id="allocated-action-notes"
+                            value={comments}
+                            onChange={event => setComments(event.target.value)}
+                            disabled={actionMutation.isPending}
+                            placeholder="Briefly explain the handover…"
+                            rows={3}
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <Button onClick={submitAction} disabled={actionMutation.isPending} className="gap-1.5">
+                            <SendHorizontal className="h-4 w-4" />
+                            {actionMutation.isPending ? 'Saving action…' : 'Confirm handover'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
 

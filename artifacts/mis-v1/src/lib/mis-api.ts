@@ -91,6 +91,9 @@ export interface BusinessFile {
   is_declined: boolean;
   pay_ref_no: string | null;
   paid_amt: number | null;
+  invoice_no?: string | null;
+  paid_status?: string | null;
+  invoice_date?: string | null;
   entered_by: string;
   created_at: string;
   updated_at: string;
@@ -127,6 +130,13 @@ export interface BusinessReviewActionBody {
   card_type?: string;
   pay_mode?: string;
   queue_name?: string;
+}
+
+export interface AllocatedFileActionBody {
+  action: 'RI' | 'MU' | 'CA';
+  comments: string;
+  invoice_no?: string;
+  paid_status?: 'FULL-PAID' | 'PART-PAID' | 'NOT-PAID' | 'CR';
 }
 
 export interface BusinessNote {
@@ -228,6 +238,8 @@ export const misApi = {
       allocation_route: 'STANDARD_ALLOCATION' | 'PRICING_HANDOFF';
       pricing_handoff_at: string | null;
     }>>(`/business/${encodeURIComponent(fileNo)}/review-action`, body),
+  businessAllocatedFileAction: (fileNo: string, body: AllocatedFileActionBody) =>
+    post<ApiResponse<{ file_status: string }>>(`/business/${encodeURIComponent(fileNo)}/allocation-action`, body),
   businessForward: (fileNo: string, body?: { to_user?: string; comments?: string }) =>
     post<ApiResponse<{ new_status: string; queue_name: 'BPO_REVIEW_RETAIL' | 'BPO_REVIEW_CORPORATE_SME'; work_item_id?: number; already_routed: boolean }>>(`/business/${encodeURIComponent(fileNo)}/forward`, body),
   businessAllocate: (fileNo: string, allocated_to: string) =>

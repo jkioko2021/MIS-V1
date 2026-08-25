@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { query, queryOne, withTransaction, txQuery } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
-import { requireBpoForwardAccess, requireBpoReviewAccess, requireBusinessDeleteAccess, requireBusinessFileAccess, requireBusinessTrackingAccess } from "../lib/business-permissions";
+import { requireBpoAllocatedAccess, requireBpoForwardAccess, requireBpoReviewAccess, requireBusinessDeleteAccess, requireBusinessFileAccess, requireBusinessTrackingAccess } from "../lib/business-permissions";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -23,6 +23,8 @@ const BPO_ADMIN_PROFILES = ["bpo", "bpo admin", "bpo review"];
 const BPO_REVIEW_ACTIONS = new Set(["RI", "A", "MU", "HO", "CA"]);
 const CORPORATE_SME_BPO_REVIEW_ACTIONS = new Set(["RI", "A", "MU", "CA"]);
 const BPO_PRODUCTS = new Set(["T", "S", "AS"]);
+const ALLOCATED_FILE_ACTIONS = new Set(["RI", "MU", "CA"]);
+const PAYMENT_STATUSES = new Set(["FULL-PAID", "PART-PAID", "NOT-PAID", "CR"]);
 
 function bpoQueueName(clientType: string): "BPO_REVIEW_RETAIL" | "BPO_REVIEW_CORPORATE_SME" {
   return clientType === "R" ? "BPO_REVIEW_RETAIL" : "BPO_REVIEW_CORPORATE_SME";
@@ -986,6 +988,145 @@ router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (re
       return;
     }
     handleError(res, err, "complete BPO review action");
+  }
+});
+
+// ─── POST /business/:fileNo/allocation-action ─────────────────────────────────
+// Membership administrators action only files that are currently assigned to
+// them.  The status change, allocation release, handover note, and audit entry
+// are kept in one transaction so a record never becomes unassigned without its
+// operational trail.
+router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, async (req: Request, res: Response): Promise<void> => {
+  const { fileNo } = req.params;
+  const { action, comments, invoice_no, paid_status } = req.body as {
+    action?: string;
+    comments?: string;
+    invoice_no?: string;
+    paid_status?: string;
+  };
+  const requestedAction = text(action);
+  const note = text(comments);
+  const invoiceNo = text(invoice_no);
+  const paidStatus = text(paid_status);
+  const isCashier = requestedAction === "CA";
+
+  if (!ALLOCATED_FILE_ACTIONS.has(requestedAction)) {
+    res.status(400).json({ ok: false, error: "Select a valid allocated-file action." });
+    return;
+  }
+  if (!note) {
+    res.status(400).json({ ok: false, error: "Short notes are required for an allocation action." });
+    return;
+  }
+  if (isCashier && (invoiceNo.length < 20 || invoiceNo.length > 25)) {
+    res.status(400).json({ ok: false, error: "Cashier handoff requires an invoice number between 20 and 25 characters." });
+    return;
+  }
+  if (isCashier && !PAYMENT_STATUSES.has(paidStatus)) {
+    res.status(400).json({ ok: false, error: "Select a valid payment status for the Cashier handoff." });
+    return;
+  }
+
+  const statusByAction: Record<string, string> = {
+    RI: "RETURNED-INCOMPLETE",
+    MU: "MEDICAL UW-REVIEW",
+    CA: "CASHIER",
+  };
+  const actionLabel: Record<string, string> = {
+    RI: "Return Incomplete",
+    MU: "Medical UW",
+    CA: "Cashier",
+  };
+
+  try {
+    const result = await withTransaction(async (client) => {
+      await txQuery(client, "SELECT pg_advisory_xact_lock(hashtext($1))", [fileNo]);
+      const [file] = await txQuery<{
+        file_no: string;
+        is_active: boolean;
+        file_status: string;
+        allocated: boolean;
+        allocated_to: string | null;
+        benefit_verified: string;
+      }>(
+        client,
+        `SELECT file_no, is_active, file_status, allocated, allocated_to, benefit_verified
+         FROM crm.business_tracking
+         WHERE file_no=$1
+         FOR UPDATE`,
+        [fileNo],
+      );
+      if (!file?.is_active) throw new Error("FILE_NOT_FOUND");
+      if (file.file_status !== "ALLOCATED" || !file.allocated) throw new Error("FILE_NOT_ALLOCATED");
+      if (file.benefit_verified !== "YES") throw new Error("BENEFIT_NOT_VERIFIED");
+
+      // SuperAdmin is allowed to resolve another administrator's file for
+      // oversight. Every other permitted profile can action only its own queue.
+      const isSuperAdmin = req.user?.profileId === 1;
+      if (!isSuperAdmin && file.allocated_to !== req.user!.username) throw new Error("FILE_NOT_ASSIGNED");
+
+      const returnIncomplete = requestedAction === "RI";
+      const [updatedFile] = await txQuery<{ file_status: string }>(
+        client,
+        `UPDATE crm.business_tracking
+         SET file_status=$1,
+             forwarded=CASE WHEN $2 THEN FALSE ELSE forwarded END,
+             allocated=FALSE,
+             allocated_to=NULL,
+             allocate_dt=NULL,
+             is_complete=CASE WHEN $2 THEN FALSE ELSE is_complete END,
+             ready_for_update=CASE WHEN $2 THEN FALSE ELSE TRUE END,
+             invoice_no=CASE WHEN $3 THEN $4 ELSE invoice_no END,
+             paid_status=CASE WHEN $3 THEN $5 ELSE paid_status END,
+             invoice_date=CASE WHEN $3 THEN NOW() ELSE invoice_date END,
+             updated_at=NOW()
+         WHERE file_no=$6
+           AND is_active=TRUE
+         RETURNING file_status`,
+        [statusByAction[requestedAction], returnIncomplete, isCashier, invoiceNo || null, paidStatus || null, fileNo],
+      );
+
+      const paymentDetail = isCashier ? `; invoice ${invoiceNo}; payment ${paidStatus}` : "";
+      const noteText = `Allocation ${actionLabel[requestedAction]} handoff${paymentDetail}: ${note}`;
+      await txQuery(
+        client,
+        `INSERT INTO crm.business_tracking_notes (file_no, note_from, notes, note_date, is_active)
+         VALUES ($1,$2,$3,NOW(),TRUE)`,
+        [fileNo, req.user!.username, noteText],
+      );
+      await txQuery(
+        client,
+        `INSERT INTO crm.admin_audit_trail (username, action_type, description)
+         VALUES ($1,$2,$3)`,
+        [
+          req.user!.username,
+          `BT_ALLOCATED_${requestedAction}`,
+          `${actionLabel[requestedAction]} handoff completed for ${fileNo}${paymentDetail}. Notes: ${note}`,
+        ],
+      );
+
+      return { file_status: updatedFile?.file_status ?? statusByAction[requestedAction] };
+    });
+
+    res.json({ ok: true, data: result });
+  } catch (err) {
+    if (err instanceof Error && err.message === "FILE_NOT_FOUND") {
+      res.status(404).json({ ok: false, error: "File not found." });
+      return;
+    }
+    if (err instanceof Error && err.message === "FILE_NOT_ALLOCATED") {
+      res.status(409).json({ ok: false, error: "This file is no longer in Allocation Files." });
+      return;
+    }
+    if (err instanceof Error && err.message === "BENEFIT_NOT_VERIFIED") {
+      res.status(409).json({ ok: false, error: "Benefit verification must be complete before an allocated-file action." });
+      return;
+    }
+    if (err instanceof Error && err.message === "FILE_NOT_ASSIGNED") {
+      res.status(403).json({ ok: false, error: "You can only action files allocated to your account." });
+      return;
+    }
+    handleError(res, err, "complete allocated-file action");
   }
 });
 

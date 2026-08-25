@@ -31,6 +31,7 @@ export const requireAuth = (req, _res, next) => {
 export const requireBusinessTrackingAccess = allow;
 export const requireBpoForwardAccess = allow;
 export const requireBpoReviewAccess = allow;
+export const requireBpoAllocatedAccess = allow;
 export const requireBusinessDeleteAccess = allow;
 export const requireBusinessFileAccess = allow;
 
