@@ -1,10 +1,13 @@
+import { Readable } from "node:stream";
 import { Router, type Request, type Response } from "express";
 import { query, queryOne, withTransaction, txQuery } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
-import { requireBpoAllocatedAccess, requireBpoForwardAccess, requireBpoReviewAccess, requireBusinessDeleteAccess, requireBusinessFileAccess, requireBusinessTrackingAccess } from "../lib/business-permissions";
+import { requireAllocatedFileReadAccess, requireBpoAllocatedAccess, requireBpoForwardAccess, requireBpoReviewAccess, requireBusinessDeleteAccess, requireBusinessFileAccess, requireBusinessTrackingAccess } from "../lib/business-permissions";
 import { logger } from "../lib/logger";
+import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage";
 
 const router = Router();
+const objectStorageService = new ObjectStorageService();
 
 function handleError(res: Response, err: unknown, ctx: string) {
   logger.error({ err, ctx }, "Business route error");
@@ -779,6 +782,82 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
       return;
     }
     handleError(res, err, "forward file");
+  }
+});
+
+// The Allocation Files workspace has its own owner-or-SuperAdmin boundary.
+// These routes must be registered before the broad file-scoped middleware below.
+router.get("/business/allocated/:fileNo/uploads", requireAllocatedFileReadAccess, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const rows = await query<{
+      upload_id: number; req_id: number | null; filename: string;
+      filesize: number | null; mime_type: string | null;
+      storage_key: string; uploaded_by: string; uploaded_at: string;
+    }>(
+      `SELECT upload_id, req_id, filename, filesize, mime_type,
+              storage_key, uploaded_by, uploaded_at
+       FROM crm.business_uploads
+       WHERE file_no=$1 AND is_active=TRUE
+       ORDER BY uploaded_at DESC`,
+      [req.params.fileNo],
+    );
+    res.json({ ok: true, data: rows });
+  } catch (err) {
+    handleError(res, err, "list allocated uploads");
+  }
+});
+
+router.get("/business/allocated/:fileNo/history", requireAllocatedFileReadAccess, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const rows = await query<{
+      done_by: string; action: string; details: string; done_at: string;
+    }>(
+      `SELECT username AS done_by, action_type AS action, description AS details, created_at AS done_at
+       FROM crm.admin_audit_trail
+       WHERE description LIKE $1
+       ORDER BY created_at DESC
+       LIMIT 100`,
+      [`%${req.params.fileNo}%`],
+    );
+    res.json({ ok: true, data: rows });
+  } catch (err) {
+    handleError(res, err, "get allocated history");
+  }
+});
+
+router.get("/business/allocated/:fileNo/uploads/:uploadId/download", requireAllocatedFileReadAccess, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const upload = await queryOne<{
+      filename: string;
+      storage_key: string;
+    }>(
+      `SELECT filename, storage_key
+       FROM crm.business_uploads
+       WHERE file_no=$1 AND upload_id=$2 AND is_active=TRUE`,
+      [req.params.fileNo, Number(req.params.uploadId)],
+    );
+    if (!upload) {
+      res.status(404).json({ ok: false, error: "Document not found." });
+      return;
+    }
+
+    const objectFile = await objectStorageService.getObjectEntityFile(upload.storage_key);
+    const response = await objectStorageService.downloadObject(objectFile);
+    res.status(response.status);
+    response.headers.forEach((value, key) => res.setHeader(key, value));
+    res.setHeader("Content-Disposition", `inline; filename="${upload.filename.replaceAll('"', "")}"`);
+
+    if (response.body) {
+      Readable.fromWeb(response.body as ReadableStream<Uint8Array>).pipe(res);
+    } else {
+      res.end();
+    }
+  } catch (err) {
+    if (err instanceof ObjectNotFoundError) {
+      res.status(404).json({ ok: false, error: "Document not found." });
+      return;
+    }
+    handleError(res, err, "download allocated document");
   }
 });
 

@@ -16,3 +16,4 @@
 - [Sheet popover stacking](sheet-popover-stacking.md) — Portalled dropdowns inside sheets must layer above both the sheet and its overlay to remain visible
 - [BPO allocation schema](bpo-allocation-schema.md) — Verify BPO allocation columns are present in development before testing review-action handoffs
 - [Allocation handoff actions](allocation-handoff-actions.md) — Allocated files support only accountable Cashier, Medical UW, and return-for-correction outcomes
+- [Allocation record access](allocation-record-access.md) — Allocation detail, history, upload lists, and documents must enforce assigned-user or SuperAdmin access

@@ -103,6 +103,45 @@ export const requireBpoAllocatedAccess = requireBusinessProfile(
   "bpo_allocated_files",
 );
 
+// Allocation Files is a personal operational queue. A broad BPO profile is not
+// enough to expose a record: regular users may read only the active ALLOCATED
+// file assigned to their username, while SuperAdmin retains the oversight view.
+export async function requireAllocatedFileReadAccess(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const [profileName, file] = await Promise.all([
+      currentProfileName(req.user!.sub),
+      queryOne<{ allocated_to: string | null }>(
+        `SELECT allocated_to
+         FROM crm.business_tracking
+         WHERE file_no=$1
+           AND is_active=TRUE
+           AND allocated=TRUE
+           AND file_status='ALLOCATED'`,
+        [req.params.fileNo],
+      ),
+    ]);
+
+    if (!profileName || !BPO_ALLOCATED_PROFILES.has(profileKey(profileName))) {
+      logger.warn({ employeeId: req.user!.sub, fileNo: req.params.fileNo }, "Allocated file access denied");
+      res.status(403).json({ ok: false, error: "You do not have access to Allocation Files." });
+      return;
+    }
+    if (!file) {
+      res.status(404).json({ ok: false, error: "Allocated file not found." });
+      return;
+    }
+    if (req.user?.profileId !== 1 && file.allocated_to !== req.user!.username) {
+      logger.warn({ employeeId: req.user!.sub, fileNo: req.params.fileNo }, "Allocated file ownership denied");
+      res.status(403).json({ ok: false, error: "You can only view files allocated to your account." });
+      return;
+    }
+    next();
+  } catch (err) {
+    logger.error({ err, employeeId: req.user?.sub, fileNo: req.params.fileNo }, "Allocated file permission check failed");
+    res.status(500).json({ ok: false, error: "Unable to verify allocated file access." });
+  }
+}
+
 export const requireBusinessDeleteAccess = requireBusinessProfile(
   BUSINESS_DELETE_PROFILES,
   "delete_business_tracking",

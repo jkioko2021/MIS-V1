@@ -220,6 +220,7 @@ export const misApi = {
   // Business tracking - reads
   business:        (params?: Record<string, string>) => get<ApiResponse<BusinessFile[]>>('/mis/business', params),
   businessAllocated: (params?: Record<string, string>) => get<ApiResponse<BusinessFile[]>>('/mis/business/allocated', params),
+  businessAllocatedFile: (fileNo: string) => get<ApiResponse<BusinessFile & { notes: BusinessNote[]; docs: BusinessDoc[] }>>(`/mis/business/allocated/${encodeURIComponent(fileNo)}`),
   businessFile:    (fileNo: string) => get<ApiResponse<BusinessFile & { notes: BusinessNote[]; docs: BusinessDoc[] }>>(`/mis/business/${encodeURIComponent(fileNo)}`),
   businessSummary: () => get<ApiResponse<BusinessSummary>>('/mis/business/summary/counts'),
 
@@ -254,12 +255,16 @@ export const misApi = {
     del<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}/checklist/${reqId}`),
 
   // History & documentation complete
+  businessAllocatedHistory: (fileNo: string) =>
+    get<ApiResponse<AuditEntry[]>>(`/business/allocated/${encodeURIComponent(fileNo)}/history`),
   businessGetHistory: (fileNo: string) =>
     get<ApiResponse<AuditEntry[]>>(`/business/${encodeURIComponent(fileNo)}/history`),
   businessMarkComplete: (fileNo: string, complete: boolean) =>
     post<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}/mark-complete`, { complete }),
 
   // Document uploads
+  businessAllocatedUploads: (fileNo: string) =>
+    get<ApiResponse<BusinessUpload[]>>(`/business/allocated/${encodeURIComponent(fileNo)}/uploads`),
   businessListUploads: (fileNo: string) =>
     get<ApiResponse<BusinessUpload[]>>(`/business/${encodeURIComponent(fileNo)}/uploads`),
   businessRecordUpload: (fileNo: string, body: {

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { query, queryOne } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
-import { requireBpoAllocatedAccess, requireBpoQueueAccess, requireBusinessFileAccess, requireBusinessTrackingAccess, setBpoReviewAccess } from "../lib/business-permissions";
+import { requireAllocatedFileReadAccess, requireBpoAllocatedAccess, requireBpoQueueAccess, requireBusinessFileAccess, requireBusinessTrackingAccess, setBpoReviewAccess } from "../lib/business-permissions";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -266,6 +266,42 @@ router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res
   } catch (err: unknown) {
     logger.error({ err, employeeId: req.user?.sub }, "Allocated business list failed");
     res.status(500).json({ ok: false, error: "Unable to load your allocated business files." });
+  }
+});
+
+// Allocation Files uses a dedicated read endpoint so the personal queue's
+// ownership rules cannot be bypassed through the broader business-file route.
+router.get("/mis/business/allocated/:fileNo", requireAllocatedFileReadAccess, async (req, res) => {
+  try {
+    const { fileNo } = req.params;
+    const [file, notes, docs] = await Promise.all([
+      queryOne(`
+        SELECT bt.*, sa.agent_name
+        FROM crm.business_tracking bt
+        LEFT JOIN commission.sales_agents sa ON sa.agent_id = bt.agent_id
+        WHERE bt.file_no = $1
+      `, [fileNo]),
+      query(`
+        SELECT * FROM crm.business_tracking_notes
+        WHERE file_no = $1 AND is_active = TRUE
+        ORDER BY note_date DESC
+      `, [fileNo]),
+      query(`
+        SELECT d.*, br.req_name
+        FROM crm.business_doc_checklist d
+        JOIN crm.business_req br ON br.req_id = d.req_id
+        WHERE d.file_no = $1
+        ORDER BY br.req_name
+      `, [fileNo]),
+    ]);
+    if (!file) {
+      res.status(404).json({ ok: false, error: "Allocated file not found." });
+      return;
+    }
+    res.json({ ok: true, data: { ...file, notes, docs } });
+  } catch (err: unknown) {
+    logger.error({ err, employeeId: req.user?.sub, fileNo: req.params.fileNo }, "Allocated business detail failed");
+    res.status(500).json({ ok: false, error: "Unable to load allocated business file." });
   }
 });
 

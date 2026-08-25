@@ -32,6 +32,7 @@ export const requireBusinessTrackingAccess = allow;
 export const requireBpoForwardAccess = allow;
 export const requireBpoReviewAccess = allow;
 export const requireBpoAllocatedAccess = allow;
+export const requireAllocatedFileReadAccess = allow;
 export const requireBusinessDeleteAccess = allow;
 export const requireBusinessFileAccess = allow;
 
