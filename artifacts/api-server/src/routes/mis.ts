@@ -224,6 +224,7 @@ router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res
       file_status: "bt.file_status",
       product: "bt.product",
       allocated_to: "bt.allocated_to",
+      walk_in_client: "bt.walk_in_client",
       receive_dt: "bt.receive_dt",
       allocate_dt: "bt.allocate_dt",
       premium: "bt.premium",
@@ -231,6 +232,9 @@ router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res
     const sortColumn = sortableColumns[sortBy ?? ""] ?? "bt.allocate_dt";
     const sortDirection = sortDir === "asc" ? "ASC" : "DESC";
     const where = `WHERE ${conditions.join(" AND ")}`;
+    const orderBy = sortBy === "walk_in_client" && sortDir !== "asc"
+      ? "bt.walk_in_client DESC, bt.allocate_dt ASC NULLS LAST, bt.file_no ASC"
+      : `${sortColumn} ${sortDirection} NULLS LAST, bt.file_no ASC`;
 
     const rows = await query(`
       SELECT
@@ -246,7 +250,7 @@ router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res
         WHERE n.file_no = bt.file_no AND n.is_active = TRUE
       ) notes ON TRUE
       ${where}
-      ORDER BY ${sortColumn} ${sortDirection} NULLS LAST, bt.file_no ASC
+      ORDER BY ${orderBy}
       LIMIT $${p++} OFFSET $${p++}
     `, [...params, pageSize, offset]);
 

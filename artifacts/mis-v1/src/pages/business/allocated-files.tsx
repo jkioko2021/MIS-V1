@@ -51,6 +51,10 @@ function clientTypeLabel(value: string) {
   return value === 'R' ? 'Retail' : value === 'S' ? 'SME' : 'Corporate';
 }
 
+function yesNo(value: boolean | string | null | undefined) {
+  return value === true || value === 'Y' || value === 'YES' ? 'Yes' : 'No';
+}
+
 function statusClass(status: string) {
   if (status === 'BENEFIT VERIFICATION') return 'bg-orange-100 text-orange-800 border-orange-200';
   if (status === 'ALLOCATED') return 'bg-cyan-100 text-cyan-800 border-cyan-200';
@@ -134,11 +138,11 @@ function AllocatedFileSheet({ fileNo, onClose }: { fileNo: string; onClose: () =
           ) : (
             <div className="p-6">
               <Tabs value={tab} onValueChange={setTab}>
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="summary">Summary</TabsTrigger>
-                  <TabsTrigger value="documents">Documents</TabsTrigger>
-                  <TabsTrigger value="notes">Notes</TabsTrigger>
-                  <TabsTrigger value="history">History</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-4">
+                   <TabsTrigger value="summary">Register</TabsTrigger>
+                   <TabsTrigger value="documents">Documentation</TabsTrigger>
+                   <TabsTrigger value="notes">Notes</TabsTrigger>
+                   <TabsTrigger value="history">History</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="summary" className="mt-6 space-y-6">
@@ -148,13 +152,24 @@ function AllocatedFileSheet({ fileNo, onClose }: { fileNo: string; onClose: () =
                     <ReadOnlyField label="Action" value={ACTION_LABELS[file.business_type] ?? file.business_type} />
                     <ReadOnlyField label="Product" value={PRODUCT_LABELS[file.product ?? ''] ?? file.product} />
                     <ReadOnlyField label="Coverage" value={file.business === 'M' ? 'Medical' : 'Non-Medical'} />
+                    <ReadOnlyField label="Walk-in Client" value={yesNo(file.walk_in_client)} />
+                    <ReadOnlyField label="Walk-in Authorized By" value={file.walk_in_auth} />
                     <ReadOnlyField label="Agent" value={file.agent_name} />
                     <ReadOnlyField label="Allocated To" value={file.allocated_to} />
                     <ReadOnlyField label="Allocated Date" value={fmtDate(file.allocate_dt)} />
+                    <ReadOnlyField label="Benefit Verified" value={file.benefit_verified} />
+                    <ReadOnlyField label="Rate Type" value={file.rate_type === 'C' ? 'Custom Rates' : file.rate_type === 'S' ? 'Standard Rates' : file.rate_type} />
+                    <ReadOnlyField label="National ID" value={file.nid} />
+                    <ReadOnlyField label="KRA PIN" value={file.pin_no} />
+                    <ReadOnlyField label="County" value={file.county_code} />
+                    <ReadOnlyField label="Sector" value={file.sector} />
+                    <ReadOnlyField label="Category" value={file.gi_category} />
+                    <ReadOnlyField label="Card Type" value={file.card_type} />
                     <ReadOnlyField label="Premium" value={fmtMoney(file.premium)} />
                     <ReadOnlyField label="Paid Amount" value={fmtMoney(file.paid_amt)} />
                     <ReadOnlyField label="Payment Mode" value={file.pay_mode} />
                     <ReadOnlyField label="Payment Reference" value={file.pay_ref_no} />
+                    <ReadOnlyField label="Entered By" value={file.entered_by} />
                   </div>
                   <div className="rounded-lg border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-950">
                     <div className="flex items-center gap-2 font-semibold">
@@ -162,7 +177,7 @@ function AllocatedFileSheet({ fileNo, onClose }: { fileNo: string; onClose: () =
                       Membership update queue
                     </div>
                     <p className="mt-1 text-xs text-cyan-900/80">
-                      This is the original registration record allocated to your account. Updates should be tracked through the authorized operational workflow.
+                      This is the original registration record allocated to the membership workflow. It is read-only here; operational updates continue through the authorized workflow.
                     </p>
                   </div>
                 </TabsContent>
@@ -269,7 +284,7 @@ export default function AllocatedFilesPage() {
   const [clientType, setClientType] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
-  const [sortBy, setSortBy] = useState('allocate_dt');
+  const [sortBy, setSortBy] = useState('walk_in_client');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
@@ -331,6 +346,7 @@ export default function AllocatedFilesPage() {
               ? 'All allocated membership files and their assigned administrators'
               : 'Membership updates assigned to your account'}
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">Walk-in files are prioritised first, followed by the oldest allocations.</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="gap-1.5">
           <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />
@@ -420,7 +436,7 @@ export default function AllocatedFilesPage() {
 
       <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
         <div className="overflow-x-auto">
-            <table className="w-full min-w-[1080px] text-sm">
+            <table className="w-full min-w-[1180px] text-sm">
             <thead>
               <tr className="border-b bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
                 <th className="px-4 py-3"><SortButton label="Receive Date" column="receive_dt" sortBy={sortBy} onSort={sort} /></th>
@@ -429,6 +445,7 @@ export default function AllocatedFilesPage() {
                 <th className="px-4 py-3"><SortButton label="Proposer" column="proposer_name" sortBy={sortBy} onSort={sort} /></th>
                 <th className="px-4 py-3"><SortButton label="Client" column="client_type" sortBy={sortBy} onSort={sort} /></th>
                 <th className="px-4 py-3"><SortButton label="Action" column="business_type" sortBy={sortBy} onSort={sort} /></th>
+                <th className="px-4 py-3"><SortButton label="Walk-in" column="walk_in_client" sortBy={sortBy} onSort={sort} /></th>
                 <th className="px-4 py-3">Product</th>
                 <th className="px-4 py-3"><SortButton label="Allocated To" column="allocated_to" sortBy={sortBy} onSort={sort} /></th>
                 <th className="px-4 py-3"><SortButton label="Status" column="file_status" sortBy={sortBy} onSort={sort} /></th>
@@ -439,12 +456,12 @@ export default function AllocatedFilesPage() {
               {isLoading ? (
                 Array.from({ length: 4 }).map((_, index) => (
                   <tr key={index} className="border-b">
-                    {Array.from({ length: 10 }).map((__, cell) => <td key={cell} className="px-4 py-4"><Skeleton className="h-4" /></td>)}
+                    {Array.from({ length: 11 }).map((__, cell) => <td key={cell} className="px-4 py-4"><Skeleton className="h-4" /></td>)}
                   </tr>
                 ))
               ) : isError ? (
                 <tr>
-                    <td colSpan={10} className="py-14 text-center">
+                    <td colSpan={11} className="py-14 text-center">
                     <AlertCircle className="mx-auto mb-2 h-8 w-8 text-destructive/70" />
                     <p className="font-medium">Unable to load your allocated files.</p>
                     <p className="mt-1 text-xs text-muted-foreground">{String(error)}</p>
@@ -453,7 +470,7 @@ export default function AllocatedFilesPage() {
                 </tr>
               ) : files.length === 0 ? (
                 <tr>
-                    <td colSpan={10} className="py-16 text-center">
+                    <td colSpan={11} className="py-16 text-center">
                     <FileText className="mx-auto mb-3 h-9 w-9 text-muted-foreground/30" />
                     <p className="font-medium">No allocated files found</p>
                     <p className="mt-1 text-sm text-muted-foreground">
@@ -479,6 +496,16 @@ export default function AllocatedFilesPage() {
                   <td className="max-w-[210px] truncate px-4 py-4 font-medium">{file.proposer_name}</td>
                   <td className="px-4 py-4 text-xs font-semibold text-blue-600">{clientTypeLabel(file.client_type)}</td>
                   <td className="px-4 py-4 text-xs">{ACTION_LABELS[file.business_type] ?? file.business_type}</td>
+                  <td className="px-4 py-4 text-xs">
+                    <span className={cn(
+                      'rounded-full border px-2 py-1 font-medium',
+                      file.walk_in_client === 'Y'
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : 'border-slate-200 bg-slate-50 text-slate-600',
+                    )}>
+                      {file.walk_in_client === 'Y' ? 'Walk-in' : 'Agency'}
+                    </span>
+                  </td>
                   <td className="px-4 py-4 text-xs">{PRODUCT_LABELS[file.product ?? ''] ?? file.product ?? '—'}</td>
                   <td className="px-4 py-4 text-xs font-medium">{file.allocated_to || '—'}</td>
                   <td className="px-4 py-4"><span className={`rounded-full border px-2 py-1 text-xs font-medium ${statusClass(file.file_status)}`}>{file.file_status}</span></td>
