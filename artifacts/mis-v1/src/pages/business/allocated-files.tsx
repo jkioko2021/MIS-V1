@@ -196,6 +196,7 @@ function AllocatedFileSheet({
   const amlRiskReasonSource = amlRiskReasonSourceRes?.data;
   const selectedAction = actionOptions.find(option => option.code === action);
   const cashierAction = selectedAction?.requires_invoice === true;
+  const canForward = file?.benefit_verified === 'YES';
   const notes = file?.notes ?? [];
   const docs = file?.docs ?? [];
   const selectedDocuments = docs.filter(doc => doc.is_selected);
@@ -696,14 +697,14 @@ function AllocatedFileSheet({
                     <SendHorizontal className="h-4 w-4" />
                     Forward allocation
                   </div>
-                  {file.benefit_verified !== 'YES' ? (
+                  {!canForward && (
                     <p className="mt-1 text-xs text-[#356c67]">
                       Benefit verification must be complete before this file can be handed to another operational destination.
                     </p>
-                  ) : (
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  )}
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
-                        <Label htmlFor="allocated-action">Forward to</Label>
+                        <Label htmlFor="allocated-action">Action</Label>
                         <select
                           id="allocated-action"
                           data-testid="select-allocated-action"
@@ -713,15 +714,20 @@ function AllocatedFileSheet({
                             setPaidStatus('');
                             setInvoiceNo('');
                           }}
-                          disabled={actionMutation.isPending || actionOptionsLoading || actionOptionsError}
+                          disabled={
+                            !canForward ||
+                            actionMutation.isPending ||
+                            actionOptionsLoading ||
+                            actionOptionsError
+                          }
                           className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm"
                         >
                           <option value="">
-                            {actionOptionsLoading ? 'Loading permitted handoffs…' : 'Select destination…'}
+                            {actionOptionsLoading ? 'Loading permitted actions…' : 'Select action…'}
                           </option>
                           {actionOptions.map(option => (
                             <option key={option.code} value={option.code}>
-                              {option.label} — {option.destination}
+                              {option.label}
                             </option>
                           ))}
                         </select>
@@ -731,6 +737,19 @@ function AllocatedFileSheet({
                           </p>
                         )}
                       </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="allocated-forward-to">Forward to</Label>
+                        <Input
+                          id="allocated-forward-to"
+                          value={selectedAction?.destination ?? 'Select an action first'}
+                          readOnly
+                          aria-live="polite"
+                          className="bg-[#f2f8f6] text-[#356c67]"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Destination is determined by the permitted workflow action.
+                        </p>
+                      </div>
                       {cashierAction && (
                         <div className="space-y-1.5">
                           <Label htmlFor="allocated-payment-status">Payment status</Label>
@@ -739,6 +758,7 @@ function AllocatedFileSheet({
                             data-testid="select-payment-status"
                             value={paidStatus}
                             onChange={event => setPaidStatus(event.target.value as typeof paidStatus)}
+                            disabled={!canForward}
                             className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm"
                           >
                             <option value="">Select status…</option>
@@ -756,6 +776,7 @@ function AllocatedFileSheet({
                             data-testid="input-invoice-number"
                             value={invoiceNo}
                             onChange={event => setInvoiceNo(event.target.value)}
+                            disabled={!canForward}
                             maxLength={25}
                             placeholder="20–25 character invoice number"
                           />
@@ -776,14 +797,13 @@ function AllocatedFileSheet({
                       <Button
                         data-testid="button-confirm-handover"
                         onClick={submitAction}
-                        disabled={actionMutation.isPending}
+                        disabled={actionMutation.isPending || !canForward}
                         className="gap-1.5 sm:col-span-2"
                       >
                         <SendHorizontal className="h-4 w-4" />
                         {actionMutation.isPending ? 'Saving action…' : 'Forward'}
                       </Button>
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>
