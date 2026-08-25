@@ -56,7 +56,7 @@ async function apiFetch(path: string, init?: RequestInit) {
 
 const DEPARTMENTS = [
   'IT', 'MEMBERSHIP', 'CUST', 'MEDICAL', 'NONMEDICAL',
-  'FINANCE', 'HR', 'COMPLIANCE', 'OPERATIONS', 'NSM',
+  'FINANCE', 'HR', 'COMPLIANCE', 'OPERATIONS', 'NSM', 'BPO',
 ];
 
 function isValidEmail(v: string) {

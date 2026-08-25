@@ -7,6 +7,7 @@ const BUSINESS_TRACKING_PROFILES = new Set([
   "system admin",
   "business entry",
   "bpo",
+  "bpo admin",
   "bpo review",
   "medical uw",
   "membership admin",
@@ -19,6 +20,7 @@ const BPO_FORWARD_PROFILES = new Set([
   "system admin",
   "business entry",
   "bpo",
+  "bpo admin",
   "bpo review",
 ]);
 
@@ -26,6 +28,7 @@ const BPO_REVIEW_PROFILES = new Set([
   "superadmin",
   "system admin",
   "bpo",
+  "bpo admin",
   "bpo review",
 ]);
 
@@ -33,6 +36,7 @@ const BPO_ALLOCATED_PROFILES = new Set([
   "superadmin",
   "system admin",
   "bpo",
+  "bpo admin",
   "bpo review",
   "membership admin",
 ]);

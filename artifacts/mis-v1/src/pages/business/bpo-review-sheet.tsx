@@ -100,17 +100,16 @@ export function BpoReviewSheet({ fileNo, onClose }: { fileNo: string; onClose: (
     queryFn: () => misApi.businessGetHistory(fileNo),
   });
 
-  const { data: membersAdminRes } = useQuery({
-    queryKey: ['walk-in-staff'],
-    queryFn: () => misApi.walkInStaff(),
+  const { data: bpoAdminRes } = useQuery({
+    queryKey: ['bpo-reviewers'],
+    queryFn: () => misApi.bpoReviewers(),
   });
 
   const file = fileRes?.data as (BusinessFile & { notes: BusinessNote[]; docs: BusinessDoc[] }) | undefined;
   const uploads = (uploadsRes?.data ?? []) as BusinessUpload[];
   const history = (historyRes?.data ?? []) as AuditEntry[];
-  const membersAdminOptions = (membersAdminRes?.data ?? [])
-    .filter(employee => employee.department === 'MEMBERSHIP')
-    .map(employee => ({ value: employee.username, label: employee.employee_name }));
+  const bpoAdminOptions = (bpoAdminRes?.data ?? [])
+    .map(employee => ({ value: employee.username, label: `${employee.employee_name} (${employee.username})` }));
   const docs = file?.docs ?? [];
   const notes = file?.notes ?? [];
 
@@ -488,8 +487,8 @@ export function BpoReviewSheet({ fileNo, onClose }: { fileNo: string; onClose: (
                     <SearchableSelect
                       value={allocatedTo}
                       onChange={setAllocatedTo}
-                      options={membersAdminOptions}
-                      placeholder="Select admin..."
+                      options={bpoAdminOptions}
+                      placeholder="Select BPO admin..."
                     />
                   </div>
                 )}

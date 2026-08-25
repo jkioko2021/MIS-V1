@@ -102,9 +102,9 @@ export function BpoCorporateSheet({ fileNo, onClose }: { fileNo: string; onClose
     queryFn: () => misApi.businessGetHistory(fileNo),
   });
 
-  const { data: membersAdminRes } = useQuery({
-    queryKey: ['walk-in-staff'],
-    queryFn: () => misApi.walkInStaff(),
+  const { data: bpoAdminRes } = useQuery({
+    queryKey: ['bpo-reviewers'],
+    queryFn: () => misApi.bpoReviewers(),
   });
 
   const { data: countiesRes } = useQuery({ queryKey: ['counties'], queryFn: misApi.counties, staleTime: Infinity });
@@ -118,9 +118,8 @@ export function BpoCorporateSheet({ fileNo, onClose }: { fileNo: string; onClose
   const file = fileRes?.data as (BusinessFile & { notes: BusinessNote[]; docs: BusinessDoc[] }) | undefined;
   const uploads = (uploadsRes?.data ?? []) as BusinessUpload[];
   const history = (historyRes?.data ?? []) as AuditEntry[];
-  const membersAdminOptions = (membersAdminRes?.data ?? [])
-    .filter(employee => employee.department === 'MEMBERSHIP')
-    .map(employee => ({ value: employee.username, label: employee.employee_name }));
+  const bpoAdminOptions = (bpoAdminRes?.data ?? [])
+    .map(employee => ({ value: employee.username, label: `${employee.employee_name} (${employee.username})` }));
   const agentOptions = agents.map(a => ({ value: a.agent_id, label: a.agent_name }));
   
   const docs = file?.docs ?? [];
@@ -547,8 +546,8 @@ export function BpoCorporateSheet({ fileNo, onClose }: { fileNo: string; onClose
                     <SearchableSelect
                       value={allocatedTo}
                       onChange={setAllocatedTo}
-                      options={membersAdminOptions}
-                      placeholder="Select admin..."
+                      options={bpoAdminOptions}
+                      placeholder="Select BPO admin..."
                     />
                   </div>
                 )}

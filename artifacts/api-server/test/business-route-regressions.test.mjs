@@ -44,8 +44,9 @@ class BusinessRouteState {
       receive_dt: "2026-08-19",
     };
     this.staff = new Map([
-      ["eligible", { department: "MEMBERSHIP", activated: true, approved: true, locked: false, deleted: false }],
-      ["inactive", { department: "MEMBERSHIP", activated: false, approved: true, locked: false, deleted: false }],
+      ["eligible", { department: "BPO", activated: true, approved: true, locked: false, deleted: false }],
+      ["walk-in-eligible", { department: "MEMBERSHIP", activated: true, approved: true, locked: false, deleted: false }],
+      ["inactive", { department: "BPO", activated: false, approved: true, locked: false, deleted: false }],
       ["wrong-department", { department: "FINANCE", activated: true, approved: true, locked: false, deleted: false }],
     ]);
     this.workItems = [];
@@ -129,9 +130,9 @@ class BusinessRouteState {
   async queryOne(sql, params = []) {
     const statement = normalise(sql);
     if (statement.includes("SELECT e.username FROM crm.employees e")
-      && statement.includes("e.department='MEMBERSHIP'")) {
+      && statement.includes("e.department='BPO'")) {
       const staff = this.staff.get(params[0]);
-      return staff?.department === "MEMBERSHIP"
+        return staff?.department === "BPO"
         && staff.activated
         && staff.approved
         && !staff.locked
@@ -144,8 +145,8 @@ class BusinessRouteState {
         ? { file_no: this.file.file_no, client_type: this.file.client_type, receive_dt: this.file.receive_dt }
         : null;
     }
-    if (statement.includes("department='MEMBERSHIP'")) {
-      return this.staff.get(params[0])?.department === "MEMBERSHIP"
+    if (statement.includes("department='BPO'")) {
+      return this.staff.get(params[0])?.department === "BPO"
         && this.staff.get(params[0])?.activated
         && this.staff.get(params[0])?.approved
         && !this.staff.get(params[0])?.locked
@@ -376,7 +377,7 @@ function walkInPayload(user) {
     agent_id: "AGENT-1",
     walk_in_client: "Y",
     allocated_to: user,
-    walk_in_auth: "eligible",
+    walk_in_auth: "walk-in-eligible",
   };
 }
 

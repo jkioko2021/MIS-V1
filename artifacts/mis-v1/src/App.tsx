@@ -87,6 +87,7 @@ function Sidebar() {
     'superadmin',
     'system admin',
     'bpo',
+    'bpo admin',
     'bpo review',
     'membership admin',
   ].includes((user.profileName ?? '').trim().toLowerCase());
@@ -94,6 +95,7 @@ function Sidebar() {
     'superadmin',
     'system admin',
     'bpo',
+    'bpo admin',
     'bpo review',
   ].includes((user.profileName ?? '').trim().toLowerCase());
 

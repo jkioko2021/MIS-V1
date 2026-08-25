@@ -19,6 +19,7 @@ const CARD_TYPES = new Set(["MTIBA", "SMART"]);
 const GI_CATEGORIES = new Set(["Non_Motor", "Motor"]);
 const CORPORATE_CATEGORIES = new Set(["Public", "Private"]);
 const WALK_IN_DEPARTMENTS = ["MEMBERSHIP", "NONMEDICAL"];
+const BPO_ADMIN_PROFILES = ["bpo", "bpo admin", "bpo review"];
 const BPO_REVIEW_ACTIONS = new Set(["RI", "A", "MU", "HO", "CA"]);
 const CORPORATE_SME_BPO_REVIEW_ACTIONS = new Set(["RI", "A", "MU", "CA"]);
 const BPO_PRODUCTS = new Set(["T", "S", "AS"]);
@@ -76,21 +77,24 @@ async function walkInStaffValidationError(allocatedTo: unknown, authorisedBy: un
     : "Walk-in allocation and authorisation must use an active approved Membership or Nonmedical employee.";
 }
 
-async function membershipStaffValidationError(allocatedTo: unknown): Promise<string | null> {
+async function bpoAdminValidationError(allocatedTo: unknown): Promise<string | null> {
   const username = text(allocatedTo);
-  if (!username) return "Select an active approved Membership employee for allocation.";
+  if (!username) return "Select an active approved BPO Admin for allocation.";
   const staff = await queryOne<{ username: string }>(
     `SELECT e.username
      FROM crm.employees e
+     JOIN crm.profiles p ON p.profile_id=e.profile_id
      WHERE e.username=$1
-       AND e.department='MEMBERSHIP'
+        AND e.department='BPO'
+        AND LOWER(p.profile_name) = ANY($2::text[])
+        AND p.is_active=TRUE
        AND e.activated=TRUE
        AND e.approved=TRUE
        AND e.employee_locked=FALSE
        AND e.is_deleted=FALSE`,
-    [username],
+    [username, BPO_ADMIN_PROFILES],
   );
-  return staff ? null : "Allocation must use an active approved Membership employee.";
+  return staff ? null : "Allocation must use an active approved BPO Admin.";
 }
 
 function validateBusinessInput(input: BusinessInput): string[] {
@@ -234,9 +238,11 @@ router.get("/business/bpo-reviewers", requireBpoForwardAccess, async (_req: Requ
          AND e.approved=TRUE
          AND e.employee_locked=FALSE
          AND e.is_deleted=FALSE
+         AND e.department='BPO'
          AND p.is_active=TRUE
-         AND LOWER(p.profile_name) IN ('bpo', 'bpo review')
+         AND LOWER(p.profile_name) = ANY($1::text[])
        ORDER BY e.employee_name`,
+       [BPO_ADMIN_PROFILES],
     );
     res.json({ ok: true, data: reviewers });
   } catch (err) { handleError(res, err, "get BPO reviewers"); }
@@ -851,9 +857,7 @@ router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (re
         throw new Error("BPO_ACTION_NOT_ALLOWED");
       }
       if (requestedAction === "A") {
-        const staffError = file.client_type === "R"
-          ? await walkInStaffValidationError(allocatedTo, "")
-          : await membershipStaffValidationError(allocatedTo);
+        const staffError = await bpoAdminValidationError(allocatedTo);
         if (staffError) throw new Error(`STAFF_INVALID:${staffError}`);
       }
 
@@ -1077,9 +1081,7 @@ router.post("/business/:fileNo/allocate", async (req: Request, res: Response) =>
       [req.params.fileNo],
     );
     if (!file) { res.status(404).json({ ok: false, error: "File not found." }); return; }
-    const staffError = file.client_type === "R"
-      ? await walkInStaffValidationError(allocated_to, "")
-      : await membershipStaffValidationError(allocated_to);
+    const staffError = await bpoAdminValidationError(allocated_to);
     if (staffError) { res.status(400).json({ ok: false, error: staffError }); return; }
     await query(
       `UPDATE crm.business_tracking SET
