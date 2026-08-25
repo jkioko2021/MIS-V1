@@ -83,6 +83,7 @@ function Sidebar() {
 
   // Show admin section only for profile 1 (SuperAdmin) or 2 (System Admin)
   const isAdmin = user && (user.profileId === 1 || user.profileId === 2);
+  const isBpoDepartment = (user?.department ?? '').trim().toUpperCase() === 'BPO';
   const canSeeAllocatedFiles = user && [
     'superadmin',
     'system admin',
@@ -90,14 +91,14 @@ function Sidebar() {
     'bpo admin',
     'bpo review',
     'membership admin',
-  ].includes((user.profileName ?? '').trim().toLowerCase());
+  ].includes((user.profileName ?? '').trim().toLowerCase()) || isBpoDepartment;
   const canSeeBpoReviewQueues = user && [
     'superadmin',
     'system admin',
     'bpo',
     'bpo admin',
     'bpo review',
-  ].includes((user.profileName ?? '').trim().toLowerCase());
+  ].includes((user.profileName ?? '').trim().toLowerCase()) || isBpoDepartment;
 
   return (
     <aside className="w-56 shrink-0 border-r bg-muted/30 flex flex-col h-screen sticky top-0">

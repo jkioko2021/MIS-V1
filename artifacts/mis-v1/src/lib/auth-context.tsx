@@ -13,6 +13,7 @@ export interface AuthUser {
   name: string;
   profileId: number;
   profileName?: string;
+  department?: string | null;
   menuAccess?: string[];
 }
 

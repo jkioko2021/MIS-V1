@@ -202,10 +202,16 @@ router.post("/auth/verify-otp", async (req: Request, res: Response) => {
       employee_id: number;
       username: string;
       employee_name: string;
+      department: string | null;
       profile_id: number;
+      profile_name: string;
       last_password_reset: string | null;
     }>(
-      `SELECT employee_id, username, employee_name, profile_id, last_password_reset FROM crm.employees WHERE employee_id = $1`,
+      `SELECT e.employee_id, e.username, e.employee_name, e.department, e.profile_id,
+              e.last_password_reset, p.profile_name
+       FROM crm.employees e
+       JOIN crm.profiles p ON p.profile_id = e.profile_id
+       WHERE e.employee_id = $1`,
       [employeeId]
     );
 
@@ -251,6 +257,8 @@ router.post("/auth/verify-otp", async (req: Request, res: Response) => {
         username: emp.username,
         name: emp.employee_name,
         profileId: emp.profile_id,
+         profileName: emp.profile_name,
+         department: emp.department,
       },
       passwordExpired,
     });
@@ -349,14 +357,16 @@ router.post("/auth/logout", requireAuth, async (req: Request, res: Response) => 
 router.get("/auth/me", requireAuth, async (req: Request, res: Response) => {
   const u = req.user!;
   try {
-    const profile = await queryOne<{ profile_name: string; menu_access: string[] }>(
+    const profile = await queryOne<{ profile_name: string; department: string | null; menu_access: string[] }>(
       `SELECT p.profile_name,
+              e.department,
               ARRAY_AGG(ma.sub_menu_name ORDER BY ma.menu_order) FILTER (WHERE ma.can_access = TRUE) AS menu_access
-       FROM crm.profiles p
+       FROM crm.employees e
+       JOIN crm.profiles p ON p.profile_id = e.profile_id
        LEFT JOIN crm.menu_access ma ON ma.profile_id = p.profile_id
-       WHERE p.profile_id = $1
-       GROUP BY p.profile_name`,
-      [u.profileId]
+       WHERE e.employee_id = $1
+       GROUP BY p.profile_name, e.department`,
+      [u.sub]
     );
     res.json({
       ok: true,
@@ -366,6 +376,7 @@ router.get("/auth/me", requireAuth, async (req: Request, res: Response) => {
         name: u.name,
         profileId: u.profileId,
         profileName: profile?.profile_name,
+         department: profile?.department,
         menuAccess: profile?.menu_access ?? [],
       },
     });
