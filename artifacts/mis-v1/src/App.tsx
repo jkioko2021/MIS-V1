@@ -7,6 +7,7 @@ import NotFound from '@/pages/not-found';
 import DiscoveryPage from '@/pages/discovery';
 import HomePage from '@/pages/home';
 import BusinessTrackingPage from '@/pages/business';
+import AllocatedFilesPage from '@/pages/business/allocated-files';
 import RiskRegisterPage from '@/pages/risk';
 import LoginPage from '@/pages/login';
 import UsersPage from '@/pages/admin/users';
@@ -37,6 +38,7 @@ const NAV_SECTIONS = [
     items: [
       { href: '/',          label: 'Home',              icon: Home },
       { href: '/business',  label: 'Business Tracking', icon: FileText },
+      { href: '/business/allocated', label: 'Allocated Files', icon: FileText, bpoOnly: true },
       { href: '/risk',      label: 'Risk Register',     icon: Shield },
       { href: '/discovery', label: 'DB Discovery',      icon: Database },
     ],
@@ -58,6 +60,13 @@ function Sidebar() {
 
   // Show admin section only for profile 1 (SuperAdmin) or 2 (System Admin)
   const isAdmin = user && (user.profileId === 1 || user.profileId === 2);
+  const canSeeAllocatedFiles = user && [
+    'superadmin',
+    'system admin',
+    'bpo',
+    'bpo review',
+    'membership admin',
+  ].includes((user.profileName ?? '').trim().toLowerCase());
 
   return (
     <aside className="w-56 shrink-0 border-r bg-muted/30 flex flex-col h-screen sticky top-0">
@@ -76,7 +85,10 @@ function Sidebar() {
                   {section.label}
                 </p>
               )}
-              {section.items.map(({ href, label, icon: Icon }) => {
+              {section.items.map((item) => {
+                const { href, label, icon: Icon } = item;
+                const bpoOnly = 'bpoOnly' in item && item.bpoOnly;
+                if (bpoOnly && !canSeeAllocatedFiles) return null;
                 const active = location === href || (href !== '/' && location.startsWith(href));
                 return (
                   <Link
@@ -159,6 +171,7 @@ function ProtectedRouter() {
       <AppLayout>
         <Switch>
           <Route path="/"                 component={HomePage} />
+          <Route path="/business/allocated" component={AllocatedFilesPage} />
           <Route path="/business"         component={BusinessTrackingPage} />
           <Route path="/risk"             component={RiskRegisterPage} />
           <Route path="/discovery"        component={DiscoveryPage} />

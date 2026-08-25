@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { query, queryOne } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
-import { requireBpoQueueAccess, requireBusinessFileAccess, requireBusinessTrackingAccess, setBpoReviewAccess } from "../lib/business-permissions";
+import { requireBpoAllocatedAccess, requireBpoQueueAccess, requireBusinessFileAccess, requireBusinessTrackingAccess, setBpoReviewAccess } from "../lib/business-permissions";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -115,7 +115,7 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
       bpo_assigned_to: "wi.assigned_to",
       created_at: "bt.created_at",
     };
-    const sortColumn = sortableColumns[sort_by] ?? "bt.created_at";
+    const sortColumn = sortableColumns[sort_by ?? ""] ?? "bt.created_at";
     const sortDirection = sort_dir === "asc" ? "ASC" : "DESC";
 
     const rows = await query(`
@@ -161,6 +161,103 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
   } catch (err: unknown) {
     logger.error({ err }, "Business tracking list failed");
     res.status(500).json({ ok: false, error: "Unable to load business tracking records." });
+  }
+});
+
+// Allocated files are a personal work queue. The authenticated employee is
+// always the owner filter; callers cannot request another employee's files.
+router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res) => {
+  try {
+    const queryValue = (name: string): string | undefined => {
+      const value = req.query[name];
+      return typeof value === "string" ? value : undefined;
+    };
+    const search = queryValue("search");
+    const searchBy = queryValue("search_by");
+    const clientType = queryValue("client_type");
+    const rawPage = queryValue("page");
+    const rawPageSize = queryValue("page_size");
+    const sortBy = queryValue("sort_by");
+    const sortDir = queryValue("sort_dir");
+    const page = Math.max(1, Number.parseInt(rawPage ?? "1", 10) || 1);
+    const pageSize = Math.min(100, Math.max(10, Number.parseInt(rawPageSize ?? "20", 10) || 20));
+    const offset = (page - 1) * pageSize;
+
+    const conditions: string[] = [
+      "bt.is_active = TRUE",
+      "bt.allocated = TRUE",
+      "bt.allocated_to = $1",
+      "bt.forwarded = TRUE",
+      "bt.ready_for_update = TRUE",
+      "bt.invoiced = FALSE",
+      "bt.benefit_verified = 'YES'",
+      "bt.is_declined = FALSE",
+    ];
+    const params: unknown[] = [req.user!.username];
+    let p = 2;
+
+    if (clientType && ["R", "S", "C"].includes(clientType)) {
+      conditions.push(`bt.client_type = $${p++}`);
+      params.push(clientType);
+    }
+    if (search?.trim()) {
+      if (searchBy === "F") {
+        conditions.push(`bt.file_no ILIKE $${p++}`);
+      } else {
+        conditions.push(`bt.proposer_name ILIKE $${p++}`);
+      }
+      params.push(`%${search.trim()}%`);
+    }
+
+    const sortableColumns: Record<string, string> = {
+      file_no: "bt.file_no",
+      proposer_name: "bt.proposer_name",
+      client_type: "bt.client_type",
+      business_type: "bt.business_type",
+      file_status: "bt.file_status",
+      product: "bt.product",
+      receive_dt: "bt.receive_dt",
+      allocate_dt: "bt.allocate_dt",
+      premium: "bt.premium",
+    };
+    const sortColumn = sortableColumns[sortBy ?? ""] ?? "bt.allocate_dt";
+    const sortDirection = sortDir === "asc" ? "ASC" : "DESC";
+    const where = `WHERE ${conditions.join(" AND ")}`;
+
+    const rows = await query(`
+      SELECT
+        bt.*,
+        sa.agent_name,
+        notes.note_count,
+        (LOWER(COALESCE(bt.client_sub_type, '')) LIKE '%shwaari%') AS is_shwaari
+      FROM crm.business_tracking bt
+      LEFT JOIN commission.sales_agents sa ON sa.agent_id = bt.agent_id
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS note_count
+        FROM crm.business_tracking_notes n
+        WHERE n.file_no = bt.file_no AND n.is_active = TRUE
+      ) notes ON TRUE
+      ${where}
+      ORDER BY ${sortColumn} ${sortDirection} NULLS LAST, bt.file_no ASC
+      LIMIT $${p++} OFFSET $${p++}
+    `, [...params, pageSize, offset]);
+
+    const totalRow = await queryOne<{ total: number }>(`
+      SELECT COUNT(*)::int AS total
+      FROM crm.business_tracking bt
+      ${where}
+    `, params);
+
+    res.json({
+      ok: true,
+      data: rows,
+      total: totalRow?.total ?? 0,
+      page,
+      page_size: pageSize,
+    });
+  } catch (err: unknown) {
+    logger.error({ err, employeeId: req.user?.sub }, "Allocated business list failed");
+    res.status(500).json({ ok: false, error: "Unable to load your allocated business files." });
   }
 });
 

@@ -29,6 +29,14 @@ const BPO_REVIEW_PROFILES = new Set([
   "bpo review",
 ]);
 
+const BPO_ALLOCATED_PROFILES = new Set([
+  "superadmin",
+  "system admin",
+  "bpo",
+  "bpo review",
+  "membership admin",
+]);
+
 const BUSINESS_DELETE_PROFILES = new Set([
   "superadmin",
   "system admin",
@@ -84,6 +92,11 @@ export const requireBpoForwardAccess = requireBusinessProfile(
 export const requireBpoReviewAccess = requireBusinessProfile(
   BPO_REVIEW_PROFILES,
   "bpo_review",
+);
+
+export const requireBpoAllocatedAccess = requireBusinessProfile(
+  BPO_ALLOCATED_PROFILES,
+  "bpo_allocated_files",
 );
 
 export const requireBusinessDeleteAccess = requireBusinessProfile(

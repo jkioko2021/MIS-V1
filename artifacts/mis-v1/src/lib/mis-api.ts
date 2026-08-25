@@ -111,6 +111,7 @@ export interface BusinessFile {
   branch?: string | null;
   bpo_assigned_to?: string | null;
   bpo_forwarded_at?: string | null;
+  to_pricing_dt?: string | null;
 }
 
 export interface BusinessReviewActionBody {
@@ -208,6 +209,7 @@ export const misApi = {
 
   // Business tracking - reads
   business:        (params?: Record<string, string>) => get<ApiResponse<BusinessFile[]>>('/mis/business', params),
+  businessAllocated: (params?: Record<string, string>) => get<ApiResponse<BusinessFile[]>>('/mis/business/allocated', params),
   businessFile:    (fileNo: string) => get<ApiResponse<BusinessFile & { notes: BusinessNote[]; docs: BusinessDoc[] }>>(`/mis/business/${encodeURIComponent(fileNo)}`),
   businessSummary: () => get<ApiResponse<BusinessSummary>>('/mis/business/summary/counts'),
 

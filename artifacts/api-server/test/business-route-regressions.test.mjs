@@ -266,25 +266,6 @@ class BusinessRouteState {
       }
       return [{ work_item_id: workItem.work_item_id }];
     }
-    if (statement.startsWith("UPDATE crm.business_tracking") && statement.includes("forwarded=CASE WHEN")) {
-      const [newStatus, returnIncomplete, allocated, allocatedTo, hold] = params;
-      this.file.file_status = newStatus;
-      this.file.forwarded = !returnIncomplete;
-      this.file.allocated = allocated;
-      this.file.allocated_to = allocated ? allocatedTo : null;
-      this.file.is_complete = !returnIncomplete;
-      this.file.ready_for_update = !returnIncomplete && !hold;
-      return [];
-    }
-    if (statement.startsWith("UPDATE crm.business_work_items")) {
-      const workItem = this.workItems.find((item) => item.work_item_id === params[0]);
-      if (workItem) workItem.work_status = "COMPLETED";
-      return [];
-    }
-    if (statement.startsWith("INSERT INTO crm.business_tracking_notes")) {
-      this.notes.push({ file_no: params[0], notes: params[2] });
-      return [];
-    }
     if (statement.startsWith("UPDATE crm.business_tracking SET product=")) {
       this.file.product = params[0];
       this.file.file_status = params[1];
@@ -305,6 +286,25 @@ class BusinessRouteState {
       this.file.is_complete = params[2] ? false : this.file.is_complete;
       this.file.ready_for_update = params[2] || params[7] ? false : true;
       return [{ to_pricing_dt: this.file.to_pricing_dt }];
+    }
+    if (statement.startsWith("UPDATE crm.business_tracking") && statement.includes("forwarded=CASE WHEN")) {
+      const [newStatus, returnIncomplete, allocated, allocatedTo, hold] = params;
+      this.file.file_status = newStatus;
+      this.file.forwarded = !returnIncomplete;
+      this.file.allocated = allocated;
+      this.file.allocated_to = allocated ? allocatedTo : null;
+      this.file.is_complete = !returnIncomplete;
+      this.file.ready_for_update = !returnIncomplete && !hold;
+      return [];
+    }
+    if (statement.startsWith("UPDATE crm.business_work_items")) {
+      const workItem = this.workItems.find((item) => item.work_item_id === params[0]);
+      if (workItem) workItem.work_status = "COMPLETED";
+      return [];
+    }
+    if (statement.startsWith("INSERT INTO crm.business_tracking_notes")) {
+      this.notes.push({ file_no: params[0], notes: params[2] });
+      return [];
     }
     if (statement.startsWith("UPDATE crm.business_work_items SET work_status='COMPLETED'")) {
       const workItem = this.workItems.find((item) => item.work_item_id === params[0]);
