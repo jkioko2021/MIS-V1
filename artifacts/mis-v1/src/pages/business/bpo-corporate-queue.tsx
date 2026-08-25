@@ -39,6 +39,7 @@ export function BpoCorporateQueue({
           Corporate & SME Review Queue
           <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20">{mainFiles.length}</Badge>
         </h3>
+        <PendingRefundNotice count={refundFiles.length} />
         <CorporateQueueTable
           files={mainFiles}
           isLoading={isLoading}
@@ -50,25 +51,20 @@ export function BpoCorporateQueue({
           toggleSort={toggleSort}
         />
       </div>
+    </div>
+  );
+}
 
-      {refundFiles.length > 0 && (
-        <div>
-          <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
-            Premium Refunds
-            <Badge variant="secondary" className="bg-orange-500/10 text-orange-700 hover:bg-orange-500/20">{refundFiles.length}</Badge>
-          </h3>
-          <CorporateQueueTable
-            files={refundFiles}
-            isLoading={isLoading}
-            isError={isError}
-            error={error}
-            refetch={refetch}
-            onSelectFile={onSelectFile}
-            sortBy={sortBy}
-            toggleSort={toggleSort}
-          />
-        </div>
-      )}
+function PendingRefundNotice({ count }: { count: number }) {
+  return (
+    <div className="mb-4 flex items-center gap-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2.5 text-sm text-orange-950 dark:border-orange-900/60 dark:bg-orange-950/20 dark:text-orange-100">
+      <span className="font-semibold">Premium refunds pending allocation</span>
+      <Badge variant="secondary" className="bg-orange-200 text-orange-900 hover:bg-orange-200 dark:bg-orange-900/60 dark:text-orange-100">
+        {count}
+      </Badge>
+      <span className="text-xs text-orange-800/80 dark:text-orange-200/80">
+        Refund processing will be handled in a later workflow.
+      </span>
     </div>
   );
 }
