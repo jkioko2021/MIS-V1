@@ -26,11 +26,13 @@ const BPO_ADMIN_PROFILES = ["bpo", "bpo admin", "bpo review"];
 const BPO_REVIEW_ACTIONS = new Set(["RI", "A", "MU", "HO", "CA"]);
 const CORPORATE_SME_BPO_REVIEW_ACTIONS = new Set(["RI", "A", "MU", "CA"]);
 const BPO_PRODUCTS = new Set(["T", "S", "AS"]);
-const ALLOCATED_FILE_ACTIONS = new Set(["RI", "MU", "CA"]);
+const ALLOCATED_FILE_ACTIONS = new Set(["C", "MU", "CL", "IT", "RI", "RM"]);
+const ALLOCATED_INVOICE_ACTIONS = new Set(["C", "RM"]);
+const ALLOCATED_PAYMENT_ACTIONS = new Set(["C", "CL", "RM"]);
 const PAYMENT_STATUSES = new Set(["FULL-PAID", "PART-PAID", "NOT-PAID"]);
 const ALLOCATED_FILE_ACTION_OPTIONS = [
   {
-    code: "CA",
+    code: "C",
     label: "Cashier",
     destination: "Cashier / Finance",
     requires_invoice: true,
@@ -44,11 +46,32 @@ const ALLOCATED_FILE_ACTION_OPTIONS = [
     requires_payment_status: false,
   },
   {
+    code: "CL",
+    label: "Closed",
+    destination: "Closed",
+    requires_invoice: false,
+    requires_payment_status: true,
+  },
+  {
+    code: "IT",
+    label: "IT Support",
+    destination: "IT Support",
+    requires_invoice: false,
+    requires_payment_status: false,
+  },
+  {
     code: "RI",
-    label: "Return Incomplete",
+    label: "Return-Incomplete",
     destination: "Originating registration team",
     requires_invoice: false,
     requires_payment_status: false,
+  },
+  {
+    code: "RM",
+    label: "RM",
+    destination: "Retention",
+    requires_invoice: true,
+    requires_payment_status: true,
   },
 ] as const;
 const DOCUMENT_EXTENSIONS = new Set([".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".rar", ".zip"]);
@@ -1321,11 +1344,16 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
     invoice_no?: string;
     paid_status?: string;
   };
-  const requestedAction = text(action);
+  // CA was the prior modern API code for the legacy Cashier value C. Keep it
+  // as an input compatibility alias while returning the legacy code to clients.
+  const requestedActionInput = text(action);
+  const requestedAction = requestedActionInput === "CA" ? "C" : requestedActionInput;
   const note = text(comments);
   const invoiceNo = text(invoice_no);
   const paidStatus = text(paid_status);
-  const isCashier = requestedAction === "CA";
+  const isCashier = requestedAction === "C";
+  const requiresInvoice = ALLOCATED_INVOICE_ACTIONS.has(requestedAction);
+  const requiresPayment = ALLOCATED_PAYMENT_ACTIONS.has(requestedAction);
 
   if (!ALLOCATED_FILE_ACTIONS.has(requestedAction)) {
     res.status(400).json({ ok: false, error: "Select a valid allocated-file action." });
@@ -1335,24 +1363,30 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
     res.status(400).json({ ok: false, error: "Short notes are required for an allocation action." });
     return;
   }
-  if (isCashier && (invoiceNo.length < 20 || invoiceNo.length > 25)) {
-    res.status(400).json({ ok: false, error: "Cashier handoff requires an invoice number between 20 and 25 characters." });
+  if (requiresInvoice && (invoiceNo.length < 20 || invoiceNo.length > 25)) {
+    res.status(400).json({ ok: false, error: "This action requires an invoice number between 20 and 25 characters." });
     return;
   }
-  if (isCashier && !PAYMENT_STATUSES.has(paidStatus)) {
-    res.status(400).json({ ok: false, error: "Select a valid payment status for the Cashier handoff." });
+  if (requiresPayment && !PAYMENT_STATUSES.has(paidStatus)) {
+    res.status(400).json({ ok: false, error: "Select a valid payment status for this action." });
     return;
   }
 
   const statusByAction: Record<string, string> = {
     RI: "RETURNED-INCOMPLETE",
     MU: "MEDICAL UW-REVIEW",
-    CA: "CASHIER",
+    C: "CASHIER",
+    CL: "CLOSED",
+    IT: "IT SUPPORT",
+    RM: "PENDING PAYMENT",
   };
   const actionLabel: Record<string, string> = {
     RI: "Return Incomplete",
     MU: "Medical UW",
-    CA: "Cashier",
+    C: "Cashier",
+    CL: "Closed",
+    IT: "IT Support",
+    RM: "RM",
   };
 
   try {
@@ -1411,26 +1445,29 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
              allocate_dt=NULL,
              is_complete=CASE WHEN $2 THEN FALSE ELSE is_complete END,
              ready_for_update=CASE WHEN $2 THEN FALSE ELSE TRUE END,
-             invoice_no=CASE WHEN $3 THEN $4 ELSE invoice_no END,
-             paid_status=CASE WHEN $3 THEN $5 ELSE paid_status END,
-             invoice_date=CASE WHEN $3 THEN NOW() ELSE invoice_date END,
-              paid=CASE WHEN $3 THEN $6 ELSE paid END,
+              invoice_no=CASE WHEN $3 THEN $4 ELSE invoice_no END,
+              paid_status=CASE WHEN $5 THEN $6 ELSE paid_status END,
+              invoice_date=CASE WHEN $5 THEN NOW() ELSE invoice_date END,
+               paid=CASE WHEN $5 THEN $7 ELSE paid END,
              updated_at=NOW()
-          WHERE file_no=$7
+           WHERE file_no=$8
            AND is_active=TRUE
          RETURNING file_status`,
         [
           statusByAction[requestedAction],
           returnIncomplete,
-          isCashier,
+          requiresInvoice,
           invoiceNo || null,
+          requiresPayment,
           paidStatus || null,
           paid,
           fileNo,
         ],
       );
 
-      const paymentDetail = isCashier ? `; invoice ${invoiceNo}; payment ${paidStatus}` : "";
+      const paymentDetail = requiresPayment
+        ? `${requiresInvoice ? `; invoice ${invoiceNo}` : ""}; payment ${paidStatus}`
+        : "";
       const noteText = `Allocation ${actionLabel[requestedAction]} handoff${paymentDetail}: ${note}`;
       await txQuery(
         client,

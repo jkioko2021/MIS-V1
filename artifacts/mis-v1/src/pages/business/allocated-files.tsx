@@ -195,7 +195,8 @@ function AllocatedFileSheet({
   const amlStatus = amlStatusRes?.data as AllocatedFileAmlStatus | undefined;
   const amlRiskReasonSource = amlRiskReasonSourceRes?.data;
   const selectedAction = actionOptions.find(option => option.code === action);
-  const cashierAction = selectedAction?.requires_invoice === true;
+  const invoiceRequired = selectedAction?.requires_invoice === true;
+  const paymentRequired = selectedAction?.requires_payment_status === true;
   const canForward = file?.benefit_verified === 'YES';
   const notes = file?.notes ?? [];
   const docs = file?.docs ?? [];
@@ -206,9 +207,9 @@ function AllocatedFileSheet({
       misApi.businessAllocatedFileAction(fileNo, {
         action: action as AllocatedFileActionOption['code'],
         comments,
-        invoice_no: cashierAction ? documentTransaction.invoiceNo : undefined,
+        invoice_no: invoiceRequired ? documentTransaction.invoiceNo : undefined,
         paid_status:
-          cashierAction
+          paymentRequired
             ? (paidStatus as 'FULL-PAID' | 'PART-PAID' | 'NOT-PAID')
             : undefined,
       }),
@@ -327,7 +328,7 @@ function AllocatedFileSheet({
       return;
     }
     if (
-      cashierAction &&
+      invoiceRequired &&
       (documentTransaction.invoiceNo.trim().length < 20 ||
         documentTransaction.invoiceNo.trim().length > 25)
     ) {
@@ -338,10 +339,10 @@ function AllocatedFileSheet({
       });
       return;
     }
-    if (cashierAction && !paidStatus) {
+    if (paymentRequired && !paidStatus) {
       toast({
         title: 'Payment status required',
-        description: 'Select the payment status for the Cashier handoff.',
+        description: 'Select the payment status for this action.',
         variant: 'destructive',
       });
       return;
@@ -766,19 +767,19 @@ function AllocatedFileSheet({
                           data-testid="select-payment-status"
                           value={paidStatus}
                           onChange={event => setPaidStatus(event.target.value as typeof paidStatus)}
-                          disabled={!canForward || !cashierAction}
+                          disabled={!canForward || !paymentRequired}
                           className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-70"
                         >
                           <option value="">
-                            {cashierAction ? 'Select status…' : 'Required for Cashier action'}
+                            {paymentRequired ? 'Select status…' : 'Required for Cashier, Closed, or RM'}
                           </option>
                           <option value="FULL-PAID">Full paid</option>
                           <option value="PART-PAID">Part paid</option>
                           <option value="NOT-PAID">Not paid</option>
                         </select>
-                        {!cashierAction && (
+                        {!paymentRequired && (
                           <p className="text-xs text-muted-foreground">
-                            Payment status is collected for Cashier handoffs.
+                            Payment status is collected for Cashier, Closed, and RM handoffs.
                           </p>
                         )}
                       </div>

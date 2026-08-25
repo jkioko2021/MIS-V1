@@ -307,7 +307,7 @@ class BusinessRouteState {
       return [{ to_pricing_dt: this.file.to_pricing_dt }];
     }
     if (statement.startsWith("UPDATE crm.business_tracking SET file_status=$1,") && statement.includes("invoice_no=CASE WHEN")) {
-      const [newStatus, returnIncomplete, isCashier, invoiceNo, paidStatus, paid] = params;
+      const [newStatus, returnIncomplete, storesInvoice, invoiceNo, storesPayment, paidStatus, paid] = params;
       this.file.file_status = newStatus;
       this.file.forwarded = returnIncomplete ? false : this.file.forwarded;
       this.file.allocated = false;
@@ -315,8 +315,10 @@ class BusinessRouteState {
       this.file.allocate_dt = null;
       this.file.is_complete = returnIncomplete ? false : this.file.is_complete;
       this.file.ready_for_update = returnIncomplete ? false : true;
-      if (isCashier) {
+      if (storesInvoice) {
         this.file.invoice_no = invoiceNo;
+      }
+      if (storesPayment) {
         this.file.paid_status = paidStatus;
         this.file.paid = paid;
       }
@@ -827,7 +829,7 @@ test("allocated-file Cashier handoff persists payment context and releases the a
   const invalid = await withServer(
     state,
     (request) => request("POST", `${fileEndpoint(state.file.file_no)}/allocation-action`, {
-      action: "CA",
+      action: "C",
       comments: "Ready for cashier.",
       invoice_no: "too-short",
       paid_status: "FULL-PAID",
@@ -841,7 +843,7 @@ test("allocated-file Cashier handoff persists payment context and releases the a
   const result = await withServer(
     state,
     (request) => request("POST", `${fileEndpoint(state.file.file_no)}/allocation-action`, {
-      action: "CA",
+      action: "C",
       comments: "Invoice attached and payment confirmed.",
       invoice_no: "INV-20260825-00000001",
       paid_status: "FULL-PAID",
@@ -858,7 +860,7 @@ test("allocated-file Cashier handoff persists payment context and releases the a
   assert.equal(state.file.paid_status, "FULL-PAID");
   assert.equal(state.file.paid, true);
   assert.match(state.notes.at(-1).notes, /Cashier handoff.*FULL-PAID/);
-  assert.equal(state.audits.at(-1).action_type, "BT_ALLOCATED_CA");
+  assert.equal(state.audits.at(-1).action_type, "BT_ALLOCATED_C");
 });
 
 test("allocated-file Cashier handoff rejects new or renewal files without an AML report", async () => {
@@ -871,7 +873,7 @@ test("allocated-file Cashier handoff rejects new or renewal files without an AML
   const result = await withServer(
     state,
     (request) => request("POST", `${fileEndpoint(state.file.file_no)}/allocation-action`, {
-      action: "CA",
+      action: "C",
       comments: "Ready for cashier.",
       invoice_no: "INV-20260825-00000001",
       paid_status: "FULL-PAID",

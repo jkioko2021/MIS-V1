@@ -133,14 +133,14 @@ export interface BusinessReviewActionBody {
 }
 
 export interface AllocatedFileActionBody {
-  action: 'RI' | 'MU' | 'CA';
+  action: 'C' | 'MU' | 'CL' | 'IT' | 'RI' | 'RM';
   comments: string;
   invoice_no?: string;
   paid_status?: 'FULL-PAID' | 'PART-PAID' | 'NOT-PAID';
 }
 
 export interface AllocatedFileActionOption {
-  code: 'RI' | 'MU' | 'CA';
+  code: 'C' | 'MU' | 'CL' | 'IT' | 'RI' | 'RM';
   label: string;
   destination: string;
   requires_invoice: boolean;
