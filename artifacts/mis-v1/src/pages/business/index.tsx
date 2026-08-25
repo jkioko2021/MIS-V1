@@ -1417,9 +1417,11 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
-export default function BusinessTrackingPage() {
+type BusinessQueue = 'register' | 'bpo-retail' | 'bpo-corporate-sme';
+
+export default function BusinessTrackingPage({ initialQueue = 'register' }: { initialQueue?: BusinessQueue }) {
   const { user } = useAuth();
-  const [queue, setQueue]             = useState<'register' | 'bpo-retail' | 'bpo-corporate-sme'>('register');
+  const [queue, setQueue]             = useState<BusinessQueue>(initialQueue);
   const [clientTab, setClientTab]     = useState<'ALL' | TrackingClientType>('ALL');
   const [statusFilter, setStatusFilter] = useState('');
   const [searchBy, setSearchBy]       = useState<'P' | 'F'>('P');
@@ -1462,6 +1464,12 @@ export default function BusinessTrackingPage() {
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
+
+  useEffect(() => {
+    setQueue(initialQueue);
+    setStatusFilter('');
+    setPage(1);
+  }, [initialQueue]);
 
   const deleteBusinessMut = useMutation({
     mutationFn: (fileNo: string) => misApi.businessDelete(fileNo),

@@ -38,6 +38,7 @@ type NavItem = {
   label: string;
   icon: LucideIcon;
   bpoOnly?: boolean;
+  bpoReviewOnly?: boolean;
   children?: NavItem[];
 };
 
@@ -55,6 +56,8 @@ const NAV_SECTIONS: Array<{
         label: 'Business Tracking',
         icon: FileText,
         children: [
+          { href: '/business/bpo-retail', label: 'BPO Review-Retail', icon: FileText, bpoReviewOnly: true },
+          { href: '/business/bpo-corporate-sme', label: 'BPO Review Corporate/SME', icon: FileText, bpoReviewOnly: true },
           { href: '/business/allocated', label: 'Allocated Files', icon: FileText, bpoOnly: true },
         ],
       },
@@ -86,6 +89,12 @@ function Sidebar() {
     'bpo review',
     'membership admin',
   ].includes((user.profileName ?? '').trim().toLowerCase());
+  const canSeeBpoReviewQueues = user && [
+    'superadmin',
+    'system admin',
+    'bpo',
+    'bpo review',
+  ].includes((user.profileName ?? '').trim().toLowerCase());
 
   return (
     <aside className="w-56 shrink-0 border-r bg-muted/30 flex flex-col h-screen sticky top-0">
@@ -109,7 +118,10 @@ function Sidebar() {
                 const bpoOnly = 'bpoOnly' in item && item.bpoOnly;
                 if (bpoOnly && !canSeeAllocatedFiles) return null;
                 const active = location === href || (href !== '/' && location.startsWith(href));
-                const visibleChildren = item.children?.filter(child => !child.bpoOnly || canSeeAllocatedFiles) ?? [];
+                const visibleChildren = item.children?.filter(child =>
+                  (!child.bpoOnly || canSeeAllocatedFiles)
+                  && (!child.bpoReviewOnly || canSeeBpoReviewQueues),
+                ) ?? [];
                 return (
                   <div key={href}>
                     <Link
@@ -217,6 +229,12 @@ function ProtectedRouter() {
         <Switch>
           <Route path="/"                 component={HomePage} />
           <Route path="/business/allocated" component={AllocatedFilesPage} />
+          <Route path="/business/bpo-retail">
+            {() => <BusinessTrackingPage initialQueue="bpo-retail" />}
+          </Route>
+          <Route path="/business/bpo-corporate-sme">
+            {() => <BusinessTrackingPage initialQueue="bpo-corporate-sme" />}
+          </Route>
           <Route path="/business"         component={BusinessTrackingPage} />
           <Route path="/risk"             component={RiskRegisterPage} />
           <Route path="/discovery"        component={DiscoveryPage} />
