@@ -133,18 +133,34 @@ export interface BusinessReviewActionBody {
 }
 
 export interface AllocatedFileActionBody {
-  action: 'C' | 'MU' | 'CL' | 'IT' | 'RI' | 'RM';
+  action: 'C' | 'CA' | 'MU' | 'CL' | 'IT' | 'RI' | 'RM';
   comments: string;
   invoice_no?: string;
-  paid_status?: 'FULL-PAID' | 'PART-PAID' | 'NOT-PAID';
+  paid_status?: 'FULL-PAID' | 'PART-PAID' | 'NOT-PAID' | 'CR';
+  assigned_to?: string;
 }
 
 export interface AllocatedFileActionOption {
-  code: 'C' | 'MU' | 'CL' | 'IT' | 'RI' | 'RM';
+  code: AllocatedFileActionBody['action'];
   label: string;
   destination: string;
   requires_invoice: boolean;
   requires_payment_status: boolean;
+}
+
+export interface AllocationRecipient {
+  username: string;
+  employee_name: string;
+  department: string;
+}
+
+export interface AllocationDestination {
+  action: AllocatedFileActionBody['action'];
+  queue_name: string;
+  team_name: string;
+  file_status: string;
+  needs_assignee: boolean;
+  staff: AllocationRecipient[];
 }
 
 export interface AllocatedFileAmlStatus {
@@ -265,9 +281,11 @@ export const misApi = {
       pricing_handoff_at: string | null;
     }>>(`/business/${encodeURIComponent(fileNo)}/review-action`, body),
   businessAllocatedFileAction: (fileNo: string, body: AllocatedFileActionBody) =>
-    post<ApiResponse<{ file_status: string }>>(`/business/${encodeURIComponent(fileNo)}/allocation-action`, body),
+    post<ApiResponse<{ file_status: string; work_item_id?: number; queue_name: string; team_name: string }>>(`/business/${encodeURIComponent(fileNo)}/allocation-action`, body),
   businessAllocatedActionOptions: () =>
     get<ApiResponse<AllocatedFileActionOption[]>>('/business/allocated/action-options'),
+  allocationDestination: (action: AllocatedFileActionBody['action']) =>
+    get<ApiResponse<AllocationDestination>>('/business/allocation-destinations', { action }),
   businessAllocatedAmlStatus: (fileNo: string) =>
     get<ApiResponse<AllocatedFileAmlStatus>>(`/business/allocated/${encodeURIComponent(fileNo)}/aml-status`),
   businessForward: (fileNo: string, body?: { to_user?: string; comments?: string }) =>

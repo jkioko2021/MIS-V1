@@ -1,5 +1,6 @@
 import { Readable } from "node:stream";
 import { Router, type Request, type Response } from "express";
+import type { PoolClient } from "pg";
 import { query, queryOne, withTransaction, txQuery } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
 import { requireAllocatedFileReadAccess, requireBpoAllocatedAccess, requireBpoForwardAccess, requireBpoReviewAccess, requireBusinessDeleteAccess, requireBusinessFileAccess, requireBusinessTrackingAccess } from "../lib/business-permissions";
@@ -26,10 +27,10 @@ const BPO_ADMIN_PROFILES = ["bpo", "bpo admin", "bpo review"];
 const BPO_REVIEW_ACTIONS = new Set(["RI", "A", "MU", "HO", "CA"]);
 const CORPORATE_SME_BPO_REVIEW_ACTIONS = new Set(["RI", "A", "MU", "CA"]);
 const BPO_PRODUCTS = new Set(["T", "S", "AS"]);
-const ALLOCATED_FILE_ACTIONS = new Set(["C", "MU", "CL", "IT", "RI", "RM"]);
-const ALLOCATED_INVOICE_ACTIONS = new Set(["C", "RM"]);
-const ALLOCATED_PAYMENT_ACTIONS = new Set(["C", "CL", "RM"]);
-const PAYMENT_STATUSES = new Set(["FULL-PAID", "PART-PAID", "NOT-PAID"]);
+const ALLOCATED_FILE_ACTIONS = new Set(["C", "CA", "MU", "CL", "IT", "RI", "RM"]);
+const ALLOCATED_INVOICE_ACTIONS = new Set(["C", "CA", "RM"]);
+const ALLOCATED_PAYMENT_ACTIONS = new Set(["C", "CA", "RM"]);
+const PAYMENT_STATUSES = new Set(["FULL-PAID", "PART-PAID", "NOT-PAID", "CR"]);
 const ALLOCATED_FILE_ACTION_OPTIONS = [
   {
     code: "C",
@@ -79,6 +80,37 @@ const AML_RISK_RATES = new Set(["Low", "Medium", "High"]);
 
 function bpoQueueName(clientType: string): "BPO_REVIEW_RETAIL" | "BPO_REVIEW_CORPORATE_SME" {
   return clientType === "R" ? "BPO_REVIEW_RETAIL" : "BPO_REVIEW_CORPORATE_SME";
+}
+
+const ALLOCATION_ACTION_DESTINATIONS = {
+  C: { label: "Cashier", queueName: "CASHIER", teamName: "Finance", fileStatus: "CASHIER", departments: ["FINANCE"], needsAssignee: true, completesWork: false },
+  CA: { label: "Cashier", queueName: "CASHIER", teamName: "Finance", fileStatus: "CASHIER", departments: ["FINANCE"], needsAssignee: true, completesWork: false },
+  MU: { label: "Medical UW", queueName: "MEDICAL_UNDERWRITING", teamName: "Medical Underwriting", fileStatus: "MEDICAL UW-REVIEW", departments: ["MEDICAL UNDERWRITING"], needsAssignee: true, completesWork: false },
+  CL: { label: "Closed", queueName: "MEMBERSHIP_CLOSURE", teamName: "Membership", fileStatus: "CLOSED", departments: [] as string[], needsAssignee: false, completesWork: true },
+  IT: { label: "IT Support", queueName: "IT_SUPPORT", teamName: "IT Support", fileStatus: "IT SUPPORT", departments: ["IT"], needsAssignee: true, completesWork: false },
+  RI: { label: "Return Incomplete", queueName: "REGISTER_CORRECTION", teamName: "Business Registration", fileStatus: "RETURNED-INCOMPLETE", departments: [] as string[], needsAssignee: false, completesWork: false },
+  RM: { label: "RM / Pending Payment", queueName: "RELATIONSHIP_MANAGEMENT", teamName: "Retention", fileStatus: "PENDING PAYMENT", departments: ["RETENTION"], needsAssignee: true, completesWork: false },
+} as const;
+
+type AllocatedFileAction = keyof typeof ALLOCATION_ACTION_DESTINATIONS;
+
+function allocationDestination(action: string) {
+  return ALLOCATION_ACTION_DESTINATIONS[action as AllocatedFileAction];
+}
+
+async function allocationDestinationStaffValidationError(client: PoolClient, action: AllocatedFileAction, username: string): Promise<string | null> {
+  const destination = ALLOCATION_ACTION_DESTINATIONS[action];
+  if (!destination.needsAssignee) return null;
+  if (!username) return `Select an active ${destination.teamName} recipient.`;
+  const [staff] = await txQuery<{ username: string }>(
+    client,
+    `SELECT e.username FROM crm.employees e
+     WHERE e.username=$1 AND e.department = ANY($2::text[])
+       AND e.activated=TRUE AND e.approved=TRUE AND e.employee_locked=FALSE AND e.is_deleted=FALSE
+     FOR UPDATE`,
+    [username, destination.departments],
+  );
+  return staff ? null : `Select an active ${destination.teamName} recipient.`;
 }
 
 interface BusinessInput {
@@ -364,6 +396,32 @@ router.get("/business/bpo-reviewers", requireBpoForwardAccess, async (_req: Requ
 // not become the source of truth for permitted workflow outcomes.
 router.get("/business/allocated/action-options", requireBpoAllocatedAccess, (_req: Request, res: Response) => {
   res.json({ ok: true, data: ALLOCATED_FILE_ACTION_OPTIONS });
+});
+
+router.get("/business/allocation-destinations", requireBpoAllocatedAccess, async (req: Request, res: Response): Promise<void> => {
+  const action = text(req.query.action);
+  const destination = allocationDestination(action);
+  if (!destination) {
+    res.status(400).json({ ok: false, error: "Select a valid allocated-file action." });
+    return;
+  }
+  try {
+    const staff = destination.needsAssignee
+      ? await query<{ username: string; employee_name: string; department: string }>(
+        `SELECT username, employee_name, department FROM crm.employees
+         WHERE department = ANY($1::text[]) AND activated=TRUE AND approved=TRUE
+           AND employee_locked=FALSE AND is_deleted=FALSE
+         ORDER BY employee_name, username`,
+        [destination.departments],
+      )
+      : [];
+    res.json({ ok: true, data: {
+      action, queue_name: destination.queueName, team_name: destination.teamName,
+      file_status: destination.fileStatus, needs_assignee: destination.needsAssignee, staff,
+    } });
+  } catch (err) {
+    handleError(res, err, "get allocation destination staff");
+  }
 });
 
 // The legacy rating-reason list belongs to the separate AAR Risk database.
@@ -846,6 +904,13 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
 
       const updated = await txQuery<{ file_no: string }>(client, updateSql, updateParams);
       if (updated.length === 0) throw new Error("FORWARD_NOT_ALLOWED");
+
+      await txQuery(
+        client,
+        `UPDATE crm.business_work_items SET work_status='COMPLETED', updated_at=NOW()
+         WHERE file_no=$1 AND work_status='OPEN' AND queue_name<>$2`,
+        [fileNo, queueName],
+      );
 
       const [workItem] = await txQuery<{ work_item_id: number }>(
         client,
@@ -1338,11 +1403,12 @@ router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (re
 // operational trail.
 router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, async (req: Request, res: Response): Promise<void> => {
   const { fileNo } = req.params;
-  const { action, comments, invoice_no, paid_status } = req.body as {
+  const { action, comments, invoice_no, paid_status, assigned_to } = req.body as {
     action?: string;
     comments?: string;
     invoice_no?: string;
     paid_status?: string;
+    assigned_to?: string;
   };
   // CA was the prior modern API code for the legacy Cashier value C. Keep it
   // as an input compatibility alias while returning the legacy code to clients.
@@ -1351,11 +1417,13 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
   const note = text(comments);
   const invoiceNo = text(invoice_no);
   const paidStatus = text(paid_status);
+  const assignedTo = text(assigned_to);
+  const destination = allocationDestination(requestedAction);
   const isCashier = requestedAction === "C";
   const requiresInvoice = ALLOCATED_INVOICE_ACTIONS.has(requestedAction);
   const requiresPayment = ALLOCATED_PAYMENT_ACTIONS.has(requestedAction);
 
-  if (!ALLOCATED_FILE_ACTIONS.has(requestedAction)) {
+  if (!ALLOCATED_FILE_ACTIONS.has(requestedAction) || !destination) {
     res.status(400).json({ ok: false, error: "Select a valid allocated-file action." });
     return;
   }
@@ -1372,23 +1440,6 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
     return;
   }
 
-  const statusByAction: Record<string, string> = {
-    RI: "RETURNED-INCOMPLETE",
-    MU: "MEDICAL UW-REVIEW",
-    C: "CASHIER",
-    CL: "CLOSED",
-    IT: "IT SUPPORT",
-    RM: "PENDING PAYMENT",
-  };
-  const actionLabel: Record<string, string> = {
-    RI: "Return Incomplete",
-    MU: "Medical UW",
-    C: "Cashier",
-    CL: "Closed",
-    IT: "IT Support",
-    RM: "RM",
-  };
-
   try {
     const result = await withTransaction(async (client) => {
       await txQuery(client, "SELECT pg_advisory_xact_lock(hashtext($1))", [fileNo]);
@@ -1400,9 +1451,10 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
         allocated_to: string | null;
         benefit_verified: string;
         business_type: string;
+        entered_by: string;
       }>(
         client,
-        `SELECT file_no, is_active, file_status, allocated, allocated_to, benefit_verified, business_type
+        `SELECT file_no, is_active, file_status, allocated, allocated_to, benefit_verified, business_type, entered_by
          FROM crm.business_tracking
          WHERE file_no=$1
          FOR UPDATE`,
@@ -1434,7 +1486,36 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
       }
 
       const returnIncomplete = requestedAction === "RI";
+      const actionKey = requestedAction as AllocatedFileAction;
+      const assigneeError = await allocationDestinationStaffValidationError(client, actionKey, assignedTo);
+      if (assigneeError) throw new Error(`DESTINATION_STAFF_INVALID:${assigneeError}`);
+      const workItemAssignee = destination.needsAssignee
+        ? assignedTo
+        : returnIncomplete
+          ? file.entered_by
+          : req.user!.username;
+      const workStatus = destination.completesWork ? "COMPLETED" : "OPEN";
       const paid = paidStatus !== "NOT-PAID";
+
+      await txQuery(
+        client,
+        `UPDATE crm.business_work_items SET work_status='COMPLETED', updated_at=NOW()
+         WHERE file_no=$1 AND work_status='OPEN' AND queue_name<>$2`,
+        [fileNo, destination.queueName],
+      );
+      const [workItem] = await txQuery<{ work_item_id: number }>(
+        client,
+        `INSERT INTO crm.business_work_items
+           (file_no, queue_name, work_status, assigned_to, assigned_by, forwarded_by, forwarded_at)
+         VALUES ($1, $2, $3, $4, $5, $5, NOW())
+         ON CONFLICT (file_no, queue_name) DO UPDATE SET
+           work_status=EXCLUDED.work_status, assigned_to=EXCLUDED.assigned_to,
+           assigned_by=EXCLUDED.assigned_by, forwarded_by=EXCLUDED.forwarded_by,
+           forwarded_at=EXCLUDED.forwarded_at, updated_at=NOW()
+         RETURNING work_item_id`,
+        [fileNo, destination.queueName, workStatus, workItemAssignee, req.user!.username],
+      );
+
       const [updatedFile] = await txQuery<{ file_status: string }>(
         client,
         `UPDATE crm.business_tracking
@@ -1454,7 +1535,7 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
            AND is_active=TRUE
          RETURNING file_status`,
         [
-          statusByAction[requestedAction],
+          destination.fileStatus,
           returnIncomplete,
           requiresInvoice,
           invoiceNo || null,
@@ -1468,7 +1549,8 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
       const paymentDetail = requiresPayment
         ? `${requiresInvoice ? `; invoice ${invoiceNo}` : ""}; payment ${paidStatus}`
         : "";
-      const noteText = `Allocation ${actionLabel[requestedAction]} handoff${paymentDetail}: ${note}`;
+      const assigneeDetail = destination.needsAssignee ? `; assigned to ${assignedTo}` : "";
+      const noteText = `Allocation → ${destination.queueName}${assigneeDetail}${paymentDetail}: ${note}`;
       await txQuery(
         client,
         `INSERT INTO crm.business_tracking_notes (file_no, note_from, notes, note_date, is_active)
@@ -1482,11 +1564,16 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
         [
           req.user!.username,
           `BT_ALLOCATED_${requestedAction}`,
-          `${actionLabel[requestedAction]} handoff completed for ${fileNo}${paymentDetail}. Notes: ${note}`,
+          `${destination.label} handoff committed to ${destination.queueName} for ${fileNo}${assigneeDetail}${paymentDetail}. Notes: ${note}`,
         ],
       );
 
-      return { file_status: updatedFile?.file_status ?? statusByAction[requestedAction] };
+      return {
+        file_status: updatedFile?.file_status ?? destination.fileStatus,
+        work_item_id: workItem?.work_item_id,
+        queue_name: destination.queueName,
+        team_name: destination.teamName,
+      };
     });
 
     res.json({ ok: true, data: result });
@@ -1509,6 +1596,10 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
     }
     if (err instanceof Error && err.message === "FILE_NOT_ASSIGNED") {
       res.status(403).json({ ok: false, error: "You can only action files allocated to your account." });
+      return;
+    }
+    if (err instanceof Error && err.message.startsWith("DESTINATION_STAFF_INVALID:")) {
+      res.status(400).json({ ok: false, error: err.message.slice("DESTINATION_STAFF_INVALID:".length) });
       return;
     }
     handleError(res, err, "complete allocated-file action");

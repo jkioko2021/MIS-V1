@@ -142,7 +142,8 @@ function AllocatedFileSheet({
   const [tab, setTab] = useState('register');
   const [action, setAction] = useState<AllocatedFileActionOption['code'] | ''>('');
   const [comments, setComments] = useState('');
-  const [paidStatus, setPaidStatus] = useState<'FULL-PAID' | 'PART-PAID' | 'NOT-PAID' | ''>('');
+  const [paidStatus, setPaidStatus] = useState<'FULL-PAID' | 'PART-PAID' | 'NOT-PAID' | 'CR' | ''>('');
+  const [assignedTo, setAssignedTo] = useState('');
   const [documentTransaction, setDocumentTransaction] = useState<AllocationDocumentTransaction>({
     reqId: '',
     invoiceNo: '',
@@ -187,6 +188,11 @@ function AllocatedFileSheet({
     queryKey: ['aml-risk-reason-source'],
     queryFn: () => misApi.amlRiskReasons(),
   });
+  const { data: destinationRes, isLoading: destinationLoading } = useQuery({
+    queryKey: ['allocation-destination', action],
+    queryFn: () => misApi.allocationDestination(action as AllocatedFileActionOption['code']),
+    enabled: !!action,
+  });
 
   const file = fileRes?.data as DetailedFile | undefined;
   const uploads = (uploadsRes?.data ?? []) as BusinessUpload[];
@@ -197,6 +203,7 @@ function AllocatedFileSheet({
   const selectedAction = actionOptions.find(option => option.code === action);
   const invoiceRequired = selectedAction?.requires_invoice === true;
   const paymentRequired = selectedAction?.requires_payment_status === true;
+  const destination = destinationRes?.data;
   const canForward = file?.benefit_verified === 'YES';
   const notes = file?.notes ?? [];
   const docs = file?.docs ?? [];
@@ -210,8 +217,9 @@ function AllocatedFileSheet({
         invoice_no: invoiceRequired ? documentTransaction.invoiceNo : undefined,
         paid_status:
           paymentRequired
-            ? (paidStatus as 'FULL-PAID' | 'PART-PAID' | 'NOT-PAID')
+            ? (paidStatus as 'FULL-PAID' | 'PART-PAID' | 'NOT-PAID' | 'CR')
             : undefined,
+        assigned_to: destination?.needs_assignee ? assignedTo : undefined,
       }),
     onSuccess: async response => {
       toast({
@@ -314,7 +322,7 @@ function AllocatedFileSheet({
     if (!action) {
       toast({
         title: 'Action required',
-        description: 'Select Cashier, Medical UW, or Return Incomplete.',
+        description: 'Select a permitted allocation handoff.',
         variant: 'destructive',
       });
       return;
@@ -345,6 +353,10 @@ function AllocatedFileSheet({
         description: 'Select the payment status for this action.',
         variant: 'destructive',
       });
+      return;
+    }
+    if (destination?.needs_assignee && !assignedTo) {
+      toast({ title: 'Recipient required', description: `Select an active ${destination.team_name} recipient.`, variant: 'destructive' });
       return;
     }
     actionMutation.mutate();
@@ -406,201 +418,31 @@ function AllocatedFileSheet({
             </div>
           ) : (
             <div className="p-5 sm:p-7">
-              <div className="flex flex-col">
-                <div className="order-10 mb-5 grid gap-2 sm:grid-cols-4">
-                  <div
-                    data-testid="allocation-operations-summary"
-                    className="rounded-lg border border-[#d6e5e1] bg-[#f5faf8] px-3 py-2.5"
+              <Tabs value={tab} onValueChange={setTab}>
+                <TabsList className="grid h-auto w-full grid-cols-3 gap-1 bg-[#e3efec] p-1 sm:grid-cols-5">
+                  <TabsTrigger value="register" className="gap-1.5 py-2 text-xs">
+                    <FileText className="h-3.5 w-3.5" />
+                    Register
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="documentation"
+                    className="gap-1.5 py-2 text-xs"
                   >
-                    <p className="text-[10px] font-bold uppercase tracking-[.14em] text-muted-foreground">
-                      Benefit check
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-[#245f59]">
-                      {file.benefit_verified === 'YES' ? 'Complete' : 'Pending'}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-[#d6e5e1] bg-[#f5faf8] px-3 py-2.5">
-                    <p className="text-[10px] font-bold uppercase tracking-[.14em] text-muted-foreground">
-                      Assigned to
-                    </p>
-                    <p className="mt-1 truncate text-sm font-semibold text-[#245f59]">
-                      {file.allocated_to || 'Unassigned'}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-[#d6e5e1] bg-[#f5faf8] px-3 py-2.5">
-                    <p className="text-[10px] font-bold uppercase tracking-[.14em] text-muted-foreground">
-                      Documents
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-[#245f59]">
-                      {selectedDocuments.length} selected
-                      <span className="font-normal text-muted-foreground"> / {docs.length} total</span>
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-[#d6e5e1] bg-[#f5faf8] px-3 py-2.5">
-                    <p className="text-[10px] font-bold uppercase tracking-[.14em] text-muted-foreground">
-                      Next destination
-                    </p>
-                    <p className="mt-1 truncate text-sm font-semibold text-[#245f59]">
-                      {selectedAction?.destination || 'Choose an action'}
-                    </p>
-                  </div>
-                </div>
+                    <FileCheck2 className="h-3.5 w-3.5" />
+                    Documentation
+                  </TabsTrigger>
+                  <TabsTrigger value="payment" className="gap-1.5 py-2 text-xs">
+                    Payment
+                  </TabsTrigger>
+                  <TabsTrigger value="online" className="gap-1.5 py-2 text-xs">
+                    Online Products
+                  </TabsTrigger>
+                  <TabsTrigger value="members" className="gap-1.5 py-2 text-xs">
+                    Member List
+                  </TabsTrigger>
+                </TabsList>
 
-                <div className="order-20 mb-6 rounded-xl border border-[#a9d7d1] bg-[#e7f5f2] p-4">
-                  <div className="mb-4">
-                    <div className="flex items-center gap-2 text-sm font-bold text-[#195f5a]">
-                      <SendHorizontal className="h-4 w-4" />
-                      Invoice / Credit Note workflow
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Complete the transaction details and accountable handoff before reviewing supporting records.
-                    </p>
-                  </div>
-
-                  <BusinessTransactionPanel
-                    documents={selectedDocuments}
-                    value={documentTransaction}
-                    file={pendingDocumentFile}
-                    isUploading={uploadMutation.isPending}
-                    riskReasonSourceAvailable={amlRiskReasonSource?.available ?? false}
-                    riskReasonSourceMessage={amlRiskReasonSource?.message}
-                    riskReasonOptions={amlRiskReasonSource?.reasons ?? []}
-                    onChange={setDocumentTransaction}
-                    onFileChange={setPendingDocumentFile}
-                    onUpload={() => uploadMutation.mutate()}
-                  />
-
-                  <div className="rounded-xl border border-[#b9d5d0] bg-[#f7fbfa] p-4">
-                    <div className="flex items-center gap-2 text-sm font-bold text-[#195f5a]">
-                      <SendHorizontal className="h-4 w-4" />
-                      Forward allocation
-                    </div>
-                    {!canForward && (
-                      <p className="mt-1 text-xs text-[#356c67]">
-                        Benefit verification must be complete before this file can be handed to another operational destination.
-                      </p>
-                    )}
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="allocated-action">Action</Label>
-                        <select
-                          id="allocated-action"
-                          data-testid="select-allocated-action"
-                          value={action}
-                          onChange={event => {
-                            setAction(event.target.value as AllocatedFileActionOption['code'] | '');
-                            setPaidStatus('');
-                          }}
-                          disabled={
-                            !canForward ||
-                            actionMutation.isPending ||
-                            actionOptionsLoading ||
-                            actionOptionsError
-                          }
-                          className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm"
-                        >
-                          <option value="">
-                            {actionOptionsLoading ? 'Loading permitted actions…' : 'Select action…'}
-                          </option>
-                          {actionOptions.map(option => (
-                            <option key={option.code} value={option.code}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        {actionOptionsError && (
-                          <p className="text-xs text-destructive">
-                            Permitted handoffs could not be loaded. Please refresh and try again.
-                          </p>
-                        )}
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="allocated-forward-to">Forward to</Label>
-                        <Input
-                          id="allocated-forward-to"
-                          value={selectedAction?.destination ?? 'Select an action first'}
-                          readOnly
-                          aria-live="polite"
-                          className="bg-[#f2f8f6] text-[#356c67]"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Destination is determined by the permitted workflow action.
-                        </p>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="allocated-payment-status">Payment</Label>
-                        <select
-                          id="allocated-payment-status"
-                          data-testid="select-payment-status"
-                          value={paidStatus}
-                          onChange={event => setPaidStatus(event.target.value as typeof paidStatus)}
-                          disabled={!canForward || !paymentRequired}
-                          className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-70"
-                        >
-                          <option value="">
-                            {paymentRequired ? 'Select status…' : 'Required for Cashier, Closed, or RM'}
-                          </option>
-                          <option value="FULL-PAID">Full paid</option>
-                          <option value="PART-PAID">Part paid</option>
-                          <option value="NOT-PAID">Not paid</option>
-                        </select>
-                        {!paymentRequired && (
-                          <p className="text-xs text-muted-foreground">
-                            Payment status is collected for Cashier, Closed, and RM handoffs.
-                          </p>
-                        )}
-                      </div>
-                      <ReadOnlyField label="Entered By" value={file.entered_by} />
-                      <div className="space-y-1.5 sm:col-span-2">
-                        <Label htmlFor="allocated-action-notes">Notes</Label>
-                        <Textarea
-                          id="allocated-action-notes"
-                          data-testid="input-handover-notes"
-                          value={comments}
-                          onChange={event => setComments(event.target.value)}
-                          placeholder="Briefly explain the handover…"
-                          rows={3}
-                        />
-                      </div>
-                      <Button
-                        data-testid="button-confirm-handover"
-                        onClick={submitAction}
-                        disabled={actionMutation.isPending || !canForward}
-                        className="gap-1.5 sm:col-span-2"
-                      >
-                        <SendHorizontal className="h-4 w-4" />
-                        {actionMutation.isPending ? 'Saving action…' : 'Forward'}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="order-30">
-                  <Tabs value={tab} onValueChange={setTab}>
-                    <TabsList className="grid h-auto w-full grid-cols-3 gap-1 bg-[#e3efec] p-1 sm:grid-cols-5">
-                      <TabsTrigger value="register" className="gap-1.5 py-2 text-xs">
-                        <FileText className="h-3.5 w-3.5" />
-                        Register
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="documentation"
-                        className="gap-1.5 py-2 text-xs"
-                      >
-                        <FileCheck2 className="h-3.5 w-3.5" />
-                        Documentation
-                      </TabsTrigger>
-                      <TabsTrigger value="payment" className="gap-1.5 py-2 text-xs">
-                        Payment
-                      </TabsTrigger>
-                      <TabsTrigger value="online" className="gap-1.5 py-2 text-xs">
-                        Online Products
-                      </TabsTrigger>
-                      <TabsTrigger value="members" className="gap-1.5 py-2 text-xs">
-                        Member List
-                      </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="register" className="mt-6 space-y-6">
+                <TabsContent value="register" className="mt-6 space-y-6">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[.16em] text-[#28746e]">
                       Registration record
@@ -645,7 +487,7 @@ function AllocatedFileSheet({
                     ))}
                   </div>
 
-                    </TabsContent>
+                </TabsContent>
 
                 <TabsContent value="documentation" className="mt-6">
                   <div className="mb-4">
@@ -778,10 +620,9 @@ function AllocatedFileSheet({
                     detail="A member list is not available from the current system schema for this file. Contact the registry team if additional source data is required."
                   />
                 </TabsContent>
-                  </Tabs>
-                </div>
+              </Tabs>
 
-              <div className="order-40 mt-8 border-t border-[#d8e5e1] pt-6">
+              <div className="mt-8 border-t border-[#d8e5e1] pt-6">
                 <Tabs defaultValue="notes">
                   <TabsList className="bg-transparent p-0">
                     <TabsTrigger value="notes" className="gap-1.5 px-3 text-xs">
@@ -850,7 +691,151 @@ function AllocatedFileSheet({
                 </Tabs>
               </div>
 
-            </div>
+              <div className="mt-8 border-t border-[#d8e5e1] pt-6">
+                <div className="mb-4">
+                  <p className="text-xs font-bold uppercase tracking-[.16em] text-[#28746e]">
+                    Invoice / Credit Note workflow
+                  </p>
+                  <h3 className="mt-1 text-lg font-semibold">Review and forward</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Complete the document, payment, and accountable-destination steps from one place.
+                  </p>
+                </div>
+
+                <BusinessTransactionPanel
+                  documents={selectedDocuments}
+                  value={documentTransaction}
+                  file={pendingDocumentFile}
+                  isUploading={uploadMutation.isPending}
+                  riskReasonSourceAvailable={amlRiskReasonSource?.available ?? false}
+                  riskReasonSourceMessage={amlRiskReasonSource?.message}
+                  riskReasonOptions={amlRiskReasonSource?.reasons ?? []}
+                  onChange={setDocumentTransaction}
+                  onFileChange={setPendingDocumentFile}
+                  onUpload={() => uploadMutation.mutate()}
+                />
+
+                <div className="rounded-xl border border-[#a9d7d1] bg-[#e7f5f2] p-4">
+                  <div className="flex items-center gap-2 text-sm font-bold text-[#195f5a]">
+                    <SendHorizontal className="h-4 w-4" />
+                    Forward allocation
+                  </div>
+                  {!canForward && (
+                    <p className="mt-1 text-xs text-[#356c67]">
+                      Benefit verification must be complete before this file can be handed to another operational destination.
+                    </p>
+                  )}
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="allocated-action">Action</Label>
+                        <select
+                          id="allocated-action"
+                          data-testid="select-allocated-action"
+                          value={action}
+                          onChange={event => {
+                            setAction(event.target.value as AllocatedFileActionOption['code'] | '');
+                            setPaidStatus('');
+                            setAssignedTo('');
+                          }}
+                          disabled={
+                            !canForward ||
+                            actionMutation.isPending ||
+                            actionOptionsLoading ||
+                            actionOptionsError
+                          }
+                          className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm"
+                        >
+                          <option value="">
+                            {actionOptionsLoading ? 'Loading permitted actions…' : 'Select action…'}
+                          </option>
+                          {actionOptions.map(option => (
+                            <option key={option.code} value={option.code}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        {actionOptionsError && (
+                          <p className="text-xs text-destructive">
+                            Permitted handoffs could not be loaded. Please refresh and try again.
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="allocated-forward-to">Forward to</Label>
+                        <Input
+                          id="allocated-forward-to"
+                          value={destination ? `${destination.team_name} · ${destination.queue_name}` : selectedAction?.destination ?? 'Select an action first'}
+                          readOnly
+                          aria-live="polite"
+                          className="bg-[#f2f8f6] text-[#356c67]"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {destination ? `Final file status: ${destination.file_status}` : 'Destination is determined by the permitted workflow action.'}
+                        </p>
+                      </div>
+                      {destination?.needs_assignee && (
+                        <div className="space-y-1.5">
+                          <Label htmlFor="allocated-assignee">Accountable recipient</Label>
+                          <select
+                            id="allocated-assignee"
+                            value={assignedTo}
+                            onChange={event => setAssignedTo(event.target.value)}
+                            disabled={!canForward || destinationLoading || actionMutation.isPending}
+                            className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm"
+                          >
+                            <option value="">Select {destination.team_name} recipient…</option>
+                            {destination.staff.map(staff => <option key={staff.username} value={staff.username}>{staff.employee_name} ({staff.username})</option>)}
+                          </select>
+                        </div>
+                      )}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="allocated-payment-status">Payment</Label>
+                        <select
+                          id="allocated-payment-status"
+                          data-testid="select-payment-status"
+                          value={paidStatus}
+                          onChange={event => setPaidStatus(event.target.value as typeof paidStatus)}
+                          disabled={!canForward || !paymentRequired}
+                          className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          <option value="">
+                            {paymentRequired ? 'Select status…' : 'Required for Cashier, Closed, or RM'}
+                          </option>
+                          <option value="FULL-PAID">Full paid</option>
+                          <option value="PART-PAID">Part paid</option>
+                          <option value="NOT-PAID">Not paid</option>
+                            <option value="CR">Credit note</option>
+                        </select>
+                        {!paymentRequired && (
+                          <p className="text-xs text-muted-foreground">
+                            Payment status is collected for Cashier, Closed, and RM handoffs.
+                          </p>
+                        )}
+                      </div>
+                      <ReadOnlyField label="Entered By" value={file.entered_by} />
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label htmlFor="allocated-action-notes">Notes</Label>
+                        <Textarea
+                          id="allocated-action-notes"
+                          data-testid="input-handover-notes"
+                          value={comments}
+                          onChange={event => setComments(event.target.value)}
+                          placeholder="Briefly explain the handover…"
+                          rows={3}
+                        />
+                      </div>
+                      <Button
+                        data-testid="button-confirm-handover"
+                        onClick={submitAction}
+                        disabled={actionMutation.isPending || !canForward}
+                        className="gap-1.5 sm:col-span-2"
+                      >
+                        <SendHorizontal className="h-4 w-4" />
+                        {actionMutation.isPending ? 'Saving action…' : 'Forward'}
+                      </Button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </ScrollArea>

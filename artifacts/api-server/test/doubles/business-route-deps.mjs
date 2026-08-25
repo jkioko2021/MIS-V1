@@ -25,7 +25,7 @@ function allow(_req, _res, next) {
 }
 
 export const requireAuth = (req, _res, next) => {
-  req.user = { sub: 1, username: "business-entry" };
+  req.user = { sub: 1, username: state().currentUser ?? "business-entry" };
   next();
 };
 export const requireBusinessTrackingAccess = allow;

@@ -15,7 +15,7 @@
 - [Post-login navigation claims](post-login-navigation-claims.md) — Role-based sidebar visibility needs profile claims in the OTP verification response, not only the session refresh endpoint
 - [Sheet popover stacking](sheet-popover-stacking.md) — Portalled dropdowns inside sheets must layer above both the sheet and its overlay to remain visible
 - [BPO allocation schema](bpo-allocation-schema.md) — Verify BPO allocation columns are present in development before testing review-action handoffs
-- [Allocation handoff actions](allocation-handoff-actions.md) — Allocated files support only accountable Cashier, Medical UW, and return-for-correction outcomes
+- [Allocation handoff actions](allocation-handoff-actions.md) — Allocated files route Cashier, Medical UW, Return Incomplete, Closed, IT Support, and RM outcomes to accountable queues
 - [Allocation record access](allocation-record-access.md) — Allocation detail, history, upload lists, and documents must enforce assigned-user or SuperAdmin access
 - [Allocation AML gate](allocation-aml-gate.md) — New and renewal files require an uploaded AML Report before the allocated Cashier handoff
 - [Allocation handoff footer](allocation-handoff-footer.md) — Keep workflow controls visible but disabled when benefit verification blocks forwarding

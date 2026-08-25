@@ -49,6 +49,10 @@ class BusinessRouteState {
     this.staff = new Map([
       ["eligible", { department: "BPO", activated: true, approved: true, locked: false, deleted: false }],
       ["walk-in-eligible", { department: "MEMBERSHIP", activated: true, approved: true, locked: false, deleted: false }],
+      ["cashier-eligible", { department: "FINANCE", activated: true, approved: true, locked: false, deleted: false }],
+      ["medical-eligible", { department: "MEDICAL UNDERWRITING", activated: true, approved: true, locked: false, deleted: false }],
+      ["it-eligible", { department: "IT", activated: true, approved: true, locked: false, deleted: false }],
+      ["retention-eligible", { department: "RETENTION", activated: true, approved: true, locked: false, deleted: false }],
       ["inactive", { department: "BPO", activated: false, approved: true, locked: false, deleted: false }],
       ["wrong-department", { department: "FINANCE", activated: true, approved: true, locked: false, deleted: false }],
     ]);
@@ -174,6 +178,14 @@ class BusinessRouteState {
       client.releases.push(await this.acquire(`registration:${params[0]}`));
       return [];
     }
+    if (statement.includes("SELECT e.username FROM crm.employees e")
+      && statement.includes("e.department = ANY($2::text[])")
+      && statement.includes("FOR UPDATE")) {
+      const staff = this.staff.get(params[0]);
+      return staff && params[1].includes(staff.department) && staff.activated && staff.approved && !staff.locked && !staff.deleted
+        ? [{ username: params[0] }]
+        : [];
+    }
     if (statement.startsWith("SELECT file_status, forwarded, is_active FROM crm.business_tracking")) {
       return this.file ? [{
         file_status: this.file.file_status,
@@ -192,7 +204,7 @@ class BusinessRouteState {
         invoiced: this.file.invoiced,
       }] : [];
     }
-    if (statement.startsWith("SELECT file_no, is_active, file_status, allocated, allocated_to, benefit_verified, business_type FROM crm.business_tracking")) {
+    if (statement.startsWith("SELECT file_no, is_active, file_status, allocated, allocated_to, benefit_verified, business_type")) {
       return this.file?.is_active ? [{
         file_no: this.file.file_no,
         is_active: this.file.is_active,
@@ -201,6 +213,7 @@ class BusinessRouteState {
         allocated_to: this.file.allocated_to,
         benefit_verified: this.file.benefit_verified,
         business_type: this.file.business_type,
+        entered_by: "business-entry",
       }] : [];
     }
     if (statement.startsWith("SELECT file_status, is_complete, allocated, forwarded, business")) {
@@ -271,17 +284,18 @@ class BusinessRouteState {
       return this.file ? [{ file_status: this.file.file_status }] : [];
     }
     if (statement.startsWith("INSERT INTO crm.business_work_items")) {
+      const workStatus = statement.includes("VALUES ($1, $2, 'OPEN'") ? "OPEN" : params[2];
       let workItem = this.workItems.find((item) => item.file_no === params[0] && item.queue_name === params[1]);
       if (!workItem) {
         workItem = {
           work_item_id: this.workItems.length + 1,
           file_no: params[0],
           queue_name: params[1],
-          work_status: "OPEN",
+          work_status: workStatus,
         };
         this.workItems.push(workItem);
       } else {
-        workItem.work_status = "OPEN";
+        workItem.work_status = workStatus;
       }
       return [{ work_item_id: workItem.work_item_id }];
     }
@@ -332,6 +346,12 @@ class BusinessRouteState {
       this.file.allocated_to = allocated ? allocatedTo : null;
       this.file.is_complete = !returnIncomplete;
       this.file.ready_for_update = !returnIncomplete && !hold;
+      return [];
+    }
+    if (statement.startsWith("UPDATE crm.business_work_items SET work_status='COMPLETED'") && statement.includes("WHERE file_no=$1")) {
+      for (const workItem of this.workItems) {
+        if (workItem.file_no === params[0] && workItem.work_status === "OPEN" && workItem.queue_name !== params[1]) workItem.work_status = "COMPLETED";
+      }
       return [];
     }
     if (statement.startsWith("UPDATE crm.business_work_items")) {
@@ -847,6 +867,7 @@ test("allocated-file Cashier handoff persists payment context and releases the a
       comments: "Invoice attached and payment confirmed.",
       invoice_no: "INV-20260825-00000001",
       paid_status: "FULL-PAID",
+      assigned_to: "cashier-eligible",
     }),
   );
 
@@ -859,7 +880,7 @@ test("allocated-file Cashier handoff persists payment context and releases the a
   assert.equal(state.file.invoice_no, "INV-20260825-00000001");
   assert.equal(state.file.paid_status, "FULL-PAID");
   assert.equal(state.file.paid, true);
-  assert.match(state.notes.at(-1).notes, /Cashier handoff.*FULL-PAID/);
+  assert.match(state.notes.at(-1).notes, /Allocation → CASHIER.*cashier-eligible.*FULL-PAID/);
   assert.equal(state.audits.at(-1).action_type, "BT_ALLOCATED_C");
 });
 
