@@ -14,3 +14,4 @@
 - [Managed rebase conflicts](managed-rebase-conflicts.md) — Structural auto-merges can displace code outside visible conflict markers; compare the whole resolved file with both stages
 - [Post-login navigation claims](post-login-navigation-claims.md) — Role-based sidebar visibility needs profile claims in the OTP verification response, not only the session refresh endpoint
 - [Sheet popover stacking](sheet-popover-stacking.md) — Portalled dropdowns inside sheets must layer above both the sheet and its overlay to remain visible
+- [BPO allocation schema](bpo-allocation-schema.md) — Verify BPO allocation columns are present in development before testing review-action handoffs

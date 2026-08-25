@@ -176,16 +176,25 @@ export function BpoReviewSheet({ fileNo, onClose }: { fileNo: string; onClose: (
       comments,
       queue_name: 'BPO_REVIEW_RETAIL',
     }),
-    onSuccess: (response) => {
+    onSuccess: async (response) => {
+      const wasAllocated = action === 'A';
       toast({
-        title: response.data?.allocation_route === 'PRICING_HANDOFF'
+        title: wasAllocated
+          ? 'Moved to Allocation Files'
+          : response.data?.allocation_route === 'PRICING_HANDOFF'
           ? 'Pricing handoff recorded'
           : 'Action recorded successfully',
-        description: response.data?.allocation_route === 'PRICING_HANDOFF'
+        description: wasAllocated
+          ? `The file was allocated to ${allocatedTo} and you are returning to the BPO review dashboard.`
+          : response.data?.allocation_route === 'PRICING_HANDOFF'
           ? 'The file is now in Benefit Verification and has been handed off to Pricing.'
           : undefined,
       });
-      qc.invalidateQueries({ queryKey: ['business'] });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['business'] }),
+        qc.invalidateQueries({ queryKey: ['business-allocated'] }),
+        qc.invalidateQueries({ queryKey: ['business-file', fileNo] }),
+      ]);
       onClose();
     },
     onError: (e) => toast({ title: 'Action failed', description: String(e), variant: 'destructive' }),
@@ -194,7 +203,7 @@ export function BpoReviewSheet({ fileNo, onClose }: { fileNo: string; onClose: (
   function handleSubmit() {
     if (!product) { toast({ title: 'Validation', description: 'Product is required.', variant: 'destructive' }); return; }
     if (!action) { toast({ title: 'Validation', description: 'Action is required.', variant: 'destructive' }); return; }
-    if (action === 'A' && !allocatedTo) { toast({ title: 'Validation', description: 'Membership Admin is required for Allocation.', variant: 'destructive' }); return; }
+    if (action === 'A' && !allocatedTo) { toast({ title: 'Validation', description: 'BPO Admin is required for Allocation.', variant: 'destructive' }); return; }
     if (!comments.trim()) { toast({ title: 'Validation', description: 'Notes are required.', variant: 'destructive' }); return; }
     
     reviewMut.mutate();
