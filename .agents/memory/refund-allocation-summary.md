@@ -5,8 +5,8 @@ description: Source boundary for the read-only BPO summary of allocated premium-
 
 # Refund allocation summary
 
-The current PostgreSQL model has no migrated refund-ledger table or authoritative refund-amount field. The BPO allocation view reads real refund values and payee details directly from the legacy CRM refund ledger when that source is reachable. If the source is unavailable, it must show an explicit unavailable state instead of substituting values from PostgreSQL.
+The Allocation Files summary uses the legacy CRM refund ledger as its authoritative read-only source. It applies the legacy work-state filters (requested, allocated, unprocessed, active), scopes regular BPO users by the ledger allocation owner, and gives SuperAdmin an all-owner oversight view. The source is currently unreachable from Replit because the CRM RDS security group blocks the required outbound address.
 
-**Why:** The legacy refund ledger holds the dedicated refund amount and payee data. Presenting policy premium as a refund amount would be misleading, and exposing stale or fabricated payee data would be unsafe.
+**Why:** Policy premium is not a refund amount. Direct ledger values preserve the financial meaning of the work, while committed reads avoid exposing an in-progress financial update. Returning an explicit unavailable state is safer than showing a stale or substituted amount.
 
-**How to apply:** Keep the legacy-ledger view read-only and ownership-scoped like the Allocation Files queue. Do not derive a refund amount from membership data; when the source fails, preserve the unavailable state. Refund processing controls remain separate unless explicitly added.
+**How to apply:** Keep the refund panel read-only and separate from refund-processing controls. Do not fall back to policy premium. When CRM connectivity is restored, retain owner scoping and the unavailable state for future source outages.

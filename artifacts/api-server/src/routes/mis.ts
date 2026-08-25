@@ -3,7 +3,7 @@ import { query, queryOne } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
 import { requireAllocatedFileReadAccess, requireBpoAllocatedAccess, requireBpoQueueAccess, requireBusinessFileAccess, requireBusinessTrackingAccess, setBpoReviewAccess } from "../lib/business-permissions";
 import { logger } from "../lib/logger";
-import { getPool, sql } from "../lib/sqlserver";
+import { getAllocatedRefundLedger } from "../lib/refund-ledger";
 
 const router = Router();
 
@@ -74,31 +74,23 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
     if (business) { conditions.push(`bt.business = $${p++}`); params.push(business); }
     if (entered_by) { conditions.push(`bt.entered_by = $${p++}`); params.push(entered_by); }
     if (queue === "register") {
-      // Returned files go back to their originating registration workflow for
-      // correction, document review, and a fresh BPO handover.
       conditions.push(`bt.file_status IN ('REGISTERED', 'RETURNED-INCOMPLETE')`);
     } else if (isBpoQueue) {
       conditions.push(`wi.work_status = 'OPEN'`);
-      // An open BPO work item represents a handoff awaiting review. Final
-      // business statuses are written only when the reviewer completes it.
       conditions.push(`bt.file_status = 'FORWARDED'`);
       conditions.push(queue === "bpo-corporate-sme" ? `bt.client_type IN ('S', 'C')` : `bt.client_type = 'R'`);
     } else if (!res.locals.canAccessBpoReview) {
-      // BPO-held files are not visible through the unfiltered/default list.
       conditions.push(`NOT EXISTS (
         SELECT 1 FROM crm.business_work_items bpo_filter
         WHERE bpo_filter.file_no=bt.file_no
-           AND bpo_filter.queue_name IN ('BPO_REVIEW_RETAIL', 'BPO_REVIEW_CORPORATE_SME')
+          AND bpo_filter.queue_name IN ('BPO_REVIEW_RETAIL', 'BPO_REVIEW_CORPORATE_SME')
           AND bpo_filter.work_status='OPEN'
       )`);
     }
     if (search?.trim()) {
-      if (search_by === "F") {
-        conditions.push(`bt.file_no ILIKE $${p}`);
-      } else {
-        conditions.push(`bt.proposer_name ILIKE $${p}`);
-      }
-      params.push(`%${search}%`); p++;
+      conditions.push(search_by === "F" ? `bt.file_no ILIKE $${p}` : `bt.proposer_name ILIKE $${p}`);
+      params.push(`%${search}%`);
+      p++;
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -125,9 +117,9 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
         sa.agent_name,
         notes.note_count,
         wi.assigned_to AS bpo_assigned_to,
-         wi.forwarded_at AS bpo_forwarded_at,
-         wi.queue_name AS bpo_queue_name,
-         (LOWER(COALESCE(bt.client_sub_type, '')) LIKE '%shwaari%') AS is_shwaari
+        wi.forwarded_at AS bpo_forwarded_at,
+        wi.queue_name AS bpo_queue_name,
+        (LOWER(COALESCE(bt.client_sub_type, '')) LIKE '%shwaari%') AS is_shwaari
       FROM crm.business_tracking bt
       LEFT JOIN commission.sales_agents sa ON sa.agent_id = bt.agent_id
       LEFT JOIN LATERAL (
@@ -135,9 +127,9 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
         FROM crm.business_tracking_notes n
         WHERE n.file_no = bt.file_no AND n.is_active = TRUE
       ) notes ON TRUE
-       LEFT JOIN crm.business_work_items wi
-         ON wi.file_no = bt.file_no
-         ${isBpoQueue ? "AND wi.queue_name = $1" : "AND wi.queue_name IN ('BPO_REVIEW_RETAIL', 'BPO_REVIEW_CORPORATE_SME')"}
+      LEFT JOIN crm.business_work_items wi
+        ON wi.file_no = bt.file_no
+        ${isBpoQueue ? "AND wi.queue_name = $1" : "AND wi.queue_name IN ('BPO_REVIEW_RETAIL', 'BPO_REVIEW_CORPORATE_SME')"}
       ${where}
       ORDER BY ${sortColumn} ${sortDirection} NULLS LAST, bt.file_no ASC
       LIMIT $${p++} OFFSET $${p++}
@@ -146,9 +138,9 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
     const totalRow = await queryOne<{ total: number }>(`
       SELECT COUNT(*)::int AS total
       FROM crm.business_tracking bt
-       LEFT JOIN crm.business_work_items wi
-         ON wi.file_no = bt.file_no
-         ${isBpoQueue ? "AND wi.queue_name = $1" : "AND wi.queue_name IN ('BPO_REVIEW_RETAIL', 'BPO_REVIEW_CORPORATE_SME')"}
+      LEFT JOIN crm.business_work_items wi
+        ON wi.file_no = bt.file_no
+        ${isBpoQueue ? "AND wi.queue_name = $1" : "AND wi.queue_name IN ('BPO_REVIEW_RETAIL', 'BPO_REVIEW_CORPORATE_SME')"}
       ${where}
     `, params);
 
@@ -271,70 +263,34 @@ router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res
   }
 });
 
-function decimalOrNull(value: unknown): number | null {
-  if (value == null || value === "") return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 // The refund ledger remains in the legacy CRM database. This route is read-only
 // and applies the same ownership boundary as the modern allocation queue.
 router.get("/mis/business/allocated/refunds-summary", requireBpoAllocatedAccess, async (req, res) => {
-  try {
-    const isSuperAdmin = req.user?.profileId === 1;
-    const pool = await getPool("CRM");
-    const result = await pool.request()
-      .input("username", sql.VarChar(200), req.user?.username ?? "")
-      .input("isSuperAdmin", sql.Bit, isSuperAdmin)
-      .query(`
-        SELECT
-          Amount_Paid AS amount_paid,
-          Refund_Amt AS refund_amount,
-          Allocate_To AS allocated_to
-        FROM dbo.TBL_MIS_BUSINESS_TRACKING_REFUNDS
-        WHERE Requested = 1
-          AND Allocated = 1
-          AND Processed = 0
-          AND Is_Active = 1
-          AND (@isSuperAdmin = 1 OR Allocate_To = @username)
-        ORDER BY Request_Dt ASC, Refund_No ASC
-      `);
+  const ledger = await getAllocatedRefundLedger(
+    req.user!.username,
+    req.user?.profileId === 1,
+  );
+  const sum = (field: "amount_paid" | "refund_amount") => {
+    const values = ledger.records
+      .map(record => record[field])
+      .filter((value): value is number => value != null);
+    return values.length ? values.reduce((total, value) => total + value, 0) : null;
+  };
 
-    const sum = (field: "amount_paid" | "refund_amount") => {
-      const values = result.recordset
-        .map(row => decimalOrNull(row[field]))
-        .filter((value): value is number => value != null);
-      return values.length ? values.reduce((total, value) => total + value, 0) : null;
-    };
-
-    res.json({
-      ok: true,
-      data: {
-        available: true,
-        allocated_count: result.recordset.length,
-        allocated_admin_count: new Set(
-          result.recordset
-            .map(row => row.allocated_to == null ? null : String(row.allocated_to))
-            .filter(Boolean),
-        ).size,
-        total_amount_paid: sum("amount_paid"),
-        total_refund_amount: sum("refund_amount"),
-      },
-    });
-  } catch (err: unknown) {
-    logger.error({ err, employeeId: req.user?.sub }, "Legacy refund allocation summary unavailable");
-    res.json({
-      ok: true,
-      data: {
-        available: false,
-        message: "The legacy CRM refund ledger is unavailable. No refund amounts or payee details are shown.",
-        allocated_count: 0,
-        allocated_admin_count: 0,
-        total_amount_paid: null,
-        total_refund_amount: null,
-      },
-    });
-  }
+  res.json({
+    ok: true,
+    data: {
+      available: ledger.available,
+      message: ledger.message,
+      allocated_count: ledger.records.length,
+      allocated_admin_count: new Set(
+        ledger.records.map(record => record.allocate_to).filter(Boolean),
+      ).size,
+      total_amount_paid: sum("amount_paid"),
+      total_refund_amount: sum("refund_amount"),
+      records: ledger.records,
+    },
+  });
 });
 
 // Allocation Files uses a dedicated read endpoint so the personal queue's
@@ -471,6 +427,7 @@ router.get("/mis/employees", async (req, res) => {
       WHERE ${conditions.join(" AND ")}
       ORDER BY e.employee_name
     `, params);
+
     res.json({ ok: true, data: rows });
   } catch (err: unknown) {
     res.status(500).json({ ok: false, error: String(err) });
@@ -551,7 +508,10 @@ router.get("/mis/risk/risks/:riskCode", async (req, res) => {
       `, [riskCode]),
       query(`SELECT * FROM risk.root_causes WHERE risk_code = $1 ORDER BY root_id`, [riskCode]),
     ]);
-    if (!risk) return res.status(404).json({ ok: false, error: "Risk not found" });
+    if (!risk) {
+      res.status(404).json({ ok: false, error: "Risk not found" });
+      return;
+    }
     res.json({ ok: true, data: { ...risk, root_causes: rootCauses } });
   } catch (err: unknown) {
     res.status(500).json({ ok: false, error: String(err) });

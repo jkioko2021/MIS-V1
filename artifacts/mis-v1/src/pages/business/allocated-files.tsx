@@ -43,7 +43,6 @@ import {
   type AuditEntry,
   type AllocatedFileActionOption,
   type AllocatedFileAmlStatus,
-  type AllocatedRefundLedgerSummary,
   type BusinessDoc,
   type BusinessFile,
   type BusinessNote,
@@ -909,16 +908,8 @@ export default function AllocatedFilesPage() {
     queryFn: () => misApi.businessAllocated(params),
     staleTime: 30_000,
   });
-  const { data: refundLedgerRes, isLoading: refundLedgerLoading } = useQuery({
-    queryKey: ['allocated-refund-ledger'],
-    queryFn: () => misApi.businessAllocatedRefundsSummary(),
-    staleTime: 30_000,
-    retry: false,
-  });
-
   const files = data?.data ?? [];
   const total = data?.total ?? 0;
-  const refundLedger: AllocatedRefundLedgerSummary | undefined = refundLedgerRes?.data;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const isSuperAdmin = user?.profileName?.trim().toLowerCase() === 'superadmin';
   const profileName = user?.profileName ?? 'BPO administrator';
@@ -1020,91 +1011,6 @@ export default function AllocatedFilesPage() {
               {isSuperAdmin ? 'Oversight view' : 'Personal allocation queue'}
             </p>
           </div>
-          <div data-testid="allocated-refund-summary" className="rounded-lg border border-[#ead5a9] bg-[#fffaf0] p-4">
-            <p className="text-[10px] font-bold uppercase tracking-[.16em] text-[#8a651c]">
-              Premium refunds allocated
-            </p>
-            <div className="mt-2 flex items-end justify-between">
-              <p data-testid="text-allocated-refund-count" className="font-mono text-3xl font-bold text-[#855c16]">
-                {refundLedgerLoading ? '…' : refundLedger?.available ? refundLedger.allocated_count : '—'}
-              </p>
-              <FileText className="h-5 w-5 text-[#c8943c]" />
-            </div>
-            <p className="mt-1 text-xs text-[#8a651c]">
-              {refundLedgerLoading
-                ? 'Checking the legacy refund ledger…'
-                : refundLedger?.available
-                  ? `${refundLedger.allocated_admin_count} administrator${refundLedger.allocated_admin_count === 1 ? '' : 's'} in scope`
-                  : 'Legacy refund source unavailable'}
-            </p>
-          </div>
-        </section>
-
-        <section
-          data-testid="allocated-refund-details"
-          className="overflow-hidden rounded-xl border border-[#ead5a9] bg-[#fffdf7] shadow-sm"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#f0dfba] bg-[#fff7e6] px-4 py-4">
-            <div>
-              <div className="flex items-center gap-2 text-sm font-bold text-[#855c16]">
-                <FileText className="h-4 w-4" />
-                Allocated premium refunds
-              </div>
-              <p className="mt-1 text-xs text-[#8a651c]">
-                Read-only summary from the legacy CRM refund ledger.
-              </p>
-            </div>
-            {refundLedger?.available && (
-              <div className="flex flex-wrap gap-2 text-xs">
-                <span className="rounded-full border border-[#e7c985] bg-white px-2.5 py-1 font-semibold text-[#855c16]">
-                  Refund amount: {fmtMoney(refundLedger.total_refund_amount)}
-                </span>
-                <span className="rounded-full border border-[#e7c985] bg-white px-2.5 py-1 font-semibold text-[#855c16]">
-                  Amount paid: {fmtMoney(refundLedger.total_amount_paid)}
-                </span>
-              </div>
-            )}
-          </div>
-          {refundLedgerLoading ? (
-            <div className="grid gap-3 p-4 sm:grid-cols-3">
-              <Skeleton className="h-16" />
-              <Skeleton className="h-16" />
-              <Skeleton className="h-16" />
-            </div>
-          ) : !refundLedger?.available ? (
-            <div className="flex min-h-28 items-center gap-3 px-4 py-6 text-sm text-[#855c16]">
-              <LockKeyhole className="h-5 w-5 shrink-0 text-[#c8943c]" />
-              <div>
-                <p className="font-semibold">Refund ledger unavailable</p>
-                <p className="mt-1 text-xs text-[#8a651c]">
-                  {refundLedger?.message ?? 'The legacy CRM refund ledger could not be reached. Amounts and payee details are hidden.'}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="grid gap-3 p-4 sm:grid-cols-4">
-              <div className="rounded-lg border border-[#f0dfba] bg-white p-4">
-                <p className="text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">Allocated refunds</p>
-                <p className="mt-2 font-mono text-2xl font-bold text-[#855c16]">{refundLedger.allocated_count}</p>
-                <p className="mt-1 text-xs text-muted-foreground">Active in this scope</p>
-              </div>
-              <div className="rounded-lg border border-[#f0dfba] bg-white p-4">
-                <p className="text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">Administrators</p>
-                <p className="mt-2 font-mono text-2xl font-bold text-[#855c16]">{refundLedger.allocated_admin_count}</p>
-                <p className="mt-1 text-xs text-muted-foreground">With allocated refunds</p>
-              </div>
-              <div className="rounded-lg border border-[#f0dfba] bg-white p-4">
-                <p className="text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">Total refund amount</p>
-                <p className="mt-2 font-mono text-2xl font-bold text-[#855c16]">{fmtMoney(refundLedger.total_refund_amount)}</p>
-                <p className="mt-1 text-xs text-muted-foreground">From the refund ledger</p>
-              </div>
-              <div className="rounded-lg border border-[#f0dfba] bg-white p-4">
-                <p className="text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">Amount paid</p>
-                <p className="mt-2 font-mono text-2xl font-bold text-[#855c16]">{fmtMoney(refundLedger.total_amount_paid)}</p>
-                <p className="mt-1 text-xs text-muted-foreground">Recorded against refunds</p>
-              </div>
-            </div>
-          )}
         </section>
 
         <section className="rounded-lg border border-[#cbded9] bg-[#fbfdfc] p-4 shadow-sm">
@@ -1311,7 +1217,7 @@ export default function AllocatedFilesPage() {
 
         <p className="flex items-center gap-2 px-1 text-[11px] text-muted-foreground">
           <LifeBuoy className="h-3.5 w-3.5 text-[#397a74]" />
-          Registration details are read-only. Premium refund processing remains separate; this page shows a read-only summary of active refund allocations.
+          Registration and refund details are read-only. Refund processing controls remain separate from this view.
         </p>
       </div>
       {selectedFile && (

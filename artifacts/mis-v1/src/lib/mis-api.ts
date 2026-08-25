@@ -261,6 +261,23 @@ export interface AllocatedRefundLedgerSummary {
   allocated_admin_count: number;
   total_amount_paid: number | null;
   total_refund_amount: number | null;
+  records: Array<{
+    refund_id: number | null;
+    refund_no: string | null;
+    file_no: string | null;
+    amount_paid: number | null;
+    refund_amount: number | null;
+    payee_name: string | null;
+    payee_email: string | null;
+    payee_mobile: string | null;
+    refund_status: string | null;
+    refund_type: string | null;
+    request_dt: string | null;
+    allocate_dt: string | null;
+    allocate_to: string | null;
+    entered_by: string | null;
+    client_type: string | null;
+  }>;
 }
 
 export const misApi = {
