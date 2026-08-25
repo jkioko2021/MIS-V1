@@ -911,6 +911,11 @@ export default function AllocatedFilesPage() {
 
   const files = data?.data ?? [];
   const total = data?.total ?? 0;
+  const refundSummary = data?.refund_summary ?? {
+    allocated_count: 0,
+    allocated_admin_count: 0,
+    oldest_allocation_date: null,
+  };
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const isSuperAdmin = user?.profileName?.trim().toLowerCase() === 'superadmin';
   const profileName = user?.profileName ?? 'BPO administrator';
@@ -971,7 +976,7 @@ export default function AllocatedFilesPage() {
           </div>
         </header>
 
-        <section className="grid gap-3 sm:grid-cols-3">
+        <section className="grid gap-3 sm:grid-cols-4">
           <div className="rounded-lg border border-[#cbded9] bg-[#fbfdfc] p-4">
             <p className="text-[10px] font-bold uppercase tracking-[.16em] text-muted-foreground">
               {isSuperAdmin ? 'Allocated files' : 'Assigned to you'}
@@ -1010,6 +1015,26 @@ export default function AllocatedFilesPage() {
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
               {isSuperAdmin ? 'Oversight view' : 'Personal allocation queue'}
+            </p>
+          </div>
+          <div
+            data-testid="allocated-refund-summary"
+            className="rounded-lg border border-[#ead5a9] bg-[#fffaf0] p-4"
+          >
+            <p className="text-[10px] font-bold uppercase tracking-[.16em] text-[#8a651c]">
+              Premium refunds allocated
+            </p>
+            <div className="mt-2 flex items-end justify-between">
+              <p data-testid="text-allocated-refund-count" className="font-mono text-3xl font-bold text-[#855c16]">
+                {refundSummary.allocated_count}
+              </p>
+              <FileText className="h-5 w-5 text-[#c8943c]" />
+            </div>
+            <p className="mt-1 text-xs text-[#8a651c]">
+              {refundSummary.allocated_admin_count} administrator{refundSummary.allocated_admin_count === 1 ? '' : 's'} in scope
+              {refundSummary.oldest_allocation_date
+                ? ` · oldest ${fmtDate(refundSummary.oldest_allocation_date)}`
+                : ''}
             </p>
           </div>
         </section>
@@ -1218,7 +1243,7 @@ export default function AllocatedFilesPage() {
 
         <p className="flex items-center gap-2 px-1 text-[11px] text-muted-foreground">
           <LifeBuoy className="h-3.5 w-3.5 text-[#397a74]" />
-          Registration details are read-only. Premium Refunds are not part of this queue.
+          Registration details are read-only. Premium refund processing remains separate; this page shows a read-only summary of active refund allocations.
         </p>
       </div>
       {selectedFile && (

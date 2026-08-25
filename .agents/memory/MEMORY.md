@@ -20,3 +20,4 @@
 - [Allocation AML gate](allocation-aml-gate.md) — New and renewal files require an uploaded AML Report before the allocated Cashier handoff
 - [Allocation handoff footer](allocation-handoff-footer.md) — Keep workflow controls visible but disabled when benefit verification blocks forwarding
 - [Allocation document transactions](allocation-document-transactions.md) — Keep document-specific invoice, credit-note, policy, and AML-risk metadata on uploads, not file handoffs
+- [Refund allocation summary](refund-allocation-summary.md) — BPO refund counts use the current PR classification; authoritative refund amounts remain unavailable

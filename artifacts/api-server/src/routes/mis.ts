@@ -232,29 +232,55 @@ router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res
       ? "bt.walk_in_client DESC, bt.allocate_dt ASC NULLS LAST, bt.file_no ASC"
       : `${sortColumn} ${sortDirection} NULLS LAST, bt.file_no ASC`;
 
-    const rows = await query(`
-      SELECT
-        bt.*,
-        sa.agent_name,
-        notes.note_count,
-        (LOWER(COALESCE(bt.client_sub_type, '')) LIKE '%shwaari%') AS is_shwaari
-      FROM crm.business_tracking bt
-      LEFT JOIN commission.sales_agents sa ON sa.agent_id = bt.agent_id
-      LEFT JOIN LATERAL (
-        SELECT COUNT(*)::int AS note_count
-        FROM crm.business_tracking_notes n
-        WHERE n.file_no = bt.file_no AND n.is_active = TRUE
-      ) notes ON TRUE
-      ${where}
-      ORDER BY ${orderBy}
-      LIMIT $${p++} OFFSET $${p++}
-    `, [...params, pageSize, offset]);
+    const refundSummaryConditions = [
+      "bt.is_active = TRUE",
+      "bt.allocated = TRUE",
+      "bt.file_status = 'ALLOCATED'",
+      "bt.business_type = 'PR'",
+    ];
+    const refundSummaryParams: unknown[] = [];
+    if (!isSuperAdmin) {
+      refundSummaryConditions.push(`bt.allocated_to = $1`);
+      refundSummaryParams.push(req.user!.username);
+    }
+    const refundSummaryWhere = `WHERE ${refundSummaryConditions.join(" AND ")}`;
 
-    const totalRow = await queryOne<{ total: number }>(`
-      SELECT COUNT(*)::int AS total
-      FROM crm.business_tracking bt
-      ${where}
-    `, params);
+    const [rows, totalRow, refundSummary] = await Promise.all([
+      query(`
+        SELECT
+          bt.*,
+          sa.agent_name,
+          notes.note_count,
+          (LOWER(COALESCE(bt.client_sub_type, '')) LIKE '%shwaari%') AS is_shwaari
+        FROM crm.business_tracking bt
+        LEFT JOIN commission.sales_agents sa ON sa.agent_id = bt.agent_id
+        LEFT JOIN LATERAL (
+          SELECT COUNT(*)::int AS note_count
+          FROM crm.business_tracking_notes n
+          WHERE n.file_no = bt.file_no AND n.is_active = TRUE
+        ) notes ON TRUE
+        ${where}
+        ORDER BY ${orderBy}
+        LIMIT $${p++} OFFSET $${p++}
+      `, [...params, pageSize, offset]),
+      queryOne<{ total: number }>(`
+        SELECT COUNT(*)::int AS total
+        FROM crm.business_tracking bt
+        ${where}
+      `, params),
+      queryOne<{
+        allocated_count: number;
+        allocated_admin_count: number;
+        oldest_allocation_date: string | null;
+      }>(`
+        SELECT
+          COUNT(*)::int AS allocated_count,
+          COUNT(DISTINCT NULLIF(bt.allocated_to, ''))::int AS allocated_admin_count,
+          MIN(bt.allocate_dt) AS oldest_allocation_date
+        FROM crm.business_tracking bt
+        ${refundSummaryWhere}
+      `, refundSummaryParams),
+    ]);
 
     res.json({
       ok: true,
@@ -262,6 +288,11 @@ router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res
       total: totalRow?.total ?? 0,
       page,
       page_size: pageSize,
+      refund_summary: {
+        allocated_count: refundSummary?.allocated_count ?? 0,
+        allocated_admin_count: refundSummary?.allocated_admin_count ?? 0,
+        oldest_allocation_date: refundSummary?.oldest_allocation_date ?? null,
+      },
     });
   } catch (err: unknown) {
     logger.error({ err, employeeId: req.user?.sub }, "Allocated business list failed");

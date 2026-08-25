@@ -254,13 +254,23 @@ export interface BusinessSummary {
   byStatus: Array<{ file_status: string; count: number; premium: number }>;
 }
 
+export interface AllocatedRefundSummary {
+  allocated_count: number;
+  allocated_admin_count: number;
+  oldest_allocation_date: string | null;
+}
+
+export interface AllocatedBusinessResponse extends ApiResponse<BusinessFile[]> {
+  refund_summary?: AllocatedRefundSummary;
+}
+
 export const misApi = {
   productionMonth: () => get<ApiResponse<{ month_name: string; date_from: string; date_to: string; year: number }>>('/mis/production-month'),
   staffOnCall:     () => get<ApiResponse<{ staff_name: string; staff_mobile: string }>>('/mis/staff-on-call'),
 
   // Business tracking - reads
   business:        (params?: Record<string, string>) => get<ApiResponse<BusinessFile[]>>('/mis/business', params),
-  businessAllocated: (params?: Record<string, string>) => get<ApiResponse<BusinessFile[]>>('/mis/business/allocated', params),
+  businessAllocated: (params?: Record<string, string>) => get<AllocatedBusinessResponse>('/mis/business/allocated', params),
   businessAllocatedFile: (fileNo: string) => get<ApiResponse<BusinessFile & { notes: BusinessNote[]; docs: BusinessDoc[] }>>(`/mis/business/allocated/${encodeURIComponent(fileNo)}`),
   businessFile:    (fileNo: string) => get<ApiResponse<BusinessFile & { notes: BusinessNote[]; docs: BusinessDoc[] }>>(`/mis/business/${encodeURIComponent(fileNo)}`),
   businessSummary: () => get<ApiResponse<BusinessSummary>>('/mis/business/summary/counts'),
