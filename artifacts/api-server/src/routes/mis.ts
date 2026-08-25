@@ -288,18 +288,8 @@ router.get("/mis/business/allocated/refunds-summary", requireBpoAllocatedAccess,
       .input("isSuperAdmin", sql.Bit, isSuperAdmin)
       .query(`
         SELECT
-          Refund_No AS refund_no,
-          File_No AS file_no,
           Amount_Paid AS amount_paid,
           Refund_Amt AS refund_amount,
-          Payee_Name AS payee_name,
-          Payee_eMail AS payee_email,
-          Payee_Mobile AS payee_mobile,
-          Refund_Status AS refund_status,
-          Refund_Type AS refund_type,
-          Request_Dt AS request_date,
-          Entered_By AS entered_by,
-          Client_Type AS client_type,
           Allocate_To AS allocated_to
         FROM dbo.TBL_MIS_BUSINESS_TRACKING_REFUNDS
         WHERE Requested = 1
@@ -310,24 +300,10 @@ router.get("/mis/business/allocated/refunds-summary", requireBpoAllocatedAccess,
         ORDER BY Request_Dt ASC, Refund_No ASC
       `);
 
-    const refunds = result.recordset.map(row => ({
-      refund_no: String(row.refund_no ?? ""),
-      file_no: String(row.file_no ?? ""),
-      amount_paid: decimalOrNull(row.amount_paid),
-      refund_amount: decimalOrNull(row.refund_amount),
-      payee_name: row.payee_name == null ? null : String(row.payee_name),
-      payee_email: row.payee_email == null ? null : String(row.payee_email),
-      payee_mobile: row.payee_mobile == null ? null : String(row.payee_mobile),
-      refund_status: row.refund_status == null ? null : String(row.refund_status),
-      refund_type: row.refund_type == null ? null : String(row.refund_type),
-      request_date: row.request_date == null ? null : new Date(row.request_date).toISOString(),
-      entered_by: row.entered_by == null ? null : String(row.entered_by),
-      client_type: row.client_type == null ? null : String(row.client_type),
-      allocated_to: row.allocated_to == null ? null : String(row.allocated_to),
-    }));
-
     const sum = (field: "amount_paid" | "refund_amount") => {
-      const values = refunds.map(refund => refund[field]).filter((value): value is number => value != null);
+      const values = result.recordset
+        .map(row => decimalOrNull(row[field]))
+        .filter((value): value is number => value != null);
       return values.length ? values.reduce((total, value) => total + value, 0) : null;
     };
 
@@ -335,11 +311,14 @@ router.get("/mis/business/allocated/refunds-summary", requireBpoAllocatedAccess,
       ok: true,
       data: {
         available: true,
-        allocated_count: refunds.length,
-        allocated_admin_count: new Set(refunds.map(refund => refund.allocated_to).filter(Boolean)).size,
+        allocated_count: result.recordset.length,
+        allocated_admin_count: new Set(
+          result.recordset
+            .map(row => row.allocated_to == null ? null : String(row.allocated_to))
+            .filter(Boolean),
+        ).size,
         total_amount_paid: sum("amount_paid"),
         total_refund_amount: sum("refund_amount"),
-        refunds,
       },
     });
   } catch (err: unknown) {
@@ -353,7 +332,6 @@ router.get("/mis/business/allocated/refunds-summary", requireBpoAllocatedAccess,
         allocated_admin_count: 0,
         total_amount_paid: null,
         total_refund_amount: null,
-        refunds: [],
       },
     });
   }

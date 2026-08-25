@@ -1051,7 +1051,7 @@ export default function AllocatedFilesPage() {
                 Allocated premium refunds
               </div>
               <p className="mt-1 text-xs text-[#8a651c]">
-                Real refund values and payee details from the legacy CRM ledger.
+                Read-only summary from the legacy CRM refund ledger.
               </p>
             </div>
             {refundLedger?.available && (
@@ -1081,47 +1081,28 @@ export default function AllocatedFilesPage() {
                 </p>
               </div>
             </div>
-          ) : refundLedger.refunds.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              No active allocated refunds are currently assigned in this scope.
-            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[980px] text-sm">
-                <thead>
-                  <tr className="border-b border-[#f0dfba] bg-[#fffaf0] text-left text-[10px] uppercase tracking-[.12em] text-[#8a651c]">
-                    <th className="px-4 py-3">Refund No.</th>
-                    <th className="px-4 py-3">File No.</th>
-                    <th className="px-4 py-3">Payee</th>
-                    <th className="px-4 py-3">Contact</th>
-                    <th className="px-4 py-3 text-right">Refund Amount</th>
-                    <th className="px-4 py-3 text-right">Amount Paid</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Request Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {refundLedger.refunds.map(refund => (
-                    <tr key={refund.refund_no} className="border-b border-[#f3e8ce] last:border-0 hover:bg-[#fff8e9]">
-                      <td className="px-4 py-3 font-mono text-xs font-bold text-[#855c16]">{refund.refund_no}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-[#397a74]">{refund.file_no || '—'}</td>
-                      <td className="px-4 py-3 font-medium">{refund.payee_name || '—'}</td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
-                        <div>{refund.payee_mobile || '—'}</div>
-                        <div className="mt-0.5">{refund.payee_email || '—'}</div>
-                      </td>
-                      <td className="px-4 py-3 text-right font-semibold text-[#855c16]">{fmtMoney(refund.refund_amount)}</td>
-                      <td className="px-4 py-3 text-right">{fmtMoney(refund.amount_paid)}</td>
-                      <td className="px-4 py-3 text-xs">
-                        <span className="rounded-full border border-[#e7c985] bg-[#fff7e6] px-2 py-1 font-medium text-[#855c16]">
-                          {refund.refund_status || '—'}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">{fmtDate(refund.request_date)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="grid gap-3 p-4 sm:grid-cols-4">
+              <div className="rounded-lg border border-[#f0dfba] bg-white p-4">
+                <p className="text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">Allocated refunds</p>
+                <p className="mt-2 font-mono text-2xl font-bold text-[#855c16]">{refundLedger.allocated_count}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Active in this scope</p>
+              </div>
+              <div className="rounded-lg border border-[#f0dfba] bg-white p-4">
+                <p className="text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">Administrators</p>
+                <p className="mt-2 font-mono text-2xl font-bold text-[#855c16]">{refundLedger.allocated_admin_count}</p>
+                <p className="mt-1 text-xs text-muted-foreground">With allocated refunds</p>
+              </div>
+              <div className="rounded-lg border border-[#f0dfba] bg-white p-4">
+                <p className="text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">Total refund amount</p>
+                <p className="mt-2 font-mono text-2xl font-bold text-[#855c16]">{fmtMoney(refundLedger.total_refund_amount)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">From the refund ledger</p>
+              </div>
+              <div className="rounded-lg border border-[#f0dfba] bg-white p-4">
+                <p className="text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">Amount paid</p>
+                <p className="mt-2 font-mono text-2xl font-bold text-[#855c16]">{fmtMoney(refundLedger.total_amount_paid)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Recorded against refunds</p>
+              </div>
             </div>
           )}
         </section>

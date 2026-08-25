@@ -254,22 +254,6 @@ export interface BusinessSummary {
   byStatus: Array<{ file_status: string; count: number; premium: number }>;
 }
 
-export interface AllocatedRefundLedgerRow {
-  refund_no: string;
-  file_no: string;
-  amount_paid: number | null;
-  refund_amount: number | null;
-  payee_name: string | null;
-  payee_email: string | null;
-  payee_mobile: string | null;
-  refund_status: string | null;
-  refund_type: string | null;
-  request_date: string | null;
-  entered_by: string | null;
-  client_type: string | null;
-  allocated_to: string | null;
-}
-
 export interface AllocatedRefundLedgerSummary {
   available: boolean;
   message?: string;
@@ -277,7 +261,6 @@ export interface AllocatedRefundLedgerSummary {
   allocated_admin_count: number;
   total_amount_paid: number | null;
   total_refund_amount: number | null;
-  refunds: AllocatedRefundLedgerRow[];
 }
 
 export const misApi = {
