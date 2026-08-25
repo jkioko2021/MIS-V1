@@ -76,6 +76,7 @@ export interface BusinessFile {
   walk_in_auth: string | null;
   rate_type: string;
   benefit_verified: string;
+  product: string | null;
   medical_uw: boolean;
   allocated: boolean;
   allocated_to: string | null;
@@ -218,7 +219,13 @@ export const misApi = {
   businessDelete: (fileNo: string) =>
     del<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}`),
   businessReviewAction: (fileNo: string, body: BusinessReviewActionBody) =>
-    post<ApiResponse<{ file_status: string; work_item_id: number }>>(`/business/${encodeURIComponent(fileNo)}/review-action`, body),
+    post<ApiResponse<{
+      file_status: string;
+      work_item_id: number;
+      queue_name: 'BPO_REVIEW_RETAIL' | 'BPO_REVIEW_CORPORATE_SME';
+      allocation_route: 'STANDARD_ALLOCATION' | 'PRICING_HANDOFF';
+      pricing_handoff_at: string | null;
+    }>>(`/business/${encodeURIComponent(fileNo)}/review-action`, body),
   businessForward: (fileNo: string, body?: { to_user?: string; comments?: string }) =>
     post<ApiResponse<{ new_status: string; queue_name: 'BPO_REVIEW_RETAIL' | 'BPO_REVIEW_CORPORATE_SME'; work_item_id?: number; already_routed: boolean }>>(`/business/${encodeURIComponent(fileNo)}/forward`, body),
   businessAllocate: (fileNo: string, allocated_to: string) =>

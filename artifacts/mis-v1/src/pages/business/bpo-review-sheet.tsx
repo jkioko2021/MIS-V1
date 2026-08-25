@@ -174,8 +174,15 @@ export function BpoReviewSheet({ fileNo, onClose }: { fileNo: string; onClose: (
       comments,
       queue_name: 'BPO_REVIEW_RETAIL',
     }),
-    onSuccess: () => {
-      toast({ title: 'Action recorded successfully' });
+    onSuccess: (response) => {
+      toast({
+        title: response.data?.allocation_route === 'PRICING_HANDOFF'
+          ? 'Pricing handoff recorded'
+          : 'Action recorded successfully',
+        description: response.data?.allocation_route === 'PRICING_HANDOFF'
+          ? 'The file is now in Benefit Verification and has been handed off to Pricing.'
+          : undefined,
+      });
       qc.invalidateQueries({ queryKey: ['business'] });
       onClose();
     },

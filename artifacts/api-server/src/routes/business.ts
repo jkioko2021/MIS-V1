@@ -828,9 +828,17 @@ router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (re
   try {
     const result = await withTransaction(async (client) => {
       await txQuery(client, "SELECT pg_advisory_xact_lock(hashtext($1))", [fileNo]);
-      const [file] = await txQuery<{ file_no: string; is_active: boolean; client_type: string }>(
+       const [file] = await txQuery<{
+         file_no: string;
+         is_active: boolean;
+         file_status: string;
+         client_type: string;
+         business_type: string;
+         rate_type: string;
+         invoiced: boolean;
+       }>(
         client,
-        `SELECT file_no, is_active, client_type
+         `SELECT file_no, is_active, file_status, client_type, business_type, rate_type, invoiced
          FROM crm.business_tracking
          WHERE file_no=$1
          FOR UPDATE`,
@@ -849,6 +857,14 @@ router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (re
         if (staffError) throw new Error(`STAFF_INVALID:${staffError}`);
       }
 
+       const isRetailInvoicedAllocation =
+         file.client_type === "R" && requestedAction === "A" && file.invoiced;
+       const isCorporatePricingHandoff =
+         file.client_type === "C"
+         && requestedAction === "A"
+         && file.rate_type === "C"
+         && ["N", "R"].includes(file.business_type);
+       const allocationRoute = isCorporatePricingHandoff ? "PRICING_HANDOFF" : "STANDARD_ALLOCATION";
       const [workItem] = await txQuery<{ work_item_id: number }>(
         client,
         `SELECT work_item_id
@@ -861,23 +877,49 @@ router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (re
       );
       if (!workItem) throw new Error("BPO_WORK_ITEM_NOT_OPEN");
 
-      const newStatus = statusByAction[requestedAction];
+       const newStatus = isRetailInvoicedAllocation
+         ? file.file_status
+         : isCorporatePricingHandoff
+           ? "BENEFIT VERIFICATION"
+           : statusByAction[requestedAction];
       const returnIncomplete = requestedAction === "RI";
       const allocated = requestedAction === "A";
-      await txQuery(
+       const [updatedFile] = await txQuery<{ to_pricing_dt: string | null }>(
         client,
         `UPDATE crm.business_tracking
-         SET file_status=$1,
-             forwarded=CASE WHEN $2 THEN FALSE ELSE forwarded END,
-             allocated=$3,
-             allocated_to=CASE WHEN $3 THEN $4 ELSE NULL END,
-             allocate_dt=CASE WHEN $3 THEN NOW() ELSE allocate_dt END,
-             is_complete=CASE WHEN $2 THEN FALSE ELSE is_complete END,
-             ready_for_update=CASE WHEN $2 OR $5 THEN FALSE ELSE TRUE END,
+          SET product=$1,
+              file_status=$2,
+              forwarded=CASE WHEN $3 THEN FALSE ELSE forwarded END,
+              allocated=$4,
+              allocated_to=CASE WHEN $4 THEN $5 ELSE NULL END,
+              allocate_dt=CASE
+                WHEN $7 THEN NULL
+                WHEN $4 THEN NOW()
+                ELSE allocate_dt
+              END,
+              benefit_verified=CASE
+                WHEN $7 THEN 'NO'
+                WHEN $6 THEN 'YES'
+                ELSE benefit_verified
+              END,
+              to_pricing_dt=CASE WHEN $7 THEN NOW() ELSE to_pricing_dt END,
+              is_complete=CASE WHEN $3 THEN FALSE ELSE is_complete END,
+              ready_for_update=CASE WHEN $3 OR $8 THEN FALSE ELSE TRUE END,
              updated_at=NOW()
-         WHERE file_no=$6
-           AND is_active=TRUE`,
-        [newStatus, returnIncomplete, allocated, allocatedTo || null, requestedAction === "HO", fileNo],
+          WHERE file_no=$9
+            AND is_active=TRUE
+          RETURNING to_pricing_dt`,
+         [
+           selectedProduct,
+           newStatus,
+           returnIncomplete,
+           allocated,
+           allocatedTo || null,
+           isRetailInvoicedAllocation,
+           isCorporatePricingHandoff,
+           requestedAction === "HO",
+           fileNo,
+         ],
       );
 
       await txQuery(
@@ -903,11 +945,18 @@ router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (re
         [
           req.user!.username,
           `BT_BPO_${requestedAction}`,
-          `${queueName} review completed for ${fileNo}: ${productLabel[selectedProduct]}, ${newStatus}${target}. Notes: ${note}`,
+           `${queueName} review completed for ${fileNo}: ${productLabel[selectedProduct]}, ${newStatus}${target}.`
+             + ` Route: ${allocationRoute}. Notes: ${note}`,
         ],
       );
 
-      return { file_status: newStatus, work_item_id: workItem.work_item_id, queue_name: queueName };
+       return {
+         file_status: newStatus,
+         work_item_id: workItem.work_item_id,
+         queue_name: queueName,
+         allocation_route: allocationRoute,
+         pricing_handoff_at: updatedFile?.to_pricing_dt ?? null,
+       };
     });
 
     res.json({ ok: true, data: result });

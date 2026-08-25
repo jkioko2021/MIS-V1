@@ -32,8 +32,14 @@ class BusinessRouteState {
       medical_uw: false,
       invoiced: false,
       benefit_verified: "NO",
+      product: null,
+      to_pricing_dt: null,
+      allocated_to: null,
+      allocate_dt: null,
       walk_in_client: "N",
       client_type: "R",
+      business_type: "N",
+      rate_type: "S",
       receive_dt: "2026-08-19",
     };
     this.staff = new Map([
@@ -107,6 +113,17 @@ class BusinessRouteState {
 
   async queryOne(sql, params = []) {
     const statement = normalise(sql);
+    if (statement.includes("SELECT e.username FROM crm.employees e")
+      && statement.includes("e.department='MEMBERSHIP'")) {
+      const staff = this.staff.get(params[0]);
+      return staff?.department === "MEMBERSHIP"
+        && staff.activated
+        && staff.approved
+        && !staff.locked
+        && !staff.deleted
+        ? { username: params[0] }
+        : null;
+    }
     if (statement.includes("SELECT file_no, client_type, receive_dt FROM crm.business_tracking")) {
       return this.file
         ? { file_no: this.file.file_no, client_type: this.file.client_type, receive_dt: this.file.receive_dt }
@@ -133,6 +150,17 @@ class BusinessRouteState {
         file_status: this.file.file_status,
         forwarded: this.file.forwarded,
         is_active: this.file.is_active,
+      }] : [];
+    }
+    if (statement.startsWith("SELECT file_no, is_active, file_status, client_type, business_type, rate_type, invoiced FROM crm.business_tracking")) {
+      return this.file?.is_active ? [{
+        file_no: this.file.file_no,
+        is_active: this.file.is_active,
+        file_status: this.file.file_status,
+        client_type: this.file.client_type,
+        business_type: this.file.business_type,
+        rate_type: this.file.rate_type,
+        invoiced: this.file.invoiced,
       }] : [];
     }
     if (statement.startsWith("SELECT file_status, is_complete, allocated, forwarded, business")) {
@@ -192,6 +220,32 @@ class BusinessRouteState {
     }
     if (statement.startsWith("INSERT INTO crm.business_tracking_notes")) {
       this.notes.push({ file_no: params[0], notes: params[2] });
+      return [];
+    }
+    if (statement.startsWith("UPDATE crm.business_tracking SET product=")) {
+      this.file.product = params[0];
+      this.file.file_status = params[1];
+      this.file.forwarded = !params[2];
+      this.file.allocated = params[3];
+      this.file.allocated_to = params[4];
+      this.file.allocate_dt = params[6]
+        ? null
+        : params[3]
+          ? "2026-08-25T00:00:00.000Z"
+          : this.file.allocate_dt;
+      this.file.benefit_verified = params[6]
+        ? "NO"
+        : params[5]
+          ? "YES"
+          : this.file.benefit_verified;
+      if (params[6]) this.file.to_pricing_dt = "2026-08-25T00:00:00.000Z";
+      this.file.is_complete = params[2] ? false : this.file.is_complete;
+      this.file.ready_for_update = params[2] || params[7] ? false : true;
+      return [{ to_pricing_dt: this.file.to_pricing_dt }];
+    }
+    if (statement.startsWith("UPDATE crm.business_work_items SET work_status='COMPLETED'")) {
+      const workItem = this.workItems.find((item) => item.work_item_id === params[0]);
+      if (workItem) workItem.work_status = "COMPLETED";
       return [];
     }
     if (statement.startsWith("INSERT INTO crm.admin_audit_trail")) {
@@ -373,4 +427,124 @@ test("register, update, and allocate reject invalid walk-in staff without side e
     assert.equal(allocate.status, 400, `allocate must reject ${user}`);
     assert.equal(allocateState.allocations, 0);
   }
+});
+
+function openBpoReviewWorkItem(state, queueName) {
+  state.file.file_status = "FORWARDED";
+  state.file.forwarded = true;
+  state.workItems.push({
+    work_item_id: 1,
+    file_no: state.file.file_no,
+    queue_name: queueName,
+    work_status: "OPEN",
+  });
+}
+
+test("an invoiced Retail allocation persists product and verifies benefits without changing its status", async () => {
+  const state = new BusinessRouteState();
+  state.file.invoiced = true;
+  openBpoReviewWorkItem(state, "BPO_REVIEW_RETAIL");
+  state.file.file_status = "INVOICED";
+
+  const result = await withServer(
+    state,
+    (request) => request("POST", `${fileEndpoint(state.file.file_no)}/review-action`, {
+      action: "A",
+      product: "S",
+      allocated_to: "eligible",
+      comments: "Invoiced membership allocation.",
+      queue_name: "BPO_REVIEW_RETAIL",
+    }),
+  );
+
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body.data, {
+    file_status: "INVOICED",
+    work_item_id: 1,
+    queue_name: "BPO_REVIEW_RETAIL",
+    allocation_route: "STANDARD_ALLOCATION",
+    pricing_handoff_at: null,
+  });
+  assert.equal(state.file.product, "S");
+  assert.equal(state.file.file_status, "INVOICED");
+  assert.equal(state.file.benefit_verified, "YES");
+  assert.equal(state.file.allocated, true);
+  assert.equal(state.file.allocated_to, "eligible");
+  assert.equal(state.workItems[0].work_status, "COMPLETED");
+  assert.match(state.audits.at(-1).description, /Shwaari, INVOICED.*Route: STANDARD_ALLOCATION/);
+});
+
+test("Custom-rate Corporate New and Renewal allocations hand off to Pricing", async () => {
+  for (const businessType of ["N", "R"]) {
+    const state = new BusinessRouteState();
+    state.file.client_type = "C";
+    state.file.business_type = businessType;
+    state.file.rate_type = "C";
+    openBpoReviewWorkItem(state, "BPO_REVIEW_CORPORATE_SME");
+    state.file.benefit_verified = "YES";
+    state.file.allocate_dt = "2026-08-24T00:00:00.000Z";
+
+    const result = await withServer(
+      state,
+      (request) => request("POST", `${fileEndpoint(state.file.file_no)}/review-action`, {
+        action: "A",
+        product: "AS",
+        allocated_to: "eligible",
+        comments: `Custom-rate ${businessType === "N" ? "new" : "renewal"} allocation.`,
+        queue_name: "BPO_REVIEW_CORPORATE_SME",
+      }),
+    );
+
+    assert.equal(result.status, 200, businessType);
+    assert.equal(result.body.data.file_status, "BENEFIT VERIFICATION");
+    assert.equal(result.body.data.allocation_route, "PRICING_HANDOFF");
+    assert.ok(result.body.data.pricing_handoff_at);
+    assert.equal(state.file.product, "AS");
+    assert.equal(state.file.allocated, true);
+    assert.equal(state.file.allocated_to, "eligible");
+    assert.equal(state.file.benefit_verified, "NO");
+    assert.equal(state.file.allocate_dt, null);
+    assert.ok(state.file.to_pricing_dt);
+    assert.equal(state.workItems[0].work_status, "COMPLETED");
+    assert.match(state.audits.at(-1).description, /Afya Shwaari, BENEFIT VERIFICATION.*Route: PRICING_HANDOFF/);
+  }
+});
+
+test("SME Custom-rate allocations and queue mismatches keep existing BPO behavior isolated", async () => {
+  const smeState = new BusinessRouteState();
+  smeState.file.client_type = "S";
+  smeState.file.business_type = "N";
+  smeState.file.rate_type = "C";
+  openBpoReviewWorkItem(smeState, "BPO_REVIEW_CORPORATE_SME");
+
+  const smeResult = await withServer(
+    smeState,
+    (request) => request("POST", `${fileEndpoint(smeState.file.file_no)}/review-action`, {
+      action: "A",
+      product: "T",
+      allocated_to: "eligible",
+      comments: "SME allocation remains standard.",
+      queue_name: "BPO_REVIEW_CORPORATE_SME",
+    }),
+  );
+  assert.equal(smeResult.status, 200);
+  assert.equal(smeResult.body.data.file_status, "ALLOCATED");
+  assert.equal(smeResult.body.data.allocation_route, "STANDARD_ALLOCATION");
+  assert.equal(smeState.file.to_pricing_dt, null);
+
+  const retailState = new BusinessRouteState();
+  openBpoReviewWorkItem(retailState, "BPO_REVIEW_RETAIL");
+  const mismatchResult = await withServer(
+    retailState,
+    (request) => request("POST", `${fileEndpoint(retailState.file.file_no)}/review-action`, {
+      action: "A",
+      product: "T",
+      allocated_to: "eligible",
+      comments: "Wrong queue must be rejected.",
+      queue_name: "BPO_REVIEW_CORPORATE_SME",
+    }),
+  );
+  assert.equal(mismatchResult.status, 409);
+  assert.equal(retailState.file.product, null);
+  assert.equal(retailState.workItems[0].work_status, "OPEN");
 });
