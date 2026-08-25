@@ -294,6 +294,7 @@ export default function AllocatedFilesPage() {
   const files = data?.data ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const isSuperAdmin = user?.profileName?.trim().toLowerCase() === 'superadmin';
   const profileName = user?.profileName ?? 'BPO administrator';
 
   function applySearch() {
@@ -326,7 +327,9 @@ export default function AllocatedFilesPage() {
             <Badge variant="secondary" className="bg-primary/10 text-primary">{total}</Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Membership updates assigned to your account
+            {isSuperAdmin
+              ? 'All allocated membership files and their assigned administrators'
+              : 'Membership updates assigned to your account'}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="gap-1.5">
@@ -385,11 +388,15 @@ export default function AllocatedFilesPage() {
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl border bg-card p-4">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Assigned to you</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {isSuperAdmin ? 'All allocated files' : 'Assigned to you'}
+            </p>
             <UserRound className="h-4 w-4 text-primary" />
           </div>
-          <p className="mt-2 text-2xl font-bold">{total}</p>
-          <p className="mt-1 truncate text-xs text-muted-foreground">{user?.username}</p>
+            <p className="mt-2 text-2xl font-bold">{total}</p>
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              {isSuperAdmin ? 'All administrators' : user?.username}
+            </p>
         </div>
         <div className="rounded-xl border bg-card p-4">
           <div className="flex items-center justify-between">
@@ -405,13 +412,15 @@ export default function AllocatedFilesPage() {
             <Clock3 className="h-4 w-4 text-amber-600" />
           </div>
           <p className="mt-2 truncate text-lg font-bold">{profileName}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Personal allocation queue</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {isSuperAdmin ? 'Oversight view' : 'Personal allocation queue'}
+          </p>
         </div>
       </div>
 
       <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-sm">
+            <table className="w-full min-w-[1080px] text-sm">
             <thead>
               <tr className="border-b bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
                 <th className="px-4 py-3"><SortButton label="Receive Date" column="receive_dt" sortBy={sortBy} onSort={sort} /></th>
@@ -421,6 +430,7 @@ export default function AllocatedFilesPage() {
                 <th className="px-4 py-3"><SortButton label="Client" column="client_type" sortBy={sortBy} onSort={sort} /></th>
                 <th className="px-4 py-3"><SortButton label="Action" column="business_type" sortBy={sortBy} onSort={sort} /></th>
                 <th className="px-4 py-3">Product</th>
+                <th className="px-4 py-3"><SortButton label="Allocated To" column="allocated_to" sortBy={sortBy} onSort={sort} /></th>
                 <th className="px-4 py-3"><SortButton label="Status" column="file_status" sortBy={sortBy} onSort={sort} /></th>
                 <th className="px-4 py-3" />
               </tr>
@@ -429,12 +439,12 @@ export default function AllocatedFilesPage() {
               {isLoading ? (
                 Array.from({ length: 4 }).map((_, index) => (
                   <tr key={index} className="border-b">
-                    {Array.from({ length: 9 }).map((__, cell) => <td key={cell} className="px-4 py-4"><Skeleton className="h-4" /></td>)}
+                    {Array.from({ length: 10 }).map((__, cell) => <td key={cell} className="px-4 py-4"><Skeleton className="h-4" /></td>)}
                   </tr>
                 ))
               ) : isError ? (
                 <tr>
-                  <td colSpan={9} className="py-14 text-center">
+                    <td colSpan={10} className="py-14 text-center">
                     <AlertCircle className="mx-auto mb-2 h-8 w-8 text-destructive/70" />
                     <p className="font-medium">Unable to load your allocated files.</p>
                     <p className="mt-1 text-xs text-muted-foreground">{String(error)}</p>
@@ -443,11 +453,15 @@ export default function AllocatedFilesPage() {
                 </tr>
               ) : files.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-16 text-center">
+                    <td colSpan={10} className="py-16 text-center">
                     <FileText className="mx-auto mb-3 h-9 w-9 text-muted-foreground/30" />
                     <p className="font-medium">No allocated files found</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {search || clientType ? 'Try clearing your filters.' : 'Files allocated to your account will appear here.'}
+                      {search || clientType
+                        ? 'Try clearing your filters.'
+                        : isSuperAdmin
+                          ? 'Allocated files will appear here.'
+                          : 'Files allocated to your account will appear here.'}
                     </p>
                   </td>
                 </tr>
@@ -466,6 +480,7 @@ export default function AllocatedFilesPage() {
                   <td className="px-4 py-4 text-xs font-semibold text-blue-600">{clientTypeLabel(file.client_type)}</td>
                   <td className="px-4 py-4 text-xs">{ACTION_LABELS[file.business_type] ?? file.business_type}</td>
                   <td className="px-4 py-4 text-xs">{PRODUCT_LABELS[file.product ?? ''] ?? file.product ?? '—'}</td>
+                  <td className="px-4 py-4 text-xs font-medium">{file.allocated_to || '—'}</td>
                   <td className="px-4 py-4"><span className={`rounded-full border px-2 py-1 text-xs font-medium ${statusClass(file.file_status)}`}>{file.file_status}</span></td>
                   <td className="px-4 py-4 text-right text-xs font-semibold text-primary opacity-0 transition-opacity group-hover:opacity-100">View</td>
                 </tr>

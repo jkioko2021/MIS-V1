@@ -164,8 +164,8 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
   }
 });
 
-// Allocated files are a personal work queue. The authenticated employee is
-// always the owner filter; callers cannot request another employee's files.
+// Allocated files are a personal work queue for operational users. SuperAdmin
+// has an oversight view of all allocated files and their assigned owners.
 router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res) => {
   try {
     const queryValue = (name: string): string | undefined => {
@@ -183,18 +183,24 @@ router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res
     const pageSize = Math.min(100, Math.max(10, Number.parseInt(rawPageSize ?? "20", 10) || 20));
     const offset = (page - 1) * pageSize;
 
+    const isSuperAdmin = req.user?.profileId === 1;
     const conditions: string[] = [
       "bt.is_active = TRUE",
       "bt.allocated = TRUE",
-      "bt.allocated_to = $1",
-      "bt.forwarded = TRUE",
-      "bt.ready_for_update = TRUE",
-      "bt.invoiced = FALSE",
-      "bt.benefit_verified = 'YES'",
-      "bt.is_declined = FALSE",
     ];
-    const params: unknown[] = [req.user!.username];
-    let p = 2;
+    const params: unknown[] = [];
+    let p = 1;
+    if (!isSuperAdmin) {
+      conditions.push(
+        "bt.forwarded = TRUE",
+        "bt.ready_for_update = TRUE",
+        "bt.invoiced = FALSE",
+        "bt.benefit_verified = 'YES'",
+        "bt.is_declined = FALSE",
+        `bt.allocated_to = $${p++}`,
+      );
+      params.push(req.user!.username);
+    }
 
     if (clientType && ["R", "S", "C"].includes(clientType)) {
       conditions.push(`bt.client_type = $${p++}`);
@@ -216,6 +222,7 @@ router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res
       business_type: "bt.business_type",
       file_status: "bt.file_status",
       product: "bt.product",
+      allocated_to: "bt.allocated_to",
       receive_dt: "bt.receive_dt",
       allocate_dt: "bt.allocate_dt",
       premium: "bt.premium",
