@@ -88,9 +88,9 @@ export function BusinessTransactionPanel({
         </div>
         <div>
           <p className="text-xs font-bold uppercase tracking-[.16em] text-[#28746e]">
-            Document transaction
+            Invoice / Credit Note
           </p>
-          <h4 className="mt-0.5 font-semibold text-[#173d38]">Upload selected documentation</h4>
+          <h4 className="mt-0.5 font-semibold text-[#173d38]">Transaction details and evidence</h4>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
             Document types come from this file’s selected checklist. Files are stored privately and linked to this allocation record.
           </p>
@@ -104,7 +104,7 @@ export function BusinessTransactionPanel({
       ) : (
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="transaction-document-type">Document type</Label>
+            <Label htmlFor="transaction-document-type">Invoice / Credit Note</Label>
             <select
               id="transaction-document-type"
               data-testid="select-transaction-document"
@@ -131,98 +131,126 @@ export function BusinessTransactionPanel({
             </select>
           </div>
 
-          {(flags?.isInvoice || flags?.isCreditNote) && (
-            <div className="space-y-1.5">
-              <Label htmlFor="transaction-invoice-number">
-                {flags.isCreditNote ? 'Credit note number' : 'Invoice number'}
-              </Label>
-              <Input
-                id="transaction-invoice-number"
-                value={value.invoiceNo}
-                maxLength={25}
-                onChange={event => onChange({ ...value, invoiceNo: event.target.value })}
-                placeholder="Reference number"
-                disabled={isUploading}
-              />
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="transaction-invoice-number">Invoice / Cr No</Label>
+            <Input
+              id="transaction-invoice-number"
+              value={value.invoiceNo}
+              maxLength={25}
+              onChange={event => onChange({ ...value, invoiceNo: event.target.value })}
+              placeholder="Reference number"
+              disabled={isUploading}
+            />
+            {!flags?.isInvoice && !flags?.isCreditNote && (
+              <p className="text-xs text-muted-foreground">
+                Used for invoice, credit-note, and Cashier workflows.
+              </p>
+            )}
+          </div>
 
-          {flags?.isCreditNote && (
-            <div className="space-y-1.5">
-              <Label htmlFor="transaction-credit-amount">Credit note amount</Label>
-              <Input
-                id="transaction-credit-amount"
-                inputMode="decimal"
-                value={value.amount}
-                onChange={event => onChange({ ...value, amount: event.target.value })}
-                placeholder="0.00"
-                disabled={isUploading}
-              />
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="transaction-credit-amount">Amount</Label>
+            <Input
+              id="transaction-credit-amount"
+              data-testid="input-transaction-amount"
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="any"
+              value={value.amount}
+              onChange={event => {
+                const nextValue = event.target.value;
+                if (nextValue === '' || /^\d*(\.\d*)?$/.test(nextValue)) {
+                  onChange({ ...value, amount: nextValue });
+                }
+              }}
+              placeholder="0.00"
+              disabled={isUploading}
+            />
+            {!flags?.isCreditNote && (
+              <p className="text-xs text-muted-foreground">
+                Required when the selected document is a credit note.
+              </p>
+            )}
+          </div>
 
-          {(flags?.isInvoice || flags?.isAmlRisk) && (
-            <div className="space-y-1.5">
-              <Label htmlFor="transaction-policy-code">Policy code</Label>
-              <Input
-                id="transaction-policy-code"
-                value={value.policyCode}
-                maxLength={100}
-                onChange={event => onChange({ ...value, policyCode: event.target.value })}
-                placeholder="Policy code, if applicable"
-                disabled={isUploading}
-              />
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="transaction-policy-code">Policy Code</Label>
+            <Input
+              id="transaction-policy-code"
+              value={value.policyCode}
+              maxLength={100}
+              onChange={event => onChange({ ...value, policyCode: event.target.value })}
+              placeholder="Policy code, if applicable"
+              disabled={isUploading}
+            />
+            {!flags?.isInvoice && !flags?.isAmlRisk && (
+              <p className="text-xs text-muted-foreground">
+                Used when required by the selected document or workflow.
+              </p>
+            )}
+          </div>
 
-          {flags?.isAmlRisk && (
-            <>
-              <div className="space-y-1.5">
-                <Label htmlFor="transaction-aml-rate">AML risk rate</Label>
-                <select
-                  id="transaction-aml-rate"
-                  value={value.riskRate}
-                  onChange={event => onChange({ ...value, riskRate: event.target.value })}
-                  disabled={isUploading || !riskReasonSourceAvailable}
-                  className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm"
-                >
-                  <option value="">Select rate…</option>
-                  <option value="Low">Low</option>
-                  <option value="Medium">Medium</option>
-                  <option value="High">High</option>
-                </select>
-              </div>
-              {riskReasonSourceAvailable && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="transaction-aml-reason">Rating reason</Label>
-                  <select
-                    id="transaction-aml-reason"
-                    data-testid="select-transaction-aml-reason"
-                    value={value.riskReason}
-                    onChange={event => onChange({ ...value, riskReason: event.target.value })}
-                    disabled={isUploading}
-                    className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm"
-                  >
-                    <option value="">Select reason…</option>
-                    {riskReasonOptions.map(reason => (
-                      <option key={reason.value} value={reason.value}>
-                        {reason.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {!riskReasonSourceAvailable && (
-                <div className="sm:col-span-2 flex gap-2 rounded-md border border-[#e9c98d] bg-[#fff6df] p-3 text-xs leading-5 text-[#855c16]">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>{riskReasonSourceMessage ?? 'AML rating reasons are currently unavailable.'}</span>
-                </div>
-              )}
-            </>
+          <div className="space-y-1.5">
+            <Label htmlFor="transaction-aml-rate">AML Risk Rate</Label>
+            <select
+              id="transaction-aml-rate"
+              value={value.riskRate}
+              onChange={event => onChange({ ...value, riskRate: event.target.value })}
+              disabled={isUploading || !riskReasonSourceAvailable || !flags?.isAmlRisk}
+              className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <option value="">
+                {!flags?.isAmlRisk
+                  ? 'Not required for selected document'
+                  : !riskReasonSourceAvailable
+                    ? 'Unavailable'
+                    : 'Select rate…'}
+              </option>
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="transaction-aml-reason">Rating Reason</Label>
+            <select
+              id="transaction-aml-reason"
+              data-testid="select-transaction-aml-reason"
+              value={value.riskReason}
+              onChange={event => onChange({ ...value, riskReason: event.target.value })}
+              disabled={isUploading || !riskReasonSourceAvailable || !flags?.isAmlRisk}
+              className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <option value="">
+                {!flags?.isAmlRisk
+                  ? 'Not required for selected document'
+                  : !riskReasonSourceAvailable
+                    ? 'Unavailable'
+                    : 'Select reason…'}
+              </option>
+              {riskReasonOptions.map(reason => (
+                <option key={reason.value} value={reason.value}>
+                  {reason.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {!riskReasonSourceAvailable && (
+            <div className="sm:col-span-2 flex gap-2 rounded-md border border-[#e9c98d] bg-[#fff6df] p-3 text-xs leading-5 text-[#855c16]">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                {flags?.isAmlRisk
+                  ? riskReasonSourceMessage ?? 'AML rating reasons are currently unavailable.'
+                  : 'AML fields are inactive unless an AML risk document is selected.'}
+              </span>
+            </div>
           )}
 
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="transaction-file">Document file</Label>
+            <Label htmlFor="transaction-file">Upload</Label>
             <Input
               id="transaction-file"
               data-testid="input-transaction-file"

@@ -128,6 +128,9 @@ function uploadDocumentValidation(input: {
     return "Enter an invoice or credit-note number between 1 and 25 characters.";
   }
   if (isCreditNote) {
+    if (!/^\d+(\.\d+)?$/.test(amountText)) {
+      return "Enter a valid non-negative amount for a credit note.";
+    }
     const amount = Number(amountText);
     if (!amountText || !Number.isFinite(amount) || amount < 0) {
       return "Enter a valid non-negative amount for a credit note.";

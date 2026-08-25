@@ -142,7 +142,6 @@ function AllocatedFileSheet({
   const [tab, setTab] = useState('register');
   const [action, setAction] = useState<AllocatedFileActionOption['code'] | ''>('');
   const [comments, setComments] = useState('');
-  const [invoiceNo, setInvoiceNo] = useState('');
   const [paidStatus, setPaidStatus] = useState<'FULL-PAID' | 'PART-PAID' | 'NOT-PAID' | ''>('');
   const [documentTransaction, setDocumentTransaction] = useState<AllocationDocumentTransaction>({
     reqId: '',
@@ -207,7 +206,7 @@ function AllocatedFileSheet({
       misApi.businessAllocatedFileAction(fileNo, {
         action: action as AllocatedFileActionOption['code'],
         comments,
-        invoice_no: cashierAction ? invoiceNo : undefined,
+        invoice_no: cashierAction ? documentTransaction.invoiceNo : undefined,
         paid_status:
           cashierAction
             ? (paidStatus as 'FULL-PAID' | 'PART-PAID' | 'NOT-PAID')
@@ -329,7 +328,8 @@ function AllocatedFileSheet({
     }
     if (
       cashierAction &&
-      (invoiceNo.trim().length < 20 || invoiceNo.trim().length > 25)
+      (documentTransaction.invoiceNo.trim().length < 20 ||
+        documentTransaction.invoiceNo.trim().length > 25)
     ) {
       toast({
         title: 'Invoice number required',
@@ -681,9 +681,9 @@ function AllocatedFileSheet({
               <div className="mt-8 border-t border-[#d8e5e1] pt-6">
                 <div className="mb-4">
                   <p className="text-xs font-bold uppercase tracking-[.16em] text-[#28746e]">
-                    Allocation controls
+                    Invoice / Credit Note workflow
                   </p>
-                  <h3 className="mt-1 text-lg font-semibold">Transaction handoff</h3>
+                  <h3 className="mt-1 text-lg font-semibold">Review and forward</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Complete the document, payment, and accountable-destination steps from one place.
                   </p>
@@ -722,7 +722,6 @@ function AllocatedFileSheet({
                           onChange={event => {
                             setAction(event.target.value as AllocatedFileActionOption['code'] | '');
                             setPaidStatus('');
-                            setInvoiceNo('');
                           }}
                           disabled={
                             !canForward ||
@@ -760,38 +759,29 @@ function AllocatedFileSheet({
                           Destination is determined by the permitted workflow action.
                         </p>
                       </div>
-                      {cashierAction && (
-                        <div className="space-y-1.5">
-                          <Label htmlFor="allocated-payment-status">Payment status</Label>
-                          <select
-                            id="allocated-payment-status"
-                            data-testid="select-payment-status"
-                            value={paidStatus}
-                            onChange={event => setPaidStatus(event.target.value as typeof paidStatus)}
-                            disabled={!canForward}
-                            className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm"
-                          >
-                            <option value="">Select status…</option>
-                            <option value="FULL-PAID">Full paid</option>
-                            <option value="PART-PAID">Part paid</option>
-                            <option value="NOT-PAID">Not paid</option>
-                          </select>
-                        </div>
-                      )}
-                      {cashierAction && (
-                        <div className="space-y-1.5">
-                          <Label htmlFor="allocated-invoice-number">Invoice number</Label>
-                          <Input
-                            id="allocated-invoice-number"
-                            data-testid="input-invoice-number"
-                            value={invoiceNo}
-                            onChange={event => setInvoiceNo(event.target.value)}
-                            disabled={!canForward}
-                            maxLength={25}
-                            placeholder="20–25 character invoice number"
-                          />
-                        </div>
-                      )}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="allocated-payment-status">Payment</Label>
+                        <select
+                          id="allocated-payment-status"
+                          data-testid="select-payment-status"
+                          value={paidStatus}
+                          onChange={event => setPaidStatus(event.target.value as typeof paidStatus)}
+                          disabled={!canForward || !cashierAction}
+                          className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          <option value="">
+                            {cashierAction ? 'Select status…' : 'Required for Cashier action'}
+                          </option>
+                          <option value="FULL-PAID">Full paid</option>
+                          <option value="PART-PAID">Part paid</option>
+                          <option value="NOT-PAID">Not paid</option>
+                        </select>
+                        {!cashierAction && (
+                          <p className="text-xs text-muted-foreground">
+                            Payment status is collected for Cashier handoffs.
+                          </p>
+                        )}
+                      </div>
                       <ReadOnlyField label="Entered By" value={file.entered_by} />
                       <div className="space-y-1.5 sm:col-span-2">
                         <Label htmlFor="allocated-action-notes">Notes</Label>
