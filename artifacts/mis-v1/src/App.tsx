@@ -24,6 +24,7 @@ import {
 import {
   Home, FileText, Shield, Database,
   ChevronRight, LogOut, User, Users, Settings,
+  type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -32,13 +33,31 @@ const queryClient = new QueryClient({
 });
 
 // ─── Navigation structure ─────────────────────────────────────────────────────
-const NAV_SECTIONS = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  bpoOnly?: boolean;
+  children?: NavItem[];
+};
+
+const NAV_SECTIONS: Array<{
+  label: string | null;
+  adminOnly?: boolean;
+  items: NavItem[];
+}> = [
   {
     label: null,
     items: [
       { href: '/',          label: 'Home',              icon: Home },
-      { href: '/business',  label: 'Business Tracking', icon: FileText },
-      { href: '/business/allocated', label: 'Allocated Files', icon: FileText, bpoOnly: true },
+      {
+        href: '/business',
+        label: 'Business Tracking',
+        icon: FileText,
+        children: [
+          { href: '/business/allocated', label: 'Allocated Files', icon: FileText, bpoOnly: true },
+        ],
+      },
       { href: '/risk',      label: 'Risk Register',     icon: Shield },
       { href: '/discovery', label: 'DB Discovery',      icon: Database },
     ],
@@ -90,21 +109,47 @@ function Sidebar() {
                 const bpoOnly = 'bpoOnly' in item && item.bpoOnly;
                 if (bpoOnly && !canSeeAllocatedFiles) return null;
                 const active = location === href || (href !== '/' && location.startsWith(href));
+                const visibleChildren = item.children?.filter(child => !child.bpoOnly || canSeeAllocatedFiles) ?? [];
                 return (
-                  <Link
-                    key={href}
-                    href={href}
-                    className={cn(
-                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
-                      active
-                        ? 'bg-primary text-primary-foreground font-medium'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  <div key={href}>
+                    <Link
+                      href={href}
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
+                        active
+                          ? 'bg-primary text-primary-foreground font-medium'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                      )}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span className="flex-1">{label}</span>
+                      {active && <ChevronRight className="w-3 h-3 opacity-60" />}
+                    </Link>
+                    {visibleChildren.length > 0 && (
+                      <div className="ml-5 border-l border-border/70 pl-2">
+                        {visibleChildren.map(child => {
+                          const childActive = location === child.href || location.startsWith(`${child.href}/`);
+                          const ChildIcon = child.icon;
+                          return (
+                            <Link
+                              key={child.href}
+                              href={child.href}
+                              className={cn(
+                                'flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition-colors',
+                                childActive
+                                  ? 'bg-primary/10 font-semibold text-primary'
+                                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                              )}
+                            >
+                              <ChildIcon className="h-3.5 w-3.5 shrink-0" />
+                              <span className="flex-1">{child.label}</span>
+                              {childActive && <ChevronRight className="h-3 w-3 opacity-60" />}
+                            </Link>
+                          );
+                        })}
+                      </div>
                     )}
-                  >
-                    <Icon className="w-4 h-4 shrink-0" />
-                    <span className="flex-1">{label}</span>
-                    {active && <ChevronRight className="w-3 h-3 opacity-60" />}
-                  </Link>
+                  </div>
                 );
               })}
             </div>
