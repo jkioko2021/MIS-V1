@@ -106,6 +106,8 @@ export interface BusinessFile {
   cr12_ref: string | null;
   corp_category: string | null;
   client_sub_type: string | null;
+  is_shwaari?: boolean;
+  branch?: string | null;
   bpo_assigned_to?: string | null;
   bpo_forwarded_at?: string | null;
 }
@@ -122,6 +124,7 @@ export interface BusinessReviewActionBody {
   business?: string;
   card_type?: string;
   pay_mode?: string;
+  queue_name?: string;
 }
 
 export interface BusinessNote {
@@ -217,7 +220,7 @@ export const misApi = {
   businessReviewAction: (fileNo: string, body: BusinessReviewActionBody) =>
     post<ApiResponse<{ file_status: string; work_item_id: number }>>(`/business/${encodeURIComponent(fileNo)}/review-action`, body),
   businessForward: (fileNo: string, body?: { to_user?: string; comments?: string }) =>
-    post<ApiResponse<{ new_status: string; queue_name: 'BPO_REVIEW'; work_item_id?: number; already_routed: boolean }>>(`/business/${encodeURIComponent(fileNo)}/forward`, body),
+    post<ApiResponse<{ new_status: string; queue_name: 'BPO_REVIEW_RETAIL' | 'BPO_REVIEW_CORPORATE_SME'; work_item_id?: number; already_routed: boolean }>>(`/business/${encodeURIComponent(fileNo)}/forward`, body),
   businessAllocate: (fileNo: string, allocated_to: string) =>
     post<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}/allocate`, { allocated_to }),
   businessAddNote: (fileNo: string, notes: string) =>

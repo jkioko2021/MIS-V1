@@ -18,3 +18,11 @@ When a BPO reviewer returns a file as incomplete, close the BPO work item, clear
 **Why:** A return is a request to correct the existing registration, not a terminal BPO decision. Leaving the file outside Register or refusing a subsequent forward strands it without an actionable queue.
 
 **How to apply:** Treat `RETURNED-INCOMPLETE` as a Register-queue state when it is unforwarded, and allow the standard forward operation to transition it back into an open BPO work item.
+
+## Client-type queue split
+
+Retail and Corporate/SME work must use distinct canonical work queues, derived from the original file's client type inside the same transaction. Historic work-item migrations must join the authoritative file before assigning a split queue.
+
+**Why:** A queue-name-only migration can silently strand Corporate/SME work in Retail, while a client-side queue filter is not access control. The status allowlist must also retain every server-supported BPO destination, including Retail Hold and Cashier.
+
+**How to apply:** Map `R` to the Retail queue and `S`/`C` to the Corporate/SME queue on forward, review, list, permissions, and migration paths. Validate any supplied queue identifier against that derived value; do not trust a UI label or request field.

@@ -37,7 +37,9 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BpoReviewQueue } from './bpo-review-queue';
+import { BpoCorporateQueue } from './bpo-corporate-queue';
 import { BpoReviewSheet } from './bpo-review-sheet';
+import { BpoCorporateSheet } from './bpo-corporate-sheet';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STATUS_COLOURS: Record<string, string> = {
@@ -1417,7 +1419,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function BusinessTrackingPage() {
   const { user } = useAuth();
-  const [queue, setQueue]             = useState<'register' | 'bpo-review'>('register');
+  const [queue, setQueue]             = useState<'register' | 'bpo-retail' | 'bpo-corporate-sme'>('register');
   const [clientTab, setClientTab]     = useState<'ALL' | TrackingClientType>('ALL');
   const [statusFilter, setStatusFilter] = useState('');
   const [searchBy, setSearchBy]       = useState<'P' | 'F'>('P');
@@ -1556,13 +1558,22 @@ export default function BusinessTrackingPage() {
           <span className="block text-xs text-muted-foreground">New files awaiting forwarding</span>
         </button>
         <button
-          onClick={() => { setQueue('bpo-review'); setStatusFilter(''); setPage(1); }}
+          onClick={() => { setQueue('bpo-retail'); setStatusFilter(''); setPage(1); }}
           className={`rounded-lg border px-3 py-2 text-left transition-colors ${
-            queue === 'bpo-review' ? 'border-primary bg-primary/5 text-primary' : 'border-border bg-background hover:bg-muted'
+            queue === 'bpo-retail' ? 'border-primary bg-primary/5 text-primary' : 'border-border bg-background hover:bg-muted'
           }`}
         >
-          <span className="block text-sm font-semibold">BPO Review Queue</span>
-          <span className="block text-xs text-muted-foreground">Forwarded files needing BPO review</span>
+          <span className="block text-sm font-semibold">BPO Review-Retail</span>
+          <span className="block text-xs text-muted-foreground">Retail files needing BPO review</span>
+        </button>
+        <button
+          onClick={() => { setQueue('bpo-corporate-sme'); setStatusFilter(''); setPage(1); }}
+          className={`rounded-lg border px-3 py-2 text-left transition-colors ${
+            queue === 'bpo-corporate-sme' ? 'border-primary bg-primary/5 text-primary' : 'border-border bg-background hover:bg-muted'
+          }`}
+        >
+          <span className="block text-sm font-semibold">BPO Review-Corporates/SME</span>
+          <span className="block text-xs text-muted-foreground">Corporate/SME files needing BPO review</span>
         </button>
       </div>
 
@@ -1670,8 +1681,19 @@ export default function BusinessTrackingPage() {
       </div>
 
       {/* Main Content Area */}
-      {queue === 'bpo-review' ? (
+      {queue === 'bpo-retail' ? (
         <BpoReviewQueue
+          files={files}
+          isLoading={isLoading}
+          isError={isError}
+          error={error}
+          refetch={refetch}
+          onSelectFile={openEdit}
+          sortBy={sortBy}
+          toggleSort={toggleSort}
+        />
+      ) : queue === 'bpo-corporate-sme' ? (
+        <BpoCorporateQueue
           files={files}
           isLoading={isLoading}
           isError={isError}
@@ -1820,7 +1842,7 @@ export default function BusinessTrackingPage() {
             {totalRecords === 0
               ? 'No files'
               : `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, totalRecords)} of ${totalRecords}`}
-            {' '}in {queue === 'bpo-review' ? 'BPO Review' : 'Register'} queue
+            {' '}in {queue === 'bpo-retail' || queue === 'bpo-corporate-sme' ? 'BPO Review' : 'Register'} queue
           </p>
           <div className="flex items-center gap-2">
             <Select value={String(pageSize)} onValueChange={value => { setPageSize(Number(value)); setPage(1); }}>
@@ -1862,8 +1884,14 @@ export default function BusinessTrackingPage() {
 
       {/* Sheet */}
       {sheet.mode !== 'closed' && (
-        queue === 'bpo-review' && sheet.fileNo ? (
+        queue === 'bpo-retail' && sheet.fileNo ? (
           <BpoReviewSheet
+            key={sheet.fileNo}
+            fileNo={sheet.fileNo}
+            onClose={closeSheet}
+          />
+        ) : queue === 'bpo-corporate-sme' && sheet.fileNo ? (
+          <BpoCorporateSheet
             key={sheet.fileNo}
             fileNo={sheet.fileNo}
             onClose={closeSheet}

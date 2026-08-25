@@ -34,7 +34,10 @@ export const businessWorkItems = crm.table(
       columns: [table.fileNo],
       foreignColumns: [businessTrackingFiles.fileNo],
     }),
-    check("business_work_items_queue_name_check", sql`${table.queueName} IN ('BPO_REVIEW')`),
+    check(
+      "business_work_items_queue_name_check",
+      sql`${table.queueName} IN ('BPO_REVIEW_RETAIL', 'BPO_REVIEW_CORPORATE_SME')`,
+    ),
     check("business_work_items_work_status_check", sql`${table.workStatus} IN ('OPEN', 'COMPLETED', 'CANCELLED')`),
   ],
 );

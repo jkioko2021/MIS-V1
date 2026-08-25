@@ -30,15 +30,14 @@ export function BpoReviewQueue({
   sortBy: string;
   toggleSort: (col: string) => void;
 }) {
-  const retailFiles = files.filter(f => f.client_type === 'R' && f.business === 'M' && f.business_type !== 'PR');
+  const retailFiles = files.filter(f => f.client_type === 'R' && f.business_type !== 'PR');
   const refundFiles = files.filter(f => f.business_type === 'PR');
-  const otherFiles = files.filter(f => !retailFiles.includes(f) && !refundFiles.includes(f));
 
   return (
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
-          Retail Review Queue
+          BPO Review-Retail
           <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20">{retailFiles.length}</Badge>
         </h3>
         <QueueTable
@@ -52,25 +51,6 @@ export function BpoReviewQueue({
           toggleSort={toggleSort}
         />
       </div>
-
-      {otherFiles.length > 0 && (
-        <div>
-          <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
-            Other BPO Review Files
-            <Badge variant="secondary" className="bg-slate-500/10 text-slate-700 hover:bg-slate-500/20">{otherFiles.length}</Badge>
-          </h3>
-          <QueueTable
-            files={otherFiles}
-            isLoading={isLoading}
-            isError={isError}
-            error={error}
-            refetch={refetch}
-            onSelectFile={onSelectFile}
-            sortBy={sortBy}
-            toggleSort={toggleSort}
-          />
-        </div>
-      )}
 
       <div>
         <h3 className="text-lg font-bold mb-3 flex items-center gap-2">

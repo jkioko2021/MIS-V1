@@ -172,6 +172,7 @@ export function BpoReviewSheet({ fileNo, onClose }: { fileNo: string; onClose: (
       product: product as any,
       allocated_to: allocatedTo,
       comments,
+      queue_name: 'BPO_REVIEW_RETAIL',
     }),
     onSuccess: () => {
       toast({ title: 'Action recorded successfully' });

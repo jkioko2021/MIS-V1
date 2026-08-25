@@ -41,17 +41,32 @@ router.use("/mis/business", requireAuth, requireBusinessTrackingAccess, setBpoRe
 
 router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
   try {
-    const {
-      status, client_type, business, entered_by, search, search_by, queue,
-      page: rawPage, page_size: rawPageSize, sort_by, sort_dir,
-    } = req.query as Record<string, string>;
+    const queryValue = (name: string): string | undefined => {
+      const value = req.query[name];
+      return typeof value === "string" ? value : undefined;
+    };
+    const status = queryValue("status");
+    const client_type = queryValue("client_type");
+    const business = queryValue("business");
+    const entered_by = queryValue("entered_by");
+    const search = queryValue("search");
+    const search_by = queryValue("search_by");
+    const queue = queryValue("queue");
+    const rawPage = queryValue("page");
+    const rawPageSize = queryValue("page_size");
+    const sort_by = queryValue("sort_by");
+    const sort_dir = queryValue("sort_dir");
     const page = Math.max(1, Number.parseInt(rawPage ?? "1", 10) || 1);
     const pageSize = Math.min(100, Math.max(10, Number.parseInt(rawPageSize ?? "20", 10) || 20));
     const offset = (page - 1) * pageSize;
 
     const conditions: string[] = ["bt.is_active = TRUE"];
-    const params: unknown[] = [];
-    let p = 1;
+    const bpoQueueName = queue === "bpo-corporate-sme"
+      ? "BPO_REVIEW_CORPORATE_SME"
+      : "BPO_REVIEW_RETAIL"; // bpo-review remains the legacy Retail alias.
+    const isBpoQueue = queue === "bpo-review" || queue === "bpo-retail" || queue === "bpo-corporate-sme";
+    const params: unknown[] = isBpoQueue ? [bpoQueueName] : [];
+    let p = isBpoQueue ? 2 : 1;
 
     if (status) { conditions.push(`bt.file_status = $${p++}`); params.push(status); }
     if (client_type) { conditions.push(`bt.client_type = $${p++}`); params.push(client_type); }
@@ -61,14 +76,15 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
       // Returned files go back to their originating registration workflow for
       // correction, document review, and a fresh BPO handover.
       conditions.push(`bt.file_status IN ('REGISTERED', 'RETURNED-INCOMPLETE')`);
-    } else if (queue === "bpo-review") {
+    } else if (isBpoQueue) {
       conditions.push(`wi.work_status = 'OPEN'`);
+      conditions.push(queue === "bpo-corporate-sme" ? `bt.client_type IN ('S', 'C')` : `bt.client_type = 'R'`);
     } else if (!res.locals.canAccessBpoReview) {
       // BPO-held files are not visible through the unfiltered/default list.
       conditions.push(`NOT EXISTS (
         SELECT 1 FROM crm.business_work_items bpo_filter
         WHERE bpo_filter.file_no=bt.file_no
-          AND bpo_filter.queue_name='BPO_REVIEW'
+           AND bpo_filter.queue_name IN ('BPO_REVIEW_RETAIL', 'BPO_REVIEW_CORPORATE_SME')
           AND bpo_filter.work_status='OPEN'
       )`);
     }
@@ -91,6 +107,7 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
       agent_name: "sa.agent_name",
       paid_amt: "bt.paid_amt",
       receive_dt: "bt.receive_dt",
+      bpo_forwarded_at: "wi.forwarded_at",
       note_count: "notes.note_count",
       bpo_assigned_to: "wi.assigned_to",
       created_at: "bt.created_at",
@@ -104,7 +121,9 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
         sa.agent_name,
         notes.note_count,
         wi.assigned_to AS bpo_assigned_to,
-        wi.forwarded_at AS bpo_forwarded_at
+         wi.forwarded_at AS bpo_forwarded_at,
+         wi.queue_name AS bpo_queue_name,
+         (LOWER(COALESCE(bt.client_sub_type, '')) LIKE '%shwaari%') AS is_shwaari
       FROM crm.business_tracking bt
       LEFT JOIN commission.sales_agents sa ON sa.agent_id = bt.agent_id
       LEFT JOIN LATERAL (
@@ -112,8 +131,9 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
         FROM crm.business_tracking_notes n
         WHERE n.file_no = bt.file_no AND n.is_active = TRUE
       ) notes ON TRUE
-      LEFT JOIN crm.business_work_items wi
-        ON wi.file_no = bt.file_no AND wi.queue_name = 'BPO_REVIEW'
+       LEFT JOIN crm.business_work_items wi
+         ON wi.file_no = bt.file_no
+         ${isBpoQueue ? "AND wi.queue_name = $1" : "AND wi.queue_name IN ('BPO_REVIEW_RETAIL', 'BPO_REVIEW_CORPORATE_SME')"}
       ${where}
       ORDER BY ${sortColumn} ${sortDirection} NULLS LAST, bt.file_no ASC
       LIMIT $${p++} OFFSET $${p++}
@@ -122,8 +142,9 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
     const totalRow = await queryOne<{ total: number }>(`
       SELECT COUNT(*)::int AS total
       FROM crm.business_tracking bt
-      LEFT JOIN crm.business_work_items wi
-        ON wi.file_no = bt.file_no AND wi.queue_name = 'BPO_REVIEW'
+       LEFT JOIN crm.business_work_items wi
+         ON wi.file_no = bt.file_no
+         ${isBpoQueue ? "AND wi.queue_name = $1" : "AND wi.queue_name IN ('BPO_REVIEW_RETAIL', 'BPO_REVIEW_CORPORATE_SME')"}
       ${where}
     `, params);
 

@@ -109,7 +109,9 @@ export async function requireBusinessFileAccess(req: Request, res: Response, nex
       queryOne<{ work_item_id: number }>(
         `SELECT work_item_id
          FROM crm.business_work_items
-         WHERE file_no=$1 AND queue_name='BPO_REVIEW' AND work_status='OPEN'`,
+          WHERE file_no=$1
+            AND queue_name IN ('BPO_REVIEW_RETAIL', 'BPO_REVIEW_CORPORATE_SME')
+            AND work_status='OPEN'`,
         [req.params.fileNo],
       ),
     ]);
@@ -127,7 +129,8 @@ export async function requireBusinessFileAccess(req: Request, res: Response, nex
 }
 
 export function requireBpoQueueAccess(req: Request, res: Response, next: NextFunction): void {
-  if (req.query.queue === "bpo-review") {
+  const queue = typeof req.query.queue === "string" ? req.query.queue : undefined;
+  if (queue === "bpo-review" || queue === "bpo-retail" || queue === "bpo-corporate-sme") {
     requireBpoReviewAccess(req, res, next);
     return;
   }

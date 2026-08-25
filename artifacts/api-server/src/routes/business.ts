@@ -20,7 +20,12 @@ const GI_CATEGORIES = new Set(["Non_Motor", "Motor"]);
 const CORPORATE_CATEGORIES = new Set(["Public", "Private"]);
 const WALK_IN_DEPARTMENTS = ["MEMBERSHIP", "NONMEDICAL"];
 const BPO_REVIEW_ACTIONS = new Set(["RI", "A", "MU", "HO", "CA"]);
+const CORPORATE_SME_BPO_REVIEW_ACTIONS = new Set(["RI", "A", "MU", "CA"]);
 const BPO_PRODUCTS = new Set(["T", "S", "AS"]);
+
+function bpoQueueName(clientType: string): "BPO_REVIEW_RETAIL" | "BPO_REVIEW_CORPORATE_SME" {
+  return clientType === "R" ? "BPO_REVIEW_RETAIL" : "BPO_REVIEW_CORPORATE_SME";
+}
 
 interface BusinessInput {
   client_type?: unknown;
@@ -69,6 +74,23 @@ async function walkInStaffValidationError(allocatedTo: unknown, authorisedBy: un
   return rows.length === selectedUsers.length
     ? null
     : "Walk-in allocation and authorisation must use an active approved Membership or Nonmedical employee.";
+}
+
+async function membershipStaffValidationError(allocatedTo: unknown): Promise<string | null> {
+  const username = text(allocatedTo);
+  if (!username) return "Select an active approved Membership employee for allocation.";
+  const staff = await queryOne<{ username: string }>(
+    `SELECT e.username
+     FROM crm.employees e
+     WHERE e.username=$1
+       AND e.department='MEMBERSHIP'
+       AND e.activated=TRUE
+       AND e.approved=TRUE
+       AND e.employee_locked=FALSE
+       AND e.is_deleted=FALSE`,
+    [username],
+  );
+  return staff ? null : "Allocation must use an active approved Membership employee.";
 }
 
 function validateBusinessInput(input: BusinessInput): string[] {
@@ -588,14 +610,15 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
         [fileNo],
       );
       if (!file) throw new Error("FILE_NOT_FOUND");
+      const queueName = bpoQueueName(file.client_type);
 
       const [existingWorkItem] = await txQuery<{ work_item_id: number; work_status: string }>(
         client,
         `SELECT work_item_id, work_status
          FROM crm.business_work_items
-         WHERE file_no=$1 AND queue_name='BPO_REVIEW'
+          WHERE file_no=$1 AND queue_name=$2
          FOR UPDATE`,
-        [fileNo],
+        [fileNo, queueName],
       );
       if (existingWorkItem?.work_status === "OPEN") {
         const [currentFile] = await txQuery<{ file_status: string }>(
@@ -607,6 +630,7 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
           newStatus: currentFile?.file_status ?? file.file_status,
           workItemId: existingWorkItem.work_item_id,
           alreadyRouted: true,
+          queueName,
         };
       }
       if (!["REGISTERED", "RETURNED-INCOMPLETE"].includes(file.file_status) || file.forwarded) throw new Error("FORWARD_NOT_ALLOWED");
@@ -694,7 +718,7 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
         client,
         `INSERT INTO crm.business_work_items
            (file_no, queue_name, work_status, assigned_to, assigned_by, forwarded_by, forwarded_at)
-         VALUES ($1, 'BPO_REVIEW', 'OPEN', $2, $3, $3, NOW())
+          VALUES ($1, $2, 'OPEN', $3, $4, $4, NOW())
          ON CONFLICT (file_no, queue_name) DO UPDATE SET
            work_status='OPEN',
            assigned_to=EXCLUDED.assigned_to,
@@ -703,17 +727,17 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
            forwarded_at=EXCLUDED.forwarded_at,
            updated_at=NOW()
          RETURNING work_item_id`,
-        [fileNo, assignedTo, req.user!.username]
+        [fileNo, queueName, assignedTo, req.user!.username]
       );
 
       await txQuery(
         client,
         `INSERT INTO crm.business_tracking_notes (file_no, note_from, notes, note_date, is_active)
          VALUES ($1, $2, $3, NOW(), TRUE)`,
-        [fileNo, req.user!.username, comments.trim()]
+        [fileNo, req.user!.username, `Register → ${queueName}: ${comments.trim()}`]
       );
 
-      const detail = `Register → BPO Review: ${fileNo}. Forwarded by ${req.user!.username}${assignedTo ? `; assigned to ${assignedTo}` : ""}. Note: ${comments.trim()}`;
+      const detail = `Register → ${queueName}: ${fileNo}. Forwarded by ${req.user!.username}${assignedTo ? `; assigned to ${assignedTo}` : ""}. Note: ${comments.trim()}`;
       await txQuery(
         client,
         `INSERT INTO crm.admin_audit_trail (username, action_type, description)
@@ -721,14 +745,14 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
         [req.user!.username, detail]
       );
 
-      return { newStatus, workItemId: workItem?.work_item_id, alreadyRouted: false };
+      return { newStatus, workItemId: workItem?.work_item_id, alreadyRouted: false, queueName };
     });
 
     res.json({
       ok: true,
       data: {
         new_status: result.newStatus,
-        queue_name: "BPO_REVIEW",
+        queue_name: result.queueName,
         work_item_id: result.workItemId,
         already_routed: result.alreadyRouted,
       },
@@ -764,11 +788,12 @@ router.use("/business/:fileNo", requireBusinessFileAccess);
 // BPO without an accountable decision trail.
 router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (req: Request, res: Response) => {
   const { fileNo } = req.params;
-  const { action, allocated_to, product, comments } = req.body as {
+  const { action, allocated_to, product, comments, queue_name } = req.body as {
     action?: string;
     allocated_to?: string;
     product?: string;
     comments?: string;
+    queue_name?: string;
   };
   const requestedAction = text(action);
   const allocatedTo = text(allocated_to);
@@ -791,14 +816,6 @@ router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (re
     res.status(400).json({ ok: false, error: "Select a Membership Admin for allocation." });
     return;
   }
-  if (requestedAction === "A") {
-    const staffError = await walkInStaffValidationError(allocatedTo, "");
-    if (staffError) {
-      res.status(400).json({ ok: false, error: staffError });
-      return;
-    }
-  }
-
   const statusByAction: Record<string, string> = {
     A: "ALLOCATED",
     RI: "RETURNED-INCOMPLETE",
@@ -815,25 +832,36 @@ router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (re
   try {
     const result = await withTransaction(async (client) => {
       await txQuery(client, "SELECT pg_advisory_xact_lock(hashtext($1))", [fileNo]);
-      const [file] = await txQuery<{ file_no: string; is_active: boolean }>(
+      const [file] = await txQuery<{ file_no: string; is_active: boolean; client_type: string }>(
         client,
-        `SELECT file_no, is_active
+        `SELECT file_no, is_active, client_type
          FROM crm.business_tracking
          WHERE file_no=$1
          FOR UPDATE`,
         [fileNo],
       );
       if (!file?.is_active) throw new Error("FILE_NOT_FOUND");
+      const queueName = bpoQueueName(file.client_type);
+      if (queue_name && text(queue_name) !== queueName) throw new Error("BPO_QUEUE_MISMATCH");
+      if (file.client_type !== "R" && !CORPORATE_SME_BPO_REVIEW_ACTIONS.has(requestedAction)) {
+        throw new Error("BPO_ACTION_NOT_ALLOWED");
+      }
+      if (requestedAction === "A") {
+        const staffError = file.client_type === "R"
+          ? await walkInStaffValidationError(allocatedTo, "")
+          : await membershipStaffValidationError(allocatedTo);
+        if (staffError) throw new Error(`STAFF_INVALID:${staffError}`);
+      }
 
       const [workItem] = await txQuery<{ work_item_id: number }>(
         client,
         `SELECT work_item_id
          FROM crm.business_work_items
          WHERE file_no=$1
-           AND queue_name='BPO_REVIEW'
+           AND queue_name=$2
            AND work_status='OPEN'
          FOR UPDATE`,
-        [fileNo],
+        [fileNo, queueName],
       );
       if (!workItem) throw new Error("BPO_WORK_ITEM_NOT_OPEN");
 
@@ -865,7 +893,7 @@ router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (re
       );
 
       const target = allocatedTo ? `; forwarded to ${allocatedTo}` : "";
-      const noteText = `BPO ${requestedAction} · ${productLabel[selectedProduct]}${target}: ${note}`;
+      const noteText = `${queueName} ${requestedAction} · ${productLabel[selectedProduct]}${target}: ${note}`;
       await txQuery(
         client,
         `INSERT INTO crm.business_tracking_notes (file_no, note_from, notes, note_date, is_active)
@@ -879,11 +907,11 @@ router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (re
         [
           req.user!.username,
           `BT_BPO_${requestedAction}`,
-          `BPO review completed for ${fileNo}: ${productLabel[selectedProduct]}, ${newStatus}${target}. Notes: ${note}`,
+          `${queueName} review completed for ${fileNo}: ${productLabel[selectedProduct]}, ${newStatus}${target}. Notes: ${note}`,
         ],
       );
 
-      return { file_status: newStatus, work_item_id: workItem.work_item_id };
+      return { file_status: newStatus, work_item_id: workItem.work_item_id, queue_name: queueName };
     });
 
     res.json({ ok: true, data: result });
@@ -894,6 +922,18 @@ router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (re
     }
     if (err instanceof Error && err.message === "BPO_WORK_ITEM_NOT_OPEN") {
       res.status(409).json({ ok: false, error: "This BPO work item is no longer open." });
+      return;
+    }
+    if (err instanceof Error && err.message === "BPO_QUEUE_MISMATCH") {
+      res.status(409).json({ ok: false, error: "The supplied BPO queue does not match this file." });
+      return;
+    }
+    if (err instanceof Error && err.message === "BPO_ACTION_NOT_ALLOWED") {
+      res.status(400).json({ ok: false, error: "Hold is only available for Retail BPO review." });
+      return;
+    }
+    if (err instanceof Error && err.message.startsWith("STAFF_INVALID:")) {
+      res.status(400).json({ ok: false, error: err.message.slice("STAFF_INVALID:".length) });
       return;
     }
     handleError(res, err, "complete BPO review action");
@@ -987,7 +1027,14 @@ router.post("/business/:fileNo/allocate", async (req: Request, res: Response) =>
   const { allocated_to } = req.body as { allocated_to: string };
   if (!allocated_to) { res.status(400).json({ ok: false, error: "allocated_to is required." }); return; }
   try {
-    const staffError = await walkInStaffValidationError(allocated_to, "");
+    const file = await queryOne<{ file_no: string; client_type: string; receive_dt: string }>(
+      `SELECT file_no, client_type, receive_dt FROM crm.business_tracking WHERE file_no=$1`,
+      [req.params.fileNo],
+    );
+    if (!file) { res.status(404).json({ ok: false, error: "File not found." }); return; }
+    const staffError = file.client_type === "R"
+      ? await walkInStaffValidationError(allocated_to, "")
+      : await membershipStaffValidationError(allocated_to);
     if (staffError) { res.status(400).json({ ok: false, error: staffError }); return; }
     await query(
       `UPDATE crm.business_tracking SET
