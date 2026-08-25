@@ -10,6 +10,7 @@ export type AllocationDocumentTransaction = {
   amount: string;
   policyCode: string;
   riskRate: string;
+  riskReason: string;
 };
 
 type Props = {
@@ -19,6 +20,7 @@ type Props = {
   isUploading: boolean;
   riskReasonSourceAvailable: boolean;
   riskReasonSourceMessage?: string;
+  riskReasonOptions: Array<{ value: string; label: string }>;
   onChange: (next: AllocationDocumentTransaction) => void;
   onFileChange: (file: File | null) => void;
   onUpload: () => void;
@@ -41,17 +43,42 @@ export function BusinessTransactionPanel({
   isUploading,
   riskReasonSourceAvailable,
   riskReasonSourceMessage,
+  riskReasonOptions,
   onChange,
   onFileChange,
   onUpload,
 }: Props) {
   const selectedDocument = documents.find(document => document.req_id === value.reqId);
   const flags = selectedDocument ? documentFlags(selectedDocument.req_name) : null;
+  const fileExtension = file ? `.${file.name.split('.').pop()?.toLowerCase()}` : '';
+  const uploadValidationMessage =
+    !selectedDocument
+      ? null
+      : !file
+        ? 'Choose a document file before uploading.'
+        : file.size <= 0 || file.size > 10 * 1024 * 1024
+          ? 'Documents must be between 1 byte and 10 MB.'
+          : !['.doc', '.docx', '.xls', '.xlsx', '.jpg', '.jpeg', '.png', '.gif', '.pdf', '.rar', '.zip'].includes(fileExtension)
+            ? 'Upload a supported Word, Excel, image, PDF, RAR, or ZIP document.'
+            : (flags?.isInvoice || flags?.isCreditNote) &&
+                (value.invoiceNo.trim().length < 1 || value.invoiceNo.trim().length > 25)
+              ? 'Enter an invoice or credit-note number between 1 and 25 characters.'
+              : flags?.isCreditNote &&
+                  (!value.amount.trim() ||
+                    !Number.isFinite(Number(value.amount)) ||
+                    Number(value.amount) < 0)
+                ? 'Enter a valid non-negative amount for a credit note.'
+                : flags?.isAmlRisk && !riskReasonSourceAvailable
+                  ? riskReasonSourceMessage ?? 'AML rating reasons are currently unavailable.'
+                  : flags?.isAmlRisk &&
+                      (!value.riskRate.trim() || !value.riskReason.trim())
+                    ? 'Select an AML risk rate and rating reason.'
+                    : null;
   const canUpload =
     !!selectedDocument &&
     !!file &&
     !isUploading &&
-    (!flags?.isAmlRisk || riskReasonSourceAvailable);
+    !uploadValidationMessage;
 
   return (
     <section className="mb-5 rounded-xl border border-[#bfd9d5] bg-[#f7fbfa] p-4">
@@ -89,6 +116,7 @@ export function BusinessTransactionPanel({
                   amount: '',
                   policyCode: '',
                   riskRate: '',
+                  riskReason: '',
                 })
               }
               disabled={isUploading}
@@ -164,6 +192,26 @@ export function BusinessTransactionPanel({
                   <option value="High">High</option>
                 </select>
               </div>
+              {riskReasonSourceAvailable && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="transaction-aml-reason">Rating reason</Label>
+                  <select
+                    id="transaction-aml-reason"
+                    data-testid="select-transaction-aml-reason"
+                    value={value.riskReason}
+                    onChange={event => onChange({ ...value, riskReason: event.target.value })}
+                    disabled={isUploading}
+                    className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm"
+                  >
+                    <option value="">Select reason…</option>
+                    {riskReasonOptions.map(reason => (
+                      <option key={reason.value} value={reason.value}>
+                        {reason.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {!riskReasonSourceAvailable && (
                 <div className="sm:col-span-2 flex gap-2 rounded-md border border-[#e9c98d] bg-[#fff6df] p-3 text-xs leading-5 text-[#855c16]">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -187,6 +235,12 @@ export function BusinessTransactionPanel({
               Supported: Word, Excel, image, PDF, RAR, or ZIP. Maximum 10 MB.
             </p>
           </div>
+
+          {uploadValidationMessage && (
+            <p className="sm:col-span-2 text-xs font-medium text-[#855c16]" role="alert">
+              {uploadValidationMessage}
+            </p>
+          )}
 
           <Button
             type="button"

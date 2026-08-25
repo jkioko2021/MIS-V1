@@ -150,6 +150,7 @@ function AllocatedFileSheet({
     amount: '',
     policyCode: '',
     riskRate: '',
+    riskReason: '',
   });
   const [pendingDocumentFile, setPendingDocumentFile] = useState<File | null>(null);
   const { toast } = useToast();
@@ -280,11 +281,19 @@ function AllocatedFileSheet({
         amount: documentTransaction.amount || undefined,
         policy_code: documentTransaction.policyCode || undefined,
         risk_rate: documentTransaction.riskRate || undefined,
+        risk_reason: documentTransaction.riskReason || undefined,
       });
     },
     onSuccess: async () => {
       toast({ title: 'Document uploaded', description: 'The document has been added to this allocation record.' });
-      setDocumentTransaction({ reqId: '', invoiceNo: '', amount: '', policyCode: '', riskRate: '' });
+      setDocumentTransaction({
+        reqId: '',
+        invoiceNo: '',
+        amount: '',
+        policyCode: '',
+        riskRate: '',
+        riskReason: '',
+      });
       setPendingDocumentFile(null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['allocated-business-file', fileNo] }),
@@ -687,6 +696,7 @@ function AllocatedFileSheet({
                   isUploading={uploadMutation.isPending}
                   riskReasonSourceAvailable={amlRiskReasonSource?.available ?? false}
                   riskReasonSourceMessage={amlRiskReasonSource?.message}
+                  riskReasonOptions={amlRiskReasonSource?.reasons ?? []}
                   onChange={setDocumentTransaction}
                   onFileChange={setPendingDocumentFile}
                   onUpload={() => uploadMutation.mutate()}

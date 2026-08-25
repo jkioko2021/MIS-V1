@@ -1,0 +1,119 @@
+ Dim MyDatable As New Data.DataTable
+ Dim STS As Integer
+ Dim aar As Integer = 0
+ Dim PROPOSER_ID As String
+ Dim PERIOD As String
+ Dim FILENO As String
+
+ lblupload.Text = ""
+ 'ltEmbed.Text = ""
+ Try
+     If FILE_NO.Text = "" Then
+         lblerr.Text = "You must Select The file!"
+         Exit Sub
+     End If
+
+     If cbodoc.SelectedValue = "RET30" Then
+         If (Len(Trim(txtinv.Text)) > 25 Or Len(Trim(txtinv.Text)) < 20) And (cboAction.SelectedValue = "C" Or cboAction.SelectedValue = "RM") Then
+             lblerr.Text = "Enter a single Invoice No."
+             txtinv.Focus()
+             txtinv.BackColor = Drawing.Color.Red
+             Exit Sub
+         End If
+     End If
+
+
+     If cbodoc.SelectedValue = "RET43" Then
+
+         If cboRate.SelectedValue = "" Or cboRiskReason.SelectedValue = "" Then
+             lblerr.Text = "Select Risk Rating and Reason!"
+             cboRate.Focus()
+             Exit Sub
+         End If
+     End If
+
+
+     If FL1.PostedFile.FileName = "" Then
+         lblerr.Text = "You must upload a reference pdf file!"
+         Exit Sub
+     End If
+     If cbodoc.Text = "" Then
+         lblerr.Text = "You must Select Document title!"
+         Exit Sub
+     End If
+
+     Dim filePath As String = FL1.PostedFile.FileName
+     Dim filename As String = Path.GetFileName(filePath)
+     Dim ext As String = Path.GetExtension(filename)
+     Dim contenttype As String = String.Empty
+     Dim fs As Stream = FL1.PostedFile.InputStream
+     Dim br As New BinaryReader(fs)
+     Dim bytes As Byte() = br.ReadBytes(DirectCast(fs.Length, Long))
+
+     Dim app As Integer = 0
+
+     Select Case ext
+         Case ".doc"
+             contenttype = "application/vnd.ms-word"
+             Exit Select
+         Case ".docx"
+             contenttype = "application/vnd.ms-word"
+             Exit Select
+         Case ".xls"
+             contenttype = "application/vnd.ms-excel"
+             Exit Select
+         Case ".xlsx"
+             contenttype = "application/vnd.ms-excel"
+             Exit Select
+         Case ".jpg"
+             contenttype = "image/jpg"
+             Exit Select
+         Case ".png"
+             contenttype = "image/png"
+             Exit Select
+         Case ".gif"
+             contenttype = "image/gif"
+             Exit Select
+         Case ".pdf"
+             contenttype = "application/pdf"
+             Exit Select
+         Case ".rar"
+             contenttype = "application/zip"
+             Exit Select
+         Case ".zip"
+             contenttype = "application/zip"
+             Exit Select
+     End Select
+
+     If contenttype <> String.Empty Then
+         Dim fileLocation As String = ""
+         MyDBAction.UPLOAD_File_DOC_INVOIC(bytes, filename, contenttype, FILE_NO.Text, Trim(cbodoc.Text.ToUpper), CDate(Date.Now()).ToString("yyyy-MM-dd"), Session("username"), CDate(Date.Now).ToString("yyyy-MM-dd"), cbodoc.SelectedValue, Trim(txtinv.Text))
+         'Response.Redirect(Request.Url.AbsoluteUri)
+
+
+         If cbodoc.SelectedValue = "RET27" Then
+             MyDBAction.TRACKING_CREDIT_NOTES(FILE_NO.Text, Trim(txtinv.Text.ToUpper), txtamount.Text, Session("username"), lblenteredby.Text, CDate(Date.Now).ToString("yyyy-MM-dd"))
+         ElseIf cbodoc.SelectedValue = "RET30" Then
+             UpdateRecord("UPDATE [TBL_MIS_CRM_BUSINESS_TRACKING] SET eOx_Invoice_No='" & Trim(txtinv.Text) & "',Policy_Code='" & Trim(txtpolicy.Text) & "' where [File_No]= '" & FILE_NO.Text & "'")
+         ElseIf cbodoc.SelectedValue = "RET43" Then
+             MyDBAction.TRACKING_AML_RISKS(FILE_NO.Text, Trim(txtinv.Text.ToUpper), txtProposer.Text, txtpolicy.Text, cboclient.Text, "eOx", cboRate.SelectedValue, cboRiskReason.SelectedValue, Session("username"))
+         End If
+
+         SqlAction = "SELECT [eOx_Invoice_No]   FROM [CRM].[dbo].[TBL_MIS_CRM_BUSINESS_TRACKING] WITH (NOLOCK) WHERE File_No='" & FILE_NO.Text & "'"
+         MyDatable = TryCast(MyDBAction.DBAction(SqlAction, DataManagement.DBActionType.DataTable), Data.DataTable)
+         If MyDatable.Rows.Count > 0 Then
+             txtinv.Text = MyDatable.Rows(0).Item("eOx_Invoice_No").ToString()
+         End If
+         lblupload.ForeColor = System.Drawing.Color.Green
+         lblupload.Text = "File uploaded successfully"
+     Else
+         lblupload.Text = "File format not recognised." _
+     & " Upload Image/Word/PDF/Excel formats"
+     End If
+     loadGrid(FILE_NO.Text)
+
+
+
+ Catch ex As Exception
+     lblerr.Text = ex.Message
+ End Try
