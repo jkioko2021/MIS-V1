@@ -1,0 +1,386 @@
+# Replit Prompt — Load Business Tracking Documents into TBL_MIS_CRM_BUSINESS_REQ
+
+Update the existing Replit application/database configuration to load the following business tracking document master data into the SQL Server table:
+
+`[dbo].[TBL_MIS_CRM_BUSINESS_REQ]`
+
+## Objective
+
+Create a production-ready database seed/migration script and application-level loading logic, where appropriate, to insert the supplied document definitions into:
+
+`[dbo].[TBL_MIS_CRM_BUSINESS_REQ]`
+
+The application must **not create a new table** if `[dbo].[TBL_MIS_CRM_BUSINESS_REQ]` already exists.
+
+Before implementing anything:
+
+1. Inspect the existing database schema for `[dbo].[TBL_MIS_CRM_BUSINESS_REQ]`.
+2. Inspect the existing application/database repository for references to:
+
+   * `TBL_MIS_CRM_BUSINESS_REQ`
+   * `DOC_ID`
+   * `DOC_CODE`
+   * `DOC_NAME`
+   * `BUSINESS_TYPE`
+   * `CLIENT`
+   * `ACTIVE`
+   * `CODE`
+3. Determine the exact SQL Server data types and constraints of the existing columns.
+4. Reuse the existing schema.
+5. Do not rename existing columns.
+6. Do not modify existing production data unnecessarily.
+
+## Required Data
+
+Load the following records exactly:
+
+| DOC_ID | DOC_CODE | DOC_NAME                      | BUSINESS_TYPE | CLIENT | ACTIVE | CODE |
+| -----: | -------- | ----------------------------- | ------------- | ------ | -----: | ---: |
+|     90 | RET01    | Member Application Form(Full) | B             | R      |      1 |    1 |
+|     91 | RET02    | ID or Passport(Front&Back)    | B             | R      |      1 |    1 |
+|     92 | RET03    | Pin Certificate               | B             | R      |      1 |    1 |
+|     93 | RET04    | Payment Proof                 | B             | R      |      1 |    1 |
+|     94 | RET05    | Passport Photo                | B             | R      |      1 |    1 |
+|     95 | RET06    | Medical Report                | B             | R      |      1 |    1 |
+|     96 | RET07    | Renewal Schedule              | B             | R      |      1 |    1 |
+|     97 | RET08    | Invoice                       | B             | R      |      1 |    1 |
+|     98 | RET09    | Contact Update Form           | B             | R      |      1 |    1 |
+|     99 | RET10    | Change Of Rep Letter          | B             | R      |      1 |    1 |
+|    100 | RET11    | Other Documents               | B             | R      |      1 |    1 |
+|    101 | RET12    | Email Correspondence          | B             | R      |      1 |    1 |
+|    102 | RET13    | Corporate proposal form       | B             | C      |      1 |    1 |
+|    103 | RET14    | Registration Certificate      | B             | C      |      1 |    1 |
+|    104 | RET15    | CR12                          | B             | C      |      1 |    1 |
+|    105 | RET16    | Fund contract                 | B             | C      |      1 |    1 |
+|    106 | RET17    | Rates and benefit Matrix      | B             | C      |      1 |    1 |
+|    107 | RET18    | Premium summary               | B             | C      |      1 |    1 |
+|    108 | RET19    | Payment Proof                 | B             | C      |      1 |    1 |
+|    109 | RET20    | Member List                   | B             | C      |      1 |    1 |
+|    110 | RET21    | Tender award letter           | B             | C      |      1 |    1 |
+|    111 | RET22    | Certificate of Practice       | B             | C      |      1 |    1 |
+|    112 | RET23    | Change Of Rep Letter          | B             | C      |      1 |    1 |
+|    113 | RET24    | System Receipt                | B             | C      |      1 |    3 |
+|    114 | RET25    | SODA                          | B             | C      |      1 |    1 |
+|    115 | RET26    | Allocation Form               | B             | C      |      1 |    1 |
+|    116 | RET27    | Credit Note                   | B             | C      |      1 |    1 |
+|    117 | RET28    | Policy Schedule               | B             | C      |      1 |    4 |
+|    118 | RET29    | Refund Documents              | B             | C      |      1 |    5 |
+|    119 | RET30    | System Invoice                | B             | C      |      1 |    3 |
+|    120 | RET31    | Refund Advice                 | B             | C      |      1 |    5 |
+|    121 | RET32    | Refund Schedule               | B             | C      |      1 |    5 |
+|    122 | RET33    | Finance Approval              | B             | C      |      1 |    5 |
+|    123 | RET34    | Bank Confirmation             | B             | C      |      1 |    5 |
+|    124 | RET35    | Remittance                    | B             | C      |      1 |    5 |
+|    125 | RET36    | Decline letter                | B             | C      |      1 |    5 |
+|    126 | RET37    | Debit Note                    | B             | C      |      1 |    5 |
+|    127 | RET38    | Statement                     | B             | C      |      1 |    5 |
+|    128 | RET39    | Credit Note                   | B             | C      |      1 |    5 |
+|    129 | RET40    | Other Documents               | B             | C      |      1 |    5 |
+|    130 | RET41    | Finance Approval              | B             | C      |      1 |    1 |
+|    131 | RET42    | Final Summary                 | B             | C      |      1 |    5 |
+|    132 | RET43    | AML Report                    | B             | C      |      1 |    4 |
+|    133 | RET44    | Email Correspondence          | B             | C      |      1 |    1 |
+|    134 | RET45    | Other Documents               | B             | C      |      1 |    1 |
+
+## Important Data Rules
+
+Treat the supplied values as authoritative.
+
+Do not change:
+
+* `DOC_ID`
+* `DOC_CODE`
+* `BUSINESS_TYPE`
+* `CLIENT`
+* `ACTIVE`
+* `CODE`
+
+Do not accidentally convert:
+
+* `R` to `Retail`
+* `C` to `Corporate`
+* `B` to another value
+
+The following `CODE` values are intentional and must remain exactly as supplied:
+
+* `RET24` → `3`
+* `RET28` → `4`
+* `RET29` → `5`
+* `RET30` → `3`
+* `RET31` → `5`
+* `RET32` → `5`
+* `RET33` → `5`
+* `RET34` → `5`
+* `RET35` → `5`
+* `RET36` → `5`
+* `RET37` → `5`
+* `RET38` → `5`
+* `RET39` → `5`
+* `RET40` → `5`
+* `RET42` → `5`
+* `RET43` → `4`
+
+## Idempotent Loading
+
+The migration/seed must be safe to execute multiple times.
+
+Do NOT blindly execute:
+
+```sql
+INSERT INTO [dbo].[TBL_MIS_CRM_BUSINESS_REQ]
+```
+
+without duplicate protection.
+
+Use an idempotent approach based primarily on `DOC_ID` and/or `DOC_CODE`, according to the existing database constraints.
+
+Preferred logic:
+
+1. If the record does not exist, insert it.
+2. If the record already exists with the same `DOC_ID`/`DOC_CODE`, do not create a duplicate.
+3. If the existing record differs from the supplied master data, update it to the supplied authoritative values.
+4. Do not delete unrelated records already in the table.
+5. Do not reset unrelated records.
+
+Use a transaction:
+
+```sql
+BEGIN TRANSACTION;
+
+-- validation
+-- insert/update
+-- verification
+
+COMMIT TRANSACTION;
+```
+
+If an error occurs:
+
+```sql
+ROLLBACK TRANSACTION;
+```
+
+## Schema Validation
+
+Before generating the final migration, inspect the actual table definition.
+
+Verify:
+
+* Primary key
+* Identity property on `DOC_ID`
+* Unique constraints
+* Nullable/non-nullable columns
+* Maximum length of `DOC_CODE`
+* Maximum length of `DOC_NAME`
+* Data type of `BUSINESS_TYPE`
+* Data type of `CLIENT`
+* Data type of `ACTIVE`
+* Data type of `CODE`
+
+If `DOC_ID` is an `IDENTITY` column, determine whether explicit insertion of IDs 90–134 requires `IDENTITY_INSERT`.
+
+If required, use:
+
+```sql
+SET IDENTITY_INSERT [dbo].[TBL_MIS_CRM_BUSINESS_REQ] ON;
+
+-- controlled inserts
+
+SET IDENTITY_INSERT [dbo].[TBL_MIS_CRM_BUSINESS_REQ] OFF;
+```
+
+Only enable `IDENTITY_INSERT` when the actual schema confirms it is necessary.
+
+Do not leave `IDENTITY_INSERT` enabled after the migration.
+
+## SQL Script
+
+Create a deployment-ready SQL script, preferably:
+
+`seed_business_tracking_documents.sql`
+
+The script should:
+
+1. Validate that `[dbo].[TBL_MIS_CRM_BUSINESS_REQ]` exists.
+2. Fail clearly if the table does not exist.
+3. Load all 45 records.
+4. Prevent duplicates.
+5. Update mismatching existing master records.
+6. Preserve unrelated records.
+7. Run inside a transaction.
+8. Verify the final records.
+9. Return a useful result showing:
+
+   * DOC_ID
+   * DOC_CODE
+   * DOC_NAME
+   * CLIENT
+   * ACTIVE
+   * CODE
+   * Load status
+
+## Post-Load Verification
+
+After loading, execute validation queries.
+
+At minimum:
+
+```sql
+SELECT
+    DOC_ID,
+    DOC_CODE,
+    DOC_NAME,
+    BUSINESS_TYPE,
+    CLIENT,
+    ACTIVE,
+    CODE
+FROM [dbo].[TBL_MIS_CRM_BUSINESS_REQ]
+WHERE DOC_ID BETWEEN 90 AND 134
+ORDER BY DOC_ID;
+```
+
+Also verify:
+
+```sql
+SELECT COUNT(*) AS TotalLoaded
+FROM [dbo].[TBL_MIS_CRM_BUSINESS_REQ]
+WHERE DOC_ID BETWEEN 90 AND 134;
+```
+
+Expected result:
+
+```text
+45
+```
+
+Verify the document codes:
+
+```sql
+SELECT
+    MIN(DOC_ID) AS MinDocID,
+    MAX(DOC_ID) AS MaxDocID,
+    COUNT(*) AS RecordCount,
+    COUNT(DISTINCT DOC_CODE) AS DistinctDocCodes
+FROM [dbo].[TBL_MIS_CRM_BUSINESS_REQ]
+WHERE DOC_ID BETWEEN 90 AND 134;
+```
+
+Expected:
+
+```text
+MinDocID       = 90
+MaxDocID       = 134
+RecordCount    = 45
+DistinctCodes  = 45
+```
+
+Also validate that all records have:
+
+```text
+BUSINESS_TYPE = B
+ACTIVE = 1
+```
+
+and that:
+
+```text
+DOC_ID 90–101  = CLIENT R
+DOC_ID 102–134 = CLIENT C
+```
+
+## Application Integration
+
+Inspect the existing application to determine where business document definitions are currently loaded.
+
+If the application has a business tracking/document configuration screen, update it to retrieve the records from:
+
+`[dbo].[TBL_MIS_CRM_BUSINESS_REQ]`
+
+Do not hard-code the 45 documents in the frontend.
+
+The frontend should load the document master data dynamically from the database.
+
+Use:
+
+* `DOC_CODE` as the stable business document code.
+* `DOC_NAME` as the display name.
+* `CLIENT` to distinguish Retail (`R`) and Corporate (`C`).
+* `ACTIVE` to determine whether the document is available.
+* `CODE` according to the existing application's business logic.
+
+## UI Requirements
+
+If the application has a Business Tracking document configuration/selection screen:
+
+### Retail
+
+When:
+
+```text
+CLIENT = 'R'
+AND ACTIVE = 1
+```
+
+show:
+
+`RET01` through `RET12`.
+
+### Corporate
+
+When:
+
+```text
+CLIENT = 'C'
+AND ACTIVE = 1
+```
+
+show:
+
+`RET13` through `RET45`.
+
+Do not mix Retail and Corporate documents unless the existing business logic explicitly requires it.
+
+## Search and Filtering
+
+If applicable, provide filtering by:
+
+* Client
+* Business Type
+* Document Code
+* Document Name
+* Active/Inactive
+
+Use parameterized SQL queries.
+
+Do not concatenate user-provided values into SQL.
+
+## Code Quality
+
+Follow the existing project's architecture and coding standards.
+
+Before modifying code:
+
+* inspect the repository;
+* identify the existing database access layer;
+* reuse existing connection/configuration mechanisms;
+* reuse existing repository/service patterns;
+* do not introduce a second database access framework unnecessarily;
+* do not create duplicate models or repositories.
+
+Do not change unrelated functionality.
+
+## Deliverables
+
+Implement the change and provide:
+
+1. Production-ready SQL migration/seed script.
+2. Any required application changes.
+3. Database validation queries.
+4. Duplicate-safe/idempotent loading.
+5. Verification that all 45 records were loaded correctly.
+6. A concise summary of files changed.
+7. A concise summary of how the document master data is now consumed by the application.
+
+Before finishing, run the relevant tests/build and resolve any compilation or SQL errors.
+
+Do not report the task as complete until the implementation and validation are successful.
