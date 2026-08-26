@@ -1,0 +1,75 @@
+Step 2 — Load These 45 Records
+Modify,Insert/update the following records into crm.business_req
+90  | RET01 | Member Application Form(Full) | B | R | 1 | 1
+91  | RET02 | ID or Passport(Front&Back) | B | R | 1 | 1
+92  | RET03 | Pin Certificate | B | R | 1 | 1
+93  | RET04 | Payment Proof | B | R | 1 | 1
+94  | RET05 | Passport Photo | B | R | 1 | 1
+95  | RET06 | Medical Report | B | R | 1 | 1
+96  | RET07 | Renewal Schedule | B | R | 1 | 1
+97  | RET08 | Invoice | B | R | 1 | 1
+98  | RET09 | Contact Update Form | B | R | 1 | 1
+99  | RET10 | Change Of Rep Letter | B | R | 1 | 1
+100 | RET11 | Other Documents | B | R | 1 | 1
+101 | RET12 | Email Correspondence | B | R | 1 | 1
+
+102 | RET13 | Corporate proposal form | B | C | 1 | 1
+103 | RET14 | Registration Certificate | B | C | 1 | 1
+104 | RET15 | CR12 | B | C | 1 | 1
+105 | RET16 | Fund contract | B | C | 1 | 1
+106 | RET17 | Rates and benefit Matrix | B | C | 1 | 1
+107 | RET18 | Premium summary | B | C | 1 | 1
+108 | RET19 | Payment Proof | B | C | 1 | 1
+109 | RET20 | Member List | B | C | 1 | 1
+110 | RET21 | Tender award letter | B | C | 1 | 1
+111 | RET22 | Certificate of Practice | B | C | 1 | 1
+112 | RET23 | Change Of Rep Letter | B | C | 1 | 1
+113 | RET24 | System Receipt | B | C | 1 | 3
+114 | RET25 | SODA | B | C | 1 | 1
+115 | RET26 | Allocation Form | B | C | 1 | 1
+116 | RET27 | Credit Note | B | C | 1 | 1
+117 | RET28 | Policy Schedule | B | C | 1 | 4
+118 | RET29 | Refund Documents | B | C | 1 | 5
+119 | RET30 | System Invoice | B | C | 1 | 3
+120 | RET31 | Refund Advice | B | C | 1 | 5
+121 | RET32 | Refund Schedule | B | C | 1 | 5
+122 | RET33 | Finance Approval | B | C | 1 | 5
+123 | RET34 | Bank Confirmation | B | C | 1 | 5
+124 | RET35 | Remittance | B | C | 1 | 5
+125 | RET36 | Decline letter | B | C | 1 | 5
+126 | RET37 | Debit Note | B | C | 1 | 5
+127 | RET38 | Statement | B | C | 1 | 5
+128 | RET39 | Credit Note | B | C | 1 | 5
+129 | RET40 | Other Documents | B | C | 1 | 5
+130 | RET41 | Finance Approval | B | C | 1 | 1
+131 | RET42 | Final Summary | B | C | 1 | 5
+132 | RET43 | AML Report | B | C | 1 | 4
+133 | RET44 | Email Correspondence | B | C | 1 | 1
+134 | RET45 | Other Documents | B | C | 1 | 1
+Column order:
+DOC_ID
+DOC_CODE
+DOC_NAME
+BUSINESS_TYPE
+CLIENT
+ACTIVE
+CODE
+Step 3 — Do Not Duplicate Records
+The load must be idempotent.
+For every DOC_CODE:
+•	If it does not exist → INSERT it.
+•	If it already exists → UPDATE it with the supplied values.
+•	Do not create duplicates.
+•	Do not delete any unrelated records.
+•	Do not modify records outside RET01–RET45.
+Use the database's native upsert mechanism or the project's existing ORM/repository pattern.
+Step 4 — Preserve the Exact Values
+These values are mandatory:
+BUSINESS_TYPE = B
+ACTIVE = 1
+Retail:
+RET01–RET12 → CLIENT = R
+Corporate:
+RET13–RET45 → CLIENT = C
+Do not change the supplied CODE values.
+
