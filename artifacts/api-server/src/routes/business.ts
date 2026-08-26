@@ -1637,7 +1637,7 @@ router.delete("/business/:fileNo/notes/:id", async (req: Request, res: Response)
 // ─── POST /business/:fileNo/checklist/:reqId ─────────────────────────────────
 // Select a document requirement for this file. Only selected documents must be
 // uploaded before forwarding.
-router.post("/business/:fileNo/checklist/:reqId", async (req: Request, res: Response) => {
+router.post("/business/:fileNo/checklist/:reqId", async (req: Request<{ fileNo: string; reqId: string }>, res: Response) => {
   const { fileNo, reqId } = req.params;
   try {
     const file = await queryOne<{ client_type: string }>(
@@ -1667,7 +1667,7 @@ router.post("/business/:fileNo/checklist/:reqId", async (req: Request, res: Resp
 });
 
 // ─── DELETE /business/:fileNo/checklist/:reqId ───────────────────────────────
-router.delete("/business/:fileNo/checklist/:reqId", async (req: Request, res: Response) => {
+router.delete("/business/:fileNo/checklist/:reqId", async (req: Request<{ fileNo: string; reqId: string }>, res: Response) => {
   try {
     const uploaded = await queryOne(
       `SELECT 1
@@ -1732,7 +1732,7 @@ router.get("/business/:fileNo/uploads", async (req: Request, res: Response) => {
 
 // ─── POST /business/:fileNo/uploads ──────────────────────────────────────────
 // Records a GCS upload (presigned URL upload done client-side) and auto-acknowledges the doc.
-router.post("/business/:fileNo/uploads", async (req: Request, res: Response) => {
+router.post("/business/:fileNo/uploads", async (req: Request<{ fileNo: string }>, res: Response) => {
   const { fileNo } = req.params;
   const { req_id, filename, filesize, mime_type, storage_key } =
     req.body as {
@@ -1784,7 +1784,7 @@ router.post("/business/:fileNo/uploads", async (req: Request, res: Response) => 
 });
 
 // ─── DELETE /business/:fileNo/uploads/:uploadId ───────────────────────────────
-router.delete("/business/:fileNo/uploads/:uploadId", async (req: Request, res: Response) => {
+router.delete("/business/:fileNo/uploads/:uploadId", async (req: Request<{ fileNo: string; uploadId: string }>, res: Response) => {
   const { fileNo, uploadId } = req.params;
   try {
     const upload = await queryOne<{ filename: string }>(
@@ -1829,7 +1829,7 @@ router.get("/business/:fileNo/history", async (req: Request, res: Response) => {
 });
 
 // ─── POST /business/:fileNo/mark-complete ─────────────────────────────────────
-router.post("/business/:fileNo/mark-complete", async (req: Request, res: Response) => {
+router.post("/business/:fileNo/mark-complete", async (req: Request<{ fileNo: string }>, res: Response) => {
   const { fileNo } = req.params;
   const { complete } = req.body as { complete: boolean };
   try {

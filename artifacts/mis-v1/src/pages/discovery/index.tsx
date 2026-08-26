@@ -205,7 +205,10 @@ function ColumnsTab({ db, schema, table }: { db: string; schema: string; table: 
                     {col.COLUMN_NAME}
                   </span>
                   {col.IS_FOREIGN_KEY === 1 && (
-                    <Link className="w-3 h-3 text-blue-400 shrink-0" title={`FK → ${col.FK_TABLE}.${col.FK_COLUMN}`} />
+                    <Link
+                      className="w-3 h-3 text-blue-400 shrink-0"
+                      {...{ title: `FK → ${col.FK_TABLE}.${col.FK_COLUMN}` }}
+                    />
                   )}
                 </div>
               </td>
@@ -279,7 +282,7 @@ function PreviewTab({ db, schema, table }: { db: string; schema: string; table: 
                 {columns.map((col) => {
                   const val = row[col];
                   const display = val === null ? <span className="text-muted-foreground/50 italic">NULL</span>
-                    : val instanceof Date ? new Date(val as string).toISOString()
+                    : val instanceof Date ? val.toISOString()
                     : typeof val === 'boolean' ? String(val)
                     : String(val);
                   return (

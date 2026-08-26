@@ -240,7 +240,9 @@ function ProtectedRouter() {
           <Route path="/business/bpo-corporate-sme">
             {() => <BusinessTrackingPage initialQueue="bpo-corporate-sme" />}
           </Route>
-          <Route path="/business"         component={BusinessTrackingPage} />
+          <Route path="/business">
+            {() => <BusinessTrackingPage />}
+          </Route>
           <Route path="/risk"             component={RiskRegisterPage} />
           <Route path="/discovery"        component={DiscoveryPage} />
           <Route path="/admin/users"      component={UsersPage} />

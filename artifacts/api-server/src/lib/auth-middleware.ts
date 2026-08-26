@@ -32,11 +32,11 @@ export function signTempToken(payload: { employeeId: number }): string {
 }
 
 export function verifyToken(token: string): JwtPayload {
-  return jwt.verify(token, SECRET) as JwtPayload;
+  return jwt.verify(token, SECRET) as unknown as JwtPayload;
 }
 
 export function verifyTempToken(token: string): { sub: number } {
-  const decoded = jwt.verify(token, SECRET) as { sub: number; temp?: boolean };
+  const decoded = jwt.verify(token, SECRET) as unknown as { sub: number; temp?: boolean };
   if (!decoded.temp) throw new Error("Not a temp token");
   return decoded;
 }

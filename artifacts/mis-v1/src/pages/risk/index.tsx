@@ -128,9 +128,9 @@ function RiskDetail({ riskCode, onClose }: { riskCode: string; onClose: () => vo
                             {String(rc.action_status)}
                           </Badge>
                         </div>
-                        {rc.mitigations && <p className="text-xs text-muted-foreground"><strong>Mitigation:</strong> {String(rc.mitigations)}</p>}
-                        {rc.action_owner && <p className="text-xs"><strong>Owner:</strong> {String(rc.action_owner)}</p>}
-                        {rc.due_date && <p className="text-xs text-muted-foreground"><strong>Due:</strong> {String(rc.due_date)}</p>}
+                        {Boolean(rc.mitigations) && <p className="text-xs text-muted-foreground"><strong>Mitigation:</strong> {String(rc.mitigations)}</p>}
+                        {Boolean(rc.action_owner) && <p className="text-xs"><strong>Owner:</strong> {String(rc.action_owner)}</p>}
+                        {Boolean(rc.due_date) && <p className="text-xs text-muted-foreground"><strong>Due:</strong> {String(rc.due_date)}</p>}
                       </div>
                     ))}
                   </div>

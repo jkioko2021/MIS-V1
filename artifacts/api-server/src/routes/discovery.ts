@@ -4,6 +4,11 @@ import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
+type DatabaseParams = { database: string };
+type TableParams = DatabaseParams & { schema: string; table: string };
+type ProcedureParams = DatabaseParams & { schema: string; proc: string };
+type ViewParams = DatabaseParams & { schema: string; view: string };
+
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 function handleError(res: Response, err: unknown, context: string) {
@@ -51,7 +56,7 @@ router.get("/discovery/databases", async (_req: Request, res: Response) => {
 
 // ─── tables ───────────────────────────────────────────────────────────────────
 
-router.get("/discovery/:database/tables", async (req: Request, res: Response) => {
+router.get("/discovery/:database/tables", async (req: Request<DatabaseParams>, res: Response) => {
   const { database } = req.params;
   try {
     const pool = await getPool(database);
@@ -76,7 +81,7 @@ router.get("/discovery/:database/tables", async (req: Request, res: Response) =>
 
 // ─── views ────────────────────────────────────────────────────────────────────
 
-router.get("/discovery/:database/views", async (req: Request, res: Response) => {
+router.get("/discovery/:database/views", async (req: Request<DatabaseParams>, res: Response) => {
   const { database } = req.params;
   try {
     const pool = await getPool(database);
@@ -93,7 +98,7 @@ router.get("/discovery/:database/views", async (req: Request, res: Response) => 
 
 // ─── stored procedures ────────────────────────────────────────────────────────
 
-router.get("/discovery/:database/procedures", async (req: Request, res: Response) => {
+router.get("/discovery/:database/procedures", async (req: Request<DatabaseParams>, res: Response) => {
   const { database } = req.params;
   try {
     const pool = await getPool(database);
@@ -117,7 +122,7 @@ router.get("/discovery/:database/procedures", async (req: Request, res: Response
 
 router.get(
   "/discovery/:database/tables/:schema/:table/columns",
-  async (req: Request, res: Response) => {
+  async (req: Request<TableParams>, res: Response) => {
     const { database, schema, table } = req.params;
     try {
       const pool = await getPool(database);
@@ -182,7 +187,7 @@ router.get(
 
 router.get(
   "/discovery/:database/tables/:schema/:table/preview",
-  async (req: Request, res: Response) => {
+  async (req: Request<TableParams>, res: Response) => {
     const { database, schema, table } = req.params;
     const limit = Math.min(Number(req.query.limit ?? 100), 500);
     try {
@@ -208,7 +213,7 @@ router.get(
 
 router.get(
   "/discovery/:database/tables/:schema/:table/rowcount",
-  async (req: Request, res: Response) => {
+  async (req: Request<TableParams>, res: Response) => {
     const { database, schema, table } = req.params;
     try {
       const pool = await getPool(database);
@@ -233,7 +238,7 @@ router.get(
 
 router.get(
   "/discovery/:database/procedures/:schema/:proc/definition",
-  async (req: Request, res: Response) => {
+  async (req: Request<ProcedureParams>, res: Response) => {
     const { database, schema, proc } = req.params;
     try {
       const pool = await getPool(database);
@@ -285,7 +290,7 @@ router.get(
 
 router.get(
   "/discovery/:database/views/:schema/:view/definition",
-  async (req: Request, res: Response) => {
+  async (req: Request<ViewParams>, res: Response) => {
     const { database, schema, view } = req.params;
     try {
       const pool = await getPool(database);
@@ -308,7 +313,7 @@ router.get(
 
 router.get(
   "/discovery/:database/tables/:schema/:table/indexes",
-  async (req: Request, res: Response) => {
+  async (req: Request<TableParams>, res: Response) => {
     const { database, schema, table } = req.params;
     try {
       const pool = await getPool(database);
@@ -340,10 +345,13 @@ router.get(
 
 // ─── search objects ───────────────────────────────────────────────────────────
 
-router.get("/discovery/:database/search", async (req: Request, res: Response) => {
+router.get("/discovery/:database/search", async (req: Request<DatabaseParams>, res: Response) => {
   const { database } = req.params;
   const q = String(req.query.q ?? "").trim();
-  if (!q) return res.json({ results: [] });
+  if (!q) {
+    res.json({ results: [] });
+    return;
+  }
 
   try {
     const pool = await getPool(database);
