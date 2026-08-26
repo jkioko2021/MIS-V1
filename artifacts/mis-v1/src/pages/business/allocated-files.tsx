@@ -43,6 +43,7 @@ import {
   type AuditEntry,
   type AllocatedFileActionOption,
   type AllocatedFileAmlStatus,
+  type AllocatedRefundLedgerSummary,
   type BusinessDoc,
   type BusinessFile,
   type BusinessNote,
@@ -908,8 +909,20 @@ export default function AllocatedFilesPage() {
     queryFn: () => misApi.businessAllocated(params),
     staleTime: 30_000,
   });
+  const {
+    data: refundLedgerRes,
+    isLoading: refundLedgerLoading,
+    isFetching: refundLedgerFetching,
+    refetch: refetchRefundLedger,
+  } = useQuery({
+    queryKey: ['allocated-refund-ledger'],
+    queryFn: () => misApi.businessAllocatedRefundsSummary(),
+    staleTime: 30_000,
+    retry: false,
+  });
   const files = data?.data ?? [];
   const total = data?.total ?? 0;
+  const refundLedger: AllocatedRefundLedgerSummary | undefined = refundLedgerRes?.data;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const isSuperAdmin = user?.profileName?.trim().toLowerCase() === 'superadmin';
   const profileName = user?.profileName ?? 'BPO administrator';
@@ -960,11 +973,13 @@ export default function AllocatedFilesPage() {
               data-testid="button-refresh-allocated"
               variant="outline"
               size="sm"
-              onClick={() => refetch()}
-              disabled={isFetching}
+              onClick={() => {
+                void Promise.all([refetch(), refetchRefundLedger()]);
+              }}
+              disabled={isFetching || refundLedgerFetching}
               className="border-[#8fc4bd] bg-transparent text-[#f3fbf9] hover:bg-[#397a74]"
             >
-              <RefreshCw className={cn('mr-2 h-4 w-4', isFetching && 'animate-spin')} />
+              <RefreshCw className={cn('mr-2 h-4 w-4', (isFetching || refundLedgerFetching) && 'animate-spin')} />
               Refresh queue
             </Button>
           </div>
@@ -1011,6 +1026,118 @@ export default function AllocatedFilesPage() {
               {isSuperAdmin ? 'Oversight view' : 'Personal allocation queue'}
             </p>
           </div>
+          <div data-testid="allocated-refund-summary" className="rounded-lg border border-[#ead5a9] bg-[#fffaf0] p-4">
+            <p className="text-[10px] font-bold uppercase tracking-[.16em] text-[#8a651c]">
+              Refunds allocated
+            </p>
+            <div className="mt-2 flex items-end justify-between">
+              <p data-testid="text-allocated-refund-count" className="font-mono text-3xl font-bold text-[#855c16]">
+                {refundLedgerLoading ? '…' : refundLedger?.available ? refundLedger.allocated_count : '—'}
+              </p>
+              <FileText className="h-5 w-5 text-[#c8943c]" />
+            </div>
+            <p className="mt-1 text-xs text-[#8a651c]">
+              {refundLedgerLoading
+                ? 'Checking the CRM refund ledger…'
+                : refundLedger?.available
+                  ? `${refundLedger.allocated_admin_count} administrator${refundLedger.allocated_admin_count === 1 ? '' : 's'} in scope`
+                  : 'CRM refund source unavailable'}
+            </p>
+          </div>
+        </section>
+
+        <section
+          data-testid="allocated-refund-details"
+          className="overflow-hidden rounded-xl border border-[#ead5a9] bg-[#fffdf7] shadow-sm"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#f0dfba] bg-[#fff7e6] px-4 py-4">
+            <div>
+              <div className="flex items-center gap-2 text-sm font-bold text-[#855c16]">
+                <FileText className="h-4 w-4" />
+                Allocated refunds
+              </div>
+              <p className="mt-1 text-xs text-[#8a651c]">
+                Live, read-only amounts and payee details from the CRM refund ledger.
+              </p>
+            </div>
+            {refundLedger?.available && (
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full border border-[#e7c985] bg-white px-2.5 py-1 font-semibold text-[#855c16]">
+                  Refund amount: {fmtMoney(refundLedger.total_refund_amount)}
+                </span>
+                <span className="rounded-full border border-[#e7c985] bg-white px-2.5 py-1 font-semibold text-[#855c16]">
+                  Amount paid: {fmtMoney(refundLedger.total_amount_paid)}
+                </span>
+              </div>
+            )}
+          </div>
+          {refundLedgerLoading ? (
+            <div className="grid gap-3 p-4 sm:grid-cols-3">
+              <Skeleton className="h-16" />
+              <Skeleton className="h-16" />
+              <Skeleton className="h-16" />
+            </div>
+          ) : !refundLedger?.available ? (
+            <div className="flex min-h-28 items-center gap-3 px-4 py-6 text-sm text-[#855c16]">
+              <LockKeyhole className="h-5 w-5 shrink-0 text-[#c8943c]" />
+              <div>
+                <p className="font-semibold">Refund ledger unavailable</p>
+                <p className="mt-1 text-xs text-[#8a651c]">
+                  {refundLedger?.message ?? 'The CRM refund ledger could not be reached. Refund amounts and payee details are hidden.'}
+                </p>
+              </div>
+            </div>
+          ) : refundLedger.records.length === 0 ? (
+            <p className="px-4 py-6 text-sm text-muted-foreground">
+              No active, requested, allocated, and unprocessed refunds are currently in your scope.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1120px] text-sm">
+                <thead>
+                  <tr className="border-b border-[#f0dfba] bg-[#fffaf0] text-left text-[10px] uppercase tracking-[.12em] text-[#8a651c]">
+                    <th className="px-4 py-3">Refund no.</th>
+                    <th className="px-4 py-3">File no.</th>
+                    <th className="px-4 py-3">Payee</th>
+                    <th className="px-4 py-3">Contact</th>
+                    <th className="px-4 py-3 text-right">Refund amount</th>
+                    <th className="px-4 py-3 text-right">Amount paid</th>
+                    <th className="px-4 py-3">Status</th>
+                    {isSuperAdmin && <th className="px-4 py-3">Allocated to</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {refundLedger.records.map(refund => (
+                    <tr
+                      key={refund.refund_id ?? refund.refund_no ?? `${refund.file_no}-${refund.allocate_dt}`}
+                      data-testid={`row-allocated-refund-${refund.refund_id ?? refund.refund_no ?? refund.file_no}`}
+                      className="border-b border-[#f7e8ca] last:border-0"
+                    >
+                      <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-semibold text-[#855c16]">
+                        {refund.refund_no ?? '—'}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 font-mono text-xs">{refund.file_no ?? '—'}</td>
+                      <td className="px-4 py-3 font-medium">{refund.payee_name ?? '—'}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        <div>{refund.payee_email ?? '—'}</div>
+                        <div className="mt-0.5">{refund.payee_mobile ?? '—'}</div>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right font-mono font-semibold text-[#855c16]">
+                        {fmtMoney(refund.refund_amount)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right font-mono">{fmtMoney(refund.amount_paid)}</td>
+                      <td className="px-4 py-3 text-xs">
+                        <span className="rounded-full border border-[#ead5a9] bg-[#fffaf0] px-2 py-1 font-medium text-[#855c16]">
+                          {refund.refund_status ?? '—'}
+                        </span>
+                      </td>
+                      {isSuperAdmin && <td className="px-4 py-3 text-xs font-medium">{refund.allocate_to ?? '—'}</td>}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
         <section className="rounded-lg border border-[#cbded9] bg-[#fbfdfc] p-4 shadow-sm">
@@ -1217,7 +1344,7 @@ export default function AllocatedFilesPage() {
 
         <p className="flex items-center gap-2 px-1 text-[11px] text-muted-foreground">
           <LifeBuoy className="h-3.5 w-3.5 text-[#397a74]" />
-          Registration and refund details are read-only. Refund processing controls remain separate from this view.
+          Registration, refund amounts, and payee details are read-only. Refund processing controls remain separate from this view.
         </p>
       </div>
       {selectedFile && (
