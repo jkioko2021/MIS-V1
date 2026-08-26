@@ -197,6 +197,25 @@ export interface BusinessRequirement {
   applies_to: string;
 }
 
+export interface ConfigurableBusinessRequirement {
+  doc_id: number;
+  doc_code: string;
+  doc_name: string;
+  business_type: string;
+  client: 'R' | 'C';
+  active: number;
+  code: number;
+}
+
+export interface BusinessRequirementInput {
+  doc_code: string;
+  doc_name: string;
+  business_type: string;
+  client: 'R' | 'C';
+  active: boolean;
+  code: number;
+}
+
 export interface BusinessUpload {
   upload_id: number;
   file_no: string;
@@ -357,6 +376,12 @@ export const misApi = {
   // Reference data
   businessRequirements: (client_type?: string) =>
     get<ApiResponse<BusinessRequirement[]>>('/business/requirements', client_type ? { client_type } : undefined),
+  configurableBusinessRequirements: (params?: Record<string, string>) =>
+    get<ApiResponse<ConfigurableBusinessRequirement[]>>('/admin/business-requirements', params),
+  createBusinessRequirement: (body: BusinessRequirementInput) =>
+    post<ApiResponse<ConfigurableBusinessRequirement>>('/admin/business-requirements', body),
+  updateBusinessRequirement: (docId: number, body: BusinessRequirementInput) =>
+    put<ApiResponse<ConfigurableBusinessRequirement>>(`/admin/business-requirements/${docId}`, body),
   amlRiskReasons: () => get<ApiResponse<AmlRiskReasonSource>>('/business/aml/risk-reasons'),
   bpoReviewers: () => get<ApiResponse<BpoReviewer[]>>('/business/bpo-reviewers'),
   walkInStaff: () => get<ApiResponse<Employee[]>>('/business/walk-in-staff'),

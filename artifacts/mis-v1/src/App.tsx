@@ -12,6 +12,7 @@ import RiskRegisterPage from '@/pages/risk';
 import LoginPage from '@/pages/login';
 import UsersPage from '@/pages/admin/users';
 import ProfilesPage from '@/pages/admin/profiles';
+import BusinessRequirementsPage from '@/pages/admin/business-requirements';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import {
   Route,
@@ -23,7 +24,7 @@ import {
 } from 'wouter';
 import {
   Home, FileText, Shield, Database,
-  ChevronRight, LogOut, User, Users, Settings,
+  ChevronRight, LogOut, User, Users, Settings, SlidersHorizontal,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -72,6 +73,13 @@ const NAV_SECTIONS: Array<{
     items: [
       { href: '/admin/users',    label: 'User Enrollment',    icon: Users },
       { href: '/admin/profiles', label: 'Profiles & Access',  icon: Settings },
+    ],
+  },
+  {
+    label: 'Parameter Settings',
+    adminOnly: true,
+    items: [
+      { href: '/admin/business-requirements', label: 'Configure Business Req', icon: SlidersHorizontal },
     ],
   },
 ];
@@ -247,6 +255,7 @@ function ProtectedRouter() {
           <Route path="/discovery"        component={DiscoveryPage} />
           <Route path="/admin/users"      component={UsersPage} />
           <Route path="/admin/profiles"   component={ProfilesPage} />
+          <Route path="/admin/business-requirements" component={BusinessRequirementsPage} />
           <Route path="/admin">
             {() => <Redirect to="/admin/users" />}
           </Route>

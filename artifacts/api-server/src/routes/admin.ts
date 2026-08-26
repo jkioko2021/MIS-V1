@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import bcrypt from "bcrypt";
-import { query, queryOne } from "../lib/postgres";
+import { query, queryOne, txQuery, withTransaction } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
 import { logger } from "../lib/logger";
 
@@ -27,12 +27,279 @@ export const MENU_MASTER = [
   { main: "Admin",      sub: "Profile Management",      url: "/admin/profiles",        order: 20 },
   { main: "Admin",      sub: "Audit Trail",             url: "/admin/audit",           order: 30 },
   { main: "Admin",      sub: "Password Config",         url: "/admin/password-config", order: 40 },
+  { main: "Parameter Settings", sub: "Configure Business Req", url: "/admin/business-requirements", order: 10 },
 ];
 
 function handleError(res: Response, err: unknown, ctx: string) {
   logger.error({ err, ctx }, "Admin route error");
   res.status(500).json({ ok: false, error: String(err) });
 }
+
+function requireParameterAdmin(req: Request, res: Response, next: () => void) {
+  if (req.user?.profileId !== 1 && req.user?.profileId !== 2) {
+    res.status(403).json({ ok: false, error: "Parameter Settings requires SuperAdmin or System Admin access." });
+    return;
+  }
+  next();
+}
+
+type BusinessRequirementInput = {
+  doc_code: string;
+  doc_name: string;
+  business_type: string;
+  client: string;
+  active: number;
+  code: number;
+};
+
+type BusinessRequirementRow = BusinessRequirementInput & { doc_id: number };
+type LegacyBusinessRequirementRow = {
+  req_id: number;
+  req_code: number;
+  req_name: string;
+  applies_to: string;
+  is_active: boolean;
+};
+
+class BusinessRequirementBridgeConflictError extends Error {}
+
+function parseBusinessRequirementInput(body: unknown): { input?: BusinessRequirementInput; error?: string } {
+  const record = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+  const docCode = typeof record.doc_code === "string" ? record.doc_code.trim().toUpperCase() : "";
+  const docName = typeof record.doc_name === "string" ? record.doc_name.trim() : "";
+  const businessType = typeof record.business_type === "string" ? record.business_type.trim().toUpperCase() : "";
+  const client = typeof record.client === "string" ? record.client.trim().toUpperCase() : "";
+  const active = record.active === false || record.active === 0 || record.active === "0" ? 0 : 1;
+  const code = Number(record.code);
+
+  if (!docCode || !/^[A-Z0-9_-]{1,20}$/.test(docCode)) {
+    return { error: "DOC_CODE must be 1–20 characters using letters, numbers, underscore, or hyphen." };
+  }
+  if (!docName || docName.length > 255) {
+    return { error: "DOC_NAME is required and must be 255 characters or fewer." };
+  }
+  if (!businessType || businessType.length > 10) {
+    return { error: "BUSINESS_TYPE is required and must be 10 characters or fewer." };
+  }
+  if (client !== "R" && client !== "C") {
+    return { error: "CLIENT must be R (Retail) or C (Corporate)." };
+  }
+  if (!Number.isInteger(code) || code < 1) {
+    return { error: "CODE must be a positive whole number." };
+  }
+
+  return { input: { doc_code: docCode, doc_name: docName, business_type: businessType, client, active, code } };
+}
+
+function bridgeMatchesMaster(
+  legacy: LegacyBusinessRequirementRow,
+  master: Pick<BusinessRequirementRow, "doc_id" | "doc_name" | "client">,
+) {
+  return legacy.req_code === master.doc_id
+    && legacy.req_name === master.doc_name
+    && legacy.applies_to === master.client;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BUSINESS REQUIREMENT PARAMETER SETTINGS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/business-requirements", requireParameterAdmin, async (req: Request, res: Response) => {
+  try {
+    const { search, client, active } = req.query as Record<string, string | undefined>;
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+
+    if (search?.trim()) {
+      params.push(`%${search.trim()}%`);
+      conditions.push(`(doc_code ILIKE $${params.length} OR doc_name ILIKE $${params.length})`);
+    }
+    if (client) {
+      if (client !== "R" && client !== "C") {
+        res.status(400).json({ ok: false, error: "CLIENT must be R or C." });
+        return;
+      }
+      params.push(client);
+      conditions.push(`client = $${params.length}`);
+    }
+    if (active === "active" || active === "inactive") {
+      params.push(active === "active" ? 1 : 0);
+      conditions.push(`active = $${params.length}`);
+    }
+
+    const rows = await query(
+      `SELECT doc_id, doc_code, doc_name, business_type, client, active, code
+       FROM crm.tbl_mis_business_requirements
+       ${conditions.length ? `WHERE ${conditions.join(" AND ")}` : ""}
+       ORDER BY client, code, doc_id`,
+      params,
+    );
+    res.json({ ok: true, data: rows });
+  } catch (err) {
+    handleError(res, err, "list business requirements");
+  }
+});
+
+router.post("/admin/business-requirements", requireParameterAdmin, async (req: Request, res: Response) => {
+  const parsed = parseBusinessRequirementInput(req.body);
+  if (!parsed.input) {
+    res.status(400).json({ ok: false, error: parsed.error });
+    return;
+  }
+  const input = parsed.input;
+
+  try {
+    const row = await withTransaction(async (client) => {
+      await txQuery(client, "LOCK TABLE crm.tbl_mis_business_requirements IN SHARE ROW EXCLUSIVE MODE");
+      await txQuery(client, "LOCK TABLE crm.business_req IN SHARE ROW EXCLUSIVE MODE");
+      const nextIdRows = await txQuery<{ next_id: number }>(
+        client,
+        `SELECT GREATEST(
+           COALESCE((SELECT MAX(doc_id) FROM crm.tbl_mis_business_requirements), 0),
+           COALESCE((SELECT MAX(req_id) FROM crm.business_req), 0)
+         ) + 1 AS next_id`,
+      );
+      const nextId = Number(nextIdRows[0]?.next_id);
+      if (!Number.isInteger(nextId) || nextId < 1) throw new Error("Could not allocate a safe requirement ID.");
+
+      const created = await txQuery<BusinessRequirementRow>(
+        client,
+        `INSERT INTO crm.tbl_mis_business_requirements
+           (doc_id, doc_code, doc_name, business_type, client, active, code)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING doc_id, doc_code, doc_name, business_type, client, active, code`,
+        [nextId, input.doc_code, input.doc_name, input.business_type, input.client, input.active, input.code],
+      );
+      const requirement = created[0];
+      if (!requirement) throw new Error("Requirement was not created.");
+
+      await txQuery(
+        client,
+        `INSERT INTO crm.business_req (req_id, req_code, req_name, applies_to, is_active)
+         VALUES ($1, $1, $2, $3, $4)`,
+        [requirement.doc_id, requirement.doc_name, requirement.client, requirement.active === 1],
+      );
+      await txQuery(
+        client,
+        `SELECT setval(pg_get_serial_sequence('crm.tbl_mis_business_requirements', 'doc_id'), $1, true)`,
+        [requirement.doc_id],
+      );
+      await txQuery(
+        client,
+        `SELECT setval(pg_get_serial_sequence('crm.business_req', 'req_id'), $1, true)`,
+        [requirement.doc_id],
+      );
+      await txQuery(
+        client,
+        `INSERT INTO crm.admin_audit_trail (employee_id, action, details)
+         VALUES ($1, 'BUSINESS_REQUIREMENT_CREATED', $2)`,
+        [req.user!.sub, `Created ${requirement.doc_code}`],
+      );
+      return requirement;
+    });
+    res.status(201).json({ ok: true, data: row });
+  } catch (err: unknown) {
+    if (String(err).includes("unique")) {
+      res.status(409).json({ ok: false, error: "DOC_CODE already exists." });
+      return;
+    }
+    handleError(res, err, "create business requirement");
+  }
+});
+
+router.put("/admin/business-requirements/:id", requireParameterAdmin, async (req: Request, res: Response) => {
+  const parsed = parseBusinessRequirementInput(req.body);
+  if (!parsed.input) {
+    res.status(400).json({ ok: false, error: parsed.error });
+    return;
+  }
+  const input = parsed.input;
+  const docId = Number(req.params.id);
+  if (!Number.isInteger(docId) || docId < 1) {
+    res.status(400).json({ ok: false, error: "Requirement ID must be a positive whole number." });
+    return;
+  }
+
+  try {
+    const row = await withTransaction(async (client) => {
+      const currentRows = await txQuery<BusinessRequirementRow>(
+        client,
+        `SELECT doc_id, doc_code, doc_name, business_type, client, active, code
+         FROM crm.tbl_mis_business_requirements
+         WHERE doc_id = $1
+         FOR UPDATE`,
+        [docId],
+      );
+      const current = currentRows[0];
+      if (!current) return null;
+
+      const legacyRows = await txQuery<LegacyBusinessRequirementRow>(
+        client,
+        `SELECT req_id, req_code, req_name, applies_to, is_active
+         FROM crm.business_req
+         WHERE req_id = $1
+         FOR UPDATE`,
+        [docId],
+      );
+      const legacy = legacyRows[0];
+      if (legacy && !bridgeMatchesMaster(legacy, current)) {
+        throw new BusinessRequirementBridgeConflictError(
+          "This requirement ID belongs to a different legacy document and cannot be edited safely.",
+        );
+      }
+
+      const updated = await txQuery<BusinessRequirementRow>(
+        client,
+        `UPDATE crm.tbl_mis_business_requirements
+         SET doc_code = $1, doc_name = $2, business_type = $3, client = $4, active = $5, code = $6
+         WHERE doc_id = $7
+         RETURNING doc_id, doc_code, doc_name, business_type, client, active, code`,
+        [input.doc_code, input.doc_name, input.business_type, input.client, input.active, input.code, docId],
+      );
+      const requirement = updated[0];
+      if (!requirement) throw new Error("Requirement update was not returned.");
+
+      if (legacy) {
+        await txQuery(
+          client,
+          `UPDATE crm.business_req
+           SET req_name = $2, applies_to = $3, is_active = $4
+           WHERE req_id = $1`,
+          [requirement.doc_id, requirement.doc_name, requirement.client, requirement.active === 1],
+        );
+      } else {
+        await txQuery(
+          client,
+          `INSERT INTO crm.business_req (req_id, req_code, req_name, applies_to, is_active)
+           VALUES ($1, $1, $2, $3, $4)`,
+          [requirement.doc_id, requirement.doc_name, requirement.client, requirement.active === 1],
+        );
+      }
+      await txQuery(
+        client,
+        `INSERT INTO crm.admin_audit_trail (employee_id, action, details)
+         VALUES ($1, 'BUSINESS_REQUIREMENT_UPDATED', $2)`,
+        [req.user!.sub, `Updated ${requirement.doc_code}`],
+      );
+      return requirement;
+    });
+    if (!row) {
+      res.status(404).json({ ok: false, error: "Requirement not found." });
+      return;
+    }
+    res.json({ ok: true, data: row });
+  } catch (err: unknown) {
+    if (err instanceof BusinessRequirementBridgeConflictError) {
+      res.status(409).json({ ok: false, error: err.message });
+      return;
+    }
+    if (String(err).includes("unique")) {
+      res.status(409).json({ ok: false, error: "DOC_CODE already exists." });
+      return;
+    }
+    handleError(res, err, "update business requirement");
+  }
+});
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // EMPLOYEES
