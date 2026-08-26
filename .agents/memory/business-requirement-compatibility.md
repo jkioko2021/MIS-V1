@@ -1,10 +1,10 @@
 ---
 name: Business requirement compatibility
-description: Rules for maintaining configured Business Tracking requirements alongside the legacy document registry.
+description: Rules for maintaining the consolidated Business Tracking requirement master.
 ---
 
-The configurable requirement master is the source for Business Tracking, but the legacy document registry remains necessary because existing checklist and upload records reference its requirement IDs.
+`crm.business_req` is the single source of truth for configurable Business Tracking requirements. It retains its established `req_*` fields for checklist and upload foreign keys and also stores the exact business requirement contract (`DOC_ID`, `DOC_CODE`, `DOC_NAME`, `BUSINESS_TYPE`, `CLIENT`, `ACTIVE`, and `CODE`).
 
-**Why:** A matching-looking legacy row is not enough to prove ownership: document names can repeat. Treat the legacy row as the master’s bridge only when its stable ID and legacy code both map to the master ID. New IDs must be allocated above both registries and both sequences kept aligned, otherwise a newly configured requirement can overwrite or block an unrelated legacy document.
+**Why:** Keeping two mutable masters risks data drift and makes document configuration harder to reason about. The single table preserves existing foreign-key IDs while exposing the full requirement contract the settings page needs.
 
-**How to apply:** Preserve the transactional bridge whenever requirement settings are changed. Before altering the bridge, verify the legacy mapping by ID and code, keep compatibility records synchronized, and avoid independent identifier allocation in either registry.
+**How to apply:** Read and write the consolidated row atomically: keep its legacy `req_*` values aligned with the exact-value fields, allocate new IDs from the `business_req` sequence, and never repurpose existing requirement IDs that may be referenced by historical documents.

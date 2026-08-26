@@ -53,15 +53,6 @@ type BusinessRequirementInput = {
 };
 
 type BusinessRequirementRow = BusinessRequirementInput & { doc_id: number };
-type LegacyBusinessRequirementRow = {
-  req_id: number;
-  req_code: number;
-  req_name: string;
-  applies_to: string;
-  is_active: boolean;
-};
-
-class BusinessRequirementBridgeConflictError extends Error {}
 
 function parseBusinessRequirementInput(body: unknown): { input?: BusinessRequirementInput; error?: string } {
   const record = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
@@ -89,15 +80,6 @@ function parseBusinessRequirementInput(body: unknown): { input?: BusinessRequire
   }
 
   return { input: { doc_code: docCode, doc_name: docName, business_type: businessType, client, active, code } };
-}
-
-function bridgeMatchesMaster(
-  legacy: LegacyBusinessRequirementRow,
-  master: Pick<BusinessRequirementRow, "doc_id" | "doc_name" | "client">,
-) {
-  return legacy.req_code === master.doc_id
-    && legacy.req_name === master.doc_name
-    && legacy.applies_to === master.client;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -129,7 +111,7 @@ router.get("/admin/business-requirements", requireParameterAdmin, async (req: Re
 
     const rows = await query(
       `SELECT doc_id, doc_code, doc_name, business_type, client, active, code
-       FROM crm.tbl_mis_business_requirements
+       FROM crm.business_req
        ${conditions.length ? `WHERE ${conditions.join(" AND ")}` : ""}
        ORDER BY client, code, doc_id`,
       params,
@@ -150,40 +132,36 @@ router.post("/admin/business-requirements", requireParameterAdmin, async (req: R
 
   try {
     const row = await withTransaction(async (client) => {
-      await txQuery(client, "LOCK TABLE crm.tbl_mis_business_requirements IN SHARE ROW EXCLUSIVE MODE");
       await txQuery(client, "LOCK TABLE crm.business_req IN SHARE ROW EXCLUSIVE MODE");
       const nextIdRows = await txQuery<{ next_id: number }>(
         client,
-        `SELECT GREATEST(
-           COALESCE((SELECT MAX(doc_id) FROM crm.tbl_mis_business_requirements), 0),
-           COALESCE((SELECT MAX(req_id) FROM crm.business_req), 0)
-         ) + 1 AS next_id`,
+        `SELECT COALESCE(MAX(req_id), 0) + 1 AS next_id
+         FROM crm.business_req`,
       );
       const nextId = Number(nextIdRows[0]?.next_id);
       if (!Number.isInteger(nextId) || nextId < 1) throw new Error("Could not allocate a safe requirement ID.");
 
       const created = await txQuery<BusinessRequirementRow>(
         client,
-        `INSERT INTO crm.tbl_mis_business_requirements
-           (doc_id, doc_code, doc_name, business_type, client, active, code)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO crm.business_req
+           (req_id, req_code, req_name, applies_to, is_active,
+            doc_id, doc_code, doc_name, business_type, client, active, code)
+         VALUES ($1, $1, $2, $3, $4, $1, $5, $2, $6, $3, $7, $8)
          RETURNING doc_id, doc_code, doc_name, business_type, client, active, code`,
-        [nextId, input.doc_code, input.doc_name, input.business_type, input.client, input.active, input.code],
+        [
+          nextId,
+          input.doc_name,
+          input.client,
+          input.active === 1,
+          input.doc_code,
+          input.business_type,
+          input.active,
+          input.code,
+        ],
       );
       const requirement = created[0];
       if (!requirement) throw new Error("Requirement was not created.");
 
-      await txQuery(
-        client,
-        `INSERT INTO crm.business_req (req_id, req_code, req_name, applies_to, is_active)
-         VALUES ($1, $1, $2, $3, $4)`,
-        [requirement.doc_id, requirement.doc_name, requirement.client, requirement.active === 1],
-      );
-      await txQuery(
-        client,
-        `SELECT setval(pg_get_serial_sequence('crm.tbl_mis_business_requirements', 'doc_id'), $1, true)`,
-        [requirement.doc_id],
-      );
       await txQuery(
         client,
         `SELECT setval(pg_get_serial_sequence('crm.business_req', 'req_id'), $1, true)`,
@@ -225,56 +203,35 @@ router.put("/admin/business-requirements/:id", requireParameterAdmin, async (req
       const currentRows = await txQuery<BusinessRequirementRow>(
         client,
         `SELECT doc_id, doc_code, doc_name, business_type, client, active, code
-         FROM crm.tbl_mis_business_requirements
+         FROM crm.business_req
          WHERE doc_id = $1
          FOR UPDATE`,
         [docId],
       );
-      const current = currentRows[0];
-      if (!current) return null;
-
-      const legacyRows = await txQuery<LegacyBusinessRequirementRow>(
-        client,
-        `SELECT req_id, req_code, req_name, applies_to, is_active
-         FROM crm.business_req
-         WHERE req_id = $1
-         FOR UPDATE`,
-        [docId],
-      );
-      const legacy = legacyRows[0];
-      if (legacy && !bridgeMatchesMaster(legacy, current)) {
-        throw new BusinessRequirementBridgeConflictError(
-          "This requirement ID belongs to a different legacy document and cannot be edited safely.",
-        );
-      }
+      if (!currentRows[0]) return null;
 
       const updated = await txQuery<BusinessRequirementRow>(
         client,
-        `UPDATE crm.tbl_mis_business_requirements
-         SET doc_code = $1, doc_name = $2, business_type = $3, client = $4, active = $5, code = $6
-         WHERE doc_id = $7
+        `UPDATE crm.business_req
+         SET req_name = $2, applies_to = $3, is_active = $4,
+             doc_code = $5, doc_name = $2, business_type = $6,
+             client = $3, active = $7, code = $8
+         WHERE doc_id = $1
          RETURNING doc_id, doc_code, doc_name, business_type, client, active, code`,
-        [input.doc_code, input.doc_name, input.business_type, input.client, input.active, input.code, docId],
+        [
+          docId,
+          input.doc_name,
+          input.client,
+          input.active === 1,
+          input.doc_code,
+          input.business_type,
+          input.active,
+          input.code,
+        ],
       );
       const requirement = updated[0];
       if (!requirement) throw new Error("Requirement update was not returned.");
 
-      if (legacy) {
-        await txQuery(
-          client,
-          `UPDATE crm.business_req
-           SET req_name = $2, applies_to = $3, is_active = $4
-           WHERE req_id = $1`,
-          [requirement.doc_id, requirement.doc_name, requirement.client, requirement.active === 1],
-        );
-      } else {
-        await txQuery(
-          client,
-          `INSERT INTO crm.business_req (req_id, req_code, req_name, applies_to, is_active)
-           VALUES ($1, $1, $2, $3, $4)`,
-          [requirement.doc_id, requirement.doc_name, requirement.client, requirement.active === 1],
-        );
-      }
       await txQuery(
         client,
         `INSERT INTO crm.admin_audit_trail (employee_id, action, details)
@@ -289,10 +246,6 @@ router.put("/admin/business-requirements/:id", requireParameterAdmin, async (req
     }
     res.json({ ok: true, data: row });
   } catch (err: unknown) {
-    if (err instanceof BusinessRequirementBridgeConflictError) {
-      res.status(409).json({ ok: false, error: err.message });
-      return;
-    }
     if (String(err).includes("unique")) {
       res.status(409).json({ ok: false, error: "DOC_CODE already exists." });
       return;
