@@ -1,0 +1,269 @@
+# Replit Prompt — Load Business Tracking Documents into Replit Database
+
+Load the supplied 45 business tracking document records into the **existing Replit database** used by this application.
+
+The target table is:
+
+`TBL_MIS_CRM_BUSINESS_REQ`
+
+## 1. First Inspect the Replit Database
+
+Before making changes:
+
+1. Identify which database the current Replit application is using.
+2. Determine whether it is PostgreSQL, MySQL, SQLite, or another database.
+3. Locate the existing table:
+
+`TBL_MIS_CRM_BUSINESS_REQ`
+
+4. Inspect its actual schema, including:
+
+   * Columns
+   * Data types
+   * Primary key
+   * Identity/auto-increment behavior
+   * Unique constraints
+   * Nullable fields
+5. Do NOT create a second database.
+6. Do NOT create a second table if `TBL_MIS_CRM_BUSINESS_REQ` already exists.
+7. Reuse the application's existing database connection and ORM/database access layer.
+
+## 2. Required Records
+
+Load exactly these records:
+
+```text
+DOC_ID | DOC_CODE | DOC_NAME | BUSINESS_TYPE | CLIENT | ACTIVE | CODE
+90 | RET01 | Member Application Form(Full) | B | R | 1 | 1
+91 | RET02 | ID or Passport(Front&Back) | B | R | 1 | 1
+92 | RET03 | Pin Certificate | B | R | 1 | 1
+93 | RET04 | Payment Proof | B | R | 1 | 1
+94 | RET05 | Passport Photo | B | R | 1 | 1
+95 | RET06 | Medical Report | B | R | 1 | 1
+96 | RET07 | Renewal Schedule | B | R | 1 | 1
+97 | RET08 | Invoice | B | R | 1 | 1
+98 | RET09 | Contact Update Form | B | R | 1 | 1
+99 | RET10 | Change Of Rep Letter | B | R | 1 | 1
+100 | RET11 | Other Documents | B | R | 1 | 1
+101 | RET12 | Email Correspondence | B | R | 1 | 1
+102 | RET13 | Corporate proposal form | B | C | 1 | 1
+103 | RET14 | Registration Certificate | B | C | 1 | 1
+104 | RET15 | CR12 | B | C | 1 | 1
+105 | RET16 | Fund contract | B | C | 1 | 1
+106 | RET17 | Rates and benefit Matrix | B | C | 1 | 1
+107 | RET18 | Premium summary | B | C | 1 | 1
+108 | RET19 | Payment Proof | B | C | 1 | 1
+109 | RET20 | Member List | B | C | 1 | 1
+110 | RET21 | Tender award letter | B | C | 1 | 1
+111 | RET22 | Certificate of Practice | B | C | 1 | 1
+112 | RET23 | Change Of Rep Letter | B | C | 1 | 1
+113 | RET24 | System Receipt | B | C | 1 | 3
+114 | RET25 | SODA | B | C | 1 | 1
+115 | RET26 | Allocation Form | B | C | 1 | 1
+116 | RET27 | Credit Note | B | C | 1 | 1
+117 | RET28 | Policy Schedule | B | C | 1 | 4
+118 | RET29 | Refund Documents | B | C | 1 | 5
+119 | RET30 | System Invoice | B | C | 1 | 3
+120 | RET31 | Refund Advice | B | C | 1 | 5
+121 | RET32 | Refund Schedule | B | C | 1 | 5
+122 | RET33 | Finance Approval | B | C | 1 | 5
+123 | RET34 | Bank Confirmation | B | C | 1 | 5
+124 | RET35 | Remittance | B | C | 1 | 5
+125 | RET36 | Decline letter | B | C | 1 | 5
+126 | RET37 | Debit Note | B | C | 1 | 5
+127 | RET38 | Statement | B | C | 1 | 5
+128 | RET39 | Credit Note | B | C | 1 | 5
+129 | RET40 | Other Documents | B | C | 1 | 5
+130 | RET41 | Finance Approval | B | C | 1 | 1
+131 | RET42 | Final Summary | B | C | 1 | 5
+132 | RET43 | AML Report | B | C | 1 | 4
+133 | RET44 | Email Correspondence | B | C | 1 | 1
+134 | RET45 | Other Documents | B | C | 1 | 1
+```
+
+## 3. Data Integrity
+
+Treat these values as authoritative.
+
+Do not modify:
+
+* DOC_ID
+* DOC_CODE
+* DOC_NAME
+* BUSINESS_TYPE
+* CLIENT
+* ACTIVE
+* CODE
+
+In particular:
+
+* `CLIENT = R` for DOC_ID 90–101.
+* `CLIENT = C` for DOC_ID 102–134.
+* `BUSINESS_TYPE = B` for all records.
+* `ACTIVE = 1` for all records.
+
+Preserve the supplied `CODE` values exactly.
+
+## 4. Idempotent Load
+
+The operation must be safe to run repeatedly.
+
+Do NOT blindly insert all records every time.
+
+For each record:
+
+```text
+If DOC_CODE does not exist:
+    INSERT
+
+If DOC_CODE already exists:
+    UPDATE the record with the supplied values
+
+Never create duplicates.
+Never delete unrelated records.
+```
+
+Use the application's database technology and existing ORM/query framework.
+
+If the table has a unique constraint on `DOC_ID`, use that appropriately.
+
+Prefer `DOC_CODE` as the business-level unique identifier if the existing schema supports it.
+
+## 5. Create a Database Seed/Migration
+
+Create an appropriate migration or seed file in the Replit project, for example:
+
+```text
+database/
+  migrations/
+    seed_business_tracking_documents
+```
+
+Use the project's existing migration/seed convention instead of introducing a new database migration framework.
+
+The seed must be executable again without creating duplicate records.
+
+## 6. Verify the Load
+
+After execution, query:
+
+```sql
+SELECT
+    DOC_ID,
+    DOC_CODE,
+    DOC_NAME,
+    BUSINESS_TYPE,
+    CLIENT,
+    ACTIVE,
+    CODE
+FROM TBL_MIS_CRM_BUSINESS_REQ
+WHERE DOC_ID BETWEEN 90 AND 134
+ORDER BY DOC_ID;
+```
+
+Verify:
+
+```text
+Total records = 45
+Minimum DOC_ID = 90
+Maximum DOC_ID = 134
+Distinct DOC_CODE = 45
+```
+
+Also verify:
+
+```text
+DOC_ID 90–101  → CLIENT = R
+DOC_ID 102–134 → CLIENT = C
+BUSINESS_TYPE  → B
+ACTIVE         → 1
+```
+
+## 7. Application Integration
+
+Inspect the existing application for screens/components that currently manage business tracking documents.
+
+Do not hard-code these 45 documents into the frontend.
+
+The application must retrieve the document master data from:
+
+`TBL_MIS_CRM_BUSINESS_REQ`
+
+Use:
+
+```text
+DOC_CODE
+DOC_NAME
+BUSINESS_TYPE
+CLIENT
+ACTIVE
+CODE
+```
+
+as the database-driven configuration.
+
+For Retail:
+
+```text
+CLIENT = R
+ACTIVE = 1
+```
+
+For Corporate:
+
+```text
+CLIENT = C
+ACTIVE = 1
+```
+
+## 8. Important — Do Not Use the External SQL Server
+
+For this task:
+
+**DO NOT connect to the external/local SQL Server.**
+
+Do not use:
+
+```text
+192.168.x.x
+localhost:1433
+SQLSERVER_2012
+SQL Server 2018
+SQL Server 2019
+```
+
+The objective is specifically to load the records into the **database currently used by the Replit application**.
+
+Use the existing Replit database connection/environment configuration.
+
+Do not replace the current Replit database.
+
+## 9. Final Verification
+
+After implementation:
+
+1. Run the migration/seed.
+2. Query the table.
+3. Confirm 45 records.
+4. Confirm no duplicates.
+5. Confirm all DOC_CODE values RET01–RET45 exist.
+6. Confirm Retail/Corporate assignments.
+7. Confirm all ACTIVE values are `1`.
+8. Run the application.
+9. Navigate to the relevant Business Tracking/document screen.
+10. Confirm the documents are being retrieved from the database rather than hard-coded.
+
+Report:
+
+```text
+Database detected:
+Table:
+Records inserted:
+Records updated:
+Duplicates:
+Verification result:
+Application integration:
+Files changed:
+```
+
+Do not finish until the database load and verification are successful.

@@ -192,7 +192,7 @@ export interface BusinessDoc {
 
 export interface BusinessRequirement {
   req_id: number;
-  req_code: number;
+  req_code: string;
   req_name: string;
   applies_to: string;
 }

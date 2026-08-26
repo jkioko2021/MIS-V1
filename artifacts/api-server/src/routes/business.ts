@@ -357,11 +357,11 @@ router.get("/business/requirements", async (req: Request, res: Response) => {
     const { client_type } = req.query as { client_type?: string };
     const matchCode = client_type === "R" ? "R" : "C";
     const rows = await query(
-      `SELECT req_id, req_code, req_name, applies_to
-       FROM crm.business_req
-       WHERE is_active = TRUE
-         AND (applies_to = 'ALL' OR applies_to = $1)
-       ORDER BY req_code`,
+      `SELECT doc_id AS req_id, doc_code AS req_code, doc_name AS req_name, client AS applies_to
+       FROM crm.tbl_mis_crm_business_req
+       WHERE active = 1
+         AND client = $1
+       ORDER BY code, doc_id`,
       [matchCode]
     );
     res.json({ ok: true, data: rows });
