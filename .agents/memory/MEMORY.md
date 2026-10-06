@@ -22,3 +22,4 @@
 - [Allocation document transactions](allocation-document-transactions.md) — Keep document-specific invoice, credit-note, policy, and AML-risk metadata on uploads, not file handoffs
 - [Refund allocation summary](refund-allocation-summary.md) — BPO refund counts use the current PR classification; authoritative refund amounts remain unavailable
 - [Business requirement compatibility](business-requirement-compatibility.md) — crm.business_req is the sole requirement master and retains legacy foreign-key compatibility
+- [Medical underwriting legacy](medical-underwriting-legacy.md) — Procedure routing and HPC catalogs are unavailable; distinguish observed legacy behavior from modern handoff decisions.

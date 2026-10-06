@@ -141,7 +141,7 @@ function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function safeUploadFilename(filename: string): string {
+export function safeUploadFilename(filename: string): string {
   return filename
     .replace(/[/\\]/g, "_")
     .replace(/[^\w.\- ()]/g, "_")
@@ -149,7 +149,7 @@ function safeUploadFilename(filename: string): string {
     .slice(0, 255);
 }
 
-function uploadDocumentValidation(input: {
+export function uploadDocumentValidation(input: {
   filename: string;
   filesize?: number;
   reqName: string;

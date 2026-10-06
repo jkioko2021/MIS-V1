@@ -13,6 +13,7 @@ import LoginPage from '@/pages/login';
 import UsersPage from '@/pages/admin/users';
 import ProfilesPage from '@/pages/admin/profiles';
 import BusinessRequirementsPage from '@/pages/admin/business-requirements';
+import MedicalUnderwritingPage from '@/pages/medical-underwriting';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import {
   Route,
@@ -46,6 +47,7 @@ type NavItem = {
 const NAV_SECTIONS: Array<{
   label: string | null;
   adminOnly?: boolean;
+  medicalOnly?: boolean;
   items: NavItem[];
 }> = [
   {
@@ -65,6 +67,13 @@ const NAV_SECTIONS: Array<{
       },
       { href: '/risk',      label: 'Risk Register',     icon: Shield },
       { href: '/discovery', label: 'DB Discovery',      icon: Database },
+    ],
+  },
+  {
+    label: 'Medical Underwriting',
+    medicalOnly: true,
+    items: [
+      { href: '/medical-underwriting', label: 'Medical Underwriting Review', icon: Shield },
     ],
   },
   {
@@ -91,6 +100,7 @@ function Sidebar() {
 
   // Show admin section only for profile 1 (SuperAdmin) or 2 (System Admin)
   const isAdmin = user && (user.profileId === 1 || user.profileId === 2);
+  const canSeeMedical = isAdmin || user?.profileId === 5 || user?.profileName?.trim().toLowerCase() === 'medical uw';
   const isBpoDepartment = (user?.department ?? '').trim().toUpperCase() === 'BPO';
   const canSeeAllocatedFiles = user && [
     'superadmin',
@@ -118,6 +128,7 @@ function Sidebar() {
       <nav className="flex-1 p-2 space-y-4 overflow-y-auto">
         {NAV_SECTIONS.map((section, si) => {
           if (section.adminOnly && !isAdmin) return null;
+          if (section.medicalOnly && !canSeeMedical) return null;
           return (
             <div key={si} className="space-y-0.5">
               {section.label && (
@@ -252,6 +263,7 @@ function ProtectedRouter() {
             {() => <BusinessTrackingPage />}
           </Route>
           <Route path="/risk"             component={RiskRegisterPage} />
+          <Route path="/medical-underwriting" component={MedicalUnderwritingPage} />
           <Route path="/discovery"        component={DiscoveryPage} />
           <Route path="/admin/users"      component={UsersPage} />
           <Route path="/admin/profiles"   component={ProfilesPage} />

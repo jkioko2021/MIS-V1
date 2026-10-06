@@ -6,6 +6,7 @@ import authRouter from "./auth";
 import adminRouter from "./admin";
 import businessRouter from "./business";
 import storageRouter from "./storage";
+import medicalUnderwritingRouter from "./medical-underwriting";
 
 const router: IRouter = Router();
 
@@ -13,6 +14,7 @@ router.use(healthRouter);
 router.use(authRouter);
 router.use(adminRouter);
 router.use(storageRouter);
+router.use(medicalUnderwritingRouter);
 router.use(businessRouter);
 router.use(discoveryRouter);
 router.use(misRouter);
