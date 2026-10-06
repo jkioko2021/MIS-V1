@@ -60,6 +60,8 @@ const SheetContent = React.forwardRef<
     <SheetOverlay />
     <SheetPrimitive.Content
       ref={ref}
+      data-mis-popup="sheet"
+      data-popup-side={side}
       className={cn(sheetVariants({ side }), className)}
       {...props}
     >

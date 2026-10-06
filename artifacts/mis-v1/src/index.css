@@ -1,6 +1,66 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
+/* Keep popup scroll tracks inside the preview, rather than against its edge.
+   Existing page-specific max-widths and modal stacking remain unchanged. */
+[data-mis-popup]:not([data-sidebar]) {
+  --popup-edge: 8px;
+  min-height: 0;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-color: #64748b #e2e8f0;
+}
+
+[data-mis-popup="sheet"]:not([data-sidebar])[data-popup-side="right"],
+[data-mis-popup="sheet"]:not([data-sidebar])[data-popup-side="left"] {
+  top: var(--popup-edge);
+  bottom: var(--popup-edge);
+  height: calc(100dvh - 2 * var(--popup-edge));
+  width: calc(100% - 2 * var(--popup-edge));
+  border-radius: 12px;
+}
+
+[data-mis-popup="sheet"]:not([data-sidebar])[data-popup-side="right"] {
+  right: var(--popup-edge);
+}
+
+[data-mis-popup="sheet"]:not([data-sidebar])[data-popup-side="left"] {
+  left: var(--popup-edge);
+}
+
+[data-mis-popup="dialog"] {
+  width: calc(100% - 2 * var(--popup-edge));
+  max-height: calc(100dvh - 2 * var(--popup-edge));
+  overflow-y: auto;
+}
+
+[data-mis-popup="sheet"]:not([data-sidebar]):not(:has([data-mis-scroll-area])) {
+  overflow-y: auto;
+}
+
+[data-mis-popup] [data-mis-scroll-area] {
+  min-height: 0;
+  min-width: 0;
+}
+
+[data-mis-popup] [data-radix-scroll-area-viewport] {
+  padding-right: 12px;
+}
+
+[data-mis-popup] [data-orientation="vertical"][data-state] {
+  background: #e2e8f0;
+}
+
+[data-mis-popup] [data-orientation="vertical"][data-state] > div {
+  background: #64748b;
+}
+
+@media (min-width: 640px) {
+  [data-mis-popup]:not([data-sidebar]) {
+    --popup-edge: 16px;
+  }
+}
+
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
