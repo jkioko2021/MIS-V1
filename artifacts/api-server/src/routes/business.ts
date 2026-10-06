@@ -164,6 +164,7 @@ export function uploadDocumentValidation(input: {
   filesize?: number;
   reqName: string;
   invoiceNo?: unknown;
+  allocationInvoice?: boolean;
   amount?: unknown;
   policyCode?: unknown;
   riskRate?: unknown;
@@ -189,6 +190,9 @@ export function uploadDocumentValidation(input: {
   // document required for a Cashier handoff.
   const isAmlRisk = /aml\s*risk|risk\s*rating/.test(requirementName);
 
+  if (isInvoice && input.allocationInvoice && (invoiceNo.length < 20 || invoiceNo.length > 25)) {
+    return "Invoice number is required. Enter 20–25 characters before uploading the invoice document.";
+  }
   if ((isInvoice || isCreditNote) && (invoiceNo.length < 1 || invoiceNo.length > 25)) {
     return "Enter an invoice or credit-note number between 1 and 25 characters.";
   }
@@ -1104,6 +1108,7 @@ router.post("/business/allocated/:fileNo/uploads", requireAllocatedFileReadAcces
     }
     const validationError = uploadDocumentValidation({
       filename, filesize, reqName: requirement.req_name, invoiceNo: invoice_no,
+      allocationInvoice: true,
       amount, policyCode: policy_code, riskRate: risk_rate, riskReason: risk_reason,
     });
     if (validationError) {

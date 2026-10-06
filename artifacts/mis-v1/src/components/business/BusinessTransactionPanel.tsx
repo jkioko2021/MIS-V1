@@ -56,16 +56,17 @@ export function BusinessTransactionPanel({
   const uploadValidationMessage =
     !selectedDocument
       ? null
+      : flags?.isInvoice && (value.invoiceNo.trim().length < 20 || value.invoiceNo.trim().length > 25)
+        ? 'Invoice number is required. Enter 20–25 characters before uploading the invoice document.'
+      : flags?.isCreditNote && (value.invoiceNo.trim().length < 1 || value.invoiceNo.trim().length > 25)
+        ? 'Credit-note number is required. Enter 1–25 characters before uploading.'
       : !file
         ? 'Choose a document file before uploading.'
         : file.size <= 0 || file.size > 10 * 1024 * 1024
           ? 'Documents must be between 1 byte and 10 MB.'
           : !['.doc', '.docx', '.xls', '.xlsx', '.jpg', '.jpeg', '.png', '.gif', '.pdf', '.rar', '.zip'].includes(fileExtension)
             ? 'Upload a supported Word, Excel, image, PDF, RAR, or ZIP document.'
-            : (flags?.isInvoice || flags?.isCreditNote) &&
-                (value.invoiceNo.trim().length < 1 || value.invoiceNo.trim().length > 25)
-              ? 'Enter an invoice or credit-note number between 1 and 25 characters.'
-              : flags?.isCreditNote &&
+            : flags?.isCreditNote &&
                   (!value.amount.trim() ||
                     !Number.isFinite(Number(value.amount)) ||
                     Number(value.amount) < 0)
@@ -139,6 +140,8 @@ export function BusinessTransactionPanel({
               id="transaction-invoice-number"
               value={value.invoiceNo}
               maxLength={25}
+              aria-invalid={!!flags?.isInvoice && (value.invoiceNo.trim().length < 20 || value.invoiceNo.trim().length > 25)}
+              aria-describedby={uploadValidationMessage ? 'transaction-upload-validation' : undefined}
               onChange={event => onChange({ ...value, invoiceNo: event.target.value })}
               placeholder="Reference number"
               disabled={isUploading}
@@ -266,7 +269,7 @@ export function BusinessTransactionPanel({
           </div>
 
           {uploadValidationMessage && (
-            <p className="sm:col-span-2 text-xs font-medium text-[#855c16]" role="alert">
+            <p id="transaction-upload-validation" className="sm:col-span-2 text-xs font-medium text-[#855c16]" role="alert">
               {uploadValidationMessage}
             </p>
           )}

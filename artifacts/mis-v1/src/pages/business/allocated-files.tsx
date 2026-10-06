@@ -228,7 +228,7 @@ function AllocatedFileSheet({
       misApi.businessAllocatedFileAction(fileNo, {
         action: action as AllocatedFileActionOption['code'],
         comments,
-        invoice_no: invoiceRequired ? documentTransaction.invoiceNo : undefined,
+        invoice_no: invoiceRequired ? savedInvoiceNo : undefined,
         paid_status:
           paymentRequired
             ? (paidStatus as 'FULL-PAID' | 'PART-PAID' | 'NOT-PAID' | 'CR')
@@ -267,6 +267,11 @@ function AllocatedFileSheet({
       const document = selectedDocuments.find(item => item.req_id === documentTransaction.reqId);
       if (!document || !pendingDocumentFile) {
         throw new Error('Select a document type and file before uploading.');
+      }
+      if (document.req_name.toLowerCase().includes('invoice') &&
+          !document.req_name.toLowerCase().includes('credit note') &&
+          (documentTransaction.invoiceNo.trim().length < 20 || documentTransaction.invoiceNo.trim().length > 25)) {
+        throw new Error('Invoice number is required. Enter 20–25 characters before uploading the invoice document.');
       }
       if (pendingDocumentFile.size > 10 * 1024 * 1024) {
         throw new Error('Documents must be 10 MB or smaller.');
@@ -357,12 +362,12 @@ function AllocatedFileSheet({
     }
     if (
       invoiceRequired &&
-      (documentTransaction.invoiceNo.trim().length < 20 ||
-        documentTransaction.invoiceNo.trim().length > 25)
+      (savedInvoiceNo.trim().length < 20 ||
+        savedInvoiceNo.trim().length > 25)
     ) {
       toast({
-        title: 'Invoice number required',
-        description: 'Enter an invoice number between 20 and 25 characters.',
+        title: 'Invoice upload needed',
+        description: 'Upload System Invoice with a valid invoice number before forwarding. The saved invoice reference will be used automatically.',
         variant: 'destructive',
       });
       return;

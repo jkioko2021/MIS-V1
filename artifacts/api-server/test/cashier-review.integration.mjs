@@ -91,6 +91,16 @@ async function allocationDocuments(file) {
     assert.equal(signed.status, 200);
     fixture.objects.push(signed.body.objectPath);
     assert((await fetch(signed.body.uploadURL, { method: 'PUT', body: bytes, headers: { 'Content-Type': 'application/pdf' } })).ok);
+    if (name === 'System Invoice') {
+      for (const invoiceNo of ['', 'SHORT', 'X'.repeat(26)]) {
+        const rejected = await api(`/business/allocated/${file}/uploads`, {
+          req_id:req.req_id,filename:'allocation-test.pdf',filesize:bytes.length,
+          mime_type:'application/pdf',storage_key:signed.body.objectPath,invoice_no:invoiceNo,
+        },'bpo');
+        assert.equal(rejected.status,400);
+        assert.match(rejected.body.error,/Invoice number.*20.*25/);
+      }
+    }
     const result = await api(`/business/allocated/${file}/uploads`, {
       req_id: req.req_id, filename: 'allocation-test.pdf', filesize: bytes.length,
       mime_type: 'application/pdf', storage_key: signed.body.objectPath,

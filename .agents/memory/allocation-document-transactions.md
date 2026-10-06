@@ -34,6 +34,22 @@ The Upload button must surface document-specific requirements before an upload i
 
 **How to apply:** Keep the client preflight aligned with the API’s extension, size, invoice/credit-note, and AML metadata validation. Do not hard-code AML rating reasons.
 
+Invoice-number validation belongs to the invoice upload step, including when the
+document is selected before a file is chosen. Allocation invoice numbers must
+meet the existing handoff length rule; credit-note and unrelated-document rules
+remain separate. Forwarding uses the persisted System Invoice reference (or
+existing file invoice reference), never a draft reference for another document.
+
+**Why:** The user requested that the invoice-number-required error display when
+uploading an invoice document. Previously a shorter number could be uploaded
+successfully and fail at forwarding, or an unrelated document draft could replace
+the operational reference.
+
+**How to apply:** Show an inline invoice-specific warning and block invalid
+uploads before private storage is requested. Keep API validation as enforcement.
+If forwarding has no usable saved invoice, direct the user to the invoice upload
+step rather than asking for a number in the forwarding controls.
+
 The user-supplied risk reasons are an approved local lookup source; do not keep
 the dropdown blocked on the unavailable legacy AAR Risk database. Risk metadata
 is available on AML Report uploads as well as AML-risk documents.
