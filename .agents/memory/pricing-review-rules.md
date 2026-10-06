@@ -15,8 +15,8 @@ Require an actual rates-matrix document for approval, not an unrelated upload. K
 
 **How to apply:** Use active matrix requirements already in the requirement master and preserve the original tracker and all saved notes when returning incomplete. Do not introduce a duplicate master or copy the business record into a new queue.
 
-Preserve an eligible original recipient by default, but let Pricing explicitly select a replacement before approval when an assignment is missing or no longer eligible. Never silently assign such files to the reviewer or an arbitrary staff member.
+Pricing must automatically populate the Allocation Files recipient with the BPO Admin already allocated to the business. Do not offer a general staff picker or reassign the business during Pricing approval.
 
-**Why:** A real pending legacy file had no recipient despite being marked allocated. Blocking approval with an instruction to reallocate, without a repair control, left Pricing unable to complete the handoff.
+**Why:** The user specified: “allocation files recipient on pricing should populate the Bpo admin who has been allocated the business”. This replaces the earlier recipient-repair picker.
 
-**How to apply:** Keep recipient selection explicit and validate active approved accounts with Allocation Files access at approval time. Save reassignment together with the approval and append its history; leave Return Incomplete routed to the original tracker.
+**How to apply:** Display the saved assignment automatically and preserve it at approval. Missing or ineligible recipients require correction through BPO allocation, not arbitrary replacement in Pricing. Validate eligibility when approving and keep Return Incomplete routed to the original tracker.

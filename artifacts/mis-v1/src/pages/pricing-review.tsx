@@ -34,7 +34,6 @@ function PricingFileDetail({ fileNo, onReviewed }: { fileNo: string; onReviewed:
   const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
   const [requirementId, setRequirementId] = useState('');
   const [localError, setLocalError] = useState('');
-  const [recipientOverride, setRecipientOverride] = useState<string | null>(null);
   const detailQuery = useQuery({
     queryKey: ['pricing-review-detail', fileNo],
     queryFn: () => pricingReviewApi.detail(fileNo),
@@ -92,9 +91,8 @@ function PricingFileDetail({ fileNo, onReviewed }: { fileNo: string; onReviewed:
   if (detailQuery.isError || !detail || !file) return <section className="rounded-2xl border border-[#e6d9ce] bg-[#fbf7f2] p-8 text-center"><AlertCircle className="mx-auto mb-3 text-[#a5684b]" size={24} /><p className="font-semibold text-[#694b3d]">Pricing file could not be loaded</p><p className="mt-2 text-sm text-[#8b7669]">{detailQuery.error instanceof Error ? detailQuery.error.message : 'The record is unavailable right now.'}</p><button type="button" onClick={() => detailQuery.refetch()} className="mt-4 rounded-lg border border-[#ddcabe] px-4 py-2 text-sm font-semibold text-[#704f40]" data-testid="button-retry-pricing-detail">Try again</button></section>;
 
   const recipients = detail.allocation_recipients ?? [];
-  const originalRecipientEligible = recipients.some(recipient => recipient.username === file.allocated_to);
-  const selectedRecipient = recipientOverride ?? (originalRecipientEligible ? file.allocated_to! : '');
-  const recipientEligible = recipients.some(recipient => recipient.username === selectedRecipient);
+  const assignedRecipient = recipients.find(recipient => recipient.username === file.allocated_to);
+  const recipientEligible = !!assignedRecipient;
   const submitReview = (action: 'YES' | 'NO') => {
     setLocalError('');
     if (!comments.trim()) {
@@ -110,12 +108,11 @@ function PricingFileDetail({ fileNo, onReviewed }: { fileNo: string; onReviewed:
       return;
     }
     if (action === 'YES' && !recipientEligible) {
-      setLocalError('Select an eligible Allocation Files recipient before approval.');
+      setLocalError('Correct the assigned recipient through BPO Review before approval.');
       return;
     }
     reviewMutation.mutate({
       action, comments: comments.trim(), expected_updated_at: file.updated_at,
-      ...(action === 'YES' && selectedRecipient !== file.allocated_to ? { allocated_to: selectedRecipient } : {}),
     });
   };
 
@@ -180,13 +177,9 @@ function PricingFileDetail({ fileNo, onReviewed }: { fileNo: string; onReviewed:
         <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-sm font-semibold text-[#29483d]">Record benefit decision</h3><p className="mt-1 text-xs leading-5 text-[#7c897e]">Comments are required for either outcome and saved with the review.</p></div><span className="rounded-md border border-[#dce5d9] bg-[#fbfcf8] px-2 py-1 font-mono text-[9px] text-[#78877c]">MAX 250 CHARACTERS</span></div>
         {file.reviewable && <div className="mt-4">
           <label htmlFor="pricing-allocation-recipient" className="text-xs font-semibold text-[#36534a]">Allocation Files recipient</label>
-          <select id="pricing-allocation-recipient" value={selectedRecipient} onChange={event => { setRecipientOverride(event.target.value); setLocalError(''); reviewMutation.reset(); }} disabled={reviewMutation.isPending} className="mt-2 w-full rounded-lg border border-[#d6e0d4] bg-[#fcfdf9] px-3 py-2 text-sm text-[#314e42]" data-testid="select-pricing-allocation-recipient">
-            <option value="">Select a recipient</option>
-            {recipients.map(recipient => <option key={recipient.username} value={recipient.username}>{recipient.employee_name} ({recipient.username})</option>)}
-          </select>
-          {!originalRecipientEligible && <p className="mt-2 text-xs text-[#90754f]">{file.allocated_to ? 'The current recipient is no longer eligible.' : 'This file has no allocated recipient.'} Select a recipient to receive the approved file.</p>}
-          {!recipients.length && <p className="mt-2 text-xs text-[#9a5139]">No eligible recipients are available. An administrator must enable an approved staff account with Allocation Files access.</p>}
-          <p className="mt-2 text-[10px] text-[#718175]">The selected recipient is saved with approval. Return incomplete still goes to the original tracker.</p>
+          <input id="pricing-allocation-recipient" readOnly value={assignedRecipient ? `${assignedRecipient.employee_name} (${assignedRecipient.username})` : file.allocated_to ?? 'Not allocated'} className="mt-2 w-full rounded-lg border border-[#d6e0d4] bg-[#f3f6f2] px-3 py-2 text-sm text-[#314e42]" data-testid="input-pricing-allocation-recipient" />
+          {!recipientEligible && <p className="mt-2 text-xs text-[#90754f]">{file.allocated_to ? 'The allocated recipient is no longer eligible.' : 'This file has no allocated recipient.'} Correct the allocation through BPO Review before approval.</p>}
+          <p className="mt-2 text-[10px] text-[#718175]">Automatically populated from the business allocation. Approval sends the file to this assigned BPO Admin; Return incomplete still goes to the original tracker.</p>
         </div>}
         <textarea value={comments} maxLength={250} onChange={event => setComments(event.target.value)} disabled={!file.reviewable || reviewMutation.isPending} placeholder="Explain the benefit verification outcome…" className="mt-4 min-h-24 w-full resize-y rounded-xl border border-[#d6e0d4] bg-[#fcfdf9] px-3 py-3 text-sm text-[#314e42] outline-none placeholder:text-[#a0aaa0] focus:border-[#84a38e] disabled:opacity-60" data-testid="input-pricing-review-comments" />
         <div className="mt-1 flex justify-between gap-3 text-[10px] text-[#8a968b]"><span>{!file.reviewable ? 'This file is no longer reviewable.' : 'A concise, specific reason helps the next team act.'}</span><span className="font-mono">{comments.length}/250</span></div>
