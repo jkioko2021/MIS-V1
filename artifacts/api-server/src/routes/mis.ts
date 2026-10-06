@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { ALLOCATION_DOCUMENT_NAMES } from "../lib/allocation-documents";
+import { ALLOCATION_DOCUMENT_NAMES, EXCLUDED_ALLOCATION_DOCUMENT_NAMES } from "../lib/allocation-documents";
 import { query, queryOne } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
 import { requireAllocatedFileReadAccess, requireBpoAllocatedAccess, requireBpoQueueAccess, requireBusinessFileAccess, requireBusinessTrackingAccess, setBpoReviewAccess } from "../lib/business-permissions";
@@ -327,8 +327,9 @@ router.get("/mis/business/allocated/:fileNo", requireAllocatedFileReadAccess, as
         FROM crm.business_req br
         LEFT JOIN crm.business_doc_checklist d ON d.req_id=br.req_id AND d.file_no=$1
         WHERE (d.file_no=$1 OR (br.is_active=TRUE AND LOWER(TRIM(br.req_name))=ANY($2::text[])))
+          AND NOT (LOWER(TRIM(br.req_name))=ANY($3::text[]))
         ORDER BY br.req_name
-      `, [fileNo, ALLOCATION_DOCUMENT_NAMES]),
+      `, [fileNo, ALLOCATION_DOCUMENT_NAMES, EXCLUDED_ALLOCATION_DOCUMENT_NAMES]),
     ]);
     if (!file) {
       res.status(404).json({ ok: false, error: "Allocated file not found." });

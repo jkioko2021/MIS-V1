@@ -68,9 +68,12 @@ Read-only selection does not mutate ROP claims; optimistic transactional
 decision checks prevent stale/double processing instead.
 
 No external portal/accounting reconciliation or email transport is connected.
-Allocation owners may upload System Receipt, Policy Schedule, System Invoice,
-and AML Report independently of the registration checklist, for Retail,
-Corporate, and SME business. Uploads use real private bytes, retain document
+Allocation owners may upload System Invoice and AML Report independently
+of the registration checklist, for Retail,
+Corporate, and SME business. Policy Schedule and System Receipt are excluded from
+Allocation Files upload choices even when selected at registration; existing
+uploads remain accessible and Cashier can still upload System Receipt.
+Uploads use real private bytes, retain document
 metadata and notes, and recheck allocation ownership under the handoff lock.
 Invoice input is retained after uploading so the operator can forward using it.
 Cashier accepts receipts uploaded during that allocation before the transfer;

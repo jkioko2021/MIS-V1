@@ -14,12 +14,14 @@ would let an unrelated document overwrite the operational payment decision.
 document transaction and preserve owner-scoped access. Do not add unsupported
 workflow actions or invent values for unavailable external reference sources.
 
-System Receipt, Policy Schedule, System Invoice, and AML Report must be available
+System Invoice and AML Report must be available
 to the allocated user even when they were not selected during registration.
 This applies across Retail, Corporate, and SME allocations.
 
-**Why:** The user requested these four uploads in Allocation Files and forwarding
-by the assigned user. The legacy master classifies these operational documents
+**Why:** The user initially requested four uploads, then explicitly removed
+Policy Schedule and System Receipt from Allocation Files. Preserve existing
+uploaded documents and keep these changes limited to Allocation Files. Forwarding
+remains available to the assigned user. The legacy master classifies operational documents
 as Corporate, which must not silently hide them from Retail allocations.
 
 **How to apply:** Reuse the sole requirement master without changing global

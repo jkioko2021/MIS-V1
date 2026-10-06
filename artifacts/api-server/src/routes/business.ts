@@ -4,7 +4,7 @@ import type { PoolClient } from "pg";
 import { query, queryOne, withTransaction, txQuery } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
 import { requireAllocatedFileReadAccess, requireBpoAllocatedAccess, requireBpoForwardAccess, requireBpoReviewAccess, requireBusinessDeleteAccess, requireBusinessFileAccess, requireBusinessTrackingAccess } from "../lib/business-permissions";
-import { isAllocationDocument } from "../lib/allocation-documents";
+import { isAllocationDocument, isExcludedAllocationDocument } from "../lib/allocation-documents";
 import { logger } from "../lib/logger";
 import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage";
 import { queueCorporatePricing } from "../lib/pricing-review";
@@ -1079,6 +1079,10 @@ router.post("/business/allocated/:fileNo/uploads", requireAllocatedFileReadAcces
     ]);
     if (!file || !requirement) {
       res.status(404).json({ ok: false, error: "Allocated file or document requirement not found." });
+      return;
+    }
+    if (isExcludedAllocationDocument(requirement.req_name)) {
+      res.status(400).json({ ok: false, error: "This document cannot be uploaded from Allocation Files." });
       return;
     }
     const applies = await queryOne<{ req_id: number }>(

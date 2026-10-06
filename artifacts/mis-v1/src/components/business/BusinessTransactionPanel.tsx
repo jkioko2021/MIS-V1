@@ -94,7 +94,7 @@ export function BusinessTransactionPanel({
           </p>
           <h4 className="mt-0.5 font-semibold text-[#173d38]">Transaction details and evidence</h4>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Upload System Receipt, Policy Schedule, System Invoice, or AML Report, as well as selected checklist documents. Files are stored privately and linked to this allocation record.
+            Upload System Invoice or AML Report, as well as other selected checklist documents. Policy Schedule and System Receipt are not uploaded from Allocation Files. Files are stored privately and linked to this allocation record.
           </p>
         </div>
       </div>

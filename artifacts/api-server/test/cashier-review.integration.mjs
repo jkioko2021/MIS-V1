@@ -67,9 +67,21 @@ if (process.argv.includes('--cleanup')) {
 const detailPath = file => `/cashier/files/${encodeURIComponent(file)}`;
 let tracker, bpo, finance, otherFinance;
 async function allocationDocuments(file) {
+  await pool.query(`INSERT INTO crm.business_doc_checklist(file_no,req_id,is_selected,acknowledged_by)
+    SELECT $1,req_id,TRUE,$2 FROM crm.business_req WHERE req_name=ANY($3::text[])
+    ON CONFLICT(file_no,req_id) DO NOTHING`, [file,bpo,['System Receipt','Policy Schedule']]);
   const detail = await api(`/mis/business/allocated/${file}`, undefined, 'bpo');
   assert.equal(detail.status, 200);
-  const names = ['System Receipt', 'Policy Schedule', 'System Invoice', 'AML Report'];
+  for (const name of ['System Receipt','Policy Schedule']) {
+    assert(!detail.body.data.docs.some(row => row.req_name === name));
+    const requirement = (await pool.query('SELECT req_id FROM crm.business_req WHERE req_name=$1',[name])).rows[0];
+    const blocked = await api(`/business/allocated/${file}/uploads`, {
+      req_id: requirement.req_id, filename:'x.pdf', filesize:1, storage_key:'/objects/uploads/fake',
+    },'bpo');
+    assert.equal(blocked.status,400);
+    assert.match(blocked.body.error,/cannot be uploaded from Allocation Files/);
+  }
+  const names = ['System Invoice', 'AML Report'];
   for (const name of names) {
     const req = detail.body.data.docs.find(row => row.req_name === name);
     assert(req?.is_selected, `Allocation upload option missing: ${name}`);
@@ -87,8 +99,16 @@ async function allocationDocuments(file) {
     }, 'bpo');
     assert.equal(result.status, 201, `${name}: ${JSON.stringify(result.body)}`);
   }
-  assert.equal((await api(`/business/allocated/${file}/uploads`, undefined, 'bpo')).body.data.length, 4);
+  assert.equal((await api(`/business/allocated/${file}/uploads`, undefined, 'bpo')).body.data.length, 2);
   assert.equal((await api(`/business/allocated/${file}/aml-status`, undefined, 'bpo')).body.data.valid, true);
+}
+async function historicalReceipt(file) {
+  // Existing receipts survive the removal of the allocation upload option.
+  await pool.query(`INSERT INTO crm.business_uploads
+    (file_no,req_id,filename,filesize,mime_type,storage_key,uploaded_by)
+    SELECT $1::varchar,r.req_id,'historical-receipt.pdf',u.filesize,u.mime_type,u.storage_key,$2
+    FROM crm.business_req r,crm.business_uploads u
+    WHERE r.req_name='System Receipt' AND u.file_no=$1::varchar LIMIT 1`,[file,bpo]);
 }
 async function riskReasons(file) {
   const expected = ['No alerts identified', 'False positives alerts', 'Politically Exposed Person', 'Alerts identified and approved'];
@@ -129,7 +149,10 @@ async function handoff(label, business = 'M', paidStatus = 'FULL-PAID', options 
   await pool.query(`INSERT INTO crm.business_tracking_notes(file_no,note_from,notes)
     VALUES($1,$2,'Original tracker note - retain')`, [file, tracker]);
   if (options.allocatedOnly) return file;
-  if (options.uploadDocuments) await allocationDocuments(file);
+  if (options.uploadDocuments) {
+    await allocationDocuments(file);
+    await historicalReceipt(file);
+  }
   if (options.staleReceipt) await pool.query(`UPDATE crm.business_uploads u
     SET uploaded_at=b.allocate_dt-INTERVAL '1 hour' FROM crm.business_tracking b,crm.business_req r
     WHERE u.file_no=$1 AND b.file_no=u.file_no AND r.req_id=u.req_id AND r.req_name='System Receipt'`, [file]);
@@ -223,7 +246,7 @@ try {
   await handoff('BROWSER_RECEIPT');
   await handoff('BROWSER_RETURN');
   await handoff('BROWSER_ALLOC', 'M', 'FULL-PAID', { allocatedOnly: true, businessType: 'N' });
-  console.log('Checks passed: four allocation uploads across client types, table-backed AML reasons and Low/High/Medium metadata, invalid risk rejection, assigned forwarding, pre-handoff receipts, receipt gates, full/partial receipting, returns and retained notes.');
+  console.log('Checks passed: Allocation Files excludes Policy Schedule/System Receipt even when selected; direct uploads rejected; invoice/AML uploads, historical receipts, Cashier receipt upload, risk metadata, forwarding and retained notes preserved.');
   if (process.argv.includes('--keep')) { await writeFile(path, JSON.stringify(fixture), { mode: 0o600 }); console.log(`Browser fixtures ready at ${path}.`); }
   else await cleanup(fixture);
 } catch (err) { await cleanup(fixture); throw err; }
