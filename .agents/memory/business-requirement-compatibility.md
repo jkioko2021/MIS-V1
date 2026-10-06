@@ -3,8 +3,8 @@ name: Business requirement compatibility
 description: Rules for maintaining the consolidated Business Tracking requirement master.
 ---
 
-`crm.business_req` is the single source of truth for configurable Business Tracking requirements. It retains its established `req_*` fields for checklist and upload foreign keys and also stores the exact business requirement contract (`DOC_ID`, `DOC_CODE`, `DOC_NAME`, `BUSINESS_TYPE`, `CLIENT`, `ACTIVE`, and `CODE`).
+The user wants `crm.business_req` to remain the sole requirement master, using the legacy requirement fields plus `code`, without duplicate document ID, document code, document name, business type, client, or active columns.
 
-**Why:** Keeping two mutable masters risks data drift and makes document configuration harder to reason about. The single table preserves existing foreign-key IDs while exposing the full requirement contract the settings page needs.
+**Why:** The user explicitly requested removing those duplicate columns and refactoring the app to the retained legacy contract. Do not recreate them to restore an older data-loading design.
 
-**How to apply:** Read and write the consolidated row atomically: keep its legacy `req_*` values aligned with the exact-value fields, allocate new IDs from the `business_req` sequence, and never repurpose existing requirement IDs that may be referenced by historical documents.
+**How to apply:** Preserve legacy requirement IDs and existing document references. Keep `code` values unchanged unless explicitly requested, and use retained name, applicability, and active fields in settings and Business Tracking.

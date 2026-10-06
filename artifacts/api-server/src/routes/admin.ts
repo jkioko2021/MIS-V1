@@ -151,7 +151,7 @@ router.post("/admin/business-requirements", requireParameterAdmin, async (req: R
       await txQuery(
         client,
         `SELECT setval(pg_get_serial_sequence('crm.business_req', 'req_id'), $1, true)`,
-        [requirement.doc_id],
+        [requirement.req_id],
       );
       await txQuery(
         client,
@@ -164,7 +164,7 @@ router.post("/admin/business-requirements", requireParameterAdmin, async (req: R
     res.status(201).json({ ok: true, data: row });
   } catch (err: unknown) {
     if (String(err).includes("unique")) {
-      res.status(409).json({ ok: false, error: "DOC_CODE already exists." });
+      res.status(409).json({ ok: false, error: "Requirement ID or legacy code already exists." });
       return;
     }
     handleError(res, err, "create business requirement");
@@ -228,7 +228,7 @@ router.put("/admin/business-requirements/:id", requireParameterAdmin, async (req
     res.json({ ok: true, data: row });
   } catch (err: unknown) {
     if (String(err).includes("unique")) {
-      res.status(409).json({ ok: false, error: "DOC_CODE already exists." });
+      res.status(409).json({ ok: false, error: "Requirement ID or legacy code already exists." });
       return;
     }
     handleError(res, err, "update business requirement");
