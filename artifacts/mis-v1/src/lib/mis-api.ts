@@ -198,21 +198,18 @@ export interface BusinessRequirement {
 }
 
 export interface ConfigurableBusinessRequirement {
-  doc_id: number;
-  doc_code: string;
-  doc_name: string;
-  business_type: string;
-  client: 'R' | 'C';
-  active: number;
+  req_id: number;
+  req_code: number;
+  req_name: string;
+  applies_to: 'R' | 'C';
+  is_active: boolean;
   code: number;
 }
 
 export interface BusinessRequirementInput {
-  doc_code: string;
-  doc_name: string;
-  business_type: string;
-  client: 'R' | 'C';
-  active: boolean;
+  req_name: string;
+  applies_to: 'R' | 'C';
+  is_active: boolean;
   code: number;
 }
 

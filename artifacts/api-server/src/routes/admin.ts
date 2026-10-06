@@ -44,42 +44,32 @@ function requireParameterAdmin(req: Request, res: Response, next: () => void) {
 }
 
 type BusinessRequirementInput = {
-  doc_code: string;
-  doc_name: string;
-  business_type: string;
-  client: string;
-  active: number;
+  req_name: string;
+  applies_to: string;
+  is_active: boolean;
   code: number;
 };
 
-type BusinessRequirementRow = BusinessRequirementInput & { doc_id: number };
+type BusinessRequirementRow = BusinessRequirementInput & { req_id: number; req_code: number };
 
 function parseBusinessRequirementInput(body: unknown): { input?: BusinessRequirementInput; error?: string } {
   const record = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
-  const docCode = typeof record.doc_code === "string" ? record.doc_code.trim().toUpperCase() : "";
-  const docName = typeof record.doc_name === "string" ? record.doc_name.trim() : "";
-  const businessType = typeof record.business_type === "string" ? record.business_type.trim().toUpperCase() : "";
-  const client = typeof record.client === "string" ? record.client.trim().toUpperCase() : "";
-  const active = record.active === false || record.active === 0 || record.active === "0" ? 0 : 1;
+  const reqName = typeof record.req_name === "string" ? record.req_name.trim() : "";
+  const appliesTo = typeof record.applies_to === "string" ? record.applies_to.trim().toUpperCase() : "";
+  const isActive = record.is_active !== false && record.is_active !== 0 && record.is_active !== "0";
   const code = Number(record.code);
 
-  if (!docCode || !/^[A-Z0-9_-]{1,20}$/.test(docCode)) {
-    return { error: "DOC_CODE must be 1–20 characters using letters, numbers, underscore, or hyphen." };
+  if (!reqName || reqName.length > 255) {
+    return { error: "REQ_NAME is required and must be 255 characters or fewer." };
   }
-  if (!docName || docName.length > 255) {
-    return { error: "DOC_NAME is required and must be 255 characters or fewer." };
-  }
-  if (!businessType || businessType.length > 10) {
-    return { error: "BUSINESS_TYPE is required and must be 10 characters or fewer." };
-  }
-  if (client !== "R" && client !== "C") {
-    return { error: "CLIENT must be R (Retail) or C (Corporate)." };
+  if (appliesTo !== "R" && appliesTo !== "C") {
+    return { error: "APPLIES_TO must be R (Retail) or C (Corporate)." };
   }
   if (!Number.isInteger(code) || code < 1) {
     return { error: "CODE must be a positive whole number." };
   }
 
-  return { input: { doc_code: docCode, doc_name: docName, business_type: businessType, client, active, code } };
+  return { input: { req_name: reqName, applies_to: appliesTo, is_active: isActive, code } };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -94,7 +84,7 @@ router.get("/admin/business-requirements", requireParameterAdmin, async (req: Re
 
     if (search?.trim()) {
       params.push(`%${search.trim()}%`);
-      conditions.push(`(doc_code ILIKE $${params.length} OR doc_name ILIKE $${params.length})`);
+      conditions.push(`(req_code::text ILIKE $${params.length} OR req_name ILIKE $${params.length})`);
     }
     if (client) {
       if (client !== "R" && client !== "C") {
@@ -102,18 +92,18 @@ router.get("/admin/business-requirements", requireParameterAdmin, async (req: Re
         return;
       }
       params.push(client);
-      conditions.push(`client = $${params.length}`);
+      conditions.push(`applies_to = $${params.length}`);
     }
     if (active === "active" || active === "inactive") {
-      params.push(active === "active" ? 1 : 0);
-      conditions.push(`active = $${params.length}`);
+      params.push(active === "active");
+      conditions.push(`is_active = $${params.length}`);
     }
 
     const rows = await query(
-      `SELECT doc_id, doc_code, doc_name, business_type, client, active, code
+      `SELECT req_id, req_code, req_name, applies_to, is_active, code
        FROM crm.business_req
        ${conditions.length ? `WHERE ${conditions.join(" AND ")}` : ""}
-       ORDER BY client, code, doc_id`,
+       ORDER BY applies_to, code, req_id`,
       params,
     );
     res.json({ ok: true, data: rows });
@@ -144,18 +134,14 @@ router.post("/admin/business-requirements", requireParameterAdmin, async (req: R
       const created = await txQuery<BusinessRequirementRow>(
         client,
         `INSERT INTO crm.business_req
-           (req_id, req_code, req_name, applies_to, is_active,
-            doc_id, doc_code, doc_name, business_type, client, active, code)
-         VALUES ($1, $1, $2, $3, $4, $1, $5, $2, $6, $3, $7, $8)
-         RETURNING doc_id, doc_code, doc_name, business_type, client, active, code`,
+           (req_id, req_code, req_name, applies_to, is_active, code)
+         VALUES ($1, $1, $2, $3, $4, $5)
+         RETURNING req_id, req_code, req_name, applies_to, is_active, code`,
         [
           nextId,
-          input.doc_name,
-          input.client,
-          input.active === 1,
-          input.doc_code,
-          input.business_type,
-          input.active,
+          input.req_name,
+          input.applies_to,
+          input.is_active,
           input.code,
         ],
       );
@@ -171,7 +157,7 @@ router.post("/admin/business-requirements", requireParameterAdmin, async (req: R
         client,
         `INSERT INTO crm.admin_audit_trail (employee_id, action, details)
          VALUES ($1, 'BUSINESS_REQUIREMENT_CREATED', $2)`,
-        [req.user!.sub, `Created ${requirement.doc_code}`],
+        [req.user!.sub, `Created requirement ${requirement.req_id}`],
       );
       return requirement;
     });
@@ -202,9 +188,9 @@ router.put("/admin/business-requirements/:id", requireParameterAdmin, async (req
     const row = await withTransaction(async (client) => {
       const currentRows = await txQuery<BusinessRequirementRow>(
         client,
-        `SELECT doc_id, doc_code, doc_name, business_type, client, active, code
+        `SELECT req_id, req_code, req_name, applies_to, is_active, code
          FROM crm.business_req
-         WHERE doc_id = $1
+         WHERE req_id = $1
          FOR UPDATE`,
         [docId],
       );
@@ -213,19 +199,14 @@ router.put("/admin/business-requirements/:id", requireParameterAdmin, async (req
       const updated = await txQuery<BusinessRequirementRow>(
         client,
         `UPDATE crm.business_req
-         SET req_name = $2, applies_to = $3, is_active = $4,
-             doc_code = $5, doc_name = $2, business_type = $6,
-             client = $3, active = $7, code = $8
-         WHERE doc_id = $1
-         RETURNING doc_id, doc_code, doc_name, business_type, client, active, code`,
+         SET req_name = $2, applies_to = $3, is_active = $4, code = $5
+         WHERE req_id = $1
+         RETURNING req_id, req_code, req_name, applies_to, is_active, code`,
         [
           docId,
-          input.doc_name,
-          input.client,
-          input.active === 1,
-          input.doc_code,
-          input.business_type,
-          input.active,
+          input.req_name,
+          input.applies_to,
+          input.is_active,
           input.code,
         ],
       );
@@ -236,7 +217,7 @@ router.put("/admin/business-requirements/:id", requireParameterAdmin, async (req
         client,
         `INSERT INTO crm.admin_audit_trail (employee_id, action, details)
          VALUES ($1, 'BUSINESS_REQUIREMENT_UPDATED', $2)`,
-        [req.user!.sub, `Updated ${requirement.doc_code}`],
+        [req.user!.sub, `Updated requirement ${requirement.req_id}`],
       );
       return requirement;
     });

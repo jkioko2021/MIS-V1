@@ -25,22 +25,18 @@ import { cn } from '@/lib/utils';
 type RequirementForm = Omit<BusinessRequirementInput, 'code'> & { code: string };
 
 const EMPTY_FORM: RequirementForm = {
-  doc_code: '',
-  doc_name: '',
-  business_type: 'B',
-  client: 'R',
-  active: true,
+  req_name: '',
+  applies_to: 'R',
+  is_active: true,
   code: '1',
 };
 
 function requirementToForm(requirement?: ConfigurableBusinessRequirement): RequirementForm {
   if (!requirement) return EMPTY_FORM;
   return {
-    doc_code: requirement.doc_code,
-    doc_name: requirement.doc_name,
-    business_type: requirement.business_type,
-    client: requirement.client,
-    active: requirement.active === 1,
+    req_name: requirement.req_name,
+    applies_to: requirement.applies_to,
+    is_active: requirement.is_active,
     code: String(requirement.code),
   };
 }
@@ -69,14 +65,14 @@ function RequirementDialog({
         code: Number(form.code),
       };
       return isEdit
-        ? misApi.updateBusinessRequirement(requirement.doc_id, input)
+        ? misApi.updateBusinessRequirement(requirement.req_id, input)
         : misApi.createBusinessRequirement(input);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['configurable-business-requirements'] });
       toast({
         title: isEdit ? 'Requirement updated' : 'Requirement added',
-        description: `${form.doc_code.trim().toUpperCase()} is ready for Business Tracking.`,
+        description: `${form.req_name.trim()} is ready for Business Tracking.`,
       });
       onClose();
     },
@@ -84,9 +80,8 @@ function RequirementDialog({
   });
 
   const canSave = Boolean(
-    form.doc_code.trim()
-    && form.doc_name.trim()
-    && form.business_type.trim()
+    form.req_name.trim()
+    && form.applies_to
     && Number.isInteger(Number(form.code))
     && Number(form.code) > 0,
   );
@@ -97,26 +92,38 @@ function RequirementDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileCog className="h-5 w-5 text-blue-600" />
-            {isEdit ? `Edit ${requirement.doc_code}` : 'Add Business Requirement'}
+            {isEdit ? `Edit requirement ${requirement.req_id}` : 'Add Business Requirement'}
           </DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-4 py-2 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="requirement-code">Requirement code <span className="text-destructive">*</span></Label>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="requirement-name">Requirement name <span className="text-destructive">*</span></Label>
             <Input
-              id="requirement-code"
-              value={form.doc_code}
-              onChange={(event) => setForm((current) => ({
-                ...current,
-                doc_code: event.target.value.toUpperCase(),
-              }))}
-              placeholder="e.g. RET46"
-              maxLength={20}
-              className="font-mono"
+              id="requirement-name"
+              value={form.req_name}
+              onChange={(event) => setForm((current) => ({ ...current, req_name: event.target.value }))}
+              placeholder="e.g. Signed application form"
+              maxLength={255}
               autoFocus
             />
-            <p className="text-xs text-muted-foreground">Unique code used to identify the document requirement.</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Client <span className="text-destructive">*</span></Label>
+            <Select
+              value={form.applies_to}
+              onValueChange={(value) => setForm((current) => ({
+                ...current,
+                applies_to: value as 'R' | 'C',
+              }))}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="R">Retail</SelectItem>
+                <SelectItem value="C">Corporate</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1.5">
@@ -132,52 +139,11 @@ function RequirementDialog({
             <p className="text-xs text-muted-foreground">Controls the order within the client checklist.</p>
           </div>
 
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="requirement-name">Requirement name <span className="text-destructive">*</span></Label>
-            <Input
-              id="requirement-name"
-              value={form.doc_name}
-              onChange={(event) => setForm((current) => ({ ...current, doc_name: event.target.value }))}
-              placeholder="e.g. Signed application form"
-              maxLength={255}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Business type <span className="text-destructive">*</span></Label>
-            <Select
-              value={form.business_type}
-              onValueChange={(value) => setForm((current) => ({ ...current, business_type: value }))}
-            >
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="B">B — Business Tracking</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Client <span className="text-destructive">*</span></Label>
-            <Select
-              value={form.client}
-              onValueChange={(value) => setForm((current) => ({
-                ...current,
-                client: value as 'R' | 'C',
-              }))}
-            >
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="R">Retail</SelectItem>
-                <SelectItem value="C">Corporate</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
           <label className="flex items-start gap-3 rounded-lg border bg-muted/30 p-3 sm:col-span-2">
             <input
               type="checkbox"
-              checked={form.active}
-              onChange={(event) => setForm((current) => ({ ...current, active: event.target.checked }))}
+              checked={form.is_active}
+              onChange={(event) => setForm((current) => ({ ...current, is_active: event.target.checked }))}
               className="mt-0.5 h-4 w-4 rounded accent-primary"
             />
             <span>
@@ -311,8 +277,8 @@ export default function BusinessRequirementsPage() {
               <thead className="bg-muted/40 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">ID</th>
+                  <th className="px-4 py-3">Legacy code</th>
                   <th className="px-4 py-3">Requirement</th>
-                  <th className="px-4 py-3">Business type</th>
                   <th className="px-4 py-3">Client</th>
                   <th className="px-4 py-3 text-center">Display code</th>
                   <th className="px-4 py-3">Status</th>
@@ -322,34 +288,33 @@ export default function BusinessRequirementsPage() {
               <tbody>
                 {requirements.map((requirement, index) => (
                   <tr
-                    key={requirement.doc_id}
+                    key={requirement.req_id}
                     className={cn('border-t transition-colors hover:bg-blue-50/30', index % 2 !== 0 && 'bg-muted/5')}
                   >
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{requirement.doc_id}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{requirement.req_id}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{requirement.req_code}</td>
                     <td className="px-4 py-3">
-                      <p className="font-medium">{requirement.doc_name}</p>
-                      <p className="mt-0.5 font-mono text-xs text-muted-foreground">{requirement.doc_code}</p>
+                      <p className="font-medium">{requirement.req_name}</p>
                     </td>
-                    <td className="px-4 py-3"><Badge variant="outline">{requirement.business_type}</Badge></td>
                     <td className="px-4 py-3">
-                      <Badge variant="outline" className={requirement.client === 'R' ? 'border-blue-200 text-blue-700' : 'border-violet-200 text-violet-700'}>
-                        {clientLabel(requirement.client)}
+                      <Badge variant="outline" className={requirement.applies_to === 'R' ? 'border-blue-200 text-blue-700' : 'border-violet-200 text-violet-700'}>
+                        {clientLabel(requirement.applies_to)}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-center font-mono">{requirement.code}</td>
                     <td className="px-4 py-3">
                       <Badge
                         variant="outline"
-                        className={requirement.active === 1 ? 'border-emerald-200 text-emerald-700' : 'border-slate-200 text-slate-500'}
+                        className={requirement.is_active ? 'border-emerald-200 text-emerald-700' : 'border-slate-200 text-slate-500'}
                       >
-                        {requirement.active === 1 ? 'Active' : 'Inactive'}
+                        {requirement.is_active ? 'Active' : 'Inactive'}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Button
                         variant="outline"
                         size="sm"
-                        data-testid={`button-edit-req-${requirement.doc_id}`}
+                        data-testid={`button-edit-req-${requirement.req_id}`}
                         onClick={() => setDialogRequirement(requirement)}
                         className="gap-1.5"
                       >
@@ -371,7 +336,7 @@ export default function BusinessRequirementsPage() {
 
       {dialogOpen && (
         <RequirementDialog
-          key={dialogRequirement?.doc_id ?? 'new'}
+          key={dialogRequirement?.req_id ?? 'new'}
           requirement={dialogRequirement ?? undefined}
           onClose={() => setDialogRequirement(undefined)}
         />
