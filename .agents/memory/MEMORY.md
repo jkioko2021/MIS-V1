@@ -23,3 +23,4 @@
 - [Refund allocation summary](refund-allocation-summary.md) — BPO refund counts use the current PR classification; authoritative refund amounts remain unavailable
 - [Business requirement compatibility](business-requirement-compatibility.md) — crm.business_req is the sole requirement master and retains legacy foreign-key compatibility
 - [Medical underwriting legacy](medical-underwriting-legacy.md) — Procedure routing and HPC catalogs are unavailable; distinguish observed legacy behavior from modern handoff decisions.
+- [Business note retention](business-note-retention.md) — Saved business notes must remain in file history; record corrections as new notes, never delete or hide prior notes.

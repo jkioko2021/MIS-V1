@@ -481,11 +481,6 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
     onError: (e) => toast({ title: 'Error', description: String(e), variant: 'destructive' }),
   });
 
-  const deleteNoteMut = useMutation({
-    mutationFn: (noteId: number) => misApi.businessDeleteNote(activeFileNo!, noteId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['business-file', activeFileNo] }),
-  });
-
   const selectDocMut = useMutation({
     mutationFn: (reqId: number) => misApi.businessAckDoc(activeFileNo!, reqId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['business-file', activeFileNo] }),
@@ -1089,9 +1084,6 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                               <span className="text-xs font-semibold">{n.note_from}</span>
                               <span className="text-xs text-muted-foreground">{fmtDate(n.note_date)}</span>
                             </div>
-                            <button onClick={() => deleteNoteMut.mutate(n.note_id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
                           </div>
                           <p className="text-sm whitespace-pre-wrap">{n.notes}</p>
                         </div>

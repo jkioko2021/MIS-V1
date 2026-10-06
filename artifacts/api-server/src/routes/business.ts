@@ -1643,13 +1643,8 @@ router.post("/business/:fileNo/notes", async (req: Request, res: Response) => {
 
 // ─── DELETE /business/:fileNo/notes/:id ──────────────────────────────────────
 router.delete("/business/:fileNo/notes/:id", async (req: Request, res: Response) => {
-  try {
-    await query(
-      `UPDATE crm.business_tracking_notes SET is_active=FALSE WHERE note_id=$1 AND file_no=$2`,
-      [req.params.id, req.params.fileNo]
-    );
-    res.json({ ok: true });
-  } catch (err) { handleError(res, err, "delete note"); }
+  // Saved notes are append-only history. Explicitly reject older clients too.
+  res.status(405).json({ ok: false, error: "Saved notes cannot be deleted. Add a new note to record a correction." });
 });
 
 // ─── POST /business/:fileNo/checklist/:reqId ─────────────────────────────────

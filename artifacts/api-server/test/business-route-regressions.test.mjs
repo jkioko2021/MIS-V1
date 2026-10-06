@@ -600,6 +600,7 @@ test("BPO Medical UW decisions open one shared medical work item for Retail, Cor
   for (const clientType of ["R", "C", "S"]) {
     const state = new BusinessRouteState({ clientType, fileStatus: "FORWARDED", forwarded: true });
     seedOpenWorkItem(state, 42);
+    state.notes.push({ note_id: 99, notes: "Original registration note" });
     state.workItems.push({
       work_item_id: 43, file_no: state.file.file_no, queue_name: "MEDICAL_UNDERWRITING",
       work_status: "COMPLETED", assigned_to: "old-reviewer",
@@ -617,9 +618,22 @@ test("BPO Medical UW decisions open one shared medical work item for Retail, Cor
     assert.equal(medical.length, 1);
     assert.equal(medical[0].work_status, "OPEN");
     assert.equal(medical[0].assigned_to, null);
-    assert.equal(state.notes.length, 1);
+    assert.equal(state.notes.length, 2);
+    assert.equal(state.notes[0].notes, "Original registration note");
     assert.equal(state.audits.length, 1);
   }
+});
+
+test("saved tracking notes cannot be deleted or hidden through the API", async () => {
+  const state = new BusinessRouteState({ clientType: "R" });
+  state.notes.push({ note_id: 99, notes: "Permanent tracking history", is_active: true });
+  const before = structuredClone(state.notes);
+  const result = await withServer(state, request =>
+    request("DELETE", `${fileEndpoint(state.file.file_no)}/notes/99`));
+  assert.equal(result.status, 405);
+  assert.equal(result.body.ok, false);
+  assert.match(result.body.error, /cannot be deleted/);
+  assert.deepEqual(state.notes, before);
 });
 
 test("Retail Hold completes the Retail work item with the matching file status", async () => {

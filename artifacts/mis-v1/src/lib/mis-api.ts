@@ -338,8 +338,6 @@ export const misApi = {
     post<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}/allocate`, { allocated_to }),
   businessAddNote: (fileNo: string, notes: string) =>
     post<ApiResponse<{ note_id: number }>>(`/business/${encodeURIComponent(fileNo)}/notes`, { notes }),
-  businessDeleteNote: (fileNo: string, noteId: number) =>
-    del<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}/notes/${noteId}`),
   businessAckDoc: (fileNo: string, reqId: number) =>
     post<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}/checklist/${reqId}`),
   businessUnAckDoc: (fileNo: string, reqId: number) =>
