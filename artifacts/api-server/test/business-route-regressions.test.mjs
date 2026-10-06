@@ -204,7 +204,7 @@ class BusinessRouteState {
         invoiced: this.file.invoiced,
       }] : [];
     }
-    if (statement.startsWith("SELECT file_no, is_active, file_status, allocated, allocated_to, benefit_verified, business_type")) {
+    if (statement.startsWith("SELECT file_no, is_active, file_status, allocated, allocated_to, benefit_verified, rate_type, business_type")) {
       return this.file?.is_active ? [{
         file_no: this.file.file_no,
         is_active: this.file.is_active,
@@ -212,6 +212,7 @@ class BusinessRouteState {
         allocated: this.file.allocated,
         allocated_to: this.file.allocated_to,
         benefit_verified: this.file.benefit_verified,
+        rate_type: this.file.rate_type,
         business_type: this.file.business_type,
         entered_by: "business-entry",
       }] : [];

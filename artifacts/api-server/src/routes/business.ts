@@ -29,11 +29,18 @@ const BPO_ADMIN_PROFILES = ["bpo", "bpo admin", "bpo review"];
 const BPO_REVIEW_ACTIONS = new Set(["RI", "A", "MU", "HO", "CA"]);
 const CORPORATE_SME_BPO_REVIEW_ACTIONS = new Set(["RI", "A", "MU", "CA"]);
 const BPO_PRODUCTS = new Set(["T", "S", "AS"]);
-const ALLOCATED_FILE_ACTIONS = new Set(["C", "CA", "MU", "CL", "IT", "RI", "RM"]);
+const ALLOCATED_FILE_ACTIONS = new Set(["C", "CA", "MU", "CL", "IT", "RI", "RM", "P"]);
 const ALLOCATED_INVOICE_ACTIONS = new Set(["C", "CA", "RM"]);
 const ALLOCATED_PAYMENT_ACTIONS = new Set(["C", "CA", "RM"]);
 const PAYMENT_STATUSES = new Set(["FULL-PAID", "PART-PAID", "NOT-PAID", "CR"]);
 const ALLOCATED_FILE_ACTION_OPTIONS = [
+  {
+    code: "P",
+    label: "Pricing Review",
+    destination: "Pricing",
+    requires_invoice: false,
+    requires_payment_status: false,
+  },
   {
     code: "C",
     label: "Cashier",
@@ -85,6 +92,7 @@ function bpoQueueName(clientType: string): "BPO_REVIEW_RETAIL" | "BPO_REVIEW_COR
 }
 
 const ALLOCATION_ACTION_DESTINATIONS = {
+  P: { label: "Pricing Review", queueName: "PRICING_REVIEW", teamName: "Pricing", fileStatus: "BENEFIT VERIFICATION", departments: [] as string[], needsAssignee: false, completesWork: false },
   C: { label: "Cashier", queueName: "CASHIER", teamName: "Finance", fileStatus: "CASHIER", departments: ["FINANCE"], needsAssignee: true, completesWork: false },
   CA: { label: "Cashier", queueName: "CASHIER", teamName: "Finance", fileStatus: "CASHIER", departments: ["FINANCE"], needsAssignee: true, completesWork: false },
   MU: { label: "Medical UW", queueName: "MEDICAL_UNDERWRITING", teamName: "Medical Underwriting", fileStatus: "MEDICAL UW-REVIEW", departments: ["MEDICAL UNDERWRITING"], needsAssignee: true, completesWork: false },
@@ -1525,11 +1533,12 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
         allocated: boolean;
         allocated_to: string | null;
         benefit_verified: string;
+        rate_type: string;
         business_type: string;
         entered_by: string;
       }>(
         client,
-        `SELECT file_no, is_active, file_status, allocated, allocated_to, benefit_verified, business_type, entered_by
+        `SELECT file_no, is_active, file_status, allocated, allocated_to, benefit_verified, rate_type, business_type, entered_by
          FROM crm.business_tracking
          WHERE file_no=$1
          FOR UPDATE`,
@@ -1537,12 +1546,32 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
       );
       if (!file?.is_active) throw new Error("FILE_NOT_FOUND");
       if (file.file_status !== "ALLOCATED" || !file.allocated) throw new Error("FILE_NOT_ALLOCATED");
-      if (file.benefit_verified !== "YES") throw new Error("BENEFIT_NOT_VERIFIED");
 
       // SuperAdmin is allowed to resolve another administrator's file for
       // oversight. Every other permitted profile can action only its own queue.
       const isSuperAdmin = req.user?.profileId === 1;
       if (!isSuperAdmin && file.allocated_to !== req.user!.username) throw new Error("FILE_NOT_ASSIGNED");
+
+      if (requestedAction === "P") {
+        if (file.rate_type !== "C" || file.benefit_verified !== "NO") throw new Error("PRICING_NOT_ELIGIBLE");
+        if (!file.allocated_to) throw new Error("PRICING_RECIPIENT_REQUIRED");
+        // Pricing approval must release the same business to its saved BPO
+        // recipient. Do not use the generic handoff's allocation-release path.
+        await txQuery(client, `UPDATE crm.business_tracking SET
+          file_status='BENEFIT VERIFICATION',allocate_dt=NULL,to_pricing_dt=NOW(),
+          benefit_ver_by=NULL,benefit_ver_date=NULL,forwarded=TRUE,ready_for_update=TRUE,updated_at=NOW()
+          WHERE file_no=$1`, [fileNo]);
+        await queueCorporatePricing(client, String(fileNo), req.user!.username, true);
+        await txQuery(client, `INSERT INTO crm.business_tracking_notes(file_no,note_from,notes)
+          VALUES($1,$2,$3)`, [fileNo,req.user!.username,`Allocation → PRICING_REVIEW: ${note}`]);
+        await txQuery(client, `INSERT INTO crm.admin_audit_trail(username,action_type,description)
+          VALUES($1,'BT_ALLOCATED_P',$2)`, [req.user!.username,`Pricing handoff for ${fileNo}; original allocation retained. Notes: ${note}`]);
+        const [pricingWorkItem] = await txQuery<{ work_item_id: number }>(client,
+          `SELECT work_item_id FROM crm.business_work_items WHERE file_no=$1 AND queue_name='PRICING_REVIEW'`, [fileNo]);
+        return { file_status: "BENEFIT VERIFICATION", queue_name: "PRICING_REVIEW",
+          team_name: "Pricing", work_item_id: pricingWorkItem?.work_item_id };
+      }
+      if (file.benefit_verified !== "YES") throw new Error("BENEFIT_NOT_VERIFIED");
 
       if (isCashier && ["N", "R"].includes(file.business_type)) {
         const [amlStatus] = await txQuery<{ uploaded: boolean }>(
@@ -1670,6 +1699,14 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
     }
     if (err instanceof Error && err.message === "BENEFIT_NOT_VERIFIED") {
       res.status(409).json({ ok: false, error: "Benefit verification must be complete before an allocated-file action." });
+      return;
+    }
+    if (err instanceof Error && err.message === "PRICING_NOT_ELIGIBLE") {
+      res.status(409).json({ ok: false, error: "Pricing Review requires rate type C and Benefit Verified = NO." });
+      return;
+    }
+    if (err instanceof Error && err.message === "PRICING_RECIPIENT_REQUIRED") {
+      res.status(409).json({ ok: false, error: "Reallocate this file to a BPO Admin before sending it to Pricing Review." });
       return;
     }
     if (err instanceof Error && err.message === "AML_REQUIRED") {

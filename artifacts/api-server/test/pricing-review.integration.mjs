@@ -106,6 +106,13 @@ async function matrix(fileNo) {
   assert.equal(download.status, 200);
   assert.deepEqual(Buffer.from(await download.arrayBuffer()), bytes);
 }
+async function manualAllocation(label, clientType, tracker, recipient, rate = 'C', benefit = 'NO') {
+  const fileNo = await file(label, clientType, tracker, rate);
+  await pool.query(`UPDATE crm.business_tracking SET allocated=TRUE,allocated_to=$2,
+    file_status='ALLOCATED',benefit_verified=$3,allocate_dt=NOW(),updated_at=NOW() WHERE file_no=$1`,
+    [fileNo,recipient,benefit]);
+  return fileNo;
+}
 if (process.argv.includes('--edit-check')) {
   Object.assign(fixture, JSON.parse(await readFile(fixturePath, 'utf8')));
   try {
@@ -240,12 +247,52 @@ try {
   assert.equal((await api(`/medical-underwriting/files/${encodeURIComponent(med)}/review`, { action: 'F', comments: 'Medical cleared; verify corporate pricing',
     hpc: false, lateral_movement: false, allocated_to: membership, expected_updated_at: detail.file.updated_at }, 'medical')).status, 200);
   assert((await api('/pricing-review')).body.data.some(row => row.file_no === med));
+  const options = await api('/business/allocated/action-options',undefined,'recipient');
+  assert(options.body.data.some(row => row.code === 'P' && row.label === 'Pricing Review'));
+  const destination = await api('/business/allocation-destinations?action=P',undefined,'recipient');
+  assert.equal(destination.body.data.queue_name,'PRICING_REVIEW');
+  assert.equal(destination.body.data.needs_assignee,false);
+  for (const clientType of ['R','C','S']) {
+    const fileNo = await manualAllocation(`MANUAL_${clientType}`,clientType,tracker,recipient);
+    const endpoint = `/business/${encodeURIComponent(fileNo)}/allocation-action`;
+    const input = {action:'P',comments:'Custom-rate business needs Pricing and benefit verification'};
+    assert.equal((await api(endpoint,input,'otherRecipient')).status,403);
+    assert.equal((await api(endpoint,{action:'MU',comments:'Unverified benefits must not bypass Pricing'},'recipient')).status,409);
+    assert.equal((await api(endpoint,{...input,comments:''},'recipient')).status,400);
+    const moved = await api(endpoint,input,'recipient');
+    assert.equal(moved.status,200,JSON.stringify(moved.body));
+    assert.equal(moved.body.data.queue_name,'PRICING_REVIEW');
+    assert.equal((await api(endpoint,input,'recipient')).status,409);
+    assert(!(await api('/mis/business/allocated',undefined,'recipient')).body.data.some(row=>row.file_no===fileNo));
+    assert((await api('/pricing-review')).body.data.some(row=>row.file_no===fileNo));
+    let manualDetail = (await api(filePath(fileNo))).body.data;
+    assert.equal(manualDetail.file.allocated_to,recipient);
+    assert.equal(manualDetail.file.benefit_verified,'NO');
+    assert(manualDetail.notes.some(row=>row.notes==='Original tracker note - retain'));
+    assert(manualDetail.notes.some(row=>row.notes.includes(input.comments)));
+    const approve = () => ({action:'YES',comments:'Pricing cleared; return to the original BPO Admin',expected_updated_at:manualDetail.file.updated_at});
+    assert.equal((await api(`${filePath(fileNo)}/review`,approve())).status,400);
+    await matrix(fileNo);
+    manualDetail = (await api(filePath(fileNo))).body.data;
+    assert.equal((await api(`${filePath(fileNo)}/review`,approve())).status,200);
+    const returned = (await api(`/mis/business/allocated/${encodeURIComponent(fileNo)}`,undefined,'recipient')).body.data;
+    assert.equal(returned.benefit_verified,'YES');
+    assert.equal(returned.allocated_to,recipient);
+    assert(returned.notes.some(row=>row.notes==='Original tracker note - retain'));
+  }
+  for (const [rate,benefit] of [['S','NO'],['C','YES']]) {
+    const fileNo = await manualAllocation(`INELIGIBLE_${rate}_${benefit}`,'C',tracker,recipient,rate,benefit);
+    assert.equal((await api(`/business/${encodeURIComponent(fileNo)}/allocation-action`,
+      {action:'P',comments:'Reject an ineligible Pricing handoff'},'recipient')).status,409);
+    assert(!(await api('/pricing-review')).body.data.some(row=>row.file_no===fileNo));
+  }
+  await manualAllocation('BROWSER_MANUAL','R',tracker,recipient);
   // Leave two fresh pending files for UI approval/return tests.
   for (const label of ['BROWSER_APPROVE', 'BROWSER_RETURN']) {
     const fileNo = await file(label, 'C', tracker, 'C');
     await allocate(fileNo, 'C', recipient);
   }
-  console.log('Pricing API checks passed: Custom Corporate/SME only, Standard bypass, Retail isolation, document upload/download, approval gate, original recipient, return-to-tracker, retained notes, authorization, and concurrent approval.');
+  console.log('Pricing checks passed: manual rate C/unverified handoff across client types, other actions blocked, ownership, duplicate rejection, matrix gate, approval to original allocation, Standard bypass, automatic Corporate/SME routing and retained notes.');
   if (process.argv.includes('--keep')) {
     await writeFile(fixturePath, JSON.stringify(fixture), { mode: 0o600 });
     console.log(`Isolated browser fixtures ready at ${fixturePath}; clean with --cleanup.`);

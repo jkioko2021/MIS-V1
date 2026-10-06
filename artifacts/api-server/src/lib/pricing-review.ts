@@ -5,7 +5,7 @@ import { MedicalError } from "./medical-underwriting";
 
 export const ratesMatrixRequirement = `LOWER(TRIM(r.req_name)) IN ('rates and benefit matrix','approved rates matrix')`;
 export const pricingJoin = `JOIN crm.business_work_items pw ON pw.file_no=b.file_no AND pw.queue_name='PRICING_REVIEW'`;
-export const pricingPending = `b.is_active AND NOT b.is_declined AND b.client_type IN ('C','S') AND b.rate_type='C'
+export const pricingPending = `b.is_active AND NOT b.is_declined AND b.rate_type='C'
   AND b.allocated AND b.file_status='BENEFIT VERIFICATION' AND COALESCE(b.benefit_verified,'NO')<>'YES'
   AND pw.work_status='OPEN'`;
 export async function requirePricingAccess(req: Request, res: Response, next: NextFunction) {

@@ -7,7 +7,13 @@ Only Corporate/SME business with rate type C (Custom) must be queued for Pricing
 
 **Why:** After initially requesting all corporates, the user explicitly corrected the scope: “correction only rate type C to flow to pricing”. This is the final instruction, superseding both the all-rate scope and the immediately withdrawn rate-type-S instruction.
 
-**How to apply:** Enforce the custom-rate gate for every allocation entry point, including BPO, direct assignments/general business edits and medical forwarding. Re-evaluate routing if an allocated file’s rate type changes. Preserve the intended recipient and saved notes when releasing Standard files incorrectly queued under the superseded rule. Pending custom-rate pricing is absent from Allocation Files; Retail retains its existing behavior.
+**How to apply:** Enforce the automatic Corporate/SME custom-rate gate for BPO, direct assignments/general business edits and medical forwarding. Re-evaluate routing if an allocated file’s rate type changes. Preserve the intended recipient and saved notes when releasing Standard files incorrectly queued under the superseded rule. Pending custom-rate pricing is absent from Allocation Files. Retail is not automatically queued, but supports the explicit manual handoff below.
+
+An allocated user may send rate C business with Benefit Verified NO to Pricing Review from Allocation Files, including Retail. Other unverified handoffs remain blocked.
+
+**Why:** The user specified: “if rate Type is C and benefit verified is No,then the user should be able to forward the business to Pricing for review”.
+
+**How to apply:** Preserve the original allocation recipient while Pricing is pending, remove the file from the actionable Allocation Files queue, and return it to that recipient only after normal Pricing approval. Keep notes, matrix validation, ownership checks and transactional handoff safeguards.
 
 Require an actual rates-matrix document for approval, not an unrelated upload. Keep the existing requirement master and append-only business-note history.
 

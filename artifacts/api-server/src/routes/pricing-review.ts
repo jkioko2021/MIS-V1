@@ -45,7 +45,7 @@ const matrixExists = async (fileNo: string) => {
 };
 async function visibleFile(fileNo: string) {
   const file = await queryOne(`SELECT b.*,(${pricingPending}) AS reviewable FROM crm.business_tracking b ${pricingJoin}
-    WHERE b.file_no=$1 AND b.is_active AND b.client_type IN ('C','S')`, [fileNo]);
+    WHERE b.file_no=$1 AND b.is_active`, [fileNo]);
   if (!file) throw new MedicalError(404, "Pricing file not found.");
   return file;
 }

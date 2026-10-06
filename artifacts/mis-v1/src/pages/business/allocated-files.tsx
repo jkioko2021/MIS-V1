@@ -179,6 +179,7 @@ function AllocatedFileSheet({
   } = useQuery({
     queryKey: ['allocated-business-action-options'],
     queryFn: () => misApi.businessAllocatedActionOptions(),
+    refetchInterval: 30_000,
   });
   const { data: amlStatusRes } = useQuery({
     queryKey: ['allocated-business-aml-status', fileNo],
@@ -199,14 +200,17 @@ function AllocatedFileSheet({
   const file = fileRes?.data as DetailedFile | undefined;
   const uploads = (uploadsRes?.data ?? []) as BusinessUpload[];
   const history = (historyRes?.data ?? []) as AuditEntry[];
-  const actionOptions = (actionOptionsRes?.data ?? []) as AllocatedFileActionOption[];
+  const pricingEligible = file?.rate_type === 'C' && file?.benefit_verified === 'NO';
+  const actionOptions = ((actionOptionsRes?.data ?? []) as AllocatedFileActionOption[])
+    .filter(option => option.code !== 'P' || pricingEligible);
   const amlStatus = amlStatusRes?.data as AllocatedFileAmlStatus | undefined;
   const amlRiskReasonSource = amlRiskReasonSourceRes?.data;
   const selectedAction = actionOptions.find(option => option.code === action);
   const invoiceRequired = selectedAction?.requires_invoice === true;
   const paymentRequired = selectedAction?.requires_payment_status === true;
   const destination = destinationRes?.data;
-  const canForward = file?.benefit_verified === 'YES';
+  const benefitsVerified = file?.benefit_verified === 'YES';
+  const canForward = benefitsVerified || (action === 'P' && pricingEligible);
   const notes = file?.notes ?? [];
   const docs = file?.docs ?? [];
   const selectedDocuments = docs.filter(doc => doc.is_selected);
@@ -245,6 +249,8 @@ function AllocatedFileSheet({
           queryKey: ['allocated-business-history', fileNo],
         }),
         queryClient.invalidateQueries({ queryKey: ['business'] }),
+        queryClient.invalidateQueries({ queryKey: ['pricing-review-list'] }),
+        queryClient.invalidateQueries({ queryKey: ['pricing-review-detail', fileNo] }),
       ]);
       onClose();
     },
@@ -329,6 +335,10 @@ function AllocatedFileSheet({
   });
 
   function submitAction(): void {
+    if (!canForward) {
+      toast({ title: 'Benefit verification required', description: 'Only eligible rate C business can be sent to Pricing before benefits are verified.', variant: 'destructive' });
+      return;
+    }
     if (!action) {
       toast({
         title: 'Action required',
@@ -730,9 +740,11 @@ function AllocatedFileSheet({
                     <SendHorizontal className="h-4 w-4" />
                     Forward allocation
                   </div>
-                  {!canForward && (
+                  {!benefitsVerified && (
                     <p className="mt-1 text-xs text-[#356c67]">
-                      Benefit verification must be complete before this file can be handed to another operational destination.
+                      {pricingEligible
+                        ? 'Benefits are not verified. Select Pricing Review to forward this rate C business for review. Other destinations remain blocked until benefits are verified.'
+                        : 'You may select an Action, but benefit verification must be complete before forwarding this file.'}
                     </p>
                   )}
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -748,7 +760,6 @@ function AllocatedFileSheet({
                             setAssignedTo('');
                           }}
                           disabled={
-                            !canForward ||
                             actionMutation.isPending ||
                             actionOptionsLoading ||
                             actionOptionsError

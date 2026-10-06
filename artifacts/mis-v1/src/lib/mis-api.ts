@@ -133,7 +133,7 @@ export interface BusinessReviewActionBody {
 }
 
 export interface AllocatedFileActionBody {
-  action: 'C' | 'CA' | 'MU' | 'CL' | 'IT' | 'RI' | 'RM';
+  action: 'C' | 'CA' | 'MU' | 'CL' | 'IT' | 'RI' | 'RM' | 'P';
   comments: string;
   invoice_no?: string;
   paid_status?: 'FULL-PAID' | 'PART-PAID' | 'NOT-PAID' | 'CR';

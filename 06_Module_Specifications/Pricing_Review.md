@@ -16,13 +16,14 @@ Observed defects and limits:
 
 ## Modern workflow
 
-**Final user-directed scope:** only rate type C (Custom) Corporate/SME allocations undergo Pricing Review before reaching Allocation Files. Rate type S (Standard) bypasses Pricing. There is no New/Renewal or medical-business-only restriction.
+**User-directed scope:** rate type C (Custom) Corporate/SME allocations automatically undergo Pricing Review before reaching Allocation Files. Rate type S (Standard) bypasses Pricing. Additionally, Allocation Files offers a manual Pricing Review handoff for rate C business with Benefit Verified NO, including Retail. There is no New/Renewal or medical-business-only restriction.
 
 Navigation: **Business Tracking → Pricing Review**, `/business/pricing`.
 
 Access: active Pricing staff, SuperAdmin and System Admin. The Pricing profile is available for administrators to assign; no existing employee is automatically reassigned.
 
 1. BPO allocation, direct allocation and Corporate/SME medical forwarding create or reopen a shared Pricing work item only for rate type C. Other rates proceed to Allocation Files without Pricing.
+   In Allocation Files, Action selection is enabled before verification. An eligible rate C/unverified file can select Pricing Review and Forward without invoice/payment requirements. Other destinations remain blocked until verification. The manual handoff checks the assigned user, locks the file, retains its original allocation recipient, appends a note/audit entry, and opens the shared Pricing queue atomically.
 2. The business remains allocated to its intended recipient but has status BENEFIT VERIFICATION, verification NO and a pricing handoff date. It is not visible or accessible through Allocation Files.
 3. Pricing staff inspect business details, existing notes and documents and upload the rates matrix against the existing `crm.business_req` master.
 4. **Approve benefits:** requires an active Rates and benefit Matrix/Approved rates matrix upload, comments and an active eligible allocation recipient. The Allocation Files recipient is automatically populated from the existing business assignment and cannot be changed in Pricing. Missing/ineligible assignments must be corrected through BPO allocation first. Approval saves the reviewer/time and comments atomically and releases ALLOCATED business to the existing assigned BPO Admin; no previous notes are removed.
@@ -30,7 +31,7 @@ Access: active Pricing staff, SuperAdmin and System Admin. The Pricing profile i
 
 Only active files awaiting an open Pricing work item can be mutated. Decisions lock the file/work item, compare the submitted update timestamp, and commit state, review history, notes, work-item changes and audit together. Repeated or stale approval returns a conflict without duplicate reviews.
 
-Custom-rate corporate benefit verification cannot be set through the general business-edit API to bypass Pricing. A new recipient/allocation restarts Pricing; an unchanged recipient does not discard an existing approval merely because unrelated details are edited. Changing an allocated file from S to C starts Pricing; changing from C to S releases allocation and cancels pending Pricing work. Retail retains its prior allocation rules.
+Custom-rate corporate benefit verification cannot be set through the general business-edit API to bypass Pricing. A new recipient/allocation restarts Pricing; an unchanged recipient does not discard an existing approval merely because unrelated details are edited. Changing an allocated Corporate/SME file from S to C starts Pricing; changing from C to S releases allocation and cancels pending Pricing work. Retail retains its prior automatic allocation rules and can enter Pricing through the explicit rate C/unverified handoff.
 
 The page supports queue search/pagination, periodic queue refresh, history and protected downloads. Uploads are limited to 10 MB and validated against both the active matrix requirement and stored object size. Saved notes have no delete operation; corrections append new notes.
 
