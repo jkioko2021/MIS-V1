@@ -541,9 +541,9 @@ router.post("/business/register", async (req: Request, res: Response) => {
            client_sub_type
          ) VALUES (
            $1,$2,$3,CURRENT_DATE,
-           'REGISTERED',$4,$5,$6,
+           'REGISTERED',$4,$5::varchar,$6,
            $7,$8,$9,$10,
-           $11,'NO',FALSE,
+           $11::varchar,CASE WHEN $5::varchar='R' OR $11::varchar='S' THEN 'YES' ELSE 'NO' END,FALSE,
            FALSE,FALSE,FALSE,FALSE,FALSE,
            TRUE,FALSE,
            $12,$13,$14,
@@ -680,7 +680,7 @@ router.put("/business/:fileNo", requireBusinessFileAccess, async (req: Request, 
         rate_type || "S",
         !!is_mtiba, !!is_ipf,
         allocated_to || null, !!medical_uw,
-        benefit_verified || "NO", !!invoiced,
+        benefit_verified || (exists.client_type === "R" || (rate_type || "S") === "S" ? "YES" : "NO"), !!invoiced,
          exists.client_type !== "R" ? exists.client_type : null,
         fileNo,
       ]
@@ -1370,7 +1370,7 @@ router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (re
               benefit_verified=CASE
                 WHEN $7 THEN 'NO'
                 WHEN $6 THEN 'YES'
-                WHEN $4 AND client_type IN ('C','S') AND rate_type IS DISTINCT FROM 'C' THEN 'YES'
+                WHEN $4 AND (client_type='R' OR rate_type='S') THEN 'YES'
                 ELSE benefit_verified
               END,
               to_pricing_dt=CASE WHEN $7 THEN NOW() ELSE to_pricing_dt END,

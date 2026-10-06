@@ -9,7 +9,13 @@ Only Corporate/SME business with rate type C (Custom) must be queued for Pricing
 
 **How to apply:** Enforce the automatic Corporate/SME custom-rate gate for BPO, direct assignments/general business edits and medical forwarding. Re-evaluate routing if an allocated file’s rate type changes. Preserve the intended recipient and saved notes when releasing Standard files incorrectly queued under the superseded rule. Pending custom-rate pricing is absent from Allocation Files. Retail is not automatically queued, but supports the explicit manual handoff below.
 
-An allocated user may send rate C business with Benefit Verified NO to Pricing Review from Allocation Files, including Retail. Other unverified handoffs remain blocked.
+Benefit Verified defaults to YES for all Retail business (including custom rates) and all Standard rate S business. Corporate/SME custom-rate business defaults to NO pending Pricing.
+
+**Why:** The user requested all Retail defaults YES, then Standard rates YES, and explicitly confirmed Retail custom-rate C should also default YES.
+
+**How to apply:** Keep the same default in registration, forms, allocation and database inserts. Do not fabricate a staff approval or remove saved notes. Explicitly marked NO remains a deliberate review state, not the default.
+
+An allocated user may send rate C business explicitly marked Benefit Verified NO to Pricing Review from Allocation Files, including Retail. Other unverified handoffs remain blocked.
 
 **Why:** The user specified: “if rate Type is C and benefit verified is No,then the user should be able to forward the business to Pricing for review”.
 

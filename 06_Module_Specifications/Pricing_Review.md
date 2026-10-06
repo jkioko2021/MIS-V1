@@ -20,6 +20,8 @@ Observed defects and limits:
 
 Navigation: **Business Tracking → Pricing Review**, `/business/pricing`.
 
+Benefit Verified defaults to YES for all Retail business regardless of rate type and all Standard rate S business. Corporate/SME custom-rate C business defaults to NO. Existing active Retail/Standard records receive this default without fabricating a Pricing approval or removing notes; existing pending Pricing files covered by the new default return to their saved allocation recipient. An explicitly entered NO remains available for an intentional review.
+
 Access: active Pricing staff, SuperAdmin and System Admin. The Pricing profile is available for administrators to assign; no existing employee is automatically reassigned.
 
 1. BPO allocation, direct allocation and Corporate/SME medical forwarding create or reopen a shared Pricing work item only for rate type C. Other rates proceed to Allocation Files without Pricing.

@@ -69,13 +69,13 @@ async function api(path, body, label = 'pricing', method) {
   return { status: response.status, body: await response.json() };
 }
 const filePath = fileNo => `/pricing-review/files/${encodeURIComponent(fileNo)}`;
-async function file(label, clientType, tracker, rateType = 'S') {
+async function file(label, clientType, tracker, rateType = 'S', benefit = 'NO') {
   const fileNo = `${prefix}_${label}`;
   fixture.files.push(fileNo);
   await pool.query(`INSERT INTO crm.business_tracking(file_no,proposer_name,business_type,client_type,
     business,rate_type,entered_by,file_status,forwarded,ready_for_update,premium,benefit_verified)
-    VALUES($1,$2,'N',$3,'M',$4,$5,'FORWARDED',TRUE,TRUE,10000,'NO')`,
-  [fileNo, `Pricing Test ${label}`, clientType, rateType, tracker]);
+    VALUES($1,$2,'N',$3,'M',$4,$5,'FORWARDED',TRUE,TRUE,10000,$6)`,
+  [fileNo, `Pricing Test ${label}`, clientType, rateType, tracker, benefit]);
   await pool.query(`INSERT INTO crm.business_work_items(file_no,queue_name,forwarded_by)
     VALUES($1,$2,$3)`, [fileNo, clientType === 'R' ? 'BPO_REVIEW_RETAIL' : 'BPO_REVIEW_CORPORATE_SME', tracker]);
   await pool.query(`INSERT INTO crm.business_tracking_notes(file_no,note_from,notes) VALUES($1,$2,'Original tracker note - retain')`, [fileNo, tracker]);
@@ -156,6 +156,24 @@ try {
   const membership = await employee('membership', 4);
   assert.equal((await api('/pricing-review', undefined, null)).status, 401);
   assert.equal((await api('/pricing-review', undefined, 'outsider')).status, 403);
+  for (const clientType of ['R','C','S']) for (const rateType of ['S','C']) {
+    const expected = clientType === 'R' || rateType === 'S' ? 'YES' : 'NO';
+    const dbFile = await file(`DEF_${clientType}_${rateType}_RAW`,clientType,tracker,rateType,null);
+    const row = (await pool.query('SELECT benefit_verified FROM crm.business_tracking WHERE file_no=$1',[dbFile])).rows[0];
+    assert.equal(row.benefit_verified,expected);
+    const created = await api('/business/register',{
+      client_type:clientType,rate_type:rateType,proposer_name:`${prefix} Default ${clientType} ${rateType}`,
+      business_type:'N',business:'M',agent_id:'PRICING_TEST',walk_in_client:'N',
+      nid:'12345678',pin_no:'A123456789B',
+      cr12_ref:prefix,county_code:'001',corp_category:'Private',sector:'FINANCE',
+    },'tracker');
+    assert.equal(created.status,201,JSON.stringify(created.body));
+    const createdFile = created.body.data.file_no;
+    fixture.files.push(createdFile);
+    const registered = (await pool.query('SELECT benefit_verified,entered_by FROM crm.business_tracking WHERE file_no=$1',[createdFile])).rows[0];
+    assert.equal(registered.entered_by,tracker);
+    assert.equal(registered.benefit_verified,expected);
+  }
   for (const clientType of ['C', 'S']) for (const rateType of ['S', 'C']) {
     const fileNo = await file(`${clientType}_${rateType}`, clientType, tracker, rateType);
     const result = await allocate(fileNo, clientType, recipient);
@@ -176,6 +194,7 @@ try {
   }
   const retail = await file('RETAIL', 'R', tracker);
   assert.equal((await allocate(retail, 'R', recipient)).allocation_route, 'STANDARD_ALLOCATION');
+  assert.equal((await api(`/mis/business/allocated/${encodeURIComponent(retail)}`,undefined,'recipient')).body.data.benefit_verified,'YES');
   assert(!(await api('/pricing-review')).body.data.some(row => row.file_no === retail));
   const approved = fixture.files.find(file => file.endsWith('_C_C'));
   let detail = (await api(filePath(approved))).body.data;

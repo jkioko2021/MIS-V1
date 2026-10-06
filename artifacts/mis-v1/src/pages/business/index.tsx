@@ -167,7 +167,7 @@ function blankForm(clientType: TrackingClientType = 'R'): FormState {
     cr12: false, cr12_ref: '', corp_category: '', sector: '', client_sub_type: clientType === 'R' ? '' : clientType,
     agent_id: '', county_code: '', gi_category: '', rate_type: 'S',
     pay_ref_no: '', paid_amt: '', pay_mode: '',
-    allocated_to: '', medical_uw: false, benefit_verified: 'NO', invoiced: false,
+    allocated_to: '', medical_uw: false, benefit_verified: 'YES', invoiced: false,
   };
 }
 
@@ -191,7 +191,7 @@ function fileToForm(f: BusinessFile): FormState {
     pay_ref_no: f.pay_ref_no ?? '', paid_amt: f.paid_amt != null ? String(f.paid_amt) : '',
     pay_mode: f.pay_mode === 'CHEQUE' ? 'CHEQ' : (f.pay_mode ?? ''),
     allocated_to: f.allocated_to ?? '', medical_uw: !!f.medical_uw,
-    benefit_verified: (f.benefit_verified ?? 'NO') as 'YES' | 'NO', invoiced: !!f.invoiced,
+    benefit_verified: (f.benefit_verified ?? (f.client_type === 'R' || f.rate_type === 'S' ? 'YES' : 'NO')) as 'YES' | 'NO', invoiced: !!f.invoiced,
   };
 }
 
@@ -394,13 +394,19 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
   const notes: BusinessNote[] = existingFile?.notes ?? [];
 
   function set<K extends keyof FormState>(k: K, v: FormState[K]) {
-    setForm(f => ({ ...f, [k]: v }));
+    setForm(f => ({
+      ...f, [k]: v,
+      ...(k === 'rate_type' && v !== f.rate_type
+        ? { benefit_verified: f.client_type === 'R' || v === 'S' ? 'YES' : 'NO' }
+        : {}),
+    }));
   }
 
   function setClientType(clientType: TrackingClientType) {
     setForm(current => ({
       ...current,
       client_type: clientType,
+      benefit_verified: clientType === 'R' || current.rate_type === 'S' ? 'YES' : 'NO',
       ...(clientType === 'R'
         ? {
             cr12: false,

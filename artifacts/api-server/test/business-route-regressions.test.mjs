@@ -322,7 +322,7 @@ class BusinessRouteState {
           : this.file.allocate_dt;
       this.file.benefit_verified = params[6]
         ? "NO"
-        : params[5] || (params[3] && ["C", "S"].includes(this.file.client_type) && this.file.rate_type !== "C")
+        : params[5] || (params[3] && (this.file.client_type === "R" || this.file.rate_type === "S"))
           ? "YES"
           : this.file.benefit_verified;
       if (params[6]) this.file.to_pricing_dt = "2026-08-25T00:00:00.000Z";
