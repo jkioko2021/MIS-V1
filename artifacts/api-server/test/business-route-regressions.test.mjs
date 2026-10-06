@@ -283,6 +283,15 @@ class BusinessRouteState {
     if (statement.startsWith("SELECT file_status FROM crm.business_tracking")) {
       return this.file ? [{ file_status: this.file.file_status }] : [];
     }
+    if (statement.startsWith("INSERT INTO crm.business_work_items") && statement.includes("'MEDICAL_UNDERWRITING'")) {
+      let workItem = this.workItems.find(item => item.file_no === params[0] && item.queue_name === "MEDICAL_UNDERWRITING");
+      if (!workItem) {
+        workItem = { work_item_id: this.workItems.length + 100, file_no: params[0], queue_name: "MEDICAL_UNDERWRITING" };
+        this.workItems.push(workItem);
+      }
+      Object.assign(workItem, { work_status: "OPEN", assigned_to: null, assigned_by: params[1], forwarded_by: params[1] });
+      return [];
+    }
     if (statement.startsWith("INSERT INTO crm.business_work_items")) {
       const workStatus = statement.includes("VALUES ($1, $2, 'OPEN'") ? "OPEN" : params[2];
       let workItem = this.workItems.find((item) => item.file_no === params[0] && item.queue_name === params[1]);
@@ -317,7 +326,8 @@ class BusinessRouteState {
           : this.file.benefit_verified;
       if (params[6]) this.file.to_pricing_dt = "2026-08-25T00:00:00.000Z";
       this.file.is_complete = params[2] ? false : this.file.is_complete;
-      this.file.ready_for_update = params[2] || params[7] ? false : true;
+      this.file.ready_for_update = params[2] || params[7] || params[9] ? false : true;
+      if (params[9]) this.file.medical_uw = true;
       return [{ to_pricing_dt: this.file.to_pricing_dt }];
     }
     if (statement.startsWith("UPDATE crm.business_tracking SET file_status=$1,") && statement.includes("invoice_no=CASE WHEN")) {
@@ -584,6 +594,32 @@ test("a corporate file cannot be reviewed through the Retail queue", async () =>
   assert.equal(state.workItems[0].work_status, "OPEN");
   assert.equal(state.notes.length, 0);
   assert.equal(state.audits.length, 0);
+});
+
+test("BPO Medical UW decisions open one shared medical work item for Retail, Corporate and SME", async () => {
+  for (const clientType of ["R", "C", "S"]) {
+    const state = new BusinessRouteState({ clientType, fileStatus: "FORWARDED", forwarded: true });
+    seedOpenWorkItem(state, 42);
+    state.workItems.push({
+      work_item_id: 43, file_no: state.file.file_no, queue_name: "MEDICAL_UNDERWRITING",
+      work_status: "COMPLETED", assigned_to: "old-reviewer",
+    });
+    const result = await withServer(state, request => request("POST", `${fileEndpoint(state.file.file_no)}/review-action`, {
+      action: "MU", product: "T", comments: "Medical review needed",
+      queue_name: clientType === "R" ? "BPO_REVIEW_RETAIL" : "BPO_REVIEW_CORPORATE_SME",
+    }));
+    assert.equal(result.status, 200);
+    assert.equal(state.file.file_status, "MEDICAL UW-REVIEW");
+    assert.equal(state.file.medical_uw, true);
+    assert.equal(state.file.ready_for_update, false);
+    assert.equal(state.workItems.find(item => item.work_item_id === 42).work_status, "COMPLETED");
+    const medical = state.workItems.filter(item => item.queue_name === "MEDICAL_UNDERWRITING");
+    assert.equal(medical.length, 1);
+    assert.equal(medical[0].work_status, "OPEN");
+    assert.equal(medical[0].assigned_to, null);
+    assert.equal(state.notes.length, 1);
+    assert.equal(state.audits.length, 1);
+  }
 });
 
 test("Retail Hold completes the Retail work item with the matching file status", async () => {

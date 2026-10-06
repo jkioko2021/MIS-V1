@@ -91,6 +91,29 @@ try {
   const other = await employee('other', 5);
   await employee('outsider', 3);
   const membership = await employee('membership', 4);
+  await employee('bpo', 12);
+  for (const clientType of ['R', 'C', 'S']) {
+    const fileNo = await file(`BPO_${clientType}`, other);
+    const queue = clientType === 'R' ? 'BPO_REVIEW_RETAIL' : 'BPO_REVIEW_CORPORATE_SME';
+    await pool.query(`UPDATE crm.business_tracking SET client_type=$2,file_status='FORWARDED',
+      medical_uw=FALSE,ready_for_update=FALSE WHERE file_no=$1`, [fileNo, clientType]);
+    await pool.query(`UPDATE crm.business_work_items SET work_status='COMPLETED' WHERE file_no=$1`, [fileNo]);
+    await pool.query(`INSERT INTO crm.business_work_items(file_no,queue_name,work_status,forwarded_by)
+      VALUES($1,$2,'OPEN',$3)`, [fileNo, queue, fixture.users[0]]);
+    const response = await fetch(`http://localhost:8080/api/business/${encodeURIComponent(fileNo)}/review-action`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: `mis_session=${fixture.cookies.bpo}` },
+      body: JSON.stringify({ action: 'MU', product: 'T', comments: 'Medical review needed', queue_name: queue }),
+    });
+    assert.equal(response.status, 200, `BPO Medical UW ${clientType}`);
+    const inbox = (await api(`?search=${fileNo}`)).body.data;
+    assert(inbox.some(row => row.file_no === fileNo && row.reviewable));
+    assert.equal((await api(`/files/${fileNo}`)).status, 200);
+    const { rows: work } = await pool.query(`SELECT queue_name,work_status,assigned_to FROM crm.business_work_items WHERE file_no=$1`, [fileNo]);
+    assert.equal(work.find(row => row.queue_name === queue).work_status, 'COMPLETED');
+    assert.equal(work.find(row => row.queue_name === 'MEDICAL_UNDERWRITING').work_status, 'OPEN');
+    assert.equal(work.find(row => row.queue_name === 'MEDICAL_UNDERWRITING').assigned_to, null);
+  }
+  console.log('BPO Medical UW handoffs confirmed in the medical inbox for Retail, Corporate and SME.');
   const held = await file('HOLD', reviewer);
   const hidden = await file('OTHER', other);
   const legacy = await file('LEGACY', null, true);

@@ -34,3 +34,11 @@ Every open BPO work item must have the original business file in `FORWARDED` sta
 **Why:** BPO review is a handoff state, not a downstream processing state. Showing allocated, medical-review, cashier, or other final statuses inside an open review queue makes the queue ambiguous and breaks its operational meaning.
 
 **How to apply:** Set `FORWARDED` whenever opening or reopening BPO work, require `FORWARDED` when listing open BPO work, and normalize historic open records during migrations. Keep action-specific statuses on the completed side of the workflow.
+
+## Medical-underwriting handoff
+
+Selecting Medical UW in either BPO Review queue and submitting the decision must move the original business to Medical Underwriting Review, not merely change its displayed status.
+
+**Why:** The user explicitly requires BPO Medical UW decisions to make the business available to medical underwriters for review.
+
+**How to apply:** Complete BPO work and open or reopen the medical work item in the same transaction. BPO handoffs enter the shared medical inbox; do not retain an old medical assignee when reopening a returned file.

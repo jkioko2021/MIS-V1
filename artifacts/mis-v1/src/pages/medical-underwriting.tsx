@@ -75,6 +75,7 @@ export default function MedicalUnderwritingPage() {
     queryFn: () => medicalApi.list(queue, normalizedSearch, page),
     enabled: access,
     staleTime: 15_000,
+    refetchInterval: 15_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });

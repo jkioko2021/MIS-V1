@@ -1315,7 +1315,8 @@ router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (re
               END,
               to_pricing_dt=CASE WHEN $7 THEN NOW() ELSE to_pricing_dt END,
               is_complete=CASE WHEN $3 THEN FALSE ELSE is_complete END,
-              ready_for_update=CASE WHEN $3 OR $8 THEN FALSE ELSE TRUE END,
+              ready_for_update=CASE WHEN $3 OR $8 OR $10 THEN FALSE ELSE TRUE END,
+              medical_uw=CASE WHEN $10 THEN TRUE ELSE medical_uw END,
              updated_at=NOW()
           WHERE file_no=$9
             AND is_active=TRUE
@@ -1330,6 +1331,7 @@ router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (re
            isCorporatePricingHandoff,
            requestedAction === "HO",
            fileNo,
+           requestedAction === "MU",
          ],
       );
 
@@ -1340,6 +1342,22 @@ router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (re
          WHERE work_item_id=$1`,
         [workItem.work_item_id],
       );
+
+      if (requestedAction === "MU") {
+        // BPO sends to the shared medical inbox; personal assignment happens
+        // during medical review. Reopen the existing item on repeat handoffs.
+        await txQuery(
+          client,
+          `INSERT INTO crm.business_work_items
+             (file_no, queue_name, work_status, assigned_to, assigned_by, forwarded_by, forwarded_at)
+           VALUES ($1, 'MEDICAL_UNDERWRITING', 'OPEN', NULL, $2, $2, NOW())
+           ON CONFLICT (file_no, queue_name) DO UPDATE
+             SET work_status='OPEN', assigned_to=NULL,
+                 assigned_by=EXCLUDED.assigned_by, forwarded_by=EXCLUDED.forwarded_by,
+                 forwarded_at=NOW(), updated_at=NOW()`,
+          [fileNo, req.user!.username],
+        );
+      }
 
       const target = allocatedTo ? `; forwarded to ${allocatedTo}` : "";
       const noteText = `${queueName} ${requestedAction} · ${productLabel[selectedProduct]}${target}: ${note}`;
