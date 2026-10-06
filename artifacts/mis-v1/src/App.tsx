@@ -14,6 +14,8 @@ import UsersPage from '@/pages/admin/users';
 import ProfilesPage from '@/pages/admin/profiles';
 import BusinessRequirementsPage from '@/pages/admin/business-requirements';
 import MedicalUnderwritingPage from '@/pages/medical-underwriting';
+import CashierPage from '@/pages/cashier';
+import NotificationsPage from '@/pages/notifications';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import {
   Route,
@@ -24,7 +26,7 @@ import {
   Redirect,
 } from 'wouter';
 import {
-  Home, FileText, Shield, Database,
+  Home, FileText, Shield, Database, Bell, Banknote,
   ChevronRight, LogOut, User, Users, Settings, SlidersHorizontal,
   type LucideIcon,
 } from 'lucide-react';
@@ -48,6 +50,7 @@ const NAV_SECTIONS: Array<{
   label: string | null;
   adminOnly?: boolean;
   medicalOnly?: boolean;
+  cashierOnly?: boolean;
   items: NavItem[];
 }> = [
   {
@@ -67,6 +70,14 @@ const NAV_SECTIONS: Array<{
       },
       { href: '/risk',      label: 'Risk Register',     icon: Shield },
       { href: '/discovery', label: 'DB Discovery',      icon: Database },
+      { href: '/notifications', label: 'Notifications', icon: Bell },
+    ],
+  },
+  {
+    label: 'Cashier',
+    cashierOnly: true,
+    items: [
+      { href: '/cashier', label: 'Cashier Review', icon: Banknote },
     ],
   },
   {
@@ -101,6 +112,8 @@ function Sidebar() {
   // Show admin section only for profile 1 (SuperAdmin) or 2 (System Admin)
   const isAdmin = user && (user.profileId === 1 || user.profileId === 2);
   const canSeeMedical = isAdmin || user?.profileId === 5 || user?.profileName?.trim().toLowerCase() === 'medical uw';
+  const canSeeCashier = isAdmin || user?.profileId === 6
+    || ['finance', 'cashier'].includes(user?.profileName?.trim().toLowerCase() ?? '');
   const isBpoDepartment = (user?.department ?? '').trim().toUpperCase() === 'BPO';
   const canSeeAllocatedFiles = user && [
     'superadmin',
@@ -129,6 +142,7 @@ function Sidebar() {
         {NAV_SECTIONS.map((section, si) => {
           if (section.adminOnly && !isAdmin) return null;
           if (section.medicalOnly && !canSeeMedical) return null;
+          if (section.cashierOnly && !canSeeCashier) return null;
           return (
             <div key={si} className="space-y-0.5">
               {section.label && (
@@ -264,6 +278,8 @@ function ProtectedRouter() {
           </Route>
           <Route path="/risk"             component={RiskRegisterPage} />
           <Route path="/medical-underwriting" component={MedicalUnderwritingPage} />
+          <Route path="/cashier" component={CashierPage} />
+          <Route path="/notifications" component={NotificationsPage} />
           <Route path="/discovery"        component={DiscoveryPage} />
           <Route path="/admin/users"      component={UsersPage} />
           <Route path="/admin/profiles"   component={ProfilesPage} />

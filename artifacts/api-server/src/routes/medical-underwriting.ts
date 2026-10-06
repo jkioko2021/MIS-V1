@@ -6,6 +6,7 @@ import { query, txQuery, withTransaction } from "../lib/postgres";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { MedicalError, medicalFile, medicalFailure, requireMedicalAccess, assertReviewable, medJoin, medPending, medOwner } from "../lib/medical-underwriting";
 import { safeUploadFilename, uploadDocumentValidation } from "./business";
+import { queueMedicalNotification } from "../lib/business-notifications";
 
 const router = Router();
 router.use("/medical-underwriting", requireAuth, requireMedicalAccess);
@@ -45,11 +46,14 @@ const fileNoOf = (value: string | string[]) => Array.isArray(value) ? value[0]! 
 router.get("/medical-underwriting", async (req, res) => {
   try {
     const queue = req.query.queue ?? "pending";
-    if (!["pending", "reverted"].includes(String(queue))) throw new MedicalError(400, "Choose a valid queue.");
+    if (!["pending", "hold", "declined", "reverted"].includes(String(queue))) throw new MedicalError(400, "Choose a valid queue.");
     const search = typeof req.query.search === "string" ? req.query.search.trim().slice(0, 100) : "";
     const page = Math.max(1, Math.min(100000, Number(req.query.page) || 1));
     if (!Number.isInteger(page)) throw new MedicalError(400, "Page must be a whole number.");
-    const predicate = queue === "reverted" ? "b.mu_revert=TRUE" : `NOT b.is_declined AND ${medPending}`;
+    const predicate = queue === "reverted" ? "b.mu_revert=TRUE"
+      : queue === "declined" ? "b.medical_uw AND b.is_declined AND b.file_status='DECLINED'"
+      : queue === "hold" ? `NOT b.is_declined AND b.file_status='ON HOLD' AND ${medPending}`
+      : `NOT b.is_declined AND b.file_status<>'ON HOLD' AND ${medPending}`;
     const filter = `b.is_active AND ${predicate} AND ${medOwner}
       AND (b.file_no ILIKE $3 OR b.proposer_name ILIKE $3 OR COALESCE(b.family_code,'') ILIKE $3)`;
     const params = [res.locals.medUsername, res.locals.medAdmin, `%${search}%`];
@@ -135,14 +139,17 @@ router.post("/medical-underwriting/files/:fileNo/review", async (req, res) => {
         paid_status=CASE WHEN $5='C' THEN $8 ELSE paid_status END,
         paid=CASE WHEN $5='C' THEN $8 IN ('FULL','PART') ELSE paid END,updated_at=NOW() WHERE file_no=$1`,
       [fileNo, status, input.hpc, input.lateral_movement, input.action, input.action === "F" ? assignee : null, input.invoice_no, input.paid_status]);
-      await txQuery(client, `INSERT INTO crm.medical_underwriting_reviews
+      const [review] = await txQuery<{ review_id: number }>(client, `INSERT INTO crm.medical_underwriting_reviews
         (file_no,action,comments,hpc,lateral_movement,destination,invoice_no,paid_status,reviewed_by)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING review_id`,
       [fileNo, input.action, input.comments, input.hpc, input.lateral_movement, assignee ?? queue ?? status, input.invoice_no || null, input.paid_status || null, actor]);
       await txQuery(client, `INSERT INTO crm.business_tracking_notes(file_no,note_from,notes) VALUES($1,$2,$3)`, [fileNo, actor, input.comments]);
       await txQuery(client, `INSERT INTO crm.admin_audit_trail(username,action_type,description) VALUES($1,'MEDICAL_UW_REVIEW',$2)`,
         [actor, `${fileNo}: ${input.action} → ${status}. ${input.comments}`]);
-      return { file_status: status };
+      const notification = input.action === "RI" || input.action === "D"
+        ? await queueMedicalNotification(client, fileNo, review!.review_id, file.entered_by, input.action, input.comments)
+        : undefined;
+      return { file_status: status, notification };
     });
     res.json({ ok: true, data: result });
   } catch (err) { medicalFailure(res, err); }
@@ -155,7 +162,8 @@ router.post("/medical-underwriting/files/:fileNo/hpc", async (req, res) => {
     const fileNo = fileNoOf(req.params.fileNo);
     const actor = res.locals.medUsername as string;
     const result = await withTransaction(async client => {
-      await medicalFile(fileNo, actor, res.locals.medAdmin, client);
+      const file = await medicalFile(fileNo, actor, res.locals.medAdmin, client);
+      if (file.is_declined && !file.mu_revert) throw new MedicalError(409, "This declined file is read-only.");
       const [record] = await txQuery(client, `INSERT INTO crm.medical_hpc_registrations
         (file_no,member_no,member_name,proposer_name,client_type,condition,disease_code,diagnosed_date,mobile,email,source,followup_date,notes,registered_by)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING hpc_id`,

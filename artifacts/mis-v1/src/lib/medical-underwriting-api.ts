@@ -12,6 +12,10 @@ export type MedicalReviewInput = {
   hpc: boolean; lateral_movement: boolean; expected_updated_at: string;
   allocated_to?: string; invoice_no?: string; paid_status?: string;
 };
+export type MedicalReviewResult = {
+  file_status: string;
+  notification?: { email_status: string };
+};
 export type HpcInput = {
   member_no: string; member_name: string; proposer_name: string; client_type: 'R' | 'C';
   condition: string; disease_code?: string; diagnosed_date?: string;
@@ -44,11 +48,11 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
 }
 const filePath = (fileNo: string) => `/files/${encodeURIComponent(fileNo)}`;
 export const medicalApi = {
-  list: (queue: 'pending' | 'reverted', search = '', page = 1) =>
+  list: (queue: 'pending' | 'hold' | 'declined' | 'reverted', search = '', page = 1) =>
     request<Envelope<MedicalFile[]> & { total: number; page: number; pageSize: number }>(`?${new URLSearchParams({ queue, search, page: String(page) })}`),
   detail: (fileNo: string) => request<Envelope<MedicalDetail>>(filePath(fileNo)),
   recipients: () => request<Envelope<{ username: string; fullname: string }[]>>('/recipients'),
-  review: (fileNo: string, input: MedicalReviewInput) => request<Envelope<{ file_status: string }>>(`${filePath(fileNo)}/review`, input),
+  review: (fileNo: string, input: MedicalReviewInput) => request<Envelope<MedicalReviewResult>>(`${filePath(fileNo)}/review`, input),
   saveHpc: (fileNo: string, input: HpcInput) => request<Envelope<{ hpc_id: number }>>(`${filePath(fileNo)}/hpc`, input),
   upload: (fileNo: string, input: MedicalUploadInput) => request<Envelope<{ upload_id: number }>>(`${filePath(fileNo)}/uploads`, input),
   downloadUrl: (fileNo: string, uploadId: number) => `${base}${filePath(fileNo)}/uploads/${uploadId}/download`,

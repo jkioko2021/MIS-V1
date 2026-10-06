@@ -13,11 +13,11 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { medicalApi, type MedicalFile, type MedicalReviewInput } from '@/lib/medical-underwriting-api';
+import { medicalApi, type MedicalFile, type MedicalReviewInput, type MedicalReviewResult } from '@/lib/medical-underwriting-api';
 import { MedicalFileDetail } from './medical-underwriting/file-detail';
 import { errorText, isForbidden, QueueRow } from './medical-underwriting/shared';
 
-type Queue = 'pending' | 'reverted';
+type Queue = 'pending' | 'hold' | 'declined' | 'reverted';
 type Envelope<T> = { ok: boolean; data: T; error?: string };
 type QueueResult = Envelope<MedicalFile[]> & { total: number; page: number; pageSize: number };
 const PAGE_SIZE_FALLBACK = 25;
@@ -94,7 +94,22 @@ export default function MedicalUnderwritingPage() {
     setSelectedFile('');
     setQueueNotice('');
   };
-  const closeAfterReview = (_action: MedicalReviewInput['action']) => setSelectedFile('');
+  const closeAfterReview = (_action: MedicalReviewInput['action'], result: MedicalReviewResult) => {
+    setSelectedFile('');
+    const emailState = result.notification?.email_status;
+    const delivery = emailState === 'SENT'
+      ? ' Email notification sent.'
+      : emailState === 'WAITING_CONFIGURATION'
+        ? ' Email notification is waiting for mail configuration; it has not been sent.'
+        : emailState === 'PENDING'
+          ? ' Email notification is queued and has not yet been confirmed as sent.'
+          : emailState === 'RETRY'
+            ? ' Email notification needs retry; delivery is not confirmed.'
+            : emailState === 'NO_RECIPIENT'
+              ? ' No notification recipient was available, so no email was sent.'
+              : '';
+    setQueueNotice(`Review recorded. File status remains ${result.file_status}.${delivery}`);
+  };
   const closeAfterCompletedHpc = () => {
     setSelectedFile('');
     setQueueNotice('HPC registration saved. This completed file no longer needs medical review.');
@@ -127,7 +142,7 @@ export default function MedicalUnderwritingPage() {
                 <button type="button" onClick={() => queueQuery.refetch()} disabled={queueQuery.isFetching} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#68817a] hover:bg-[#edf4f0] disabled:opacity-50" aria-label="Refresh queue" data-testid="button-refresh-medical-queue"><RefreshCw size={14} className={queueQuery.isFetching ? 'animate-spin' : ''} /></button>
               </div>
               <div className="mt-3 grid grid-cols-2 rounded-lg bg-[#edf3ef] p-1">
-                {(['pending', 'reverted'] as Queue[]).map(item => <button type="button" key={item} onClick={() => changeQueue(item)} className={`rounded-md px-2 py-2 text-xs font-semibold transition ${queue === item ? 'bg-[#fbfdfb] text-[#285a52] shadow-sm' : 'text-[#7b8c86] hover:text-[#47665e]'}`} data-testid={`tab-medical-${item}`}>{item === 'pending' ? 'Pending review' : 'Reverted / HPC'}</button>)}
+                {(['pending', 'hold', 'declined', 'reverted'] as Queue[]).map(item => <button type="button" key={item} onClick={() => changeQueue(item)} className={`rounded-md px-2 py-2 text-xs font-semibold transition ${queue === item ? 'bg-[#fbfdfb] text-[#285a52] shadow-sm' : 'text-[#7b8c86] hover:text-[#47665e]'}`} data-testid={`tab-medical-${item}`}>{item === 'pending' ? 'Pending' : item === 'hold' ? 'Hold' : item === 'declined' ? 'Declined' : 'Reverted'}</button>)}
               </div>
               <label className="mt-3 flex h-10 items-center gap-2 rounded-lg border border-[#dce7e1] bg-white px-3 text-[#7b8d87] focus-within:border-[#74a195]">
                 <Search size={15} />
@@ -135,7 +150,7 @@ export default function MedicalUnderwritingPage() {
                 {search && <button type="button" onClick={() => setSearch('')} aria-label="Clear search" className="rounded p-1 hover:bg-[#edf3ef]"><X size={13} /></button>}
               </label>
               <div className="mt-3 flex items-center justify-between text-[10px] text-[#83928d]">
-                <span>{queue === 'pending' ? 'Awaiting medical review' : 'Awaiting HPC registration'}</span>
+                <span>{queue === 'pending' ? 'Awaiting medical review · excludes hold' : queue === 'hold' ? 'Files on hold' : queue === 'declined' ? 'Declined · read only' : 'Reverted to medical UW'}</span>
                 {!queueQuery.isLoading && !queueQuery.isError && <span className="font-mono">{total} files</span>}
               </div>
             </div>
@@ -152,8 +167,8 @@ export default function MedicalUnderwritingPage() {
               ) : rows.length === 0 ? (
                 <div className="flex min-h-64 flex-col items-center justify-center px-6 text-center">
                   <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#edf4ef] text-[#7b998e]"><CheckCircle2 size={20} /></div>
-                  <p className="text-sm font-semibold text-[#44625a]">{normalizedSearch ? 'No matching files' : queue === 'pending' ? 'All clear for now' : 'No files returned'}</p>
-                  <p className="mt-1 max-w-[220px] text-xs leading-5 text-[#8a9993]">{normalizedSearch ? 'Try a different file number or proposer name.' : queue === 'pending' ? 'New insurer membership files will appear here when they need medical review.' : 'Files flagged for HPC registration will appear here.'}</p>
+                  <p className="text-sm font-semibold text-[#44625a]">{normalizedSearch ? 'No matching files' : queue === 'pending' ? 'All clear for now' : `No ${queue} files`}</p>
+                  <p className="mt-1 max-w-[220px] text-xs leading-5 text-[#8a9993]">{normalizedSearch ? 'Try a different file number or proposer name.' : queue === 'pending' ? 'New insurer membership files will appear here when they need medical review.' : queue === 'reverted' ? 'Files returned for HPC registration appear here.' : `Files in the ${queue} bucket will appear here.`}</p>
                 </div>
               ) : rows.map(file => (
                 <QueueRow key={file.file_no} file={file} active={selectedFile === file.file_no} onSelect={() => setSelectedFile(file.file_no)} />

@@ -75,6 +75,15 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
     if (entered_by) { conditions.push(`bt.entered_by = $${p++}`); params.push(entered_by); }
     if (queue === "register") {
       conditions.push(`bt.file_status IN ('REGISTERED', 'RETURNED-INCOMPLETE')`);
+      // Medical correction work belongs to the original tracker, with admin
+      // oversight. Do not expose it in other trackers' register queues.
+      conditions.push(`(bt.file_status<>'RETURNED-INCOMPLETE' OR NOT bt.medical_uw
+        OR bt.entered_by=$${p++} OR EXISTS (
+          SELECT 1 FROM crm.employees e JOIN crm.profiles p ON p.profile_id=e.profile_id
+          WHERE e.employee_id=$${p++} AND p.is_active
+          AND LOWER(TRIM(p.profile_name)) IN ('superadmin','system admin')
+        ))`);
+      params.push(req.user!.username, req.user!.sub);
     } else if (isBpoQueue) {
       conditions.push(`wi.work_status = 'OPEN'`);
       conditions.push(`bt.file_status = 'FORWARDED'`);

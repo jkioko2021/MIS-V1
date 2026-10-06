@@ -7,6 +7,8 @@ import adminRouter from "./admin";
 import businessRouter from "./business";
 import storageRouter from "./storage";
 import medicalUnderwritingRouter from "./medical-underwriting";
+import notificationsRouter from "./notifications";
+import cashierRouter from "./cashier";
 
 const router: IRouter = Router();
 
@@ -15,6 +17,8 @@ router.use(authRouter);
 router.use(adminRouter);
 router.use(storageRouter);
 router.use(medicalUnderwritingRouter);
+router.use(notificationsRouter);
+router.use(cashierRouter);
 router.use(businessRouter);
 router.use(discoveryRouter);
 router.use(misRouter);

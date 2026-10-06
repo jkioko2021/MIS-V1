@@ -19,6 +19,7 @@ import {
   type MedicalDetail,
   type MedicalFile,
   type MedicalReviewInput,
+  type MedicalReviewResult,
   type MedicalUploadInput,
 } from '@/lib/medical-underwriting-api';
 import { DataField, dateLabel, errorText, isForbidden, moneyLabel, SectionHeading } from './shared';
@@ -30,12 +31,20 @@ type ReviewAction = MedicalReviewInput['action'];
 type Props = {
   fileNo: string;
   onClose: () => void;
-  onCompletedReview: (action: ReviewAction) => void;
+  onCompletedReview: (action: ReviewAction, result: MedicalReviewResult) => void;
   onHpcSavedForCompletedFile: () => void;
 };
 
 const AML_RISK_RATES = ['Low', 'Medium', 'High'] as const;
 const SUPPORTED_EXTENSIONS = ['.doc', '.docx', '.xls', '.xlsx', '.jpg', '.jpeg', '.png', '.gif', '.pdf', '.rar', '.zip'];
+function emailDeliveryMessage(status: string) {
+  if (status === 'SENT') return 'Email notification delivered.';
+  if (status === 'WAITING_CONFIGURATION') return 'Email notification is waiting for mail configuration; it has not been sent.';
+  if (status === 'PENDING') return 'Email notification is queued and has not yet been confirmed as sent.';
+  if (status === 'RETRY') return 'Email notification needs retry; delivery is not confirmed.';
+  if (status === 'NO_RECIPIENT') return 'No notification recipient was available, so no email was sent.';
+  return `Email delivery state: ${status}.`;
+}
 
 export function MedicalFileDetail({
   fileNo,
@@ -91,6 +100,8 @@ export function MedicalFileDetail({
 
   const detail = detailQuery.data?.data;
   const file = detail?.file;
+  const isDeclined = /declin/i.test(file?.file_status ?? '');
+  const canRegisterHpc = !isDeclined || file?.mu_revert === true;
   const requirements = detail?.requirements ?? [];
   const chosenReq = requirements.find(item => String(item.req_id) === documentReq);
   const reqName = chosenReq?.req_name.toLowerCase() ?? '';
@@ -146,14 +157,14 @@ export function MedicalFileDetail({
         ...(requestedAction === 'F' ? { allocated_to: recipient } : {}),
       });
     },
-    onSuccess: async (_response, completedAction) => {
+    onSuccess: async (response, completedAction) => {
       setLastCompletedAction(completedAction);
       setAction('');
       setComments('');
       if (completedAction === 'H') await refreshFileAndQueues();
       else {
         await refreshQueues();
-        onCompletedReview(completedAction);
+        onCompletedReview(completedAction, response.data);
       }
     },
   });
@@ -410,7 +421,7 @@ export function MedicalFileDetail({
               <div><p className="font-medium text-[#425e57]">{entry.condition}</p><p className="mt-1 text-[#84928d]">{entry.disease_code || 'No disease code'} · {entry.diagnosed_date ? dateLabel(entry.diagnosed_date) : 'Date not recorded'}</p></div>
             </div>)}
           </div>}
-          <div className="rounded-xl border border-[#dce8e2] bg-[#f7faf8] p-4">
+          {canRegisterHpc && <div className="rounded-xl border border-[#dce8e2] bg-[#f7faf8] p-4">
             <p className="mb-3 text-xs font-semibold text-[#45665e]">Register a member with a pre-existing condition</p>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {([
@@ -434,8 +445,8 @@ export function MedicalFileDetail({
             </div>
             {hpcMutation.isError && <p role="alert" className="mt-3 text-xs font-medium text-[#a14b39]">{errorText(hpcMutation.error)}</p>}
             {hpcMutation.isSuccess && reviewable && <p className="mt-3 text-xs font-semibold text-[#36776d]" role="status">HPC registration saved. This returned file is now back in review.</p>}
-            <div className="mt-3 flex justify-end"><button type="button" onClick={() => hpcMutation.mutate()} disabled={hpcMutation.isPending} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#527969] px-4 text-xs font-semibold text-white hover:bg-[#41685a] disabled:opacity-55" data-testid="button-save-hpc">{hpcMutation.isPending ? 'Saving…' : 'Save HPC registration'}<Check size={14} /></button></div>
-          </div>
+            <div className="mt-3 flex justify-end"><button type="button" onClick={() => hpcMutation.mutate()} disabled={hpcMutation.isPending || (isDeclined && !file.mu_revert)} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#527969] px-4 text-xs font-semibold text-white hover:bg-[#41685a] disabled:opacity-55" data-testid="button-save-hpc">{hpcMutation.isPending ? 'Saving…' : 'Save HPC registration'}<Check size={14} /></button></div>
+          </div>}
         </section>
 
         <section>
@@ -500,7 +511,10 @@ export function MedicalFileDetail({
               ))}
             </div>
             {reviewMutation.isError && <p role="alert" className="mt-3 rounded-lg bg-[#fff0eb] px-3 py-2 text-xs font-medium text-[#934a37]">{errorText(reviewMutation.error)}</p>}
-            {reviewMutation.isSuccess && lastCompletedAction === 'H' && <p className="mt-3 rounded-lg bg-[#f1ede7] px-3 py-2 text-xs font-medium text-[#6f5b45]" role="status">File is on hold and remains available for review.</p>}
+            {reviewMutation.isSuccess && lastCompletedAction === 'H' && <div className="mt-3 rounded-lg bg-[#f1ede7] px-3 py-2 text-xs font-medium text-[#6f5b45]" role="status">
+              <p>Review recorded. File status remains {reviewMutation.data?.data.file_status}; it is on hold and remains available for review.</p>
+              {reviewMutation.data?.data.notification?.email_status && <p className="mt-1">{emailDeliveryMessage(reviewMutation.data.data.notification.email_status)}</p>}
+            </div>}
             {action && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#d8e5dd] pt-4">
               <p className="text-xs text-[#73867f]">Selected action: <strong className="text-[#315a51]">{action === 'RI' ? 'Return incomplete' : action === 'C' ? 'Cashier' : action === 'F' ? 'Forward' : action === 'H' ? 'Hold' : 'Decline'}</strong></p>
               <button type="button" disabled={reviewMutation.isPending || comments.trim().length === 0} onClick={() => reviewMutation.mutate(action)} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#214f49] px-5 text-xs font-bold text-white transition hover:bg-[#183f39] disabled:cursor-not-allowed disabled:opacity-50" data-testid="button-submit-medical-review">{reviewMutation.isPending ? 'Recording…' : 'Record review'}<ArrowRight size={14} /></button>

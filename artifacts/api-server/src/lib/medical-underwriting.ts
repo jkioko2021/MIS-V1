@@ -42,7 +42,8 @@ export async function requireMedicalAccess(req: Request, res: Response, next: Ne
 export async function medicalFile(fileNo: string, username: string, admin: boolean, client?: PoolClient): Promise<MedicalRecord> {
   if (client) await txQuery(client, `SELECT pg_advisory_xact_lock(hashtext($1))`, [fileNo]);
   const sql = `SELECT b.*,mw.assigned_to,mw.work_status FROM crm.business_tracking b ${medJoin}
-    WHERE b.file_no=$3 AND b.is_active AND (${medPending} OR b.mu_revert)
+    WHERE b.file_no=$3 AND b.is_active AND (${medPending} OR b.mu_revert OR
+      (b.is_declined AND b.medical_uw AND b.file_status='DECLINED'))
     AND ${medOwner} ${client ? "FOR UPDATE OF b" : ""}`;
   const rows = client ? await txQuery<MedicalRecord>(client, sql, [username, admin, fileNo])
     : await query<MedicalRecord>(sql, [username, admin, fileNo]);
@@ -53,7 +54,7 @@ export function assertReviewable(file: MedicalRecord) {
   const legacy = !file.work_status && file.forwarded && file.medical_uw && !file.ready_for_update
     && ["MEDICAL UW-REVIEW", "ON HOLD", "FORWARDED"].includes(file.file_status);
   if (file.is_declined || !(file.work_status === "OPEN" || legacy)) {
-    throw new MedicalError(409, "This file has already left medical review. Only HPC registration remains available.");
+    throw new MedicalError(409, "This file has already left medical review and is read-only.");
   }
 }
 export function medicalFailure(res: Response, err: unknown) {

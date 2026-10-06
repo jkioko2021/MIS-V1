@@ -1454,6 +1454,7 @@ export default function BusinessTrackingPage({ initialQueue = 'register' }: { in
     queryKey: ['business', queue, clientTab, statusFilter, appliedSearch, searchBy, page, pageSize, sortBy, sortDir],
     queryFn: () => misApi.business(params),
     staleTime: 30_000,
+    refetchInterval: queue === 'register' ? 15_000 : false,
   });
 
   const files: BusinessFile[] = data?.data ?? [];

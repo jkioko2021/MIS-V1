@@ -34,7 +34,7 @@ async function cleanup(fixture) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    for (const table of ['business_doc_checklist', 'business_uploads', 'business_tracking_notes',
+    for (const table of ['business_notifications', 'business_doc_checklist', 'business_uploads', 'business_tracking_notes',
       'medical_underwriting_reviews', 'medical_hpc_registrations', 'business_work_items']) {
       await client.query(`DELETE FROM crm.${table} WHERE file_no=ANY($1::varchar[])`, [fixture.files]);
     }
@@ -90,6 +90,7 @@ try {
   const reviewer = await employee('reviewer', 5);
   const other = await employee('other', 5);
   await employee('outsider', 3);
+  await employee('finance', 6);
   const membership = await employee('membership', 4);
   await employee('bpo', 12);
   for (const clientType of ['R', 'C', 'S']) {
@@ -135,6 +136,8 @@ try {
   assert.equal((await api(`/files/${held}/review`, { ...input, expected_updated_at: '2000-01-01T00:00:00Z' })).status, 409);
   assert.equal((await api(`/files/${held}/review`, input)).status, 200);
   assert.equal((await api(`/files/${held}`)).body.data.file.file_status, 'ON HOLD');
+  assert((await api('?queue=hold')).body.data.some(row => row.file_no === held));
+  assert(!(await api('?queue=pending')).body.data.some(row => row.file_no === held));
   for (const [action, status] of [['C', 'CASHIER'], ['F', 'ALLOCATED'], ['RI', 'RETURNED-INCOMPLETE'], ['D', 'DECLINED']]) {
     const fileNo = await file(action, reviewer);
     const current = (await api(`/files/${fileNo}`)).body.data.file;
@@ -147,6 +150,41 @@ try {
     assert.equal(record.file_status, status);
     if (action === 'F') { assert.equal(record.allocated_to, membership); assert(record.allocated); }
     if (action === 'C') { assert(record.paid); assert.equal(record.paid_status, 'PART'); }
+    const staffApi = async (path, label = 'reviewer', method = 'GET') => {
+      const response = await fetch(`http://localhost:8080/api${path}`, {
+        method, headers: { Cookie: `mis_session=${fixture.cookies[label]}` },
+      });
+      return { status: response.status, body: await response.json() };
+    };
+    if (action === 'C') {
+      const cashiers = await staffApi('/cashier', 'finance');
+      assert.equal(cashiers.status, 200);
+      assert(cashiers.body.data.some(row => row.file_no === fileNo));
+      assert.equal((await staffApi(`/cashier/files/${fileNo}`, 'finance')).status, 200);
+      assert.equal((await staffApi('/cashier', 'outsider')).status, 403);
+    }
+    if (action === 'RI') {
+      const work = (await pool.query(`SELECT assigned_to,work_status FROM crm.business_work_items
+        WHERE file_no=$1 AND queue_name='REGISTER_CORRECTION'`, [fileNo])).rows[0];
+      assert.equal(work.assigned_to, reviewer);
+      assert.equal(work.work_status, 'OPEN');
+      assert((await staffApi('/mis/business?queue=register')).body.data.some(row => row.file_no === fileNo));
+      assert(!(await staffApi('/mis/business?queue=register', 'outsider')).body.data.some(row => row.file_no === fileNo));
+    }
+    if (action === 'D') {
+      assert((await api('?queue=declined')).body.data.some(row => row.file_no === fileNo));
+      assert(!(await api('?queue=pending')).body.data.some(row => row.file_no === fileNo));
+    }
+    if (action === 'RI' || action === 'D') {
+      const notifications = await staffApi('/notifications');
+      assert.equal(notifications.status, 200);
+      const notification = notifications.body.data.find(row => row.file_no === fileNo);
+      assert(notification);
+      assert.equal(notification.email_status, 'NO_RECIPIENT');
+      assert(!(await staffApi('/notifications', 'outsider')).body.data.some(row => row.file_no === fileNo));
+      assert.equal((await staffApi(`/notifications/${notification.notification_id}/read`, 'outsider', 'POST')).status, 404);
+      assert.equal((await staffApi(`/notifications/${notification.notification_id}/read`, 'reviewer', 'POST')).status, 200);
+    }
     assert.equal((await api(`/files/${fileNo}/review`, body)).status, action === 'D' ? 409 : 404);
     const { rows: [counts] } = await pool.query(`SELECT
       (SELECT COUNT(*) FROM crm.medical_underwriting_reviews WHERE file_no=$1)::int AS reviews,
@@ -158,7 +196,9 @@ try {
         client_type: 'R', condition: 'Test condition', notes: 'Follow-up test' };
       assert.equal((await api(`/files/${fileNo}/hpc`, { ...hpc, diagnosed_date: 'bad-date' })).status, 400);
       assert.equal((await api(`/files/${fileNo}/hpc`, hpc)).status, 201);
-      assert.equal((await api(`/files/${fileNo}`)).status, 404);
+      const declined = await api(`/files/${fileNo}`);
+      assert.equal(declined.status, 200);
+      assert.equal(declined.body.data.file.reviewable, false);
     }
   }
   // Two reviewers of the same snapshot cannot both commit a decision.
