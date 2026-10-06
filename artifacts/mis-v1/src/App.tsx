@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -15,6 +15,7 @@ import ProfilesPage from '@/pages/admin/profiles';
 import BusinessRequirementsPage from '@/pages/admin/business-requirements';
 import MedicalUnderwritingPage from '@/pages/medical-underwriting';
 import CashierPage from '@/pages/cashier';
+import PricingReviewPage from '@/pages/pricing-review';
 import NotificationsPage from '@/pages/notifications';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import {
@@ -27,7 +28,7 @@ import {
 } from 'wouter';
 import {
   Home, FileText, Shield, Database, Bell, Banknote,
-  ChevronRight, LogOut, User, Users, Settings, SlidersHorizontal,
+  ChevronRight, LogOut, User, Users, Settings, SlidersHorizontal, Menu, X,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -43,6 +44,7 @@ type NavItem = {
   icon: LucideIcon;
   bpoOnly?: boolean;
   bpoReviewOnly?: boolean;
+  pricingOnly?: boolean;
   children?: NavItem[];
 };
 
@@ -66,6 +68,7 @@ const NAV_SECTIONS: Array<{
           { href: '/business/bpo-retail', label: 'BPO Review-Retail', icon: FileText, bpoReviewOnly: true },
           { href: '/business/bpo-corporate-sme', label: 'BPO Review-Corporates/SME', icon: FileText, bpoReviewOnly: true },
           { href: '/business/allocated', label: 'Allocation Files', icon: FileText, bpoOnly: true },
+          { href: '/business/pricing', label: 'Pricing Review', icon: FileText, pricingOnly: true },
         ],
       },
       { href: '/risk',      label: 'Risk Register',     icon: Shield },
@@ -105,12 +108,13 @@ const NAV_SECTIONS: Array<{
 ];
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
-function Sidebar() {
+function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpen: boolean; onNavigate: () => void; onClose: () => void; navigationRef: (element: HTMLElement | null) => void }) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
 
   // Show admin section only for profile 1 (SuperAdmin) or 2 (System Admin)
   const isAdmin = user && (user.profileId === 1 || user.profileId === 2);
+  const canSeePricing = isAdmin || user?.profileName?.trim().toLowerCase() === 'pricing';
   const canSeeMedical = isAdmin || user?.profileId === 5 || user?.profileName?.trim().toLowerCase() === 'medical uw';
   const canSeeCashier = isAdmin || user?.profileId === 6
     || ['finance', 'cashier'].includes(user?.profileName?.trim().toLowerCase() ?? '');
@@ -132,10 +136,22 @@ function Sidebar() {
   ].includes((user.profileName ?? '').trim().toLowerCase()) || isBpoDepartment;
 
   return (
-    <aside className="w-56 shrink-0 border-r bg-muted/30 flex flex-col h-screen sticky top-0">
-      <div className="p-4 border-b">
-        <p className="font-bold text-sm">AAR MIS</p>
-        <p className="text-xs text-muted-foreground">Management Information System</p>
+    <aside
+      ref={navigationRef}
+      id="mis-navigation"
+      aria-label="Main navigation"
+      role={mobileOpen ? 'dialog' : undefined}
+      aria-modal={mobileOpen || undefined}
+      className={`${mobileOpen ? 'flex translate-x-0' : 'hidden -translate-x-full'} fixed inset-y-0 left-0 z-[60] h-[100dvh] w-[min(18rem,calc(100vw-3rem))] shrink-0 flex-col border-r bg-background shadow-xl transition-transform duration-200 md:sticky md:top-0 md:bottom-auto md:z-auto md:flex md:h-screen md:w-56 md:translate-x-0 md:shadow-none`}
+    >
+      <div className="flex items-start justify-between border-b p-4">
+        <div>
+          <p className="text-sm font-bold">AAR MIS</p>
+          <p className="text-xs text-muted-foreground">Management Information System</p>
+        </div>
+        <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted md:hidden" aria-label="Close navigation" data-testid="button-close-mobile-navigation">
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
       <nav className="flex-1 p-2 space-y-4 overflow-y-auto">
@@ -157,12 +173,14 @@ function Sidebar() {
                 const active = location === href || (href !== '/' && location.startsWith(href));
                 const visibleChildren = item.children?.filter(child =>
                   (!child.bpoOnly || canSeeAllocatedFiles)
-                  && (!child.bpoReviewOnly || canSeeBpoReviewQueues),
+                  && (!child.bpoReviewOnly || canSeeBpoReviewQueues)
+                  && (!child.pricingOnly || canSeePricing),
                 ) ?? [];
                 return (
                   <div key={href}>
                     <Link
                       href={href}
+                      onClick={onNavigate}
                       className={cn(
                         'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
                         active
@@ -184,6 +202,7 @@ function Sidebar() {
                             <Link
                               key={child.href}
                               href={child.href}
+                              onClick={onNavigate}
                               className={cn(
                                 'flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition-colors',
                                 childActive
@@ -220,7 +239,7 @@ function Sidebar() {
             </div>
           </div>
           <button
-            onClick={() => logout()}
+            onClick={() => { onNavigate(); logout(); }}
             className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             <LogOut className="w-3.5 h-3.5" />
@@ -234,10 +253,75 @@ function Sidebar() {
 }
 
 function AppLayout({ children }: { children: ReactNode }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const navigationRef = useRef<HTMLElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const wasOpen = useRef(false);
+
+  useEffect(() => {
+    if (mobileOpen) {
+      navigationRef.current?.querySelector<HTMLElement>('button:not([disabled]), a[href]')?.focus();
+    } else if (wasOpen.current) {
+      triggerRef.current?.focus();
+    }
+    wasOpen.current = mobileOpen;
+  }, [mobileOpen]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMobileOpen(false);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const items = navigationRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])');
+      if (!items?.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [mobileOpen]);
+
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto">
+    <div className="min-h-[100dvh] min-w-0 md:flex md:h-screen md:overflow-hidden">
+      {mobileOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation overlay"
+          onClick={() => setMobileOpen(false)}
+          className="fixed inset-0 z-50 bg-[#19332c]/45 md:hidden"
+          data-testid="button-navigation-backdrop"
+        />
+      )}
+      <Sidebar mobileOpen={mobileOpen} onNavigate={() => setMobileOpen(false)} onClose={() => setMobileOpen(false)} navigationRef={element => { navigationRef.current = element; }} />
+      <main className="min-h-[100dvh] min-w-0 flex-1 overflow-y-auto md:min-h-0">
+        <div className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur md:hidden">
+          <button
+            ref={triggerRef}
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open navigation"
+            aria-expanded={mobileOpen}
+            aria-controls="mis-navigation"
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            data-testid="button-open-mobile-navigation"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="min-w-0">
+            <p className="text-xs font-bold leading-4">AAR MIS</p>
+            <p className="truncate text-[10px] text-muted-foreground">Management Information System</p>
+          </div>
+        </div>
         {children}
       </main>
     </div>
@@ -273,6 +357,7 @@ function ProtectedRouter() {
           <Route path="/business/bpo-corporate-sme">
             {() => <BusinessTrackingPage initialQueue="bpo-corporate-sme" />}
           </Route>
+          <Route path="/business/pricing" component={PricingReviewPage} />
           <Route path="/business">
             {() => <BusinessTrackingPage />}
           </Route>

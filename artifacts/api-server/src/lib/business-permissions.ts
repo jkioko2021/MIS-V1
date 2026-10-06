@@ -116,7 +116,8 @@ export async function requireAllocatedFileReadAccess(req: Request, res: Response
          WHERE file_no=$1
            AND is_active=TRUE
            AND allocated=TRUE
-           AND file_status='ALLOCATED'`,
+           AND file_status='ALLOCATED'
+           AND (client_type NOT IN ('C','S') OR rate_type IS DISTINCT FROM 'C' OR benefit_verified='YES')`,
         [req.params.fileNo],
       ),
     ]);

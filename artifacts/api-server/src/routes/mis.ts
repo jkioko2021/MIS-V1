@@ -77,7 +77,7 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
       conditions.push(`bt.file_status IN ('REGISTERED', 'RETURNED-INCOMPLETE')`);
       // Medical correction work belongs to the original tracker, with admin
       // oversight. Do not expose it in other trackers' register queues.
-      conditions.push(`(bt.file_status<>'RETURNED-INCOMPLETE' OR NOT bt.medical_uw
+      conditions.push(`(bt.file_status<>'RETURNED-INCOMPLETE'
         OR bt.entered_by=$${p++} OR EXISTS (
           SELECT 1 FROM crm.employees e JOIN crm.profiles p ON p.profile_id=e.profile_id
           WHERE e.employee_id=$${p++} AND p.is_active
@@ -190,13 +190,13 @@ router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res
       "bt.is_active = TRUE",
       "bt.allocated = TRUE",
       "bt.file_status = 'ALLOCATED'",
+      "(bt.client_type NOT IN ('C','S') OR bt.rate_type IS DISTINCT FROM 'C' OR bt.benefit_verified='YES')",
     ];
     const params: unknown[] = [];
     let p = 1;
     if (!isSuperAdmin) {
-      // Allocation Files is a status-based queue. Operational flags such as
-      // benefit verification are action gates, not visibility gates; otherwise
-      // an allocated file disappears from the administrator's work queue.
+      // Custom-rate Corporate/SME allocations require Pricing approval.
+      // Retail keeps its existing allocation behavior and action gates.
       conditions.push(`bt.allocated_to = $${p++}`);
       params.push(req.user!.username);
     }

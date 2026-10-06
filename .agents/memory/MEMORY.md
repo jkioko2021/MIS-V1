@@ -24,3 +24,5 @@
 - [Business requirement compatibility](business-requirement-compatibility.md) — crm.business_req is the sole requirement master and retains legacy foreign-key compatibility
 - [Medical underwriting legacy](medical-underwriting-legacy.md) — Procedure routing and HPC catalogs are unavailable; distinguish observed legacy behavior from modern handoff decisions.
 - [Business note retention](business-note-retention.md) — Saved business notes must remain in file history; record corrections as new notes, never delete or hide prior notes.
+- [Pricing Review rules](pricing-review-rules.md) — Only rate-C Corporate/SME allocations pass Pricing; Standard S bypasses it, original recipient and notes preserved.
+- [Repeated SQL parameter types](typed-sql-parameters.md) — Consistent casts plus valid-request PostgreSQL checks catch assignment/comparison binding errors missed by mocks.

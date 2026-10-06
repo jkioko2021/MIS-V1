@@ -6,6 +6,7 @@ import { requireAuth } from "../lib/auth-middleware";
 import { requireAllocatedFileReadAccess, requireBpoAllocatedAccess, requireBpoForwardAccess, requireBpoReviewAccess, requireBusinessDeleteAccess, requireBusinessFileAccess, requireBusinessTrackingAccess } from "../lib/business-permissions";
 import { logger } from "../lib/logger";
 import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage";
+import { queueCorporatePricing } from "../lib/pricing-review";
 
 const router = Router();
 const objectStorageService = new ObjectStorageService();
@@ -622,14 +623,19 @@ router.put("/business/:fileNo", requireBusinessFileAccess, async (req: Request, 
       }
     }
 
-    await query(
+    await withTransaction(async client => {
+      await txQuery(client, `SELECT pg_advisory_xact_lock(hashtext($1))`, [fileNo]);
+      const [previous] = await txQuery<{ allocated: boolean; allocated_to: string | null; rate_type: string }>(client,
+        `SELECT file_no, client_type, receive_dt, allocated, allocated_to, rate_type FROM crm.business_tracking WHERE file_no=$1 AND is_active FOR UPDATE`, [fileNo]);
+      if (!previous) throw new Error("File not found.");
+      await txQuery(client,
       `UPDATE crm.business_tracking SET
          proposer_name=$1, family_code=$2, receive_dt=$3,
          business_type=$4, business=$5, agent_id=$6,
          nid=$7, pin_no=$8, walk_in_client=$9, walk_in_auth=$10, card_type=$11,
          cr12=$12, cr12_ref=$13, corp_category=$14, sector=$15,
          county_code=$16, gi_category=$17,
-         pay_ref_no=$18, paid_amt=$19, pay_mode=$20, rate_type=$21,
+         pay_ref_no=$18, paid_amt=$19, pay_mode=$20, rate_type=$21::varchar,
          is_mtiba=$22, is_ipf=$23,
           allocated_to=CASE
             WHEN NULLIF($24::text, '') IS NULL THEN allocated_to
@@ -644,7 +650,8 @@ router.put("/business/:fileNo", requireBusinessFileAccess, async (req: Request, 
             WHEN $24::text IS DISTINCT FROM allocated_to THEN NOW()
             ELSE allocate_dt
           END,
-          medical_uw=$25, benefit_verified=$26, invoiced=$27,
+          medical_uw=$25,
+          benefit_verified=CASE WHEN client_type IN ('C','S') AND $21::varchar='C' THEN benefit_verified ELSE $26 END, invoiced=$27,
          client_sub_type=$28,
          updated_at=NOW()
        WHERE file_no=$29`,
@@ -670,7 +677,13 @@ router.put("/business/:fileNo", requireBusinessFileAccess, async (req: Request, 
          exists.client_type !== "R" ? exists.client_type : null,
         fileNo,
       ]
-    );
+      );
+      if (["C", "S"].includes(exists.client_type)
+        && ((text(allocated_to) && (!previous.allocated || previous.allocated_to !== text(allocated_to)))
+          || (previous.allocated && previous.rate_type !== (rate_type || "S")))) {
+        await queueCorporatePricing(client, String(fileNo), req.user!.username);
+      }
+    });
 
     await query(
       `INSERT INTO crm.admin_audit_trail (username, action_type, description) VALUES ($1,'BT_UPDATE',$2)`,
@@ -1271,10 +1284,7 @@ router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (re
        const isRetailInvoicedAllocation =
          file.client_type === "R" && requestedAction === "A" && file.invoiced;
        const isCorporatePricingHandoff =
-         file.client_type === "C"
-         && requestedAction === "A"
-         && file.rate_type === "C"
-         && ["N", "R"].includes(file.business_type);
+         ["C", "S"].includes(file.client_type) && file.rate_type === "C" && requestedAction === "A";
        const allocationRoute = isCorporatePricingHandoff ? "PRICING_HANDOFF" : "STANDARD_ALLOCATION";
       const [workItem] = await txQuery<{ work_item_id: number }>(
         client,
@@ -1311,11 +1321,14 @@ router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (re
               benefit_verified=CASE
                 WHEN $7 THEN 'NO'
                 WHEN $6 THEN 'YES'
+                WHEN $4 AND client_type IN ('C','S') AND rate_type IS DISTINCT FROM 'C' THEN 'YES'
                 ELSE benefit_verified
               END,
               to_pricing_dt=CASE WHEN $7 THEN NOW() ELSE to_pricing_dt END,
               is_complete=CASE WHEN $3 THEN FALSE ELSE is_complete END,
               ready_for_update=CASE WHEN $3 OR $8 OR $10 THEN FALSE ELSE TRUE END,
+              benefit_ver_by=CASE WHEN $7 THEN NULL ELSE benefit_ver_by END,
+              benefit_ver_date=CASE WHEN $7 THEN NULL ELSE benefit_ver_date END,
               medical_uw=CASE WHEN $10 THEN TRUE ELSE medical_uw END,
              updated_at=NOW()
           WHERE file_no=$9
@@ -1359,6 +1372,9 @@ router.post("/business/:fileNo/review-action", requireBpoReviewAccess, async (re
         );
       }
 
+      if (isCorporatePricingHandoff) {
+        await queueCorporatePricing(client, String(fileNo), req.user!.username, true);
+      }
       const target = allocatedTo ? `; forwarded to ${allocatedTo}` : "";
       const noteText = `${queueName} ${requestedAction} · ${productLabel[selectedProduct]}${target}: ${note}`;
       await txQuery(
@@ -1713,13 +1729,20 @@ router.post("/business/:fileNo/allocate", async (req: Request, res: Response) =>
     if (!file) { res.status(404).json({ ok: false, error: "File not found." }); return; }
     const staffError = await bpoAdminValidationError(allocated_to);
     if (staffError) { res.status(400).json({ ok: false, error: staffError }); return; }
-    await query(
+    await withTransaction(async client => {
+      await txQuery(client, `SELECT pg_advisory_xact_lock(hashtext($1))`, [String(req.params.fileNo)]);
+      await txQuery(client, `SELECT file_no FROM crm.business_tracking WHERE file_no=$1 FOR UPDATE`, [req.params.fileNo]);
+      await txQuery(client,
       `UPDATE crm.business_tracking SET
          allocated=TRUE, allocated_to=$1, allocate_dt=NOW(),
          file_status='ALLOCATED', updated_at=NOW()
        WHERE file_no=$2`,
       [allocated_to, req.params.fileNo]
-    );
+      );
+      if (["C", "S"].includes(file.client_type)) {
+        await queueCorporatePricing(client, String(req.params.fileNo), req.user!.username);
+      }
+    });
     res.json({ ok: true });
   } catch (err) { handleError(res, err, "allocate file"); }
 });

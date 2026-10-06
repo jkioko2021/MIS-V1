@@ -293,7 +293,7 @@ class BusinessRouteState {
       return [];
     }
     if (statement.startsWith("INSERT INTO crm.business_work_items")) {
-      const workStatus = statement.includes("VALUES ($1, $2, 'OPEN'") ? "OPEN" : params[2];
+      const workStatus = /VALUES\s*\(\$1,\s*\$2,\s*'OPEN'/.test(statement) ? "OPEN" : params[2];
       let workItem = this.workItems.find((item) => item.file_no === params[0] && item.queue_name === params[1]);
       if (!workItem) {
         workItem = {
@@ -321,7 +321,7 @@ class BusinessRouteState {
           : this.file.allocate_dt;
       this.file.benefit_verified = params[6]
         ? "NO"
-        : params[5]
+        : params[5] || (params[3] && ["C", "S"].includes(this.file.client_type) && this.file.rate_type !== "C")
           ? "YES"
           : this.file.benefit_verified;
       if (params[6]) this.file.to_pricing_dt = "2026-08-25T00:00:00.000Z";
@@ -477,6 +477,8 @@ before(async () => {
   builtDir = await mkdtemp(path.join(tmpdir(), "mis-business-route-tests-"));
   const aliases = new Map([
     ["../lib/postgres", doublesFile],
+    ["./postgres", doublesFile],
+    ["./logger", doublesFile],
     ["../lib/auth-middleware", doublesFile],
     ["../lib/business-permissions", doublesFile],
     ["../lib/logger", doublesFile],
@@ -814,12 +816,12 @@ test("an invoiced Retail allocation persists product and verifies benefits witho
   assert.match(state.audits.at(-1).description, /Shwaari, INVOICED.*Route: STANDARD_ALLOCATION/);
 });
 
-test("Custom-rate Corporate New and Renewal allocations hand off to Pricing", async () => {
-  for (const businessType of ["N", "R"]) {
+test("only Custom-rate Corporate and SME allocations hand off to Pricing across business types", async () => {
+  for (const clientType of ["C", "S"]) for (const rateType of ["C", "S"]) for (const businessType of ["N", "R", "E"]) {
     const state = new BusinessRouteState();
-    state.file.client_type = "C";
+    state.file.client_type = clientType;
     state.file.business_type = businessType;
-    state.file.rate_type = "C";
+    state.file.rate_type = rateType;
     openBpoReviewWorkItem(state, "BPO_REVIEW_CORPORATE_SME");
     state.file.benefit_verified = "YES";
     state.file.allocate_dt = "2026-08-24T00:00:00.000Z";
@@ -836,6 +838,15 @@ test("Custom-rate Corporate New and Renewal allocations hand off to Pricing", as
     );
 
     assert.equal(result.status, 200, businessType);
+    if (rateType === "S") {
+      assert.equal(result.body.data.file_status, "ALLOCATED");
+      assert.equal(result.body.data.allocation_route, "STANDARD_ALLOCATION");
+      assert.equal(result.body.data.pricing_handoff_at, null);
+      assert.equal(state.file.benefit_verified, "YES");
+      assert.equal(state.file.allocated_to, "eligible");
+      assert(!state.workItems.some(item => item.queue_name === "PRICING_REVIEW"));
+      continue;
+    }
     assert.equal(result.body.data.file_status, "BENEFIT VERIFICATION");
     assert.equal(result.body.data.allocation_route, "PRICING_HANDOFF");
     assert.ok(result.body.data.pricing_handoff_at);
@@ -846,11 +857,12 @@ test("Custom-rate Corporate New and Renewal allocations hand off to Pricing", as
     assert.equal(state.file.allocate_dt, null);
     assert.ok(state.file.to_pricing_dt);
     assert.equal(state.workItems[0].work_status, "COMPLETED");
+    assert.equal(state.workItems.find(item => item.queue_name === "PRICING_REVIEW")?.work_status, "OPEN");
     assert.match(state.audits.at(-1).description, /Afya Shwaari, BENEFIT VERIFICATION.*Route: PRICING_HANDOFF/);
   }
 });
 
-test("SME Custom-rate allocations and queue mismatches keep existing BPO behavior isolated", async () => {
+test("SME allocations enter Pricing while queue mismatches remain isolated", async () => {
   const smeState = new BusinessRouteState();
   smeState.file.client_type = "S";
   smeState.file.business_type = "N";
@@ -868,9 +880,9 @@ test("SME Custom-rate allocations and queue mismatches keep existing BPO behavio
     }),
   );
   assert.equal(smeResult.status, 200);
-  assert.equal(smeResult.body.data.file_status, "ALLOCATED");
-  assert.equal(smeResult.body.data.allocation_route, "STANDARD_ALLOCATION");
-  assert.equal(smeState.file.to_pricing_dt, null);
+  assert.equal(smeResult.body.data.file_status, "BENEFIT VERIFICATION");
+  assert.equal(smeResult.body.data.allocation_route, "PRICING_HANDOFF");
+  assert(smeState.file.to_pricing_dt);
 
   const retailState = new BusinessRouteState();
   openBpoReviewWorkItem(retailState, "BPO_REVIEW_RETAIL");

@@ -18,6 +18,7 @@ export const MENU_MASTER = [
   { main: "Business",   sub: "Register Business",       url: "/business/new",          order: 10 },
   { main: "Business",   sub: "My Pending Files",        url: "/business",              order: 20 },
   { main: "Business",   sub: "Allocated Files",         url: "/business/allocated",    order: 30 },
+  { main: "Business",   sub: "Pricing Review",          url: "/business/pricing",      order: 35 },
   { main: "Business",   sub: "Finance Queue",           url: "/business/finance",      order: 40 },
   { main: "Business",   sub: "Dispatch Queue",          url: "/business/dispatch",     order: 50 },
   { main: "Business",   sub: "Declined Files",          url: "/business/declined",     order: 60 },

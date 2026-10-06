@@ -7,6 +7,7 @@ import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage"
 import { MedicalError, medicalFile, medicalFailure, requireMedicalAccess, assertReviewable, medJoin, medPending, medOwner } from "../lib/medical-underwriting";
 import { safeUploadFilename, uploadDocumentValidation } from "./business";
 import { queueMedicalNotification } from "../lib/business-notifications";
+import { queueCorporatePricing } from "../lib/pricing-review";
 
 const router = Router();
 router.use("/medical-underwriting", requireAuth, requireMedicalAccess);
@@ -114,7 +115,10 @@ router.post("/medical-underwriting/files/:fileNo/review", async (req, res) => {
           AND p.is_active AND LOWER(TRIM(p.profile_name))='membership admin' FOR SHARE OF e,p`, [input.allocated_to]);
         if (!staff.length) throw new MedicalError(400, "Recipient must be an active membership administrator.");
       }
-      const status = { C: "CASHIER", F: "ALLOCATED", RI: "RETURNED-INCOMPLETE", H: "ON HOLD", D: "DECLINED" }[input.action];
+      const corporateAllocation = input.action === "F" && ["C", "S"].includes(file.client_type);
+      const corporatePricing = corporateAllocation && file.rate_type === "C";
+      const status = corporatePricing ? "BENEFIT VERIFICATION"
+        : { C: "CASHIER", F: "ALLOCATED", RI: "RETURNED-INCOMPLETE", H: "ON HOLD", D: "DECLINED" }[input.action];
       const queue = input.action === "C" ? "CASHIER" : input.action === "RI" ? "REGISTER_CORRECTION" : null;
       const assignee = input.action === "F" ? input.allocated_to : input.action === "RI" ? file.entered_by : null;
       if (input.action !== "H") {
@@ -139,6 +143,7 @@ router.post("/medical-underwriting/files/:fileNo/review", async (req, res) => {
         paid_status=CASE WHEN $5='C' THEN $8 ELSE paid_status END,
         paid=CASE WHEN $5='C' THEN $8 IN ('FULL','PART') ELSE paid END,updated_at=NOW() WHERE file_no=$1`,
       [fileNo, status, input.hpc, input.lateral_movement, input.action, input.action === "F" ? assignee : null, input.invoice_no, input.paid_status]);
+      if (corporateAllocation) await queueCorporatePricing(client, fileNo, actor);
       const [review] = await txQuery<{ review_id: number }>(client, `INSERT INTO crm.medical_underwriting_reviews
         (file_no,action,comments,hpc,lateral_movement,destination,invoice_no,paid_status,reviewed_by)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING review_id`,
