@@ -4,6 +4,7 @@ import type { PoolClient } from "pg";
 import { query, queryOne, withTransaction, txQuery } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
 import { requireAllocatedFileReadAccess, requireBpoAllocatedAccess, requireBpoForwardAccess, requireBpoReviewAccess, requireBusinessDeleteAccess, requireBusinessFileAccess, requireBusinessTrackingAccess } from "../lib/business-permissions";
+import { isAllocationDocument } from "../lib/allocation-documents";
 import { logger } from "../lib/logger";
 import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage";
 import { queueCorporatePricing } from "../lib/pricing-review";
@@ -425,17 +426,15 @@ router.get("/business/allocation-destinations", requireBpoAllocatedAccess, async
   }
 });
 
-// The legacy rating-reason list belongs to the separate AAR Risk database.
-// Keep this dependency explicit until it is connected to the approved platform.
-router.get("/business/aml/risk-reasons", (_req: Request, res: Response) => {
-  res.json({
-    ok: true,
-    data: {
-      available: false,
-      reasons: [],
-      message: "AML rating reasons are unavailable because the legacy AAR Risk reference source is not connected.",
-    },
-  });
+// User-approved AML reference values are maintained in the local lookup table.
+router.get("/business/aml/risk-reasons", async (_req: Request, res: Response) => {
+  try {
+    const rows = await query<{ reason_name: string }>(
+      `SELECT reason_name FROM crm.aml_risk_reasons WHERE is_active=TRUE ORDER BY display_order,reason_id`);
+    res.json({ ok: true, data: { available: rows.length > 0,
+      reasons: rows.map(row => ({ value: row.reason_name, label: row.reason_name })),
+      ...(rows.length ? {} : { message: "No active AML risk reasons are configured." }) } });
+  } catch (err) { handleError(res, err, "get AML risk reasons"); }
 });
 
 router.get("/business/walk-in-staff", async (_req: Request, res: Response) => {
@@ -1087,7 +1086,7 @@ router.post("/business/allocated/:fileNo/uploads", requireAllocatedFileReadAcces
        WHERE req_id=$1 AND is_active=TRUE AND (applies_to='ALL' OR applies_to=$2)`,
       [Number(req_id), file.client_type === "R" ? "R" : "C"],
     );
-    if (!applies) {
+    if (!applies && !isAllocationDocument(requirement.req_name)) {
       res.status(400).json({ ok: false, error: "This document is not available for the file type." });
       return;
     }
@@ -1099,10 +1098,40 @@ router.post("/business/allocated/:fileNo/uploads", requireAllocatedFileReadAcces
       res.status(400).json({ ok: false, error: validationError });
       return;
     }
+    if (text(risk_rate) || text(risk_reason)) {
+      const approvedReason = await queryOne(`SELECT reason_id FROM crm.aml_risk_reasons
+        WHERE reason_name=$1 AND is_active=TRUE`, [text(risk_reason)]);
+      if (!AML_RISK_RATES.has(text(risk_rate)) || !approvedReason) {
+        res.status(400).json({ ok: false, error: "Select Low, High, or Medium and an active risk reason from the list." });
+        return;
+      }
+    }
 
     const cleanFilename = safeUploadFilename(filename);
     const amountValue = text(amount) ? Number(text(amount)) : null;
+    if (!Number.isInteger(filesize) || !filesize || !/^\/objects\/uploads\/[a-zA-Z0-9-]+$/.test(storage_key)) {
+      res.status(400).json({ ok: false, error: "Upload a valid document to private storage first." });
+      return;
+    }
+    const object = await objectStorageService.getObjectEntityFile(storage_key);
+    const [metadata] = await object.getMetadata();
+    if (Number(metadata.size) !== filesize) {
+      res.status(400).json({ ok: false, error: "Document size does not match the uploaded bytes." });
+      return;
+    }
     const result = await withTransaction(async (client) => {
+      await txQuery(client, "SELECT pg_advisory_xact_lock(hashtext($1))", [fileNo]);
+      const [owner] = await txQuery<{ allocated_to: string | null }>(client,
+        `SELECT allocated_to FROM crm.business_tracking
+         WHERE file_no=$1 AND is_active=TRUE AND allocated=TRUE AND file_status='ALLOCATED' FOR UPDATE`, [fileNo]);
+      if (!owner || (req.user!.profileId !== 1 && owner.allocated_to !== req.user!.username)) {
+        throw new Error("ALLOCATION_CHANGED");
+      }
+      if (isAllocationDocument(requirement.req_name)) {
+        await txQuery(client, `INSERT INTO crm.business_doc_checklist(file_no,req_id,is_selected,acknowledged_by)
+          VALUES($1,$2,TRUE,$3) ON CONFLICT(file_no,req_id) DO UPDATE SET is_selected=TRUE`,
+        [fileNo, Number(req_id), req.user!.username]);
+      }
       const selected = await txQuery(client,
         `SELECT 1 FROM crm.business_doc_checklist
          WHERE file_no=$1 AND req_id=$2 AND is_selected=TRUE`,
@@ -1138,6 +1167,14 @@ router.post("/business/allocated/:fileNo/uploads", requireAllocatedFileReadAcces
     await refreshSelectedDocumentCompletion(fileNo);
     res.status(201).json({ ok: true, data: result });
   } catch (err) {
+    if (err instanceof Error && err.message === "ALLOCATION_CHANGED") {
+      res.status(409).json({ ok: false, error: "This allocation changed. Refresh before uploading." });
+      return;
+    }
+    if (err instanceof ObjectNotFoundError) {
+      res.status(400).json({ ok: false, error: "Upload the document bytes before saving it." });
+      return;
+    }
     if (err instanceof Error && err.message === "DOCUMENT_NOT_SELECTED") {
       res.status(400).json({ ok: false, error: "Select this document from the list before uploading it." });
       return;
@@ -1563,6 +1600,7 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
               invoice_no=CASE WHEN $3 THEN $4 ELSE invoice_no END,
               invoiced=CASE WHEN $3 THEN TRUE ELSE invoiced END,
               to_cashier_dt=CASE WHEN $9::boolean THEN NOW() ELSE to_cashier_dt END,
+              cashier_document_from=CASE WHEN $9::boolean THEN COALESCE(allocate_dt,created_at) ELSE cashier_document_from END,
               receipted=CASE WHEN $9::boolean THEN FALSE ELSE receipted END,
               receipt_no=CASE WHEN $9::boolean THEN NULL ELSE receipt_no END,
               receipt_date=CASE WHEN $9::boolean THEN NULL ELSE receipt_date END,

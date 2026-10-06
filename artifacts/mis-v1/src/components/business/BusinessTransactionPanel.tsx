@@ -33,6 +33,7 @@ function documentFlags(name: string) {
     isCreditNote,
     isInvoice: normalized.includes('invoice') && !isCreditNote,
     isAmlRisk: /aml\s*risk|risk\s*rating/.test(normalized),
+    isAmlReport: normalized.trim() === 'aml report',
   };
 }
 
@@ -50,6 +51,7 @@ export function BusinessTransactionPanel({
 }: Props) {
   const selectedDocument = documents.find(document => document.req_id === value.reqId);
   const flags = selectedDocument ? documentFlags(selectedDocument.req_name) : null;
+  const usesRiskFields = !!(flags?.isAmlRisk || flags?.isAmlReport);
   const fileExtension = file ? `.${file.name.split('.').pop()?.toLowerCase()}` : '';
   const uploadValidationMessage =
     !selectedDocument
@@ -70,7 +72,7 @@ export function BusinessTransactionPanel({
                 ? 'Enter a valid non-negative amount for a credit note.'
                 : flags?.isAmlRisk && !riskReasonSourceAvailable
                   ? riskReasonSourceMessage ?? 'AML rating reasons are currently unavailable.'
-                  : flags?.isAmlRisk &&
+                  : (flags?.isAmlRisk || (usesRiskFields && (value.riskRate || value.riskReason))) &&
                       (!value.riskRate.trim() || !value.riskReason.trim())
                     ? 'Select an AML risk rate and rating reason.'
                     : null;
@@ -92,7 +94,7 @@ export function BusinessTransactionPanel({
           </p>
           <h4 className="mt-0.5 font-semibold text-[#173d38]">Transaction details and evidence</h4>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Document types come from this file’s selected checklist. Files are stored privately and linked to this allocation record.
+            Upload System Receipt, Policy Schedule, System Invoice, or AML Report, as well as selected checklist documents. Files are stored privately and linked to this allocation record.
           </p>
         </div>
       </div>
@@ -197,19 +199,17 @@ export function BusinessTransactionPanel({
               id="transaction-aml-rate"
               value={value.riskRate}
               onChange={event => onChange({ ...value, riskRate: event.target.value })}
-              disabled={isUploading || !riskReasonSourceAvailable || !flags?.isAmlRisk}
+              disabled={isUploading || !usesRiskFields}
               className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-70"
             >
               <option value="">
-                {!flags?.isAmlRisk
+                {!usesRiskFields
                   ? 'Not required for selected document'
-                  : !riskReasonSourceAvailable
-                    ? 'Unavailable'
-                    : 'Select rate…'}
+                  : 'Select rate…'}
               </option>
               <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
               <option value="High">High</option>
+              <option value="Medium">Medium</option>
             </select>
           </div>
 
@@ -220,11 +220,11 @@ export function BusinessTransactionPanel({
               data-testid="select-transaction-aml-reason"
               value={value.riskReason}
               onChange={event => onChange({ ...value, riskReason: event.target.value })}
-              disabled={isUploading || !riskReasonSourceAvailable || !flags?.isAmlRisk}
+              disabled={isUploading || !riskReasonSourceAvailable || !usesRiskFields}
               className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-70"
             >
               <option value="">
-                {!flags?.isAmlRisk
+                {!usesRiskFields
                   ? 'Not required for selected document'
                   : !riskReasonSourceAvailable
                     ? 'Unavailable'
@@ -242,7 +242,7 @@ export function BusinessTransactionPanel({
             <div className="sm:col-span-2 flex gap-2 rounded-md border border-[#e9c98d] bg-[#fff6df] p-3 text-xs leading-5 text-[#855c16]">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <span>
-                {flags?.isAmlRisk
+                {usesRiskFields
                   ? riskReasonSourceMessage ?? 'AML rating reasons are currently unavailable.'
                   : 'AML fields are inactive unless an AML risk document is selected.'}
               </span>
@@ -252,6 +252,7 @@ export function BusinessTransactionPanel({
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="transaction-file">Upload</Label>
             <Input
+              key={value.reqId || 'no-document'}
               id="transaction-file"
               data-testid="input-transaction-file"
               type="file"

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { ALLOCATION_DOCUMENT_NAMES } from "../lib/allocation-documents";
 import { query, queryOne } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
 import { requireAllocatedFileReadAccess, requireBpoAllocatedAccess, requireBpoQueueAccess, requireBusinessFileAccess, requireBusinessTrackingAccess, setBpoReviewAccess } from "../lib/business-permissions";
@@ -320,12 +321,14 @@ router.get("/mis/business/allocated/:fileNo", requireAllocatedFileReadAccess, as
         ORDER BY note_date DESC
       `, [fileNo]),
       query(`
-        SELECT d.*, br.req_name
-        FROM crm.business_doc_checklist d
-        JOIN crm.business_req br ON br.req_id = d.req_id
-        WHERE d.file_no = $1
+        SELECT d.*, br.req_id AS req_id, br.req_name, $1::varchar AS file_no,
+               (COALESCE(d.is_selected,FALSE)
+                OR LOWER(TRIM(br.req_name))=ANY($2::text[])) AS is_selected
+        FROM crm.business_req br
+        LEFT JOIN crm.business_doc_checklist d ON d.req_id=br.req_id AND d.file_no=$1
+        WHERE (d.file_no=$1 OR (br.is_active=TRUE AND LOWER(TRIM(br.req_name))=ANY($2::text[])))
         ORDER BY br.req_name
-      `, [fileNo]),
+      `, [fileNo, ALLOCATION_DOCUMENT_NAMES]),
     ]);
     if (!file) {
       res.status(404).json({ ok: false, error: "Allocated file not found." });

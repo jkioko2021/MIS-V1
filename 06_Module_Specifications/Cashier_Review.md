@@ -42,7 +42,7 @@ review history. Local reference records are context, not external payment
 reconciliation. It does not charge funds or claim emails were sent.
 
 * **M / Receipted:** mandatory receipt number, actual System Receipt uploaded
-  for the current handoff, comments, and explicit FULL-PAID/PART-PAID selection.
+  for the current allocation/handoff cycle, comments, and explicit FULL-PAID/PART-PAID selection.
   FULL-PAID completes Cashier work and records RECEIPTED (medical) or FILING
   (nonmedical). PART-PAID stays non-receipted and enters Credit Control.
 * **CC / Credit Control:** outstanding PART-PAID/NOT-PAID business enters the
@@ -68,6 +68,13 @@ Read-only selection does not mutate ROP claims; optimistic transactional
 decision checks prevent stale/double processing instead.
 
 No external portal/accounting reconciliation or email transport is connected.
+Allocation owners may upload System Receipt, Policy Schedule, System Invoice,
+and AML Report independently of the registration checklist, for Retail,
+Corporate, and SME business. Uploads use real private bytes, retain document
+metadata and notes, and recheck allocation ownership under the handoff lock.
+Invoice input is retained after uploading so the operator can forward using it.
+Cashier accepts receipts uploaded during that allocation before the transfer;
+receipts predating the current allocation remain ineligible for new receipting.
 Development-only integration tests cover real allocation handoff, invoice
 flag/date persistence, assigned-user restrictions, upload/download and receipt
 gates, concurrent decisions, full/partial outcomes, Credit Control, both return

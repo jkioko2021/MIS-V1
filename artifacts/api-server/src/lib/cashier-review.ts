@@ -28,7 +28,8 @@ export async function receiptExists(fileNo: string, client?: PoolClient) {
   const sql = `SELECT EXISTS(SELECT 1 FROM crm.business_uploads u JOIN crm.business_req r ON r.req_id=u.req_id
     JOIN crm.business_tracking b ON b.file_no=u.file_no WHERE u.file_no=$1 AND u.is_active
     AND u.filesize>0 AND ${receiptRequirement}
-    AND (b.to_cashier_dt IS NULL OR u.uploaded_at>=b.to_cashier_dt)) AS exists`;
+    AND (COALESCE(b.cashier_document_from,b.to_cashier_dt) IS NULL
+      OR u.uploaded_at>=COALESCE(b.cashier_document_from,b.to_cashier_dt))) AS exists`;
   const [row] = client ? await txQuery<{ exists: boolean }>(client, sql, [fileNo])
     : await query<{ exists: boolean }>(sql, [fileNo]);
   return row?.exists ?? false;

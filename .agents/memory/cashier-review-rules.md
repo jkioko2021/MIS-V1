@@ -27,3 +27,14 @@ assumed authoritative.
 decisions. Require an actual System Receipt for the current handoff and an
 explicit payment status. Related local-reference records are context, not proof
 of reconciliation against the external accounting/portal source.
+
+A System Receipt uploaded during the current allocation cycle counts when the
+file subsequently reaches Cashier; it must not require duplicate uploading.
+Receipts from earlier allocation cycles must not authorize new receipting.
+
+**Why:** The user explicitly enabled System Receipt uploading in Allocation
+Files before forwarding to the next recipient.
+
+**How to apply:** Preserve the allocation-cycle document cutoff when transferring
+to Cashier, rather than treating the later Cashier handoff timestamp as the
+earliest eligible receipt time.

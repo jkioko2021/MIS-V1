@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
@@ -188,6 +188,7 @@ function AllocatedFileSheet({
   const { data: amlRiskReasonSourceRes } = useQuery({
     queryKey: ['aml-risk-reason-source'],
     queryFn: () => misApi.amlRiskReasons(),
+    refetchInterval: 30_000,
   });
   const { data: destinationRes, isLoading: destinationLoading } = useQuery({
     queryKey: ['allocation-destination', action],
@@ -209,6 +210,14 @@ function AllocatedFileSheet({
   const notes = file?.notes ?? [];
   const docs = file?.docs ?? [];
   const selectedDocuments = docs.filter(doc => doc.is_selected);
+  const invoiceRequirement = docs.find(doc => doc.req_name.trim().toLowerCase() === 'system invoice');
+  const savedInvoiceNo = uploads.find(upload => upload.req_id === invoiceRequirement?.req_id && upload.invoice_no)?.invoice_no
+    || file?.invoice_no || '';
+  useEffect(() => {
+    if (!fileRes || !uploadsRes || !savedInvoiceNo) return;
+    // Restore saved evidence when reopening, without overwriting an in-progress edit.
+    setDocumentTransaction(previous => previous.invoiceNo ? previous : { ...previous, invoiceNo: savedInvoiceNo });
+  }, [fileRes, uploadsRes, savedInvoiceNo]);
 
   const actionMutation = useMutation({
     mutationFn: () =>
@@ -295,14 +304,14 @@ function AllocatedFileSheet({
     },
     onSuccess: async () => {
       toast({ title: 'Document uploaded', description: 'The document has been added to this allocation record.' });
-      setDocumentTransaction({
+      setDocumentTransaction(previous => ({
         reqId: '',
-        invoiceNo: '',
+        invoiceNo: previous.invoiceNo,
         amount: '',
         policyCode: '',
         riskRate: '',
         riskReason: '',
-      });
+      }));
       setPendingDocumentFile(null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['allocated-business-file', fileNo] }),
