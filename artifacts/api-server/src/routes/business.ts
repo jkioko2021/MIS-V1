@@ -1561,6 +1561,11 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
              is_complete=CASE WHEN $2 THEN FALSE ELSE is_complete END,
              ready_for_update=CASE WHEN $2 THEN FALSE ELSE TRUE END,
               invoice_no=CASE WHEN $3 THEN $4 ELSE invoice_no END,
+              invoiced=CASE WHEN $3 THEN TRUE ELSE invoiced END,
+              to_cashier_dt=CASE WHEN $9::boolean THEN NOW() ELSE to_cashier_dt END,
+              receipted=CASE WHEN $9::boolean THEN FALSE ELSE receipted END,
+              receipt_no=CASE WHEN $9::boolean THEN NULL ELSE receipt_no END,
+              receipt_date=CASE WHEN $9::boolean THEN NULL ELSE receipt_date END,
               paid_status=CASE WHEN $5 THEN $6 ELSE paid_status END,
               invoice_date=CASE WHEN $5 THEN NOW() ELSE invoice_date END,
                paid=CASE WHEN $5 THEN $7 ELSE paid END,
@@ -1577,6 +1582,7 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
           paidStatus || null,
           paid,
           fileNo,
+          isCashier,
         ],
       );
 

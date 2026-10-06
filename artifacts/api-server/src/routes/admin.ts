@@ -13,7 +13,7 @@ router.use(requireAuth);
 export const MENU_MASTER = [
   { main: "Dashboard",  sub: "Overview",               url: "/",                      order: 10 },
   { main: "Medical Underwriting", sub: "Medical Underwriting Review", url: "/medical-underwriting", order: 10 },
-  { main: "Cashier", sub: "Cashier Review", url: "/cashier", order: 10 },
+  { main: "Business", sub: "Cashier Review", url: "/business/cashier", order: 38 },
   { main: "Dashboard", sub: "Notifications", url: "/notifications", order: 20 },
   { main: "Business",   sub: "Register Business",       url: "/business/new",          order: 10 },
   { main: "Business",   sub: "My Pending Files",        url: "/business",              order: 20 },
