@@ -189,6 +189,35 @@ try {
   assert(approvedDetail.file.benefit_ver_by.endsWith('_pricing'));
   assert.equal(approvedDetail.reviews.length, 1);
   assert(approvedDetail.notes.some(note => note.notes === 'Original tracker note - retain'));
+  const missing = await file('MISSING_RECIPIENT', 'C', tracker, 'C');
+  await allocate(missing, 'C', recipient);
+  await pool.query('UPDATE crm.business_tracking SET allocated_to=NULL WHERE file_no=$1', [missing]);
+  await matrix(missing);
+  detail = (await api(filePath(missing))).body.data;
+  assert(detail.allocation_recipients.some(row => row.username === otherRecipient));
+  assert(!detail.allocation_recipients.some(row => row.username.endsWith('_outsider')));
+  const missingInput = { action: 'YES', comments: 'Assign approved file to eligible recipient', expected_updated_at: detail.file.updated_at };
+  assert.equal((await api(`${filePath(missing)}/review`, missingInput)).status, 400);
+  assert.equal((await api(`${filePath(missing)}/review`, { ...missingInput, allocated_to: fixture.users.find(user => user.endsWith('_outsider')) })).status, 400);
+  assert.equal((await api(`${filePath(missing)}/review`, { ...missingInput, allocated_to: otherRecipient })).status, 200);
+  assert((await api('/mis/business/allocated', undefined, 'otherRecipient')).body.data.some(row => row.file_no === missing));
+  const repaired = (await api(filePath(missing))).body.data;
+  assert.equal(repaired.file.allocated_to, otherRecipient);
+  assert(repaired.notes.some(row => row.notes === 'Original tracker note - retain'));
+  assert(repaired.notes.some(row => row.notes.includes('recipient changed from unassigned')));
+  const inactive = await file('INACTIVE_RECIPIENT', 'C', tracker, 'C');
+  await allocate(inactive, 'C', recipient);
+  await matrix(inactive);
+  for (const [column, value] of [['activated', false], ['approved', false], ['employee_locked', true], ['is_deleted', true]]) {
+    await pool.query(`UPDATE crm.employees SET ${column}=$1 WHERE username=$2`, [value, recipient]);
+    detail = (await api(filePath(inactive))).body.data;
+    assert(!detail.allocation_recipients.some(row => row.username === recipient));
+    assert.equal((await api(`${filePath(inactive)}/review`, { action: 'YES', comments: 'Eligibility test', expected_updated_at: detail.file.updated_at })).status, 400);
+    await pool.query(`UPDATE crm.employees SET ${column}=$1 WHERE username=$2`, [!value, recipient]);
+  }
+  detail = (await api(filePath(inactive))).body.data;
+  assert.equal((await api(`${filePath(inactive)}/review`, { action: 'YES', comments: 'Reassigned during approval', expected_updated_at: detail.file.updated_at, allocated_to: otherRecipient })).status, 200);
+  assert.equal((await api(filePath(inactive))).body.data.file.allocated_to, otherRecipient);
   const rejected = fixture.files.find(file => file.endsWith('_S_C'));
   detail = (await api(filePath(rejected))).body.data;
   assert.equal((await api(`${filePath(rejected)}/review`, { action: 'NO', comments: 'Benefits need correction', expected_updated_at: detail.file.updated_at })).status, 200);

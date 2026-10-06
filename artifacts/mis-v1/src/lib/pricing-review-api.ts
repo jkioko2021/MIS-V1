@@ -23,12 +23,14 @@ export type PricingDetail = {
   reviews: { review_id: number; action: string; comments: string; reviewed_by: string; reviewed_at: string }[];
   requirements: { req_id: number; req_name: string }[];
   has_rates_matrix: boolean;
+  allocation_recipients: { username: string; employee_name: string }[];
 };
 
 export type PricingReviewInput = {
   action: 'YES' | 'NO';
   comments: string;
   expected_updated_at: string;
+  allocated_to?: string;
 };
 
 type Envelope<T> = { ok: boolean; data: T; error?: string };

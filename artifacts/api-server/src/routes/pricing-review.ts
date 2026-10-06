@@ -24,7 +24,14 @@ const reviewSchema = z.object({
   action: z.enum(["YES", "NO"]),
   comments: z.string().trim().min(1, "Review notes are required.").max(250),
   expected_updated_at: z.string().datetime({ offset: true }),
+  allocated_to: z.string().trim().min(1).max(100).optional(),
 });
+// Use the same active-account and profile rules as Allocation Files access.
+const allocationRecipientsSql = `SELECT e.username,e.employee_name FROM crm.employees e
+  JOIN crm.profiles p ON p.profile_id=e.profile_id
+  WHERE e.activated AND e.approved AND NOT e.employee_locked AND NOT e.is_deleted
+  AND p.is_active AND LOWER(TRIM(REGEXP_REPLACE(p.profile_name,'[[:space:]]+',' ','g')))
+    IN ('membership admin','bpo','bpo admin','bpo review','superadmin','system admin')`;
 const uploadSchema = z.object({
   req_id: z.number().int().positive(), filename: z.string().min(1).max(255),
   filesize: z.number().int().positive().max(10 * 1024 * 1024),
@@ -60,7 +67,7 @@ router.get("/pricing-review/files/:fileNo", async (req, res) => {
   try {
     const fileNo = String(req.params.fileNo);
     const file = await visibleFile(fileNo);
-    const [notes, uploads, reviews, requirements, has_rates_matrix] = await Promise.all([
+    const [notes, uploads, reviews, requirements, has_rates_matrix, allocation_recipients] = await Promise.all([
       query(`SELECT note_id,note_from,notes,note_date FROM crm.business_tracking_notes WHERE file_no=$1 AND is_active ORDER BY note_date DESC,note_id DESC`, [fileNo]),
       query(`SELECT u.upload_id,u.filename,r.req_name,u.uploaded_by,u.uploaded_at FROM crm.business_uploads u
         JOIN crm.business_req r ON r.req_id=u.req_id WHERE u.file_no=$1 AND u.is_active ORDER BY u.uploaded_at DESC`, [fileNo]),
@@ -68,8 +75,9 @@ router.get("/pricing-review/files/:fileNo", async (req, res) => {
       query(`SELECT r.req_id,r.req_name FROM crm.business_req r WHERE r.is_active AND r.applies_to IN ('ALL','C')
         AND ${ratesMatrixRequirement} ORDER BY r.req_id`),
       matrixExists(fileNo),
+      query(`${allocationRecipientsSql} ORDER BY e.employee_name,e.username`),
     ]);
-    res.json({ ok: true, data: { file, notes, uploads, reviews, requirements, has_rates_matrix } });
+    res.json({ ok: true, data: { file, notes, uploads, reviews, requirements, has_rates_matrix, allocation_recipients } });
   } catch (err) { pricingFailure(res, err); }
 });
 router.post("/pricing-review/files/:fileNo/review", async (req, res) => {
@@ -83,16 +91,15 @@ router.post("/pricing-review/files/:fileNo/review", async (req, res) => {
       const file = await pricingFile(client, fileNo);
       if (new Date(file.updated_at).getTime() !== new Date(input.expected_updated_at).getTime())
         throw new MedicalError(409, "This file changed. Refresh it before recording the decision.");
+      const allocatedTo = input.action === "YES" ? (input.allocated_to ?? file.allocated_to) : file.allocated_to;
       if (input.action === "YES") {
         const [matrix] = await txQuery<{ exists: boolean }>(client, `SELECT EXISTS(SELECT 1 FROM crm.business_uploads u
           JOIN crm.business_req r ON r.req_id=u.req_id WHERE u.file_no=$1 AND u.is_active AND r.is_active
           AND u.filesize>0 AND ${ratesMatrixRequirement}) AS exists`, [fileNo]);
         if (!matrix?.exists) throw new MedicalError(400, "Upload the approved Rates and benefit Matrix before approval.");
-        const recipient = file.allocated_to && await txQuery(client, `SELECT e.username FROM crm.employees e JOIN crm.profiles p ON p.profile_id=e.profile_id
-          WHERE e.username=$1 AND e.activated AND e.approved AND NOT e.employee_locked AND NOT e.is_deleted
-          AND p.is_active AND LOWER(TRIM(p.profile_name)) IN ('membership admin','bpo','bpo admin','bpo review','superadmin','system admin')
-          FOR SHARE OF e,p`, [file.allocated_to]);
-        if (!recipient || !recipient.length) throw new MedicalError(400, "The allocated recipient is not active or cannot receive Allocation Files. Reallocate before approval.");
+        if (!allocatedTo) throw new MedicalError(400, "Select an Allocation Files recipient before approval.");
+        const recipient = await txQuery(client, `${allocationRecipientsSql} AND e.username=$1 FOR SHARE OF e,p`, [allocatedTo]);
+        if (!recipient.length) throw new MedicalError(400, "Select an active, approved staff member with Allocation Files access.");
       }
       const status = input.action === "YES" ? "ALLOCATED" : "RETURNED-INCOMPLETE";
       await txQuery(client, `UPDATE crm.business_work_items SET work_status='COMPLETED',updated_at=NOW()
@@ -105,16 +112,20 @@ router.post("/pricing-review/files/:fileNo/review", async (req, res) => {
       }
       await txQuery(client, `UPDATE crm.business_tracking SET file_status=$2,benefit_verified=$3::varchar,
         benefit_ver_by=$4,benefit_ver_date=NOW(),allocated=($3::varchar='YES'),
-        allocated_to=CASE WHEN $3::varchar='YES' THEN allocated_to ELSE NULL END,
+        allocated_to=CASE WHEN $3::varchar='YES' THEN $5::varchar ELSE NULL END,
         allocate_dt=CASE WHEN $3::varchar='YES' THEN NOW() ELSE NULL END,
         forwarded=($3::varchar='YES'),is_complete=CASE WHEN $3::varchar='NO' THEN FALSE ELSE is_complete END,
-        ready_for_update=($3::varchar='YES'),updated_at=NOW() WHERE file_no=$1`, [fileNo, status, input.action, actor]);
+        ready_for_update=($3::varchar='YES'),updated_at=NOW() WHERE file_no=$1`, [fileNo, status, input.action, actor, allocatedTo]);
       await txQuery(client, `INSERT INTO crm.pricing_reviews(file_no,action,comments,reviewed_by,allocated_to)
-        VALUES($1,$2,$3,$4,$5)`, [fileNo, input.action, input.comments, actor, file.allocated_to]);
+        VALUES($1,$2,$3,$4,$5)`, [fileNo, input.action, input.comments, actor, allocatedTo]);
+      if (input.action === "YES" && allocatedTo !== file.allocated_to) {
+        await txQuery(client, `INSERT INTO crm.business_tracking_notes(file_no,note_from,notes) VALUES($1,$2,$3)`,
+          [fileNo, actor, `Pricing allocation recipient changed from ${file.allocated_to ?? "unassigned"} to ${allocatedTo}.`]);
+      }
       await txQuery(client, `INSERT INTO crm.business_tracking_notes(file_no,note_from,notes) VALUES($1,$2,$3)`, [fileNo, actor, input.comments]);
       await txQuery(client, `INSERT INTO crm.admin_audit_trail(username,action_type,description)
-        VALUES($1,'PRICING_REVIEW',$2)`, [actor, `${fileNo}: ${input.action} → ${status}. ${input.comments}`]);
-      return { file_status: status, allocated_to: input.action === "YES" ? file.allocated_to : null };
+        VALUES($1,'PRICING_REVIEW',$2)`, [actor, `${fileNo}: ${input.action} → ${status}. Recipient: ${allocatedTo ?? "unassigned"} (previous: ${file.allocated_to ?? "unassigned"}). ${input.comments}`]);
+      return { file_status: status, allocated_to: input.action === "YES" ? allocatedTo : null };
     });
     res.json({ ok: true, data: result });
   } catch (err) { pricingFailure(res, err); }

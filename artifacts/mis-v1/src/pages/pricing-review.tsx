@@ -34,6 +34,7 @@ function PricingFileDetail({ fileNo, onReviewed }: { fileNo: string; onReviewed:
   const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
   const [requirementId, setRequirementId] = useState('');
   const [localError, setLocalError] = useState('');
+  const [recipientOverride, setRecipientOverride] = useState<string | null>(null);
   const detailQuery = useQuery({
     queryKey: ['pricing-review-detail', fileNo],
     queryFn: () => pricingReviewApi.detail(fileNo),
@@ -90,6 +91,10 @@ function PricingFileDetail({ fileNo, onReviewed }: { fileNo: string; onReviewed:
   if (detailQuery.isLoading) return <div className="animate-pulse space-y-4 rounded-2xl border border-[#dbe4d8] bg-[#fafbf7] p-6"><div className="h-8 w-56 rounded bg-[#e0e8df]" /><div className="h-28 rounded-xl bg-[#edf1e9]" /><div className="h-48 rounded-xl bg-[#edf1e9]" /></div>;
   if (detailQuery.isError || !detail || !file) return <section className="rounded-2xl border border-[#e6d9ce] bg-[#fbf7f2] p-8 text-center"><AlertCircle className="mx-auto mb-3 text-[#a5684b]" size={24} /><p className="font-semibold text-[#694b3d]">Pricing file could not be loaded</p><p className="mt-2 text-sm text-[#8b7669]">{detailQuery.error instanceof Error ? detailQuery.error.message : 'The record is unavailable right now.'}</p><button type="button" onClick={() => detailQuery.refetch()} className="mt-4 rounded-lg border border-[#ddcabe] px-4 py-2 text-sm font-semibold text-[#704f40]" data-testid="button-retry-pricing-detail">Try again</button></section>;
 
+  const recipients = detail.allocation_recipients ?? [];
+  const originalRecipientEligible = recipients.some(recipient => recipient.username === file.allocated_to);
+  const selectedRecipient = recipientOverride ?? (originalRecipientEligible ? file.allocated_to! : '');
+  const recipientEligible = recipients.some(recipient => recipient.username === selectedRecipient);
   const submitReview = (action: 'YES' | 'NO') => {
     setLocalError('');
     if (!comments.trim()) {
@@ -104,7 +109,14 @@ function PricingFileDetail({ fileNo, onReviewed }: { fileNo: string; onReviewed:
       setLocalError('An approved rates matrix must be uploaded before benefits can be approved.');
       return;
     }
-    reviewMutation.mutate({ action, comments: comments.trim(), expected_updated_at: file.updated_at });
+    if (action === 'YES' && !recipientEligible) {
+      setLocalError('Select an eligible Allocation Files recipient before approval.');
+      return;
+    }
+    reviewMutation.mutate({
+      action, comments: comments.trim(), expected_updated_at: file.updated_at,
+      ...(action === 'YES' && selectedRecipient !== file.allocated_to ? { allocated_to: selectedRecipient } : {}),
+    });
   };
 
   return <section className="overflow-hidden rounded-2xl border border-[#d8e2d6] bg-[#fbfcf8] shadow-[0_16px_48px_-38px_rgba(32,62,51,.35)]" data-testid={`detail-pricing-file-${fileNo}`}>
@@ -166,12 +178,22 @@ function PricingFileDetail({ fileNo, onReviewed }: { fileNo: string; onReviewed:
 
       <section className="rounded-2xl border border-[#dce5d9] bg-[#f5f7f0] p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-sm font-semibold text-[#29483d]">Record benefit decision</h3><p className="mt-1 text-xs leading-5 text-[#7c897e]">Comments are required for either outcome and saved with the review.</p></div><span className="rounded-md border border-[#dce5d9] bg-[#fbfcf8] px-2 py-1 font-mono text-[9px] text-[#78877c]">MAX 250 CHARACTERS</span></div>
+        {file.reviewable && <div className="mt-4">
+          <label htmlFor="pricing-allocation-recipient" className="text-xs font-semibold text-[#36534a]">Allocation Files recipient</label>
+          <select id="pricing-allocation-recipient" value={selectedRecipient} onChange={event => { setRecipientOverride(event.target.value); setLocalError(''); reviewMutation.reset(); }} disabled={reviewMutation.isPending} className="mt-2 w-full rounded-lg border border-[#d6e0d4] bg-[#fcfdf9] px-3 py-2 text-sm text-[#314e42]" data-testid="select-pricing-allocation-recipient">
+            <option value="">Select a recipient</option>
+            {recipients.map(recipient => <option key={recipient.username} value={recipient.username}>{recipient.employee_name} ({recipient.username})</option>)}
+          </select>
+          {!originalRecipientEligible && <p className="mt-2 text-xs text-[#90754f]">{file.allocated_to ? 'The current recipient is no longer eligible.' : 'This file has no allocated recipient.'} Select a recipient to receive the approved file.</p>}
+          {!recipients.length && <p className="mt-2 text-xs text-[#9a5139]">No eligible recipients are available. An administrator must enable an approved staff account with Allocation Files access.</p>}
+          <p className="mt-2 text-[10px] text-[#718175]">The selected recipient is saved with approval. Return incomplete still goes to the original tracker.</p>
+        </div>}
         <textarea value={comments} maxLength={250} onChange={event => setComments(event.target.value)} disabled={!file.reviewable || reviewMutation.isPending} placeholder="Explain the benefit verification outcome…" className="mt-4 min-h-24 w-full resize-y rounded-xl border border-[#d6e0d4] bg-[#fcfdf9] px-3 py-3 text-sm text-[#314e42] outline-none placeholder:text-[#a0aaa0] focus:border-[#84a38e] disabled:opacity-60" data-testid="input-pricing-review-comments" />
         <div className="mt-1 flex justify-between gap-3 text-[10px] text-[#8a968b]"><span>{!file.reviewable ? 'This file is no longer reviewable.' : 'A concise, specific reason helps the next team act.'}</span><span className="font-mono">{comments.length}/250</span></div>
         {(localError || reviewMutation.isError) && <p className="mt-3 rounded-lg border border-[#ebd4c7] bg-[#fbf2eb] px-3 py-2 text-xs font-medium text-[#9a5139]" role="alert" data-testid="status-pricing-review-error">{localError || (reviewMutation.error instanceof Error ? reviewMutation.error.message : 'The decision could not be saved.')}</p>}
         {reviewMutation.isPending && <p className="mt-3 text-xs font-medium text-[#648071]" role="status">Saving decision…</p>}
         <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" disabled={!file.reviewable || reviewMutation.isPending || !detail.has_rates_matrix} onClick={() => submitReview('YES')} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#315f4b] px-4 text-xs font-semibold text-[#f8f7ec] transition hover:bg-[#284f3e] disabled:cursor-not-allowed disabled:opacity-45" data-testid="button-approve-pricing-benefits"><Check size={15} /> Approve benefits</button>
+          <button type="button" disabled={!file.reviewable || reviewMutation.isPending || !detail.has_rates_matrix || !recipientEligible} onClick={() => submitReview('YES')} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#315f4b] px-4 text-xs font-semibold text-[#f8f7ec] transition hover:bg-[#284f3e] disabled:cursor-not-allowed disabled:opacity-45" data-testid="button-approve-pricing-benefits"><Check size={15} /> Approve benefits</button>
           <button type="button" disabled={!file.reviewable || reviewMutation.isPending} onClick={() => submitReview('NO')} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#d9c9b9] bg-[#fbf8f2] px-4 text-xs font-semibold text-[#8a5942] transition hover:bg-[#f7eee5] disabled:cursor-not-allowed disabled:opacity-50" data-testid="button-return-pricing-file"><ArrowLeft size={14} /> Return incomplete</button>
         </div>
         {!detail.has_rates_matrix && <p className="mt-3 text-[10px] leading-5 text-[#90754f]">Approval is unavailable until a rates matrix upload is recorded.</p>}

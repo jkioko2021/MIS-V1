@@ -25,7 +25,7 @@ Access: active Pricing staff, SuperAdmin and System Admin. The Pricing profile i
 1. BPO allocation, direct allocation and Corporate/SME medical forwarding create or reopen a shared Pricing work item only for rate type C. Other rates proceed to Allocation Files without Pricing.
 2. The business remains allocated to its intended recipient but has status BENEFIT VERIFICATION, verification NO and a pricing handoff date. It is not visible or accessible through Allocation Files.
 3. Pricing staff inspect business details, existing notes and documents and upload the rates matrix against the existing `crm.business_req` master.
-4. **Approve benefits:** requires an active Rates and benefit Matrix/Approved rates matrix upload, comments and an active eligible allocation recipient. Saves the reviewer/time and comments and releases ALLOCATED business to the original recipient.
+4. **Approve benefits:** requires an active Rates and benefit Matrix/Approved rates matrix upload, comments and an active eligible allocation recipient. The original eligible recipient is selected by default. For missing/ineligible assignments, Pricing must explicitly select an active approved account with Allocation Files access. Approval saves the recipient, reviewer/time and comments atomically and releases ALLOCATED business to the selected recipient. Assignment changes append a history note and are audited; no previous notes are removed.
 5. **Return incomplete:** requires comments, clears allocation and opens REGISTER_CORRECTION assigned to the original tracker. The file returns to that tracker’s Register Queue.
 
 Only active files awaiting an open Pricing work item can be mutated. Decisions lock the file/work item, compare the submitted update timestamp, and commit state, review history, notes, work-item changes and audit together. Repeated or stale approval returns a conflict without duplicate reviews.
@@ -40,4 +40,4 @@ No email transport was connected for this request. The page does not claim an em
 
 ## Verification
 
-Development-only integration fixtures exercise Custom Corporate/SME routing, Standard bypass, Retail isolation, real object upload/download, matrix and notes gates, optimistic concurrency, recipient ownership, Return Incomplete visibility and medical/direct/general-edit allocation entry points. BPO route regressions cover both Corporate/SME rates and all tested business types.
+Development-only integration fixtures exercise Custom Corporate/SME routing, Standard bypass, Retail isolation, real object upload/download, matrix and notes gates, optimistic concurrency, recipient ownership, missing-recipient repair, rejection of inactive/unapproved/locked/deleted and unauthorized recipients, Return Incomplete visibility and medical/direct/general-edit allocation entry points. BPO route regressions cover both Corporate/SME rates and all tested business types.
