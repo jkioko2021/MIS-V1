@@ -136,10 +136,13 @@ function Unavailable({ title, detail }: { title: string; detail: string }) {
 function AllocatedFileSheet({
   fileNo,
   onClose,
+  workspace = 'membership',
 }: {
   fileNo: string;
   onClose: () => void;
+  workspace?: 'membership' | 'gi';
 }) {
+  const isGi = workspace === 'gi';
   const [tab, setTab] = useState('register');
   const [action, setAction] = useState<AllocatedFileActionOption['code'] | ''>('');
   const [comments, setComments] = useState('');
@@ -158,17 +161,17 @@ function AllocatedFileSheet({
   const queryClient = useQueryClient();
 
   const { data: fileRes, isLoading, isError } = useQuery({
-    queryKey: ['allocated-business-file', fileNo],
+    queryKey: ['allocated-business-file', workspace, fileNo],
     queryFn: () => misApi.businessAllocatedFile(fileNo),
     enabled: !!fileNo,
   });
   const { data: uploadsRes } = useQuery({
-    queryKey: ['allocated-business-uploads', fileNo],
+    queryKey: ['allocated-business-uploads', workspace, fileNo],
     queryFn: () => misApi.businessAllocatedUploads(fileNo),
     enabled: !!fileNo,
   });
   const { data: historyRes } = useQuery({
-    queryKey: ['allocated-business-history', fileNo],
+    queryKey: ['allocated-business-history', workspace, fileNo],
     queryFn: () => misApi.businessAllocatedHistory(fileNo),
     enabled: !!fileNo,
   });
@@ -177,12 +180,12 @@ function AllocatedFileSheet({
     isError: actionOptionsError,
     isLoading: actionOptionsLoading,
   } = useQuery({
-    queryKey: ['allocated-business-action-options'],
+    queryKey: ['allocated-business-action-options', workspace],
     queryFn: () => misApi.businessAllocatedActionOptions(),
     refetchInterval: 30_000,
   });
   const { data: amlStatusRes } = useQuery({
-    queryKey: ['allocated-business-aml-status', fileNo],
+    queryKey: ['allocated-business-aml-status', workspace, fileNo],
     queryFn: () => misApi.businessAllocatedAmlStatus(fileNo),
     enabled: !!fileNo,
   });
@@ -192,7 +195,7 @@ function AllocatedFileSheet({
     refetchInterval: 30_000,
   });
   const { data: destinationRes, isLoading: destinationLoading } = useQuery({
-    queryKey: ['allocation-destination', action],
+    queryKey: ['allocation-destination', workspace, action],
     queryFn: () => misApi.allocationDestination(action as AllocatedFileActionOption['code']),
     enabled: !!action,
   });
@@ -201,8 +204,9 @@ function AllocatedFileSheet({
   const uploads = (uploadsRes?.data ?? []) as BusinessUpload[];
   const history = (historyRes?.data ?? []) as AuditEntry[];
   const pricingEligible = file?.rate_type === 'C' && file?.benefit_verified === 'NO';
+  const giActions: AllocatedFileActionOption['code'][] = ['C', 'RI'];
   const actionOptions = ((actionOptionsRes?.data ?? []) as AllocatedFileActionOption[])
-    .filter(option => option.code !== 'P' || pricingEligible);
+    .filter(option => workspace === 'gi' ? giActions.includes(option.code) : option.code !== 'P' || pricingEligible);
   const amlStatus = amlStatusRes?.data as AllocatedFileAmlStatus | undefined;
   const amlRiskReasonSource = amlRiskReasonSourceRes?.data;
   const selectedAction = actionOptions.find(option => option.code === action);
@@ -210,7 +214,7 @@ function AllocatedFileSheet({
   const paymentRequired = selectedAction?.requires_payment_status === true;
   const destination = destinationRes?.data;
   const benefitsVerified = file?.benefit_verified === 'YES';
-  const canForward = benefitsVerified || (action === 'P' && pricingEligible);
+  const canForward = workspace === 'gi' || benefitsVerified || (action === 'P' && pricingEligible);
   const notes = file?.notes ?? [];
   const docs = file?.docs ?? [];
   const selectedDocuments = docs.filter(doc => doc.is_selected);
@@ -236,23 +240,35 @@ function AllocatedFileSheet({
         assigned_to: destination?.needs_assignee ? assignedTo : undefined,
       }),
     onSuccess: async response => {
+      const notificationStatus = response.data.notification_status;
+      const notificationMessage = notificationStatus === 'WAITING_CONFIGURATION'
+        ? 'Notification saved; email was not sent because mail configuration is pending.'
+        : notificationStatus === 'SENT'
+          ? 'Notification email sent.'
+          : notificationStatus
+            ? `Notification status: ${notificationStatus}. Email delivery is not confirmed.`
+            : 'No notification status was returned.';
       toast({
         title: 'Allocation action completed',
-        description: `The file moved to ${response.data.file_status}.`,
+        description: workspace === 'gi' && action === 'RI'
+          ? `The file moved to ${response.data.file_status}. ${notificationMessage}`
+          : `The file moved to ${response.data.file_status}.${workspace === 'gi' ? ` ${notificationMessage}` : ''}`,
       });
+      onClose();
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['business-allocated'] }),
+        queryClient.invalidateQueries({ queryKey: ['business-allocated', workspace] }),
         queryClient.invalidateQueries({
-          queryKey: ['allocated-business-file', fileNo],
+          queryKey: ['allocated-business-file', workspace, fileNo],
+          refetchType: 'none',
         }),
         queryClient.invalidateQueries({
-          queryKey: ['allocated-business-history', fileNo],
+          queryKey: ['allocated-business-history', workspace, fileNo],
+          refetchType: 'none',
         }),
         queryClient.invalidateQueries({ queryKey: ['business'] }),
         queryClient.invalidateQueries({ queryKey: ['pricing-review-list'] }),
         queryClient.invalidateQueries({ queryKey: ['pricing-review-detail', fileNo] }),
       ]);
-      onClose();
     },
     onError: error =>
       toast({
@@ -325,10 +341,10 @@ function AllocatedFileSheet({
       }));
       setPendingDocumentFile(null);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['allocated-business-file', fileNo] }),
-        queryClient.invalidateQueries({ queryKey: ['allocated-business-uploads', fileNo] }),
-        queryClient.invalidateQueries({ queryKey: ['allocated-business-aml-status', fileNo] }),
-        queryClient.invalidateQueries({ queryKey: ['allocated-business-history', fileNo] }),
+        queryClient.invalidateQueries({ queryKey: ['allocated-business-file', workspace, fileNo] }),
+        queryClient.invalidateQueries({ queryKey: ['allocated-business-uploads', workspace, fileNo] }),
+        queryClient.invalidateQueries({ queryKey: ['allocated-business-aml-status', workspace, fileNo] }),
+        queryClient.invalidateQueries({ queryKey: ['allocated-business-history', workspace, fileNo] }),
       ]);
     },
     onError: error =>
@@ -719,9 +735,9 @@ function AllocatedFileSheet({
               <div className="mt-8 border-t border-[#d8e5e1] pt-6">
                 <div className="mb-4">
                   <p className="text-xs font-bold uppercase tracking-[.16em] text-[#28746e]">
-                    Invoice / Credit Note workflow
+                    {workspace === 'gi' ? 'GI handoff workflow' : 'Invoice / Credit Note workflow'}
                   </p>
-                  <h3 className="mt-1 text-lg font-semibold">Review and forward</h3>
+                  <h3 className="mt-1 text-lg font-semibold">{workspace === 'gi' ? 'Resolve assigned file' : 'Review and forward'}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Complete the document, payment, and accountable-destination steps from one place.
                   </p>
@@ -743,9 +759,9 @@ function AllocatedFileSheet({
                 <div className="rounded-xl border border-[#a9d7d1] bg-[#e7f5f2] p-4">
                   <div className="flex items-center gap-2 text-sm font-bold text-[#195f5a]">
                     <SendHorizontal className="h-4 w-4" />
-                    Forward allocation
+                    {isGi ? 'GI routing decision' : 'Forward allocation'}
                   </div>
-                  {!benefitsVerified && (
+                  {!isGi && !benefitsVerified && (
                     <p className="mt-1 text-xs text-[#356c67]">
                       {pricingEligible
                         ? 'Benefits are not verified. Select Pricing Review to forward this rate C business for review. Other destinations remain blocked until benefits are verified.'
@@ -857,7 +873,11 @@ function AllocatedFileSheet({
                         className="gap-1.5 sm:col-span-2"
                       >
                         <SendHorizontal className="h-4 w-4" />
-                        {actionMutation.isPending ? 'Saving action…' : 'Forward'}
+                        {actionMutation.isPending
+                          ? 'Saving action…'
+                          : isGi
+                            ? action === 'RI' ? 'Return to Register' : 'Forward to Cashier'
+                            : 'Forward'}
                       </Button>
                   </div>
                 </div>
@@ -896,8 +916,22 @@ function SortButton({
   );
 }
 
-export default function AllocatedFilesPage() {
+export default function AllocatedFilesPage({ workspace = 'membership' }: { workspace?: 'membership' | 'gi' }) {
   const { user } = useAuth();
+  const isGi = workspace === 'gi';
+  const profileLower = (user?.profileName ?? '').trim().toLowerCase();
+  const departmentLower = (user?.department ?? '').trim().toLowerCase();
+  const giRoleNames = ['gi', 'nonmedical', 'non medical', 'general insurance'];
+  const giAccess = !!user && (
+    user.profileId === 1 || user.profileId === 2
+    || giRoleNames.includes(profileLower)
+    || giRoleNames.includes(departmentLower)
+  );
+  useEffect(() => {
+    const previous = document.title;
+    document.title = isGi ? 'GI-Allocated | AAR MIS' : 'Allocated Files | AAR MIS';
+    return () => { document.title = previous; };
+  }, [isGi]);
   const [searchBy, setSearchBy] = useState<'P' | 'F'>('P');
   const [searchDraft, setSearchDraft] = useState('');
   const [search, setSearch] = useState('');
@@ -914,6 +948,7 @@ export default function AllocatedFilesPage() {
     sort_by: sortBy,
     sort_dir: sortDir,
   };
+  if (isGi) params.workspace = 'gi';
   if (search) {
     params.search = search;
     params.search_by = searchBy;
@@ -923,6 +958,7 @@ export default function AllocatedFilesPage() {
   const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: [
       'business-allocated',
+      workspace,
       search,
       searchBy,
       clientType,
@@ -933,6 +969,7 @@ export default function AllocatedFilesPage() {
     ],
     queryFn: () => misApi.businessAllocated(params),
     staleTime: 30_000,
+    enabled: !isGi || giAccess,
   });
   const {
     data: refundLedgerRes,
@@ -940,10 +977,11 @@ export default function AllocatedFilesPage() {
     isFetching: refundLedgerFetching,
     refetch: refetchRefundLedger,
   } = useQuery({
-    queryKey: ['allocated-refund-ledger'],
+    queryKey: ['allocated-refund-ledger', workspace],
     queryFn: () => misApi.businessAllocatedRefundsSummary(),
     staleTime: 30_000,
     retry: false,
+    enabled: !isGi,
   });
   const files = data?.data ?? [];
   const total = data?.total ?? 0;
@@ -971,6 +1009,18 @@ export default function AllocatedFilesPage() {
     }
   };
 
+  if (isGi && !giAccess) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center bg-[#f1f6f2] p-6">
+        <div className="max-w-md rounded-2xl border border-[#d9e5df] bg-[#fbfdfb] p-8 text-center shadow-sm">
+          <LockKeyhole className="mx-auto mb-4 h-6 w-6 text-[#4c8274]" />
+          <h1 className="text-xl font-semibold text-[#193a38]">GI-Allocated access required</h1>
+          <p className="mt-2 text-sm leading-6 text-[#687b77]">This queue is available to General Insurance / Non-Medical staff and administrators.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-[100dvh] bg-[#eef4f2]">
       <div className="mx-auto max-w-[1600px] space-y-5 p-4 sm:p-6 lg:p-8">
@@ -985,13 +1035,15 @@ export default function AllocatedFilesPage() {
                 allocation queue
               </div>
               <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                Membership update <span className="font-normal text-[#b9e2dc]">— invoice</span>
+                {isGi ? 'GI-Allocated' : <>Membership update <span className="font-normal text-[#b9e2dc]">— invoice</span></>}
               </h1>
               <p className="mt-2 max-w-xl text-sm text-[#d1ebe7]">
-                {isSuperAdmin
+                {isGi
+                  ? (isSuperAdmin ? 'Oversight view of allocated non-medical files.' : 'Non-medical files assigned to your account.')
+                  : isSuperAdmin
                   ? 'Oversight queue for all allocated membership files.'
                   : 'Work queue for membership updates assigned to your account.'}{' '}
-                Walk-in files surface first for fast handling.
+                {!isGi && 'Walk-in files surface first for fast handling.'}
               </p>
             </div>
             <Button
@@ -999,12 +1051,12 @@ export default function AllocatedFilesPage() {
               variant="outline"
               size="sm"
               onClick={() => {
-                void Promise.all([refetch(), refetchRefundLedger()]);
+                void Promise.all([refetch(), ...(isGi ? [] : [refetchRefundLedger()])]);
               }}
-              disabled={isFetching || refundLedgerFetching}
+              disabled={isFetching || (!isGi && refundLedgerFetching)}
               className="border-[#8fc4bd] bg-transparent text-[#f3fbf9] hover:bg-[#397a74]"
             >
-              <RefreshCw className={cn('mr-2 h-4 w-4', (isFetching || refundLedgerFetching) && 'animate-spin')} />
+              <RefreshCw className={cn('mr-2 h-4 w-4', (isFetching || (!isGi && refundLedgerFetching)) && 'animate-spin')} />
               Refresh queue
             </Button>
           </div>
@@ -1013,7 +1065,7 @@ export default function AllocatedFilesPage() {
         <section className="grid gap-3 sm:grid-cols-4">
           <div className="rounded-lg border border-[#cbded9] bg-[#fbfdfc] p-4">
             <p className="text-[10px] font-bold uppercase tracking-[.16em] text-muted-foreground">
-              {isSuperAdmin ? 'Allocated files' : 'Assigned to you'}
+              {isGi ? (isSuperAdmin ? 'GI allocated files' : 'Assigned to you') : isSuperAdmin ? 'Allocated files' : 'Assigned to you'}
             </p>
             <div className="mt-2 flex items-end justify-between">
               <p data-testid="text-allocation-total" className="font-mono text-3xl font-bold text-[#195f5a]">
@@ -1022,21 +1074,21 @@ export default function AllocatedFilesPage() {
               <UserRound className="h-5 w-5 text-[#6a9d96]" />
             </div>
             <p className="mt-1 truncate text-xs text-muted-foreground">
-              {isSuperAdmin ? 'All administrators' : user?.username}
+              {isGi ? (isSuperAdmin ? 'Administrator oversight' : user?.username) : isSuperAdmin ? 'All administrators' : user?.username}
             </p>
           </div>
           <div className="rounded-lg border border-[#cbded9] bg-[#fbfdfc] p-4">
             <p className="text-[10px] font-bold uppercase tracking-[.16em] text-muted-foreground">
-              Medical on page
+              {isGi ? 'Non-medical on page' : 'Medical on page'}
             </p>
             <div className="mt-2 flex items-end justify-between">
               <p className="font-mono text-3xl font-bold text-[#195f5a]">
-                {files.filter(file => file.business === 'M').length}
+                {files.filter(file => isGi ? file.business !== 'M' : file.business === 'M').length}
               </p>
               <CheckCircle2 className="h-5 w-5 text-[#6a9d96]" />
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Benefit verification complete
+              {isGi ? 'GI operational scope' : 'Benefit verification complete'}
             </p>
           </div>
           <div className="rounded-lg border border-[#cbded9] bg-[#fbfdfc] p-4">
@@ -1048,10 +1100,10 @@ export default function AllocatedFilesPage() {
               <Clock3 className="h-5 w-5 text-[#c8943c]" />
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              {isSuperAdmin ? 'Oversight view' : 'Personal allocation queue'}
+              {isSuperAdmin ? 'Oversight view' : isGi ? 'Personal GI queue' : 'Personal allocation queue'}
             </p>
           </div>
-          <div data-testid="allocated-refund-summary" className="rounded-lg border border-[#ead5a9] bg-[#fffaf0] p-4">
+          {!isGi && <div data-testid="allocated-refund-summary" className="rounded-lg border border-[#ead5a9] bg-[#fffaf0] p-4">
             <p className="text-[10px] font-bold uppercase tracking-[.16em] text-[#8a651c]">
               Refunds allocated
             </p>
@@ -1068,10 +1120,10 @@ export default function AllocatedFilesPage() {
                   ? `${refundLedger.allocated_admin_count} administrator${refundLedger.allocated_admin_count === 1 ? '' : 's'} in scope`
                   : 'CRM refund source unavailable'}
             </p>
-          </div>
+          </div>}
         </section>
 
-        <section
+        {!isGi && <section
           data-testid="allocated-refund-details"
           className="overflow-hidden rounded-xl border border-[#ead5a9] bg-[#fffdf7] shadow-sm"
         >
@@ -1163,7 +1215,7 @@ export default function AllocatedFilesPage() {
               </table>
             </div>
           )}
-        </section>
+        </section>}
 
         <section className="rounded-lg border border-[#cbded9] bg-[#fbfdfc] p-4 shadow-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -1376,6 +1428,7 @@ export default function AllocatedFilesPage() {
         <AllocatedFileSheet
           fileNo={selectedFile}
           onClose={() => setSelectedFile(null)}
+          workspace={workspace}
         />
       )}
     </div>

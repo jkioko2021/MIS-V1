@@ -17,6 +17,7 @@ import MedicalUnderwritingPage from '@/pages/medical-underwriting';
 import CashierPage from '@/pages/cashier';
 import PricingReviewPage from '@/pages/pricing-review';
 import RecordFilingPage from '@/pages/business/record-filing';
+import GiAllocatePage from '@/pages/business/gi-allocate';
 import NotificationsPage from '@/pages/notifications';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import {
@@ -49,6 +50,7 @@ type NavItem = {
   pricingOnly?: boolean;
   cashierOnly?: boolean;
   dpuOnly?: boolean;
+  giOnly?: boolean;
   children?: NavItem[];
 };
 
@@ -75,6 +77,8 @@ const NAV_SECTIONS: Array<{
           { href: '/business/allocated', label: 'Allocated Files', icon: FileText, bpoOnly: true },
           { href: '/business/cashier', label: 'Cashier Review', icon: Banknote, cashierOnly: true },
           { href: '/business/record-filing', label: 'Record Filing', icon: FileText, dpuOnly: true },
+          { href: '/business/gi-allocate', label: 'GI-Allocate', icon: FileText, giOnly: true },
+          { href: '/business/gi-allocated', label: 'GI-Allocated', icon: FileText, giOnly: true },
         ],
       },
       { href: '/risk',      label: 'Risk Register',     icon: Shield },
@@ -111,6 +115,10 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
   const canSeeCashier = isAdmin || user?.profileId === 6
     || ['finance', 'cashier', 'superadmin', 'system admin'].includes(user?.profileName?.trim().toLowerCase() ?? '');
   const canSeeRecordFiling = isAdmin || user?.profileName?.trim().toLowerCase() === 'dpu';
+  const giNames = ['gi', 'nonmedical', 'non medical', 'general insurance'];
+  const canSeeGi = !!user && (isAdmin
+    || giNames.includes((user.profileName ?? '').trim().toLowerCase())
+    || giNames.includes((user.department ?? '').trim().toLowerCase()));
   const isBpoDepartment = (user?.department ?? '').trim().toUpperCase() === 'BPO';
   const canSeeAllocatedFiles = user && [
     'superadmin',
@@ -162,6 +170,7 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
                 const { href, label, icon: Icon } = item;
                 const bpoOnly = 'bpoOnly' in item && item.bpoOnly;
                 if (bpoOnly && !canSeeAllocatedFiles) return null;
+                if ('giOnly' in item && item.giOnly && !canSeeGi) return null;
                 const active = location === href || (href !== '/' && location.startsWith(href));
                 const visibleChildren = item.children?.filter(child =>
                   (!child.bpoOnly || canSeeAllocatedFiles)
@@ -169,7 +178,8 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
                    && (!child.medicalOnly || canSeeMedical)
                   && (!child.pricingOnly || canSeePricing)
                   && (!child.cashierOnly || canSeeCashier)
-                  && (!child.dpuOnly || canSeeRecordFiling),
+                   && (!child.dpuOnly || canSeeRecordFiling)
+                   && (!child.giOnly || canSeeGi),
                 ) ?? [];
                 return (
                   <div key={href}>
@@ -345,7 +355,13 @@ function ProtectedRouter() {
       <AppLayout>
         <Switch>
           <Route path="/"                 component={HomePage} />
-          <Route path="/business/allocated" component={AllocatedFilesPage} />
+          <Route path="/business/allocated">
+            {() => <AllocatedFilesPage />}
+          </Route>
+          <Route path="/business/gi-allocate" component={GiAllocatePage} />
+          <Route path="/business/gi-allocated">
+            {() => <AllocatedFilesPage workspace="gi" />}
+          </Route>
           <Route path="/business/cashier" component={CashierPage} />
           <Route path="/business/medical-review" component={MedicalUnderwritingPage} />
           <Route path="/business/record-filing" component={RecordFilingPage} />

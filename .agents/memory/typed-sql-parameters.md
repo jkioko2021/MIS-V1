@@ -8,3 +8,14 @@ Give repeated SQL parameters a consistent explicit type when they appear in both
 **Why:** Live PostgreSQL rejected review and business-edit statements with “inconsistent types deduced” (text versus character/character varying), even though TypeScript and mocked route tests passed. Those tests do not parse or bind SQL.
 
 **How to apply:** For workflow-state updates, verify at least one valid request against development PostgreSQL after changing SQL parameter use. Passing validation-error paths or mocked transaction tests alone does not demonstrate that the actual update statement executes.
+
+Build legacy-workflow smoke fixtures from the current PostgreSQL schema and
+modern test helpers, not from WebForms column labels.
+
+**Why:** Legacy names and required fields differ from the modern schema.
+Fixture setup errors can prevent the real authorization and transaction paths
+from being exercised, despite passing TypeScript checks.
+
+**How to apply:** Inspect current required columns/defaults and constraints
+before adapting fixtures. Exercise a valid role-specific request through its
+audit and notification side writes, not only its validation-error paths.

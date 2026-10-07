@@ -39,7 +39,10 @@ router.get("/mis/staff-on-call", async (_req, res) => {
 });
 
 // ─── BUSINESS TRACKING ───────────────────────────────────────────────────────
-router.use("/mis/business", requireAuth, requireBusinessTrackingAccess, setBpoReviewAccess);
+router.use("/mis/business", requireAuth, (req,res,next) => {
+  if(req.path==="/allocated"||req.path.startsWith("/allocated/")) { next(); return; }
+  requireBusinessTrackingAccess(req,res,next);
+}, setBpoReviewAccess);
 
 router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
   try {
@@ -103,6 +106,9 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
       p++;
     }
 
+    conditions.push(`NOT EXISTS (SELECT 1 FROM crm.business_work_items gi_filter
+      WHERE gi_filter.file_no=bt.file_no AND gi_filter.queue_name IN ('GI_ALLOCATE','GI_ALLOCATED')
+        AND gi_filter.work_status='OPEN')`);
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const sortableColumns: Record<string, string> = {
       file_no: "bt.file_no",
@@ -187,7 +193,15 @@ router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res
     const pageSize = Math.min(100, Math.max(10, Number.parseInt(rawPageSize ?? "20", 10) || 20));
     const offset = (page - 1) * pageSize;
 
-    const isSuperAdmin = req.user?.profileId === 1;
+    const giWorkspace=req.query.workspace==="gi";
+    if(req.query.workspace && !giWorkspace) {
+      res.status(400).json({ok:false,error:"Unknown allocated workspace."}); return;
+    }
+    if(giWorkspace && !(res.locals.isGiStaff||res.locals.isGiAdmin)
+      || !giWorkspace && !res.locals.canAccessMembershipAllocated) {
+      res.status(403).json({ok:false,error:"Use your authorized allocated workspace."}); return;
+    }
+    const isSuperAdmin = req.user?.profileId === 1 || giWorkspace && res.locals.isGiAdmin;
     const conditions: string[] = [
       "bt.is_active = TRUE",
       "bt.allocated = TRUE",
@@ -195,6 +209,8 @@ router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res
       "(bt.client_type NOT IN ('C','S') OR bt.rate_type IS DISTINCT FROM 'C' OR bt.benefit_verified='YES')",
     ];
     const params: unknown[] = [];
+    conditions.push(`${giWorkspace ? "" : "NOT "}EXISTS (SELECT 1 FROM crm.business_work_items g
+      WHERE g.file_no=bt.file_no AND g.queue_name='GI_ALLOCATED' AND g.work_status='OPEN')`);
     let p = 1;
     if (!isSuperAdmin) {
       // Custom-rate Corporate/SME allocations require Pricing approval.
@@ -278,6 +294,9 @@ router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res
 // The refund ledger remains in the legacy CRM database. This route is read-only
 // and applies the same ownership boundary as the modern allocation queue.
 router.get("/mis/business/allocated/refunds-summary", requireBpoAllocatedAccess, async (req, res) => {
+  if(!res.locals.canAccessMembershipAllocated) {
+    res.status(403).json({ok:false,error:"This refund ledger is not available to the GI workspace."}); return;
+  }
   const ledger = await getAllocatedRefundLedger(
     req.user!.username,
     req.user?.profileId === 1,

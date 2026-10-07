@@ -8,6 +8,7 @@ import { isAllocationDocument, isExcludedAllocationDocument } from "../lib/alloc
 import { logger } from "../lib/logger";
 import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage";
 import { queueCorporatePricing } from "../lib/pricing-review";
+import { giActor, recordGiDecision } from "../lib/gi-workflow";
 
 const router = Router();
 const objectStorageService = new ObjectStorageService();
@@ -383,7 +384,21 @@ router.get("/business/requirements", async (req: Request, res: Response) => {
 });
 
 // ─── Business workflows require both authentication and a business profile ────
-router.use(requireAuth, requireBusinessTrackingAccess);
+router.use(requireAuth, async (req,res,next) => {
+  if(req.path==="/business/aml/risk-reasons") {
+    try {
+      if((await giActor(req.user!.sub))?.is_gi) { next(); return; }
+    } catch(err) { handleError(res,err,"GI AML lookup access"); return; }
+  }
+  // These endpoints have their own live role + assigned-file authorization.
+  // Do not grant GI staff general Business Tracking permissions to reach them.
+  if(/^\/(?:mis\/)?business\/allocated(?:\/|$)/.test(req.path)
+    || /^\/business\/[^/]+\/(?:allocation-action|notes)$/.test(req.path)
+    || req.path==="/business/allocation-destinations") {
+    next(); return;
+  }
+  requireBusinessTrackingAccess(req,res,next);
+});
 
 // ─── GET /business/bpo-reviewers ─────────────────────────────────────────────
 router.get("/business/bpo-reviewers", requireBpoForwardAccess, async (_req: Request, res: Response) => {
@@ -409,7 +424,10 @@ router.get("/business/bpo-reviewers", requireBpoForwardAccess, async (_req: Requ
 // Allocation handoffs are intentionally server-defined so that the client does
 // not become the source of truth for permitted workflow outcomes.
 router.get("/business/allocated/action-options", requireBpoAllocatedAccess, (_req: Request, res: Response) => {
-  res.json({ ok: true, data: ALLOCATED_FILE_ACTION_OPTIONS });
+  const options=res.locals.isGiStaff&&!res.locals.isGiAdmin
+    ? ALLOCATED_FILE_ACTION_OPTIONS.filter(option=>["C","RI"].includes(option.code))
+    : ALLOCATED_FILE_ACTION_OPTIONS;
+  res.json({ ok: true, data: options });
 });
 
 router.get("/business/allocation-destinations", requireBpoAllocatedAccess, async (req: Request, res: Response): Promise<void> => {
@@ -829,7 +847,7 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
         [fileNo],
       );
       if (!file) throw new Error("FILE_NOT_FOUND");
-      const queueName = bpoQueueName(file.client_type);
+      const queueName = file.business === "N" ? "GI_ALLOCATE" : bpoQueueName(file.client_type);
 
       const [existingWorkItem] = await txQuery<{ work_item_id: number; work_status: string }>(
         client,
@@ -880,7 +898,14 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
       let updateSql: string;
       let updateParams: unknown[];
 
-      if (file.medical_uw && !file.allocated) {
+      if (file.business === "N") {
+        updateSql = `UPDATE crm.business_tracking SET forwarded=TRUE,is_complete=TRUE,
+          allocated=FALSE,allocated_to=NULL,allocate_dt=NULL,ready_for_update=TRUE,
+          file_status=$1,forward_date=NOW(),forwarded_by=$2,updated_at=NOW()
+          WHERE file_no=$3 AND is_active=TRUE AND file_status IN ('REGISTERED','RETURNED-INCOMPLETE')
+            AND forwarded=FALSE RETURNING file_no`;
+        updateParams = [newStatus,req.user!.username,fileNo];
+      } else if (file.medical_uw && !file.allocated) {
         updateSql = `UPDATE crm.business_tracking SET
           forwarded=TRUE, is_complete=TRUE, ready_for_update=FALSE,
           file_status=$1, forward_date=NOW(), forwarded_by=$2, updated_at=NOW()
@@ -949,7 +974,7 @@ router.post("/business/:fileNo/forward", requireBpoForwardAccess, async (req: Re
            forwarded_at=EXCLUDED.forwarded_at,
            updated_at=NOW()
          RETURNING work_item_id`,
-        [fileNo, queueName, assignedTo, req.user!.username]
+        [fileNo, queueName, file.business === "N" ? null : assignedTo, req.user!.username]
       );
 
       await txQuery(
@@ -1551,6 +1576,12 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
       );
       if (!file?.is_active) throw new Error("FILE_NOT_FOUND");
       if (file.file_status !== "ALLOCATED" || !file.allocated) throw new Error("FILE_NOT_ALLOCATED");
+      const [giWork]=await txQuery<{work_item_id:number}>(client,
+        `SELECT work_item_id FROM crm.business_work_items WHERE file_no=$1
+          AND queue_name='GI_ALLOCATED' AND work_status='OPEN'`,[fileNo]);
+      if(giWork && !["C","RI"].includes(requestedAction)) {
+        throw new Error("GI_ACTION_NOT_ALLOWED");
+      }
 
       // SuperAdmin is allowed to resolve another administrator's file for
       // oversight. Every other permitted profile can action only its own queue.
@@ -1685,16 +1716,24 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
         ],
       );
 
+      const notificationStatus = giWork && requestedAction === "RI"
+        ? await recordGiDecision(client,String(fileNo),req.user!.username,"RI",file.entered_by,note)
+        : undefined;
       return {
         file_status: updatedFile?.file_status ?? destination.fileStatus,
         work_item_id: workItem?.work_item_id,
         queue_name: destination.queueName,
         team_name: destination.teamName,
+        notification_status: notificationStatus,
       };
     });
 
     res.json({ ok: true, data: result });
   } catch (err) {
+    if(err instanceof Error && err.message==="GI_ACTION_NOT_ALLOWED") {
+      res.status(400).json({ok:false,error:"GI files can only be returned to Register or forwarded to Cashier."});
+      return;
+    }
     if (err instanceof Error && err.message === "FILE_NOT_FOUND") {
       res.status(404).json({ ok: false, error: "File not found." });
       return;

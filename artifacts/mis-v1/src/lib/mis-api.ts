@@ -323,7 +323,7 @@ export const misApi = {
       pricing_handoff_at: string | null;
     }>>(`/business/${encodeURIComponent(fileNo)}/review-action`, body),
   businessAllocatedFileAction: (fileNo: string, body: AllocatedFileActionBody) =>
-    post<ApiResponse<{ file_status: string; work_item_id?: number; queue_name: string; team_name: string }>>(`/business/${encodeURIComponent(fileNo)}/allocation-action`, body),
+    post<ApiResponse<{ file_status: string; work_item_id?: number; queue_name: string; team_name: string; notification_status?: string | null }>>(`/business/${encodeURIComponent(fileNo)}/allocation-action`, body),
   businessAllocatedActionOptions: () =>
     get<ApiResponse<AllocatedFileActionOption[]>>('/business/allocated/action-options'),
   businessAllocatedRefundsSummary: () =>
@@ -333,7 +333,7 @@ export const misApi = {
   businessAllocatedAmlStatus: (fileNo: string) =>
     get<ApiResponse<AllocatedFileAmlStatus>>(`/business/allocated/${encodeURIComponent(fileNo)}/aml-status`),
   businessForward: (fileNo: string, body?: { to_user?: string; comments?: string }) =>
-    post<ApiResponse<{ new_status: string; queue_name: 'BPO_REVIEW_RETAIL' | 'BPO_REVIEW_CORPORATE_SME'; work_item_id?: number; already_routed: boolean }>>(`/business/${encodeURIComponent(fileNo)}/forward`, body),
+    post<ApiResponse<{ new_status: string; queue_name: 'BPO_REVIEW_RETAIL' | 'BPO_REVIEW_CORPORATE_SME' | 'GI_ALLOCATE'; work_item_id?: number; already_routed: boolean }>>(`/business/${encodeURIComponent(fileNo)}/forward`, body),
   businessAllocate: (fileNo: string, allocated_to: string) =>
     post<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}/allocate`, { allocated_to }),
   businessAddNote: (fileNo: string, notes: string) =>

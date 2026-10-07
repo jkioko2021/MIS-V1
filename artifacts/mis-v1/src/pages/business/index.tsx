@@ -439,6 +439,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
   const [forwardToUser, setForwardToUser] = useState('');
   const [forwardComments, setForwardComments] = useState('');
   const [registrationTab, setRegistrationTab] = useState<'details' | 'documents' | 'notes'>('details');
+  const forwardsToGi = form.business === 'N';
 
   // ─── Mutations ──────────────────────────────────────────────────────────────
   const registerMut = useMutation({
@@ -463,12 +464,18 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
   });
 
   const forwardMut = useMutation({
-    mutationFn: () => misApi.businessForward(activeFileNo!, { to_user: forwardToUser, comments: forwardComments }),
+    mutationFn: () => misApi.businessForward(activeFileNo!, {
+      ...(forwardsToGi ? {} : { to_user: forwardToUser }),
+      comments: forwardComments,
+    }),
     onSuccess: (res) => {
       const newStatus = res.data.new_status;
+      const queueLabel = res.data.queue_name === 'GI_ALLOCATE' ? 'GI-Allocate' : 'BPO Review';
       toast({
-        title: res.data.already_routed ? 'Already in BPO Review' : 'Sent to BPO Review',
-        description: res.data.already_routed ? 'The existing BPO work item was kept unchanged.' : `BPO work item created. File status updated to ${newStatus}.`,
+        title: res.data.already_routed ? `Already routed to ${queueLabel}` : `Sent to ${queueLabel}`,
+        description: res.data.already_routed
+          ? `The existing ${queueLabel} work item was kept unchanged.`
+          : `${queueLabel} work item created. File status updated to ${newStatus}.`,
       });
       setShowForwardDialog(false);
       setForwardToUser('');
@@ -1218,10 +1225,12 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <ArrowUpRight className="w-4 h-4 text-blue-600" />
-                Forward to BPO Review — {activeFileNo}
+                Forward to {forwardsToGi ? 'GI-Allocate' : 'BPO Review'} — {activeFileNo}
               </DialogTitle>
               <DialogDescription>
-                This creates an active BPO Review work item for the same file. Add a handover note and optionally assign a reviewer.
+                {forwardsToGi
+                  ? 'This routes the non-medical registration to GI-Allocate for General Insurance review. Add a handover note; GI will assign the file to an active recipient.'
+                  : 'This creates an active BPO Review work item for the same file. Add a handover note and optionally assign a reviewer.'}
               </DialogDescription>
             </DialogHeader>
             {!allSelectedDocumentsUploaded && (
@@ -1231,7 +1240,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
               </div>
             )}
             <div className="space-y-4 py-2">
-              <div className="space-y-1.5">
+              {!forwardsToGi && <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-700">Assign BPO Reviewer</Label>
                 <SearchableSelect
                   value={forwardToUser}
@@ -1240,7 +1249,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                   placeholder="Leave unassigned for the BPO queue…"
                   searchPlaceholder="Search BPO reviewers…"
                 />
-              </div>
+              </div>}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-700">
                   Comments <span className="text-red-500">*</span>
@@ -1271,7 +1280,7 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
                 {forwardMut.isPending ? (
                   <><div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" /> Forwarding…</>
                 ) : (
-                  <><ArrowUpRight className="w-3.5 h-3.5" /> Forward File</>
+                  <><ArrowUpRight className="w-3.5 h-3.5" /> {forwardsToGi ? 'Send to GI-Allocate' : 'Forward File'}</>
                 )}
               </Button>
             </DialogFooter>

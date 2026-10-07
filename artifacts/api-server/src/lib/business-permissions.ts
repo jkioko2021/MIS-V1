@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { queryOne } from "./postgres";
 import { logger } from "./logger";
+import { giActor } from "./gi-workflow";
 
 const BUSINESS_TRACKING_PROFILES = new Set([
   "superadmin",
@@ -98,10 +99,22 @@ export const requireBpoReviewAccess = requireBusinessProfile(
   "bpo_review",
 );
 
-export const requireBpoAllocatedAccess = requireBusinessProfile(
-  BPO_ALLOCATED_PROFILES,
-  "bpo_allocated_files",
-);
+export async function requireBpoAllocatedAccess(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const [profile,actor] = await Promise.all([currentProfileName(req.user!.sub),giActor(req.user!.sub)]);
+    if (!profile || !(BPO_ALLOCATED_PROFILES.has(profileKey(profile)) || actor?.is_gi)) {
+      res.status(403).json({ok:false,error:"Allocated Files access is required."});
+      return;
+    }
+    res.locals.isGiStaff=!!actor?.is_gi;
+    res.locals.isGiAdmin=!!actor?.is_admin;
+    res.locals.canAccessMembershipAllocated=!!profile && BPO_ALLOCATED_PROFILES.has(profileKey(profile));
+    next();
+  } catch(err) {
+    logger.error({err},"Allocated access check failed");
+    res.status(500).json({ok:false,error:"Unable to verify allocated access."});
+  }
+}
 
 // Allocation Files is a personal operational queue. A broad BPO profile is not
 // enough to expose a record: regular users may read only the active ALLOCATED
@@ -110,19 +123,25 @@ export async function requireAllocatedFileReadAccess(req: Request, res: Response
   try {
     const [profileName, file] = await Promise.all([
       currentProfileName(req.user!.sub),
-      queryOne<{ allocated_to: string | null }>(
-        `SELECT allocated_to
-         FROM crm.business_tracking
-         WHERE file_no=$1
+      queryOne<{ allocated_to: string | null; gi_lane: boolean }>(
+        `SELECT allocated_to,EXISTS (SELECT 1 FROM crm.business_work_items w
+           WHERE w.file_no=b.file_no AND w.queue_name='GI_ALLOCATED' AND w.work_status='OPEN') AS gi_lane
+         FROM crm.business_tracking b
+         WHERE b.file_no=$1
            AND is_active=TRUE
            AND allocated=TRUE
            AND file_status='ALLOCATED'
-           AND (client_type NOT IN ('C','S') OR rate_type IS DISTINCT FROM 'C' OR benefit_verified='YES')`,
+           AND (EXISTS (SELECT 1 FROM crm.business_work_items g WHERE g.file_no=b.file_no
+                  AND g.queue_name='GI_ALLOCATED' AND g.work_status='OPEN')
+             OR client_type NOT IN ('C','S') OR rate_type IS DISTINCT FROM 'C' OR benefit_verified='YES')`,
         [req.params.fileNo],
       ),
     ]);
 
-    if (!profileName || !BPO_ALLOCATED_PROFILES.has(profileKey(profileName))) {
+    const actor=await giActor(req.user!.sub);
+    const permitted=file?.gi_lane ? (actor?.is_gi || actor?.is_admin)
+      : !!profileName && BPO_ALLOCATED_PROFILES.has(profileKey(profileName));
+    if (!permitted) {
       logger.warn({ employeeId: req.user!.sub, fileNo: req.params.fileNo }, "Allocated file access denied");
       res.status(403).json({ ok: false, error: "You do not have access to Allocation Files." });
       return;
@@ -131,7 +150,8 @@ export async function requireAllocatedFileReadAccess(req: Request, res: Response
       res.status(404).json({ ok: false, error: "Allocated file not found." });
       return;
     }
-    if (req.user?.profileId !== 1 && file.allocated_to !== req.user!.username) {
+    if (!(file.gi_lane ? actor?.is_admin : req.user?.profileId === 1)
+      && file.allocated_to !== req.user!.username) {
       logger.warn({ employeeId: req.user!.sub, fileNo: req.params.fileNo }, "Allocated file ownership denied");
       res.status(403).json({ ok: false, error: "You can only view files allocated to your account." });
       return;
@@ -161,6 +181,15 @@ export async function setBpoReviewAccess(req: Request, res: Response, next: Next
 
 export async function requireBusinessFileAccess(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    const giWork=await queryOne<{work_item_id:number}>(`SELECT work_item_id FROM crm.business_work_items
+      WHERE file_no=$1 AND queue_name IN ('GI_ALLOCATE','GI_ALLOCATED') AND work_status='OPEN'`,[req.params.fileNo]);
+    if(giWork) {
+      if(req.path==="/allocation-action" || req.path==="/notes" && req.method==="POST") {
+        await requireAllocatedFileReadAccess(req,res,next); return;
+      }
+      res.status(403).json({ok:false,error:"Use the GI workspace to access this file."});
+      return;
+    }
     const [profileName, bpoWorkItem] = await Promise.all([
       currentProfileName(req.user!.sub),
       queryOne<{ work_item_id: number }>(

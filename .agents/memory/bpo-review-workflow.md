@@ -5,7 +5,7 @@ description: Rules for routing completed registrations into the BPO Review queue
 
 # BPO Review Workflow
 
-Forwarding a completed registration creates or reopens one BPO Review work item for the original business file; it never copies the file, its documents, notes, or history. Open BPO work is visible and mutable only to BPO reviewers and explicit system administrators.
+Forwarding a completed medical registration creates or reopens one BPO Review work item for the original business file; it never copies the file, its documents, notes, or history. Nonmedical registrations use the separate [GI workflow](gi-workflow-rules.md). Open BPO work is visible and mutable only to BPO reviewers and explicit system administrators.
 
 **Why:** The BPO queue must show the same authoritative record and must not diverge from the Register workflow. A unique file-and-queue work item plus one transaction prevents a forwarded file from being lost or duplicated.
 
