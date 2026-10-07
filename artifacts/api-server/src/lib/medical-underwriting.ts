@@ -9,6 +9,7 @@ export type MedicalRecord = {
   forwarded: boolean; ready_for_update: boolean; mu_revert: boolean;
   entered_by: string; client_type: string; assigned_to: string | null;
   work_status: string | null; business_type: string; rate_type: string;
+  allocated_to: string | null; benefit_verified: string | null;
 };
 export class MedicalError extends Error {
   constructor(public status: number, message: string) { super(message); }

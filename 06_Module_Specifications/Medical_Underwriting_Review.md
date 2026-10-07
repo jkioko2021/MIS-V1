@@ -19,7 +19,7 @@ Access requires a currently active, approved, unlocked Medical UW profile; Super
 
 Both legacy pending files and open `MEDICAL_UNDERWRITING` work items are included, because modern allocation handoffs can have `ready_for_update=true` and do not necessarily set the legacy medical flag.
 
-Reviews lock the file, verify the current timestamp and assignment, and save status, work items, review history, notes and audit atomically. Hold retains the medical work item. Cashier opens the Cashier queue with explicit invoice/payment status. Forward assigns the file to an active Membership Admin in Allocation Files. Return-Incomplete opens correction for the original registering staff member. Decline completes the medical work item and marks the file declined. Completed HPC-referral files allow registration but cannot be reviewed again.
+Reviews lock the file, verify the current timestamp and assignment, and save status, work items, review history, notes and audit atomically. Hold retains the medical work item and saved BPO allocation. Cashier opens the Cashier queue with explicit invoice/payment status. Forward has no Membership recipient picker: it returns to the saved active BPO user in Allocation Files, or returns business without an active allocated BPO user to the appropriate Retail or Corporate/SME BPO Review queue for allocation. Return-Incomplete opens correction for the original registering staff member. Decline completes the medical work item and marks the file declined. Completed HPC-referral files allow registration but cannot be reviewed again.
 
 Document requirements use only `crm.business_req`. Bytes remain in private App Storage; document-specific invoice/amount/policy/risk metadata remain on uploads.
 

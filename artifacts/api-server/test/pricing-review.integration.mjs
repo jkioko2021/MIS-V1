@@ -259,7 +259,7 @@ try {
   assert.equal((await api(`/business/${encodeURIComponent(direct)}/allocate`, { allocated_to: recipient }, 'bpo')).status, 200);
   assert((await api('/pricing-review')).body.data.some(row => row.file_no === direct));
   const med = await file('MEDICAL', 'S', tracker, 'C');
-  await pool.query(`UPDATE crm.business_tracking SET file_status='MEDICAL UW-REVIEW',medical_uw=TRUE WHERE file_no=$1`, [med]);
+  await pool.query(`UPDATE crm.business_tracking SET file_status='MEDICAL UW-REVIEW',medical_uw=TRUE,allocated_to=$2 WHERE file_no=$1`, [med,recipient]);
   await pool.query(`UPDATE crm.business_work_items SET work_status='COMPLETED' WHERE file_no=$1`, [med]);
   await pool.query(`INSERT INTO crm.business_work_items(file_no,queue_name,forwarded_by) VALUES($1,'MEDICAL_UNDERWRITING',$2)`, [med, tracker]);
   detail = (await api(`/medical-underwriting/files/${encodeURIComponent(med)}`, undefined, 'medical')).body.data;

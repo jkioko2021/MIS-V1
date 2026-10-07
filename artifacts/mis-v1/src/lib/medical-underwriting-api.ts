@@ -10,7 +10,7 @@ export type MedicalFile = {
 export type MedicalReviewInput = {
   action: 'C' | 'F' | 'RI' | 'H' | 'D'; comments: string;
   hpc: boolean; lateral_movement: boolean; expected_updated_at: string;
-  allocated_to?: string; invoice_no?: string; paid_status?: string;
+  invoice_no?: string; paid_status?: string;
 };
 export type MedicalReviewResult = {
   file_status: string;
@@ -51,7 +51,6 @@ export const medicalApi = {
   list: (queue: 'pending' | 'hold' | 'declined' | 'reverted', search = '', page = 1) =>
     request<Envelope<MedicalFile[]> & { total: number; page: number; pageSize: number }>(`?${new URLSearchParams({ queue, search, page: String(page) })}`),
   detail: (fileNo: string) => request<Envelope<MedicalDetail>>(filePath(fileNo)),
-  recipients: () => request<Envelope<{ username: string; fullname: string }[]>>('/recipients'),
   review: (fileNo: string, input: MedicalReviewInput) => request<Envelope<MedicalReviewResult>>(`${filePath(fileNo)}/review`, input),
   saveHpc: (fileNo: string, input: HpcInput) => request<Envelope<{ hpc_id: number }>>(`${filePath(fileNo)}/hpc`, input),
   upload: (fileNo: string, input: MedicalUploadInput) => request<Envelope<{ upload_id: number }>>(`${filePath(fileNo)}/uploads`, input),

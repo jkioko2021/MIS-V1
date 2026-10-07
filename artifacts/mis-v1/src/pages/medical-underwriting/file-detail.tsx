@@ -26,7 +26,6 @@ import { DataField, dateLabel, errorText, isForbidden, moneyLabel, SectionHeadin
 
 type Envelope<T> = { ok: boolean; data: T; error?: string };
 type DetailResult = Envelope<MedicalDetail>;
-type Recipient = { username: string; fullname: string };
 type ReviewAction = MedicalReviewInput['action'];
 type Props = {
   fileNo: string;
@@ -58,7 +57,6 @@ export function MedicalFileDetail({
   const [lastCompletedAction, setLastCompletedAction] = useState<ReviewAction | null>(null);
   const [hpc, setHpc] = useState(false);
   const [lateralMovement, setLateralMovement] = useState(false);
-  const [recipient, setRecipient] = useState('');
   const [invoice, setInvoice] = useState('');
   const [paidStatus, setPaidStatus] = useState('');
   const [documentReq, setDocumentReq] = useState('');
@@ -90,13 +88,6 @@ export function MedicalFileDetail({
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
-  const recipientQuery = useQuery<Envelope<Recipient[]>>({
-    queryKey: ['medical-underwriting-recipients'],
-    queryFn: medicalApi.recipients,
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  });
 
   const detail = detailQuery.data?.data;
   const file = detail?.file;
@@ -108,7 +99,6 @@ export function MedicalFileDetail({
   const isCreditNote = reqName.includes('credit note');
   const isInvoiceDoc = reqName.includes('invoice') && !isCreditNote;
   const isAmlRisk = /aml\s*risk|risk\s*rating/.test(reqName);
-  const activeRecipients = recipientQuery.data?.data ?? [];
   const reviewable = file?.reviewable === true;
   const initializedFile = useRef(false);
   useEffect(() => {
@@ -126,8 +116,12 @@ export function MedicalFileDetail({
     }));
   }, [file]);
 
-  const refreshQueues = () =>
-    queryClient.invalidateQueries({ queryKey: ['medical-underwriting-queue'] });
+  const refreshQueues = () => Promise.all([
+    queryClient.invalidateQueries({ queryKey: ['medical-underwriting-queue'] }),
+    queryClient.invalidateQueries({ queryKey: ['business'] }),
+    queryClient.invalidateQueries({ queryKey: ['business-allocated'] }),
+    queryClient.invalidateQueries({ queryKey: ['pricing-review-list'] }),
+  ]);
   const refreshFileAndQueues = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['medical-underwriting-detail', fileNo] }),
@@ -146,7 +140,6 @@ export function MedicalFileDetail({
       if (requestedAction === 'C' && (!invoice.trim() || !paidStatus)) {
         throw new Error('Cashier handoff requires an invoice number and payment status.');
       }
-      if (requestedAction === 'F' && !recipient) throw new Error('Select an active membership recipient.');
       return medicalApi.review(fileNo, {
         action: requestedAction,
         comments: comments.trim(),
@@ -154,7 +147,6 @@ export function MedicalFileDetail({
         lateral_movement: lateralMovement,
         expected_updated_at: currentFile.updated_at,
         ...(requestedAction === 'C' ? { invoice_no: invoice.trim(), paid_status: paidStatus } : {}),
-        ...(requestedAction === 'F' ? { allocated_to: recipient } : {}),
       });
     },
     onSuccess: async (response, completedAction) => {
@@ -481,7 +473,7 @@ export function MedicalFileDetail({
                 <label className="space-y-1 text-[11px] font-semibold text-[#58716a]">Invoice number<input value={invoice} onChange={event => setInvoice(event.target.value)} maxLength={25} className="h-10 w-full rounded-lg border border-[#cadbd2] bg-white px-3 text-sm font-normal" data-testid="input-cashier-invoice" /></label>
                 <label className="space-y-1 text-[11px] font-semibold text-[#58716a]">Payment status<select value={paidStatus} onChange={event => setPaidStatus(event.target.value)} className="h-10 w-full rounded-lg border border-[#cadbd2] bg-white px-3 text-sm font-normal" data-testid="select-cashier-payment-status"><option value="">Select payment status</option><option value="FULL">FULL</option><option value="PART">PART</option><option value="NOT-PAID">NOT-PAID</option></select></label>
               </>}
-              {action === 'F' && <label className="space-y-1 text-[11px] font-semibold text-[#58716a] sm:col-span-2">Active membership recipient<select value={recipient} onChange={event => setRecipient(event.target.value)} className="h-10 w-full rounded-lg border border-[#cadbd2] bg-white px-3 text-sm font-normal" data-testid="select-medical-recipient"><option value="">Select recipient</option>{activeRecipients.map(item => <option key={item.username} value={item.username}>{item.fullname} · {item.username}</option>)}</select>{recipientQuery.isError && <span className="block pt-1 text-xs text-[#a14b39]">Could not load active recipients: {errorText(recipientQuery.error)}</span>}</label>}
+              {action === 'F' && <p className="text-xs text-[#58716a] sm:col-span-2" data-testid="medical-forward-destination">Forward returns this business to its existing active BPO allocation. If no BPO user is allocated, it returns to BPO Review for allocation.</p>}
               <div className="flex flex-wrap gap-x-5 gap-y-2 sm:col-span-2">
                 <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-[#4e6961]"><input type="checkbox" checked={hpc} onChange={event => setHpc(event.target.checked)} className="h-4 w-4 accent-[#34736a]" data-testid="checkbox-review-hpc" /> HPC flag</label>
                 <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-[#4e6961]"><input type="checkbox" checked={lateralMovement} onChange={event => setLateralMovement(event.target.checked)} className="h-4 w-4 accent-[#34736a]" data-testid="checkbox-review-lateral-movement" /> New waiver / lateral movement</label>

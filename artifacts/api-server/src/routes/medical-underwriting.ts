@@ -18,7 +18,7 @@ const reviewSchema = z.object({
   comments: z.string().trim().min(1, "Review notes are required.").max(250),
   hpc: z.boolean(), lateral_movement: z.boolean(),
   expected_updated_at: z.string().datetime({ offset: true }),
-  allocated_to: optionalText(100), invoice_no: optionalText(25),
+  invoice_no: optionalText(25),
   paid_status: z.enum(["FULL", "PART", "NOT-PAID", ""]).optional().default(""),
 });
 const validDate = z.string().refine(value => {
@@ -67,14 +67,6 @@ router.get("/medical-underwriting", async (req, res) => {
     res.json({ ok: true, data: rows, total: Number(count[0]?.total ?? 0), page, pageSize: 25 });
   } catch (err) { medicalFailure(res, err); }
 });
-router.get("/medical-underwriting/recipients", async (_req, res) => {
-  try {
-    const rows = await query(`SELECT e.username,e.employee_name AS fullname FROM crm.employees e JOIN crm.profiles p ON p.profile_id=e.profile_id
-      WHERE e.activated AND e.approved AND NOT e.employee_locked AND NOT e.is_deleted AND p.is_active
-      AND LOWER(TRIM(p.profile_name))='membership admin' ORDER BY e.employee_name`);
-    res.json({ ok: true, data: rows });
-  } catch (err) { medicalFailure(res, err); }
-});
 router.get("/medical-underwriting/files/:fileNo", async (req, res) => {
   try {
     const fileNo = fileNoOf(req.params.fileNo);
@@ -100,8 +92,6 @@ router.post("/medical-underwriting/files/:fileNo/review", async (req, res) => {
     const input = parsed.data;
     if (input.action === "C" && (!input.invoice_no || !input.paid_status))
       throw new MedicalError(400, "Cashier requires an invoice number and payment status.");
-    if (input.action === "F" && !input.allocated_to)
-      throw new MedicalError(400, "Select the membership administrator receiving this file.");
     const fileNo = fileNoOf(req.params.fileNo);
     const actor = res.locals.medUsername as string;
     const result = await withTransaction(async client => {
@@ -109,20 +99,29 @@ router.post("/medical-underwriting/files/:fileNo/review", async (req, res) => {
       assertReviewable(file);
       if (new Date(file.updated_at).getTime() !== new Date(input.expected_updated_at).getTime())
         throw new MedicalError(409, "The file changed since you opened it. Refresh before reviewing.");
-      if (input.action === "F") {
+      let allocationRecipient: string | null = null;
+      if (input.action === "F" && file.allocated_to) {
         const staff = await txQuery(client, `SELECT e.username FROM crm.employees e JOIN crm.profiles p ON p.profile_id=e.profile_id
           WHERE e.username=$1 AND e.activated AND e.approved AND NOT e.employee_locked AND NOT e.is_deleted
-          AND p.is_active AND LOWER(TRIM(p.profile_name))='membership admin' FOR SHARE OF e,p`, [input.allocated_to]);
-        if (!staff.length) throw new MedicalError(400, "Recipient must be an active membership administrator.");
+          AND e.department='BPO' AND p.is_active
+          AND LOWER(TRIM(p.profile_name)) IN ('bpo','bpo admin','bpo review') FOR SHARE OF e,p`, [file.allocated_to]);
+        if (staff.length) allocationRecipient = file.allocated_to;
       }
-      const corporateAllocation = input.action === "F" && ["C", "S"].includes(file.client_type);
-      const corporatePricing = corporateAllocation && file.rate_type === "C";
+      const returningToBpo = input.action === "F" && !allocationRecipient;
+      const corporatePricing = input.action === "F" && !!allocationRecipient
+        && ["C", "S"].includes(file.client_type) && file.rate_type === "C" && file.benefit_verified !== "YES";
       const status = corporatePricing ? "BENEFIT VERIFICATION"
+        : returningToBpo ? "FORWARDED"
         : { C: "CASHIER", F: "ALLOCATED", RI: "RETURNED-INCOMPLETE", H: "ON HOLD", D: "DECLINED" }[input.action];
-      const queue = input.action === "C" ? "CASHIER" : input.action === "RI" ? "REGISTER_CORRECTION" : null;
-      const assignee = input.action === "F" ? input.allocated_to : input.action === "RI" ? file.entered_by : null;
+      const queue = returningToBpo ? (file.client_type === "R" ? "BPO_REVIEW_RETAIL" : "BPO_REVIEW_CORPORATE_SME")
+        : input.action === "C" ? "CASHIER" : input.action === "RI" ? "REGISTER_CORRECTION" : null;
+      const assignee = input.action === "F" ? allocationRecipient : input.action === "RI" ? file.entered_by : null;
       if (input.action !== "H") {
         await txQuery(client, `UPDATE crm.business_work_items SET work_status='COMPLETED',updated_at=NOW() WHERE file_no=$1 AND work_status='OPEN'`, [fileNo]);
+        await txQuery(client, `INSERT INTO crm.business_work_items
+          (file_no,queue_name,work_status,assigned_to,assigned_by,forwarded_by)
+          VALUES($1,'MEDICAL_UNDERWRITING','COMPLETED',$2,$2,$2)
+          ON CONFLICT(file_no,queue_name) DO UPDATE SET work_status='COMPLETED',updated_at=NOW()`,[fileNo,actor]);
       } else {
         await txQuery(client, `INSERT INTO crm.business_work_items (file_no,queue_name,work_status,assigned_to,assigned_by,forwarded_by)
           VALUES ($1,'MEDICAL_UNDERWRITING','OPEN',$2,$2,$2) ON CONFLICT(file_no,queue_name) DO UPDATE SET
@@ -135,15 +134,18 @@ router.post("/medical-underwriting/files/:fileNo/review", async (req, res) => {
           forwarded_by=EXCLUDED.forwarded_by,forwarded_at=NOW(),updated_at=NOW()`, [fileNo, queue, assignee, actor]);
       }
       await txQuery(client, `UPDATE crm.business_tracking SET file_status=$2,mu_revert=$3,lateral_movement=$4,
-        medical_uw=TRUE,is_declined=($5='D'),allocated=($5='F'),allocated_to=$6,
-        allocate_dt=CASE WHEN $5='F' THEN NOW() ELSE NULL END,ready_for_update=($5 IN ('C','F')),
-        forwarded=CASE WHEN $5='RI' THEN FALSE ELSE forwarded END,
+        medical_uw=TRUE,is_declined=($5='D'),allocated=($5='F' AND $6::varchar IS NOT NULL),
+        allocated_to=CASE WHEN $5='H' THEN allocated_to ELSE $6::varchar END,
+        allocate_dt=CASE WHEN $5='F' AND $6::varchar IS NOT NULL THEN COALESCE(allocate_dt,NOW())
+          WHEN $5='H' THEN allocate_dt ELSE NULL END,
+        ready_for_update=($5='C' OR ($5='F' AND $6::varchar IS NOT NULL)),
+        forwarded=CASE WHEN $5='RI' THEN FALSE WHEN $5='F' THEN TRUE ELSE forwarded END,
         is_complete=CASE WHEN $5='RI' THEN FALSE ELSE is_complete END,
         invoice_no=CASE WHEN $5='C' THEN $7 ELSE invoice_no END,
         paid_status=CASE WHEN $5='C' THEN $8 ELSE paid_status END,
         paid=CASE WHEN $5='C' THEN $8 IN ('FULL','PART') ELSE paid END,updated_at=NOW() WHERE file_no=$1`,
       [fileNo, status, input.hpc, input.lateral_movement, input.action, input.action === "F" ? assignee : null, input.invoice_no, input.paid_status]);
-      if (corporateAllocation) await queueCorporatePricing(client, fileNo, actor);
+      if (corporatePricing) await queueCorporatePricing(client, fileNo, actor);
       const [review] = await txQuery<{ review_id: number }>(client, `INSERT INTO crm.medical_underwriting_reviews
         (file_no,action,comments,hpc,lateral_movement,destination,invoice_no,paid_status,reviewed_by)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING review_id`,

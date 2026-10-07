@@ -7,7 +7,13 @@ Do not claim exact legacy handoff parity without the SQL definition of `sp_Busin
 
 **Why:** The user asked for a similar medical-underwriter review page, and the available source does not establish the Forward destination or contain the legacy HPC disease/source catalog data.
 
-**How to apply:** Preserve observed fields/actions while explicitly identifying modern routing decisions. The current Forward mapping returns the file to an active Membership Admin through Allocation Files; verify against the real procedure before changing that mapping. Do not invent lookup values or claim email notifications are sent without a configured transport.
+**How to apply:** Preserve observed fields/actions while explicitly identifying modern routing decisions. Do not infer that an active Membership Admin is the Forward destination from missing procedure internals. Apply the user-directed BPO routing below. Do not invent lookup values or claim email notifications are sent without a configured transport.
+
+Medical Forward does not let underwriters select a Membership recipient. If an active BPO user was already allocated to the business, return it to that same allocated user. If no active BPO user is allocated, return it to the appropriate Retail or Corporate/SME BPO Review queue for allocation.
+
+**Why:** The user explicitly requested removal of the “Active membership recipient” picker and specified that business without an allocated BPO user must return to BPO Review for allocation.
+
+**How to apply:** Retain the original BPO allocation reference while a file is in Medical Underwriting, including Hold. Validate that saved BPO user at Forward; never replace them with a Medical-underwriter-selected staff member. Route absent or ineligible allocations back to the accountable BPO queue. Keep notes and review decisions transactional and leave Cashier, Return Incomplete, Hold, and Decline destinations as separately instructed.
 
 ## Requested decision destinations
 

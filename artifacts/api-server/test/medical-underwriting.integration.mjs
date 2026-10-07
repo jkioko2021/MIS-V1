@@ -60,7 +60,8 @@ async function employee(label, profileId) {
   const { rows: [user] } = await pool.query(`INSERT INTO crm.employees
     (username,password_hash,employee_name,profile_id,activated,approved,last_password_reset,department)
     VALUES($1,'TEST_SESSION_ONLY',$2,$3,TRUE,TRUE,CURRENT_DATE,$4) RETURNING employee_id`,
-  [username, `Medical test ${label}`, profileId, profileId === 5 ? 'MEDICAL UNDERWRITING' : 'TEST']);
+  [username, `Medical test ${label}`, profileId,
+    profileId === 5 ? 'MEDICAL UNDERWRITING' : profileId === 13 ? 'BPO' : 'TEST']);
   // Session secret remains inside this process; never printed or written.
   fixture.cookies[label] = jwt.sign({ sub: user.employee_id, username, name: `Medical test ${label}`, profileId },
     process.env.SESSION_SECRET ?? 'dev-secret-change-me', { expiresIn: '30m' });
@@ -92,6 +93,7 @@ try {
   await employee('outsider', 3);
   await employee('finance', 6);
   const membership = await employee('membership', 4);
+  const allocatedBpo = await employee('allocated',13);
   await employee('bpo', 12);
   for (const clientType of ['R', 'C', 'S']) {
     const fileNo = await file(`BPO_${clientType}`, other);
@@ -129,7 +131,6 @@ try {
   assert(list.body.data.filter(row => row.file_no.startsWith(prefix)).every(row => row.reviewable === true));
   assert(!list.body.data.some(row => row.file_no === hidden));
   assert.equal((await api(`/files/${hidden}`)).status, 404);
-  assert.equal((await api('/recipients')).status, 200);
   const detail = (await api(`/files/${held}`)).body.data;
   const input = { action: 'H', comments: 'Test hold', hpc: false, lateral_movement: true, expected_updated_at: detail.file.updated_at };
   assert.equal((await api(`/files/${held}/review`, { ...input, comments: ' ' })).status, 400);
@@ -138,17 +139,24 @@ try {
   assert.equal((await api(`/files/${held}`)).body.data.file.file_status, 'ON HOLD');
   assert((await api('?queue=hold')).body.data.some(row => row.file_no === held));
   assert(!(await api('?queue=pending')).body.data.some(row => row.file_no === held));
-  for (const [action, status] of [['C', 'CASHIER'], ['F', 'ALLOCATED'], ['RI', 'RETURNED-INCOMPLETE'], ['D', 'DECLINED']]) {
+  for (const [action, status] of [['C', 'CASHIER'], ['F', 'FORWARDED'], ['RI', 'RETURNED-INCOMPLETE'], ['D', 'DECLINED']]) {
     const fileNo = await file(action, reviewer);
     const current = (await api(`/files/${fileNo}`)).body.data.file;
     const body = { action, comments: `Test ${action}`, hpc: action === 'D', lateral_movement: false,
       expected_updated_at: current.updated_at, invoice_no: 'MU-TEST-INVOICE', paid_status: 'PART', allocated_to: membership };
     if (action === 'C') assert.equal((await api(`/files/${fileNo}/review`, { ...body, invoice_no: '' })).status, 400);
-    if (action === 'F') assert.equal((await api(`/files/${fileNo}/review`, { ...body, allocated_to: reviewer })).status, 400);
     assert.equal((await api(`/files/${fileNo}/review`, body)).status, 200, action);
     const { rows: [record] } = await pool.query('SELECT * FROM crm.business_tracking WHERE file_no=$1', [fileNo]);
     assert.equal(record.file_status, status);
-    if (action === 'F') { assert.equal(record.allocated_to, membership); assert(record.allocated); }
+    if (action === 'F') {
+      assert.equal(record.allocated_to,null); assert.equal(record.allocated,false);
+      const work = (await pool.query(`SELECT work_status,assigned_to FROM crm.business_work_items
+        WHERE file_no=$1 AND queue_name='BPO_REVIEW_RETAIL'`,[fileNo])).rows[0];
+      assert.equal(work.work_status,'OPEN'); assert.equal(work.assigned_to,null);
+      const retailResponse=await fetch('http://localhost:8080/api/mis/business?queue=bpo-review',
+        {headers:{Cookie:`mis_session=${fixture.cookies.bpo}`}});
+      assert((await retailResponse.json()).data.some(row=>row.file_no===fileNo));
+    }
     if (action === 'C') { assert(record.paid); assert.equal(record.paid_status, 'PART'); }
     const staffApi = async (path, label = 'reviewer', method = 'GET') => {
       const response = await fetch(`http://localhost:8080/api${path}`, {
@@ -201,6 +209,55 @@ try {
       assert.equal(declined.body.data.file.reviewable, false);
     }
   }
+  for (const type of ['R','C','S']) {
+    const back = await file(`BACK_${type}`,reviewer,type==='R');
+    await pool.query('UPDATE crm.business_tracking SET client_type=$2 WHERE file_no=$1',[back,type]);
+    await pool.query(`INSERT INTO crm.business_tracking_notes(file_no,note_from,notes)
+      VALUES($1,$2,'Original allocation history - retain')`,[back,reviewer]);
+    const snapshot=(await api(`/files/${back}`)).body.data.file;
+    const body={action:'F',comments:'Completed review; BPO allocation needed',hpc:false,lateral_movement:false,
+      expected_updated_at:snapshot.updated_at,allocated_to:membership};
+    assert.equal((await api(`/files/${back}/review`,body)).status,200);
+    assert(!(await api()).body.data.some(row=>row.file_no===back));
+    const queueName=type==='R'?'bpo-review':'bpo-corporate-sme';
+    const response=await fetch(`http://localhost:8080/api/mis/business?queue=${queueName}`,{headers:{Cookie:`mis_session=${fixture.cookies.bpo}`}});
+    assert((await response.json()).data.some(row=>row.file_no===back));
+    assert.equal((await pool.query(`SELECT count(*)::int AS count FROM crm.business_tracking_notes
+      WHERE file_no=$1 AND notes='Original allocation history - retain'`,[back])).rows[0].count,1);
+    if(type==='R') {
+      const allocation=await fetch(`http://localhost:8080/api/business/${back}/review-action`,{
+        method:'POST',headers:{'Content-Type':'application/json',Cookie:`mis_session=${fixture.cookies.bpo}`},
+        body:JSON.stringify({action:'A',product:'T',allocated_to:allocatedBpo,
+          comments:'BPO allocated after Medical review',queue_name:'BPO_REVIEW_RETAIL'}),
+      });
+      assert.equal(allocation.status,200,JSON.stringify(await allocation.json()));
+      const assigned=(await pool.query('SELECT allocated,allocated_to,file_status FROM crm.business_tracking WHERE file_no=$1',[back])).rows[0];
+      assert.deepEqual(assigned,{allocated:true,allocated_to:allocatedBpo,file_status:'ALLOCATED'});
+    }
+  }
+  const allocatedFile=await file('ALC',reviewer);
+  await pool.query(`UPDATE crm.business_tracking SET file_status='ALLOCATED',allocated=TRUE,
+    allocated_to=$2,allocate_dt=NOW() WHERE file_no=$1`,[allocatedFile,allocatedBpo]);
+  const moved=await fetch(`http://localhost:8080/api/business/${allocatedFile}/allocation-action`,{
+    method:'POST',headers:{'Content-Type':'application/json',Cookie:`mis_session=${fixture.cookies.allocated}`},
+    body:JSON.stringify({action:'MU',comments:'Allocated owner sent for Medical review',assigned_to:reviewer}),
+  });
+  assert.equal(moved.status,200,await moved.text());
+  let allocatedSnapshot=(await api(`/files/${allocatedFile}`)).body.data.file;
+  assert.equal(allocatedSnapshot.allocated_to,allocatedBpo);
+  assert.equal((await api(`/files/${allocatedFile}/review`,{action:'H',comments:'Retain owner while on hold',
+    hpc:false,lateral_movement:false,expected_updated_at:allocatedSnapshot.updated_at})).status,200);
+  allocatedSnapshot=(await api(`/files/${allocatedFile}`)).body.data.file;
+  assert.equal(allocatedSnapshot.allocated_to,allocatedBpo);
+  assert.equal((await api(`/files/${allocatedFile}/review`,{action:'F',comments:'Return to the original allocated BPO user',
+    hpc:false,lateral_movement:false,expected_updated_at:allocatedSnapshot.updated_at,allocated_to:membership})).status,200);
+  const restored=(await pool.query('SELECT allocated,allocated_to,file_status FROM crm.business_tracking WHERE file_no=$1',[allocatedFile])).rows[0];
+  assert.deepEqual(restored,{allocated:true,allocated_to:allocatedBpo,file_status:'ALLOCATED'});
+  const visible=await fetch(`http://localhost:8080/api/mis/business/allocated/${allocatedFile}`,{headers:{Cookie:`mis_session=${fixture.cookies.allocated}`}});
+  assert.equal(visible.status,200);
+  await file('UI_BPO',reviewer);
+  const uiAllocated=await file('UI_ALC',reviewer);
+  await pool.query('UPDATE crm.business_tracking SET allocated_to=$2 WHERE file_no=$1',[uiAllocated,allocatedBpo]);
   // Two reviewers of the same snapshot cannot both commit a decision.
   const concurrent = await file('CONCURRENT', reviewer);
   const snapshot = (await api(`/files/${concurrent}`)).body.data.file;

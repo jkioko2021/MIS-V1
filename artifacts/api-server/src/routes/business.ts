@@ -1631,8 +1631,8 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
          SET file_status=$1,
              forwarded=CASE WHEN $2 THEN FALSE ELSE forwarded END,
              allocated=FALSE,
-             allocated_to=NULL,
-             allocate_dt=NULL,
+             allocated_to=CASE WHEN $10::boolean THEN allocated_to ELSE NULL END,
+             allocate_dt=CASE WHEN $10::boolean THEN allocate_dt ELSE NULL END,
              is_complete=CASE WHEN $2 THEN FALSE ELSE is_complete END,
              ready_for_update=CASE WHEN $2 THEN FALSE ELSE TRUE END,
               invoice_no=CASE WHEN $3 THEN $4 ELSE invoice_no END,
@@ -1659,6 +1659,7 @@ router.post("/business/:fileNo/allocation-action", requireBpoAllocatedAccess, as
           paid,
           fileNo,
           isCashier,
+          requestedAction === "MU",
         ],
       );
 
