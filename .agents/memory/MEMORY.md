@@ -30,3 +30,4 @@
 - [Sales intermediary compatibility](sales-intermediary-compatibility.md) — New selections use the intermediary master; historical agent assignments remain readable without bulk remapping.
 - [Record Filing rules](record-filing-rules.md) — DPU receives receipted or Allocation-Closed files; legacy policy-stage flags are not modern prerequisites.
 - [GI workflow rules](gi-workflow-rules.md) — Nonmedical forward goes to GI; assigned GI staff return to Register or forward Cashier; preserve NONMEDICAL team compatibility.
+- [Workspace preview diagnostics](workspace-preview-diagnostics.md) — A healthy MIS preview does not prove the containing Replit Build view works; distinguish workspace, pane and menus.
