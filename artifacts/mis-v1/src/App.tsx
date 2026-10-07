@@ -16,6 +16,7 @@ import BusinessRequirementsPage from '@/pages/admin/business-requirements';
 import MedicalUnderwritingPage from '@/pages/medical-underwriting';
 import CashierPage from '@/pages/cashier';
 import PricingReviewPage from '@/pages/pricing-review';
+import RecordFilingPage from '@/pages/business/record-filing';
 import NotificationsPage from '@/pages/notifications';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import {
@@ -46,6 +47,7 @@ type NavItem = {
   bpoReviewOnly?: boolean;
   pricingOnly?: boolean;
   cashierOnly?: boolean;
+  dpuOnly?: boolean;
   children?: NavItem[];
 };
 
@@ -71,6 +73,7 @@ const NAV_SECTIONS: Array<{
           { href: '/business/bpo-corporate-sme', label: 'BPO Review-Corporates/SME', icon: FileText, bpoReviewOnly: true },
           { href: '/business/allocated', label: 'Allocation Files', icon: FileText, bpoOnly: true },
           { href: '/business/pricing', label: 'Pricing Review', icon: FileText, pricingOnly: true },
+          { href: '/business/record-filing', label: 'Record Filing', icon: FileText, dpuOnly: true },
         ],
       },
       { href: '/risk',      label: 'Risk Register',     icon: Shield },
@@ -113,6 +116,7 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
   const canSeeMedical = isAdmin || user?.profileId === 5 || user?.profileName?.trim().toLowerCase() === 'medical uw';
   const canSeeCashier = isAdmin || user?.profileId === 6
     || ['finance', 'cashier', 'superadmin', 'system admin'].includes(user?.profileName?.trim().toLowerCase() ?? '');
+  const canSeeRecordFiling = isAdmin || user?.profileName?.trim().toLowerCase() === 'dpu';
   const isBpoDepartment = (user?.department ?? '').trim().toUpperCase() === 'BPO';
   const canSeeAllocatedFiles = user && [
     'superadmin',
@@ -170,7 +174,8 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
                   (!child.bpoOnly || canSeeAllocatedFiles)
                   && (!child.bpoReviewOnly || canSeeBpoReviewQueues)
                   && (!child.pricingOnly || canSeePricing)
-                  && (!child.cashierOnly || canSeeCashier),
+                  && (!child.cashierOnly || canSeeCashier)
+                  && (!child.dpuOnly || canSeeRecordFiling),
                 ) ?? [];
                 return (
                   <div key={href}>
@@ -348,6 +353,7 @@ function ProtectedRouter() {
           <Route path="/"                 component={HomePage} />
           <Route path="/business/allocated" component={AllocatedFilesPage} />
           <Route path="/business/cashier" component={CashierPage} />
+          <Route path="/business/record-filing" component={RecordFilingPage} />
           <Route path="/business/bpo-retail">
             {() => <BusinessTrackingPage initialQueue="bpo-retail" />}
           </Route>

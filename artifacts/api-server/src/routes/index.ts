@@ -10,6 +10,7 @@ import medicalUnderwritingRouter from "./medical-underwriting";
 import notificationsRouter from "./notifications";
 import cashierRouter from "./cashier";
 import pricingReviewRouter from "./pricing-review";
+import recordFilingRouter from "./record-filing";
 
 const router: IRouter = Router();
 
@@ -21,6 +22,7 @@ router.use(medicalUnderwritingRouter);
 router.use(notificationsRouter);
 router.use(cashierRouter);
 router.use(pricingReviewRouter);
+router.use(recordFilingRouter);
 router.use(businessRouter);
 router.use(discoveryRouter);
 router.use(misRouter);
