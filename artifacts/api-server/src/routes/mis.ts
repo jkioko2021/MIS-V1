@@ -110,7 +110,7 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
       client_type: "bt.client_type",
       business_type: "bt.business_type",
       file_status: "bt.file_status",
-      agent_name: "sa.agent_name",
+      agent_name: "COALESCE(si.agent_name, sa.agent_name)",
       paid_amt: "bt.paid_amt",
       receive_dt: "bt.receive_dt",
       bpo_forwarded_at: "wi.forwarded_at",
@@ -124,7 +124,7 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
     const rows = await query(`
       SELECT
         bt.*,
-        sa.agent_name,
+        COALESCE(si.agent_name, sa.agent_name) AS agent_name,
         notes.note_count,
         wi.assigned_to AS bpo_assigned_to,
         wi.forwarded_at AS bpo_forwarded_at,
@@ -132,6 +132,7 @@ router.get("/mis/business", requireBpoQueueAccess, async (req, res) => {
         (LOWER(COALESCE(bt.client_sub_type, '')) LIKE '%shwaari%') AS is_shwaari
       FROM crm.business_tracking bt
       LEFT JOIN commission.sales_agents sa ON sa.agent_id = bt.agent_id
+      LEFT JOIN crm.tbl_mis_sales_intermediary si ON si.agent_code = bt.agent_id
       LEFT JOIN LATERAL (
         SELECT COUNT(*)::int AS note_count
         FROM crm.business_tracking_notes n
@@ -239,11 +240,12 @@ router.get("/mis/business/allocated", requireBpoAllocatedAccess, async (req, res
       query(`
         SELECT
           bt.*,
-          sa.agent_name,
+          COALESCE(si.agent_name, sa.agent_name) AS agent_name,
           notes.note_count,
           (LOWER(COALESCE(bt.client_sub_type, '')) LIKE '%shwaari%') AS is_shwaari
         FROM crm.business_tracking bt
         LEFT JOIN commission.sales_agents sa ON sa.agent_id = bt.agent_id
+        LEFT JOIN crm.tbl_mis_sales_intermediary si ON si.agent_code = bt.agent_id
         LEFT JOIN LATERAL (
           SELECT COUNT(*)::int AS note_count
           FROM crm.business_tracking_notes n
@@ -310,9 +312,10 @@ router.get("/mis/business/allocated/:fileNo", requireAllocatedFileReadAccess, as
     const { fileNo } = req.params;
     const [file, notes, docs] = await Promise.all([
       queryOne(`
-        SELECT bt.*, sa.agent_name
+        SELECT bt.*, COALESCE(si.agent_name, sa.agent_name) AS agent_name
         FROM crm.business_tracking bt
         LEFT JOIN commission.sales_agents sa ON sa.agent_id = bt.agent_id
+        LEFT JOIN crm.tbl_mis_sales_intermediary si ON si.agent_code = bt.agent_id
         WHERE bt.file_no = $1
       `, [fileNo]),
       query(`
@@ -347,9 +350,10 @@ router.get("/mis/business/:fileNo", requireBusinessFileAccess, async (req, res) 
     const { fileNo } = req.params;
     const [file, notes, docs] = await Promise.all([
       queryOne(`
-        SELECT bt.*, sa.agent_name
+        SELECT bt.*, COALESCE(si.agent_name, sa.agent_name) AS agent_name
         FROM crm.business_tracking bt
         LEFT JOIN commission.sales_agents sa ON sa.agent_id = bt.agent_id
+        LEFT JOIN crm.tbl_mis_sales_intermediary si ON si.agent_code = bt.agent_id
         WHERE bt.file_no = $1
       `, [fileNo]),
       query(`
@@ -404,15 +408,19 @@ router.get("/mis/business/summary/counts", async (_req, res) => {
 });
 
 // ─── SALES AGENTS ─────────────────────────────────────────────────────────────
-router.get("/mis/agents", async (_req, res) => {
+router.get("/mis/agents", requireAuth, requireBusinessTrackingAccess, async (_req, res) => {
   try {
     const rows = await query(`
-      SELECT agent_id, agent_name, agent_email, agent_phone, agency_code, is_active
-      FROM commission.sales_agents ORDER BY agent_name
+      SELECT agent_code AS agent_id, agent_name,
+             email AS agent_email, mobile_no AS agent_phone,
+             unit_code AS agency_code,
+             COALESCE(terminated=0 AND UPPER(TRIM(agent_status))='ACTIVE', FALSE) AS is_active
+      FROM crm.tbl_mis_sales_intermediary ORDER BY agent_name, agent_code
     `);
     res.json({ ok: true, data: rows });
   } catch (err: unknown) {
-    res.status(500).json({ ok: false, error: String(err) });
+    logger.error({ err }, "Sales intermediary lookup failed");
+    res.status(500).json({ ok: false, error: "Unable to load agent names." });
   }
 });
 

@@ -112,7 +112,7 @@ export function BpoCorporateSheet({ fileNo, onClose }: { fileNo: string; onClose
 
   const { data: countiesRes } = useQuery({ queryKey: ['counties'], queryFn: misApi.counties, staleTime: Infinity });
   const { data: sectorsRes } = useQuery({ queryKey: ['business-sectors'], queryFn: misApi.sectors, staleTime: 300_000 });
-  const { data: agentsRes } = useQuery({ queryKey: ['agents'], queryFn: misApi.agents, staleTime: 120_000 });
+  const { data: agentsRes } = useQuery({ queryKey: ['agents', 'sales-intermediary'], queryFn: misApi.agents, staleTime: 120_000 });
 
   const counties = (countiesRes?.data ?? []) as string[];
   const sectors = (sectorsRes?.data ?? []) as string[];
@@ -124,6 +124,9 @@ export function BpoCorporateSheet({ fileNo, onClose }: { fileNo: string; onClose
   const bpoAdminOptions = (bpoAdminRes?.data ?? [])
     .map(employee => ({ value: employee.username, label: `${employee.employee_name} (${employee.username})` }));
   const agentOptions = agents.map(a => ({ value: a.agent_id, label: a.agent_name }));
+  if (file?.agent_id && file.agent_name && !agentOptions.some(a => a.value === file.agent_id)) {
+    agentOptions.push({ value: file.agent_id, label: file.agent_name });
+  }
   
   const docs = file?.docs ?? [];
   const notes = file?.notes ?? [];

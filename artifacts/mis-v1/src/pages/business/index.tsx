@@ -351,7 +351,9 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
   const activeMode: 'register' | 'edit' = activeFileNo ? 'edit' : mode;
 
   // Reference data
-  const { data: agentsRes } = useQuery({ queryKey: ['agents'], queryFn: misApi.agents, staleTime: 120_000 });
+  const { data: agentsRes, isLoading: agentsLoading, isError: agentsError } = useQuery({
+    queryKey: ['agents', 'sales-intermediary'], queryFn: misApi.agents, staleTime: 120_000,
+  });
   const { data: walkInStaffRes } = useQuery({ queryKey: ['walk-in-staff'], queryFn: misApi.walkInStaff, staleTime: 120_000 });
   const { data: bpoReviewersRes } = useQuery({ queryKey: ['bpo-reviewers'], queryFn: () => misApi.bpoReviewers(), staleTime: 120_000 });
   const { data: countiesRes } = useQuery({ queryKey: ['counties'], queryFn: misApi.counties, staleTime: Infinity });
@@ -852,14 +854,21 @@ function BusinessSheet({ mode, initialClientType = 'R', fileNo, onClose, onSaved
 
               <SectionHeader title="Classification" />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="Agent / Broker" required>
+                <Field label="Agent Name / Broker" required>
                   <SearchableSelect
                     value={form.agent_id}
                     onChange={v => set('agent_id', v)}
-                    options={agents.filter(a => a.is_active).map(a => ({ value: a.agent_id, label: a.agent_name }))}
-                    placeholder="Select agent or broker…"
+                    options={[
+                      ...agents.filter(a => a.is_active || a.agent_id === form.agent_id)
+                        .map(a => ({ value: a.agent_id, label: a.agent_name })),
+                      ...(form.agent_id && !agents.some(a => a.agent_id === form.agent_id) && existingFile?.agent_name
+                        ? [{ value: form.agent_id, label: existingFile.agent_name }] : []),
+                    ]}
+                    disabled={agentsLoading || agentsError}
+                    placeholder={agentsLoading ? 'Loading agent names…' : 'Select agent or broker…'}
                     searchPlaceholder="Search agents and brokers…"
                   />
+                  {agentsError && <p role="alert" className="text-xs text-destructive">Unable to load agent names. Please try again.</p>}
                 </Field>
                 <Field label="County" required={(isRetail && form.business === 'N') || (isCorp && form.business_type === 'N')}>
                   <SearchableSelect

@@ -27,3 +27,4 @@
 - [Pricing Review rules](pricing-review-rules.md) — Only rate-C Corporate/SME allocations pass Pricing; Standard S bypasses it, original recipient and notes preserved.
 - [Repeated SQL parameter types](typed-sql-parameters.md) — Consistent casts plus valid-request PostgreSQL checks catch assignment/comparison binding errors missed by mocks.
 - [Cashier Review routing](cashier-review-rules.md) — Invoiced allocations enter Finance review; partial receipts stay actionable; legacy nonmedical Filing must not override returns.
+- [Sales intermediary compatibility](sales-intermediary-compatibility.md) — New selections use the intermediary master; historical agent assignments remain readable without bulk remapping.
