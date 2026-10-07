@@ -11,18 +11,20 @@ router.use(requireAuth);
 // This is the authoritative list of all pages/items in the system.
 // Access rights for every profile are derived from this list.
 export const MENU_MASTER = [
-  { main: "Dashboard",  sub: "Overview",               url: "/",                      order: 10 },
-  { main: "Medical Underwriting", sub: "Medical Underwriting Review", url: "/medical-underwriting", order: 10 },
-  { main: "Business", sub: "Cashier Review", url: "/business/cashier", order: 38 },
-  { main: "Business", sub: "Record Filing", url: "/business/record-filing", order: 55 },
+  { main: "Dashboard", sub: "Overview", url: "/", order: 10 },
   { main: "Dashboard", sub: "Notifications", url: "/notifications", order: 20 },
-  { main: "Business",   sub: "Register Business",       url: "/business/new",          order: 10 },
-  { main: "Business",   sub: "My Pending Files",        url: "/business",              order: 20 },
-  { main: "Business",   sub: "Allocated Files",         url: "/business/allocated",    order: 30 },
-  { main: "Business",   sub: "Pricing Review",          url: "/business/pricing",      order: 35 },
-  { main: "Business",   sub: "Finance Queue",           url: "/business/finance",      order: 40 },
-  { main: "Business",   sub: "Dispatch Queue",          url: "/business/dispatch",     order: 50 },
-  { main: "Business",   sub: "Declined Files",          url: "/business/declined",     order: 60 },
+  { main: "Business", sub: "Register Queue", url: "/business", order: 10 },
+  { main: "Business", sub: "BPO Review Retail", url: "/business/bpo-retail", order: 20 },
+  { main: "Business", sub: "BPO Review Corporates/SME", url: "/business/bpo-corporate-sme", order: 30 },
+  { main: "Business", sub: "Medical Review", url: "/business/medical-review", order: 40 },
+  { main: "Business", sub: "Pricing Review", url: "/business/pricing", order: 50 },
+  { main: "Business", sub: "Allocated Files", url: "/business/allocated", order: 60 },
+  { main: "Business", sub: "Cashier Review", url: "/business/cashier", order: 70 },
+  { main: "Business", sub: "Record Filing", url: "/business/record-filing", order: 80 },
+  { main: "Business", sub: "Register Business", url: "/business/new", order: 90 },
+  { main: "Business", sub: "Finance Queue", url: "/business/finance", order: 100 },
+  { main: "Business", sub: "Dispatch Queue", url: "/business/dispatch", order: 110 },
+  { main: "Business", sub: "Declined Files", url: "/business/declined", order: 120 },
   { main: "Risk",       sub: "Risk Dashboard",          url: "/risk",                  order: 10 },
   { main: "Risk",       sub: "New Risk Entry",          url: "/risk/new",              order: 20 },
   { main: "Risk",       sub: "My Department Risks",     url: "/risk/open",             order: 30 },
@@ -518,7 +520,11 @@ router.get("/admin/profiles/:id/access", async (req: Request, res: Response) => 
 
     // Merge master list with DB values
     const items = MENU_MASTER.map(m => {
-      const db = dbMap.get(m.url);
+      // Existing medical-review grants were saved under the previous page URL.
+      // Preserve them in the access editor until an admin saves the renamed menu.
+      const db = dbMap.get(m.url) ?? (m.url === "/business/medical-review"
+        ? dbMap.get("/medical-underwriting")
+        : undefined);
       return {
         main_menu_name: m.main,
         sub_menu_name: m.sub,

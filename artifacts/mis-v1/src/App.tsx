@@ -45,6 +45,7 @@ type NavItem = {
   icon: LucideIcon;
   bpoOnly?: boolean;
   bpoReviewOnly?: boolean;
+  medicalOnly?: boolean;
   pricingOnly?: boolean;
   cashierOnly?: boolean;
   dpuOnly?: boolean;
@@ -54,7 +55,6 @@ type NavItem = {
 const NAV_SECTIONS: Array<{
   label: string | null;
   adminOnly?: boolean;
-  medicalOnly?: boolean;
   cashierOnly?: boolean;
   items: NavItem[];
 }> = [
@@ -68,24 +68,18 @@ const NAV_SECTIONS: Array<{
         icon: FileText,
         children: [
           { href: '/business', label: 'Register Queue', icon: FileText },
-          { href: '/business/cashier', label: 'Cashier Review', icon: Banknote, cashierOnly: true },
-          { href: '/business/bpo-retail', label: 'BPO Review-Retail', icon: FileText, bpoReviewOnly: true },
-          { href: '/business/bpo-corporate-sme', label: 'BPO Review-Corporates/SME', icon: FileText, bpoReviewOnly: true },
-          { href: '/business/allocated', label: 'Allocation Files', icon: FileText, bpoOnly: true },
+          { href: '/business/bpo-retail', label: 'BPO Review Retail', icon: FileText, bpoReviewOnly: true },
+          { href: '/business/bpo-corporate-sme', label: 'BPO Review Corporates/SME', icon: FileText, bpoReviewOnly: true },
+          { href: '/business/medical-review', label: 'Medical Review', icon: Shield, medicalOnly: true },
           { href: '/business/pricing', label: 'Pricing Review', icon: FileText, pricingOnly: true },
+          { href: '/business/allocated', label: 'Allocated Files', icon: FileText, bpoOnly: true },
+          { href: '/business/cashier', label: 'Cashier Review', icon: Banknote, cashierOnly: true },
           { href: '/business/record-filing', label: 'Record Filing', icon: FileText, dpuOnly: true },
         ],
       },
       { href: '/risk',      label: 'Risk Register',     icon: Shield },
       { href: '/discovery', label: 'DB Discovery',      icon: Database },
       { href: '/notifications', label: 'Notifications', icon: Bell },
-    ],
-  },
-  {
-    label: 'Medical Underwriting',
-    medicalOnly: true,
-    items: [
-      { href: '/medical-underwriting', label: 'Medical Underwriting Review', icon: Shield },
     ],
   },
   {
@@ -156,7 +150,6 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
       <nav className="flex-1 p-2 space-y-4 overflow-y-auto">
         {NAV_SECTIONS.map((section, si) => {
           if (section.adminOnly && !isAdmin) return null;
-          if (section.medicalOnly && !canSeeMedical) return null;
           if (section.cashierOnly && !canSeeCashier) return null;
           return (
             <div key={si} className="space-y-0.5">
@@ -173,6 +166,7 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
                 const visibleChildren = item.children?.filter(child =>
                   (!child.bpoOnly || canSeeAllocatedFiles)
                   && (!child.bpoReviewOnly || canSeeBpoReviewQueues)
+                   && (!child.medicalOnly || canSeeMedical)
                   && (!child.pricingOnly || canSeePricing)
                   && (!child.cashierOnly || canSeeCashier)
                   && (!child.dpuOnly || canSeeRecordFiling),
@@ -353,6 +347,7 @@ function ProtectedRouter() {
           <Route path="/"                 component={HomePage} />
           <Route path="/business/allocated" component={AllocatedFilesPage} />
           <Route path="/business/cashier" component={CashierPage} />
+          <Route path="/business/medical-review" component={MedicalUnderwritingPage} />
           <Route path="/business/record-filing" component={RecordFilingPage} />
           <Route path="/business/bpo-retail">
             {() => <BusinessTrackingPage initialQueue="bpo-retail" />}
@@ -365,7 +360,9 @@ function ProtectedRouter() {
             {() => <BusinessTrackingPage />}
           </Route>
           <Route path="/risk"             component={RiskRegisterPage} />
-          <Route path="/medical-underwriting" component={MedicalUnderwritingPage} />
+          <Route path="/medical-underwriting">
+            {() => <Redirect to="/business/medical-review" />}
+          </Route>
           <Route path="/cashier">
             {() => <Redirect to="/business/cashier" />}
           </Route>

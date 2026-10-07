@@ -57,7 +57,7 @@ function AccessMessage({ forbidden = false }: { forbidden?: boolean }) {
 export default function MedicalUnderwritingPage() {
   useEffect(() => {
     const previousTitle = document.title;
-    document.title = 'Medical Underwriting Review | AAR MIS';
+    document.title = 'Medical Review | AAR MIS';
     return () => { document.title = previousTitle; };
   }, []);
   const { user, loading: authLoading } = useAuth();
@@ -121,7 +121,7 @@ export default function MedicalUnderwritingPage() {
         <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.2em] text-[#557e74]"><span className="h-px w-6 bg-[#8eaea2]" /> AAR MIS / Operations</p>
-            <h1 className="mt-2 text-[28px] font-semibold tracking-[-.045em] text-[#193a38] sm:text-[34px]">Medical Underwriting Review</h1>
+            <h1 className="mt-2 text-[28px] font-semibold tracking-[-.045em] text-[#193a38] sm:text-[34px]">Medical Review</h1>
             <p className="mt-1 max-w-2xl text-sm text-[#758681]">Review insurer membership files. Record the decision, then hand off to the right team.</p>
           </div>
           <div className="flex items-center gap-2 rounded-lg border border-[#d9e5df] bg-[#f9fcfa] px-3 py-2 text-[11px] font-medium text-[#637a73]"><ShieldCheck size={15} className="text-[#468176]" /> {user.name}</div>
