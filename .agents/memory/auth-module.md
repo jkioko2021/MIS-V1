@@ -24,6 +24,19 @@ records do not prove which accounts exist in the published database.
 Describe a source-defined enrollment default only as an unverified default,
 never as a confirmed published password.
 
+## Published login diagnostics
+A successful publish and a guest `/auth/me` response do not verify database
+connectivity. Diagnose login from deployment error logs before recommending
+password resets.
+
+**Why:** Guest session checks can return before touching the database; a
+workspace-local database host can still fail DNS resolution in production.
+
+**How to apply:** For published database connection failures, check production
+database provisioning in Publishing. Let Publish manage runtime database
+bindings; never fix this by hardcoding workspace connection details or adding
+production schema creation to application startup.
+
 ## Route layout (Express)
 `app.use("/api", router)` — so all router-level paths drop the `/api` prefix:
 - Auth: `router.get("/auth/me")` → accessible at `/api/auth/me`
