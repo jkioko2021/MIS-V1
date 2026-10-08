@@ -9,6 +9,8 @@ import {
 } from "../lib/auth-middleware";
 import { logger } from "../lib/logger";
 import { requiresLoginOtp, issueLoginOtp, consumeLoginOtp, OtpError, type LoginEmployee } from "../lib/login-otp";
+import { lockLoginAccount, LoginAccountError } from "../lib/login-account";
+import { throttleAuth } from "../lib/auth-throttle";
 
 const router = Router();
 
@@ -23,31 +25,34 @@ function cookieOpts(maxAge: number) {
 }
 
 async function startSession(emp: LoginEmployee, res: Response, otpVerified = false) {
-  const config = await queryOne<{ pass_reset_days: number }>(
-    "SELECT pass_reset_days FROM crm.password_config LIMIT 1");
-  const passwordExpired = emp.last_password_reset
-    ? (Date.now() - new Date(emp.last_password_reset).getTime()) / 86400000 > (config?.pass_reset_days ?? 30)
-    : true;
-  const sid = await withTransaction(async client => {
-    const sessionId = await createSession(emp, client);
+  const { fresh, passwordExpired, token } = await withTransaction(async client => {
+    const fresh = await lockLoginAccount(client, emp);
+    if (requiresLoginOtp(fresh.username) && !otpVerified) throw new LoginAccountError();
+    const { rows: [config] } = await client.query<{ pass_reset_days: number }>(
+      "SELECT pass_reset_days FROM crm.password_config LIMIT 1");
+    const passwordExpired = fresh.last_password_reset
+      ? (Date.now() - new Date(fresh.last_password_reset).getTime()) / 86400000 > (config?.pass_reset_days ?? 30)
+      : true;
+    const sid = await createSession(fresh, client);
     await client.query(`UPDATE crm.employees SET failed_attempts=0,last_login_date=NOW(),
-      active_session=TRUE,updated_at=NOW() WHERE employee_id=$1`, [emp.employee_id]);
-    return sessionId;
+      active_session=TRUE,updated_at=NOW() WHERE employee_id=$1`, [fresh.employee_id]);
+    const token = signToken({ sub: fresh.employee_id, username: fresh.username, name: fresh.employee_name,
+      profileId: fresh.profile_id, sid, passwordChangeRequired: passwordExpired, otpVerified });
+    return { fresh, passwordExpired, token };
   });
-  const token = signToken({ sub: emp.employee_id, username: emp.username, name: emp.employee_name,
-    profileId: emp.profile_id, sid, passwordChangeRequired: passwordExpired, otpVerified });
-  await query(`INSERT INTO crm.admin_audit_trail (username,action_type,description)
-    VALUES($1,'LOGIN_SUCCESS',$2)`, [emp.username, otpVerified ? "Password and email OTP verified" : "Password authenticated"])
-    .catch(() => {});
   res.cookie(COOKIE_NAME, token, cookieOpts(8 * 60 * 60 * 1000));
   res.json({ ok: true, step: "authenticated", passwordExpired,
-    user: { id: emp.employee_id, username: emp.username, name: emp.employee_name,
-      profileId: emp.profile_id, profileName: emp.profile_name, department: emp.department } });
+    user: { id: fresh.employee_id, username: fresh.username, name: fresh.employee_name,
+      profileId: fresh.profile_id, profileName: fresh.profile_name, department: fresh.department } });
+  // Do not delay issuing the checked session while waiting for a best-effort audit.
+  await query(`INSERT INTO crm.admin_audit_trail (username,action_type,description)
+    VALUES($1,'LOGIN_SUCCESS',$2)`, [fresh.username, otpVerified ? "Password and email OTP verified" : "Password authenticated"])
+    .catch(() => {});
 }
 
 // ─── POST /auth/login ─────────────────────────────────────────────────────────
-router.post("/auth/login", async (req: Request, res: Response) => {
-  const { username, password } = req.body as { username?: string; password?: string };
+router.post("/auth/login", throttleAuth("login"), async (req: Request, res: Response) => {
+  const { username, password } = (req.body ?? {}) as { username?: string; password?: string };
 
   if (typeof username !== "string" || !username.trim() || typeof password !== "string" || !password) {
     res.status(400).json({ ok: false, error: "Username and password required." });
@@ -114,16 +119,20 @@ router.post("/auth/login", async (req: Request, res: Response) => {
     // Verify password
     const valid = await bcrypt.compare(password, emp.password_hash);
     if (!valid) {
-      const newAttempts = emp.failed_attempts + 1;
-      const shouldLock = newAttempts >= lockoutCount;
-      await query(
-        `UPDATE crm.employees SET failed_attempts = $1, employee_locked = $2, updated_at = NOW() WHERE employee_id = $3`,
-        [newAttempts, shouldLock, emp.employee_id]
+      const updated = await queryOne<{ failed_attempts: number; employee_locked: boolean }>(
+        `UPDATE crm.employees
+         SET failed_attempts = COALESCE(failed_attempts,0) + 1,
+             employee_locked = employee_locked OR COALESCE(failed_attempts,0) + 1 >= $1,
+             updated_at = NOW()
+         WHERE employee_id = $2 AND password_hash = $3 AND is_deleted = FALSE
+         RETURNING failed_attempts, employee_locked`,
+        [lockoutCount, emp.employee_id, emp.password_hash]
       );
-      if (shouldLock) {
+      if (updated?.employee_locked) {
         res.status(403).json({ ok: false, error: "Too many failed attempts. Account locked. Contact your administrator." });
       } else {
-        res.status(401).json({ ok: false, error: "Invalid username or password.", attemptsLeft: lockoutCount - newAttempts });
+        res.status(401).json({ ok: false, error: "Invalid username or password.",
+          ...(updated ? { attemptsLeft: Math.max(0, lockoutCount - updated.failed_attempts) } : {}) });
       }
       return;
     }
@@ -135,16 +144,18 @@ router.post("/auth/login", async (req: Request, res: Response) => {
     }
     await startSession(emp, res);
   } catch (err) {
-    if (err instanceof OtpError) {
-      res.status(err.status).json({ ok: false, error: err.message });
+    if (err instanceof OtpError || err instanceof LoginAccountError) {
+      if (err instanceof OtpError && err.retryAfterSeconds) res.setHeader("Retry-After", err.retryAfterSeconds);
+      res.status(err.status).json({ ok: false, error: err.message,
+        ...(err instanceof OtpError && err.retryAfterSeconds ? { retryAfterSeconds: err.retryAfterSeconds } : {}) });
       return;
     }
-    logger.error({ err }, "Login error");
+    logger.error("Login failed due to an internal error.");
     res.status(500).json({ ok: false, error: "Login failed. Please try again." });
   }
 });
 
-router.post("/auth/verify-otp", async (req: Request, res: Response) => {
+router.post("/auth/verify-otp", throttleAuth("otp"), async (req: Request, res: Response) => {
   const { tempToken, otp } = req.body ?? {};
   if (typeof tempToken !== "string" || typeof otp !== "string" || !/^\d{6}$/.test(otp.trim())) {
     res.status(400).json({ ok: false, error: "Enter the 6-digit verification code." });
@@ -152,7 +163,7 @@ router.post("/auth/verify-otp", async (req: Request, res: Response) => {
   }
   try { await startSession(await consumeLoginOtp(tempToken, otp.trim()), res, true); }
   catch (err) {
-    if (err instanceof OtpError) res.status(err.status).json({ ok: false, error: err.message });
+    if (err instanceof OtpError || err instanceof LoginAccountError) res.status(err.status).json({ ok: false, error: err.message });
     else {
       logger.error("Login OTP verification failed.");
       res.status(500).json({ ok: false, error: "Unable to verify your code. Please sign in again." });

@@ -2,13 +2,14 @@ import { createHmac, randomInt, randomUUID, timingSafeEqual } from "node:crypto"
 import { withTransaction, query } from "./postgres";
 import { sendResendEmail, type EmailSender } from "./business-notifications";
 import { signOtpChallenge, verifyOtpChallenge } from "./auth-middleware";
+import { lockLoginAccount } from "./login-account";
 
 export function requiresLoginOtp(username: string) {
   return username.toLowerCase() === (process.env.MIS_LOGIN_OTP_USERNAME?.trim() || "admin").toLowerCase();
 }
 
 export class OtpError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(public status: number, message: string, public retryAfterSeconds?: number) { super(message); }
 }
 
 export interface LoginEmployee {
@@ -30,12 +31,13 @@ export async function issueLoginOtp(emp: LoginEmployee, send: EmailSender = send
   const id = randomUUID();
   const code = String(randomInt(100000, 1000000));
   await withTransaction(async client => {
-    await client.query("SELECT employee_id FROM crm.employees WHERE employee_id=$1 FOR UPDATE", [emp.employee_id]);
+    await lockLoginAccount(client, emp);
     const { rows: [latest] } = await client.query(
       `SELECT generated_at FROM crm.login_otp_challenges WHERE employee_id=$1
        ORDER BY generated_at DESC LIMIT 1`, [emp.employee_id]);
     if (latest && Date.now() - new Date(latest.generated_at).getTime() < 60000) {
-      throw new OtpError(429, "Please wait one minute before requesting another code.");
+      const retry = Math.max(1, Math.ceil((60000 - (Date.now() - new Date(latest.generated_at).getTime())) / 1000));
+      throw new OtpError(429, `Please wait ${retry} seconds before requesting another code.`, retry);
     }
     await client.query("UPDATE crm.login_otp_challenges SET used=TRUE WHERE employee_id=$1 AND NOT used", [emp.employee_id]);
     await client.query(`INSERT INTO crm.login_otp_challenges
@@ -63,6 +65,8 @@ export async function consumeLoginOtp(tempToken: string, code: string): Promise<
   try { claims = verifyOtpChallenge(tempToken); }
   catch { throw new OtpError(401, "Verification expired. Please sign in again."); }
   const result = await withTransaction(async client => {
+    // Same lock order as issuance: account first, then challenge. Avoid resend/verify deadlocks.
+    await client.query("SELECT employee_id FROM crm.employees WHERE employee_id=$1 FOR UPDATE", [claims.sub]);
     const { rows: [row] } = await client.query<LoginEmployee & {
       token_hash: string; credential_stamp: string; recipient_stamp: string;
       sent: boolean; used: boolean; attempts: number; expires_at: string;

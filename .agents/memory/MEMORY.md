@@ -8,6 +8,7 @@
 - [MIS Validation Findings](mis-validation-findings.md) — 3 critical conflicts resolved; 12 DBs confirmed; navigation map reveals 2nd application tier with ~47 pages
 - [MIS Business Processes](mis-business-processes.md) — 16 processes documented in BP-CAT-001; 62 unknowns in BP-UNK-001; BT state machine incomplete
 - [Auth module](auth-module.md) — Admin-only email OTP; staff password-only; scoped revocation must not interrupt unrelated staff or upgrade stale cookies.
+- [Authentication abuse boundaries](auth-abuse-boundaries.md) — Fail closed at limiter capacity; verify proxy trust before using forwarded client IPs.
 - [Admin module](admin-module.md) — User enrollment, profiles/roles CRUD, access rights matrix; MENU_MASTER defines all pages
 - [Business Tracking module](business-module.md) — BT pages, upload flow, Object Storage setup, security gap on downloads
 - [BPO Review workflow](bpo-review-workflow.md) — Forwarded registrations use one authorized BPO work item linked to the original file, not a copied record
