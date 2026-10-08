@@ -26,6 +26,12 @@ MSSQL_ENCRYPT = "false"
 MSSQL_HOST = "0.tcp.in.ngrok.io"
 MSSQL_TRUST_SERVER_CERT = "true"
 MSSQL_PORT = "22741"
+MIS_LOGIN_OTP_EMAIL = "mwaniki56@gmail.com"
+MIS_LOGIN_OTP_FROM = "MIS Login <onboarding@resend.dev>"
+MIS_LOGIN_OTP_USERNAME = "admin"
 
 [nix]
 channel = "stable-25_05"
+
+[objectStorage]
+defaultBucketID = "replit-objstore-4fd2a174-7038-4d8f-8139-e6eceb6034cd"

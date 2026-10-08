@@ -7,12 +7,12 @@
 - [MIS Architecture Decisions](mis-architecture-decisions.md) — Modular monolith, React SPA + Express API, PostgreSQL, Redis, JWT; target arch in 05_Target_Architecture/
 - [MIS Validation Findings](mis-validation-findings.md) — 3 critical conflicts resolved; 12 DBs confirmed; navigation map reveals 2nd application tier with ~47 pages
 - [MIS Business Processes](mis-business-processes.md) — 16 processes documented in BP-CAT-001; 62 unknowns in BP-UNK-001; BT state machine incomplete
-- [Auth module](auth-module.md) — JWT+bcrypt+OTP; route prefix rule; Vite proxy; enrollment defaults do not prove published credentials.
+- [Auth module](auth-module.md) — User requested admin-only email OTP; other staff remain password-only; retain account/password safeguards.
 - [Admin module](admin-module.md) — User enrollment, profiles/roles CRUD, access rights matrix; MENU_MASTER defines all pages
 - [Business Tracking module](business-module.md) — BT pages, upload flow, Object Storage setup, security gap on downloads
 - [BPO Review workflow](bpo-review-workflow.md) — Forwarded registrations use one authorized BPO work item linked to the original file, not a copied record
 - [Managed rebase conflicts](managed-rebase-conflicts.md) — Structural auto-merges can displace code outside visible conflict markers; compare the whole resolved file with both stages
-- [Post-login navigation claims](post-login-navigation-claims.md) — Role-based sidebar visibility needs profile claims in the OTP verification response, not only the session refresh endpoint
+- [Post-login navigation claims](post-login-navigation-claims.md) — Role-based sidebar visibility needs profile claims in the initial login response, not only session refresh.
 - [Sheet popover stacking](sheet-popover-stacking.md) — Portalled dropdowns inside sheets must layer above both the sheet and its overlay to remain visible
 - [BPO allocation schema](bpo-allocation-schema.md) — Verify BPO allocation columns are present in development before testing review-action handoffs
 - [Allocation handoff actions](allocation-handoff-actions.md) — Allocated files route Cashier, Medical UW, Return Incomplete, Closed, IT Support, and RM outcomes to accountable queues

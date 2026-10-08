@@ -25,25 +25,23 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   login: (username: string, password: string) => Promise<LoginResult>;
-  verifyOtp: (tempToken: string, otp: string) => Promise<VerifyResult>;
+  verifyOtp: (tempToken: string, otp: string) => Promise<AuthenticatedResult>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
-export interface LoginResult {
-  step: "otp";
-  tempToken: string;
-  passwordExpired: boolean;
-  devOtp?: string;
-}
-
-export interface VerifyResult {
+export interface AuthenticatedResult {
+  step: "authenticated";
   user: AuthUser;
   passwordExpired: boolean;
 }
+export type LoginResult = AuthenticatedResult | {
+  step: "otp"; tempToken: string; maskedEmail: string; expiresInSeconds: number;
+};
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const AUTH_BASE = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/auth`;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
@@ -54,10 +52,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     try {
-      const res = await fetch("/api/auth/me", { credentials: "include" });
+      const res = await fetch(`${AUTH_BASE}/me`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
-        setState({ user: data.user, loading: false, passwordExpired: false });
+        setState({ user: data.user, loading: false, passwordExpired: Boolean(data.passwordExpired) });
       } else {
         setState({ user: null, loading: false, passwordExpired: false });
       }
@@ -71,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshUser]);
 
   const login = useCallback(async (username: string, password: string): Promise<LoginResult> => {
-    const res = await fetch("/api/auth/login", {
+    const res = await fetch(`${AUTH_BASE}/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -79,24 +77,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error ?? "Login failed");
+    if (data.step !== "otp") setState(s => ({ ...s, user: data.user, passwordExpired: data.passwordExpired }));
     return data as LoginResult;
   }, []);
 
-  const verifyOtp = useCallback(async (tempToken: string, otp: string): Promise<VerifyResult> => {
-    const res = await fetch("/api/auth/verify-otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
+  const verifyOtp = useCallback(async (tempToken: string, otp: string): Promise<AuthenticatedResult> => {
+    const res = await fetch(`${AUTH_BASE}/verify-otp`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
       body: JSON.stringify({ tempToken, otp }),
     });
     const data = await res.json();
-    if (!data.ok) throw new Error(data.error ?? "OTP verification failed");
+    if (!data.ok) throw new Error(data.error ?? "Verification failed");
     setState(s => ({ ...s, user: data.user, passwordExpired: data.passwordExpired }));
-    return data as VerifyResult;
+    return data;
   }, []);
 
   const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
-    const res = await fetch("/api/auth/change-password", {
+    const res = await fetch(`${AUTH_BASE}/change-password`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -108,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
+    await fetch(`${AUTH_BASE}/logout`, { method: "POST", credentials: "include" }).catch(() => {});
     setState({ user: null, loading: false, passwordExpired: false });
   }, []);
 

@@ -337,7 +337,7 @@ function AppLayout({ children }: { children: ReactNode }) {
 
 // ─── Protected router ─────────────────────────────────────────────────────────
 function ProtectedRouter() {
-  const { user, loading } = useAuth();
+  const { user, loading, passwordExpired } = useAuth();
 
   if (loading) {
     return (
@@ -350,7 +350,7 @@ function ProtectedRouter() {
     );
   }
 
-  if (!user) return <LoginPage />;
+  if (!user || passwordExpired) return <LoginPage />;
 
   return (
     <RoutedErrorBoundary>
