@@ -12,6 +12,7 @@ import cashierRouter from "./cashier";
 import pricingReviewRouter from "./pricing-review";
 import recordFilingRouter from "./record-filing";
 import giRouter from "./gi";
+import businessStatusRouter from "./business-status";
 
 const router: IRouter = Router();
 
@@ -25,6 +26,7 @@ router.use(cashierRouter);
 router.use(pricingReviewRouter);
 router.use(recordFilingRouter);
 router.use(giRouter);
+router.use(businessStatusRouter);
 router.use(businessRouter);
 router.use(discoveryRouter);
 router.use(misRouter);

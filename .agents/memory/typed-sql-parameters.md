@@ -19,3 +19,23 @@ from being exercised, despite passing TypeScript checks.
 **How to apply:** Inspect current required columns/defaults and constraints
 before adapting fixtures. Exercise a valid role-specific request through its
 audit and notification side writes, not only its validation-error paths.
+
+Normalize SQL result scalars to the declared API contract; do not infer a
+master identifier's type from a field label such as “code.”
+
+**Why:** A numeric requirement identifier passed through a text-typed DTO and
+crashed a document filter despite successful TypeScript and database checks.
+Static query generics are assertions, not runtime response validation.
+
+**How to apply:** Preserve the underlying master schema, normalize output at
+the API boundary, assert scalar types with real database responses and make
+display-only filters tolerant of previously cached legacy scalars.
+
+For synthetic workflow fixtures, inspect current key lengths and status CHECK
+constraints before choosing identifiers or stage labels.
+
+**Why:** Menu captions and queue names are not necessarily valid persisted
+business statuses, and legacy key lengths can be shorter than modern labels.
+
+**How to apply:** Use real allowed stage values and bounded fixture identifiers;
+do not weaken database constraints just to make a test fixture fit.

@@ -18,6 +18,7 @@ import CashierPage from '@/pages/cashier';
 import PricingReviewPage from '@/pages/pricing-review';
 import RecordFilingPage from '@/pages/business/record-filing';
 import GiAllocatePage from '@/pages/business/gi-allocate';
+import BusinessStatusPage from '@/pages/business/business-status';
 import NotificationsPage from '@/pages/notifications';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import {
@@ -79,6 +80,7 @@ const NAV_SECTIONS: Array<{
           { href: '/business/record-filing', label: 'Record Filing', icon: FileText, dpuOnly: true },
           { href: '/business/gi-allocate', label: 'GI-Allocate', icon: FileText, giOnly: true },
           { href: '/business/gi-allocated', label: 'GI-Allocated', icon: FileText, giOnly: true },
+          { href: '/business/status', label: 'Business Status', icon: FileText },
         ],
       },
       { href: '/risk',      label: 'Risk Register',     icon: Shield },
@@ -362,6 +364,7 @@ function ProtectedRouter() {
           <Route path="/business/gi-allocated">
             {() => <AllocatedFilesPage workspace="gi" />}
           </Route>
+          <Route path="/business/status" component={BusinessStatusPage} />
           <Route path="/business/cashier" component={CashierPage} />
           <Route path="/business/medical-review" component={MedicalUnderwritingPage} />
           <Route path="/business/record-filing" component={RecordFilingPage} />

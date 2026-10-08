@@ -23,6 +23,7 @@ export const MENU_MASTER = [
   { main: "Business", sub: "Record Filing", url: "/business/record-filing", order: 80 },
   { main: "Business", sub: "GI-Allocate", url: "/business/gi-allocate", order: 81 },
   { main: "Business", sub: "GI-Allocated", url: "/business/gi-allocated", order: 82 },
+  { main: "Business", sub: "Business Status", url: "/business/status", order: 83 },
   { main: "Business", sub: "Register Business", url: "/business/new", order: 90 },
   { main: "Business", sub: "Finance Queue", url: "/business/finance", order: 100 },
   { main: "Business", sub: "Dispatch Queue", url: "/business/dispatch", order: 110 },

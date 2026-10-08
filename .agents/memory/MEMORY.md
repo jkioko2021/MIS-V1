@@ -25,9 +25,10 @@
 - [Medical underwriting legacy](medical-underwriting-legacy.md) — Procedure routing and HPC catalogs are unavailable; distinguish observed legacy behavior from modern handoff decisions.
 - [Business note retention](business-note-retention.md) — Saved business notes must remain in file history; record corrections as new notes, never delete or hide prior notes.
 - [Pricing Review rules](pricing-review-rules.md) — Only rate-C Corporate/SME allocations pass Pricing; Standard S bypasses it, original recipient and notes preserved.
-- [Repeated SQL parameter types](typed-sql-parameters.md) — Consistent casts plus valid-request PostgreSQL checks catch assignment/comparison binding errors missed by mocks.
+- [SQL boundary contracts](typed-sql-parameters.md) — Binding casts and output scalars need real database checks; typed query wrappers cannot validate either.
 - [Cashier Review routing](cashier-review-rules.md) — Invoiced allocations enter Finance review; partial receipts stay actionable; legacy nonmedical Filing must not override returns.
 - [Sales intermediary compatibility](sales-intermediary-compatibility.md) — New selections use the intermediary master; historical agent assignments remain readable without bulk remapping.
 - [Record Filing rules](record-filing-rules.md) — DPU receives receipted or Allocation-Closed files; legacy policy-stage flags are not modern prerequisites.
 - [GI workflow rules](gi-workflow-rules.md) — Nonmedical forward goes to GI; assigned GI staff return to Register or forward Cashier; preserve NONMEDICAL team compatibility.
 - [Workspace preview diagnostics](workspace-preview-diagnostics.md) — A healthy MIS preview does not prove the containing Replit Build view works; distinguish workspace, pane and menus.
+- [Business Status visibility](business-status-visibility.md) — Trackers can monitor handoffs without bypassing private-file ownership; scope options/counts and identity-specific caches.
