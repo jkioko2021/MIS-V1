@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
+import { toast } from '@/hooks/use-toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import DiscoveryPage from '@/pages/discovery';
@@ -246,7 +247,11 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
             </div>
           </div>
           <button
-            onClick={() => { onNavigate(); logout(); }}
+            onClick={() => {
+              logout().then(onNavigate).catch(() => {
+                toast({ title: "Unable to sign out", description: "Please try again.", variant: "destructive" });
+              });
+            }}
             className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             <LogOut className="w-3.5 h-3.5" />

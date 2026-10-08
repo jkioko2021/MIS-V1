@@ -15,6 +15,7 @@ export interface LoginEmployee {
   employee_id: number; username: string; employee_name: string; password_hash: string;
   department: string | null; profile_id: number; profile_name: string | null;
   last_password_reset: string | null;
+  session_version: number; profile_version: number;
 }
 
 const stamp = (text: string) => createHmac("sha256", process.env.SESSION_SECRET ?? "dev-secret-change-me")
@@ -68,6 +69,7 @@ export async function consumeLoginOtp(tempToken: string, code: string): Promise<
       activated: boolean; approved: boolean; employee_locked: boolean; is_deleted: boolean; profile_active: boolean;
     }>(`SELECT c.*,e.username,e.employee_name,e.password_hash,e.department,e.profile_id,
         e.last_password_reset,e.activated,e.approved,e.employee_locked,e.is_deleted,
+        e.session_version,p.session_version AS profile_version,
         p.profile_name,p.is_active AS profile_active
         FROM crm.login_otp_challenges c JOIN crm.employees e ON e.employee_id=c.employee_id
         JOIN crm.profiles p ON p.profile_id=e.profile_id

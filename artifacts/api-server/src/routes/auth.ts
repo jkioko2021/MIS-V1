@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import bcrypt from "bcrypt";
-import { query, queryOne } from "../lib/postgres";
+import { query, queryOne, withTransaction } from "../lib/postgres";
+import { createSession, type SessionEmployee } from "../lib/auth-sessions";
 import {
   signToken,
   requireAuth,
@@ -27,10 +28,14 @@ async function startSession(emp: LoginEmployee, res: Response, otpVerified = fal
   const passwordExpired = emp.last_password_reset
     ? (Date.now() - new Date(emp.last_password_reset).getTime()) / 86400000 > (config?.pass_reset_days ?? 30)
     : true;
-  await query(`UPDATE crm.employees SET failed_attempts=0,last_login_date=NOW(),
-    active_session=TRUE,updated_at=NOW() WHERE employee_id=$1`, [emp.employee_id]);
+  const sid = await withTransaction(async client => {
+    const sessionId = await createSession(emp, client);
+    await client.query(`UPDATE crm.employees SET failed_attempts=0,last_login_date=NOW(),
+      active_session=TRUE,updated_at=NOW() WHERE employee_id=$1`, [emp.employee_id]);
+    return sessionId;
+  });
   const token = signToken({ sub: emp.employee_id, username: emp.username, name: emp.employee_name,
-    profileId: emp.profile_id, passwordChangeRequired: passwordExpired, otpVerified });
+    profileId: emp.profile_id, sid, passwordChangeRequired: passwordExpired, otpVerified });
   await query(`INSERT INTO crm.admin_audit_trail (username,action_type,description)
     VALUES($1,'LOGIN_SUCCESS',$2)`, [emp.username, otpVerified ? "Password and email OTP verified" : "Password authenticated"])
     .catch(() => {});
@@ -64,10 +69,13 @@ router.post("/auth/login", async (req: Request, res: Response) => {
       profile_name: string | null;
       profile_active: boolean | null;
       department: string | null;
+      session_version: number;
+      profile_version: number;
     }>(`
       SELECT e.employee_id, e.username, e.employee_name, e.password_hash,
              e.activated, e.employee_locked, e.approved, e.failed_attempts,
-             e.last_password_reset, e.profile_id, e.department,
+             e.last_password_reset, e.profile_id, e.department, e.session_version,
+             p.session_version AS profile_version,
              p.profile_name, p.is_active AS profile_active
       FROM crm.employees e
       LEFT JOIN crm.profiles p ON p.profile_id = e.profile_id
@@ -199,10 +207,27 @@ router.post("/auth/change-password", requireAuth, async (req: Request, res: Resp
     }
 
     const newHash = await bcrypt.hash(newPassword, 10);
-    await query(
-      `UPDATE crm.employees SET password_hash = $1, last_password_reset = CURRENT_DATE, failed_attempts = 0, updated_at = NOW() WHERE employee_id = $2`,
-      [newHash, userId]
-    );
+    const replacement = await withTransaction(async client => {
+      const { rows: [updated] } = await client.query<SessionEmployee>(
+        `UPDATE crm.employees SET password_hash=$1, last_password_reset=CURRENT_DATE,
+         failed_attempts=0, updated_at=NOW()
+         WHERE employee_id=$2 AND password_hash=$3 AND session_version=(
+           SELECT employee_version FROM crm.auth_sessions s
+           JOIN crm.profiles p ON p.profile_id=s.profile_id
+           WHERE s.session_id=$4 AND s.employee_id=$2 AND s.revoked_at IS NULL
+             AND s.expires_at>NOW() AND s.profile_version=p.session_version
+             AND s.profile_id=crm.employees.profile_id
+         ) RETURNING *`, [newHash, userId, emp.password_hash, req.user!.sid]);
+      if (!updated) throw new Error("Account changed during password update. Please sign in again.");
+      const { rows: [profile] } = await client.query(
+        "SELECT profile_version FROM crm.auth_sessions WHERE session_id=$1", [req.user!.sid]);
+      // Preserve the authorizing snapshot: a concurrent access change must not
+      // upgrade an old cookie into a new session with newly changed privileges.
+      updated.profile_version = profile.profile_version;
+      const sid = await createSession(updated, client);
+      await client.query("UPDATE crm.employees SET active_session=TRUE WHERE employee_id=$1", [userId]);
+      return { employee: updated, sid };
+    });
 
     // History entry
     await query(
@@ -216,8 +241,9 @@ router.post("/auth/change-password", requireAuth, async (req: Request, res: Resp
     ).catch(() => {});
 
     const sessionToken = signToken({
-      sub: req.user!.sub, username: req.user!.username,
-      name: req.user!.name, profileId: req.user!.profileId,
+      sub: userId, username: replacement.employee.username,
+      name: replacement.employee.employee_name, profileId: replacement.employee.profile_id,
+      sid: replacement.sid,
       otpVerified: req.user!.otpVerified,
     });
     res.cookie(COOKIE_NAME, sessionToken, cookieOpts(8 * 60 * 60 * 1000));
@@ -231,15 +257,27 @@ router.post("/auth/change-password", requireAuth, async (req: Request, res: Resp
 // ─── POST /auth/logout ────────────────────────────────────────────────────────
 router.post("/auth/logout", requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.sub;
-  await query(
-    `UPDATE crm.employees SET active_session = FALSE, updated_at = NOW() WHERE employee_id = $1`,
-    [userId]
-  ).catch(() => {});
+  try {
+    await withTransaction(async client => {
+      await client.query("UPDATE crm.auth_sessions SET revoked_at=NOW() WHERE session_id=$1 AND employee_id=$2",
+        [req.user!.sid, userId]);
+      await client.query(`UPDATE crm.employees SET active_session=EXISTS(
+        SELECT 1 FROM crm.auth_sessions s JOIN crm.profiles p ON p.profile_id=s.profile_id
+        WHERE s.employee_id=$1 AND s.revoked_at IS NULL AND s.expires_at>NOW()
+          AND s.employee_version=crm.employees.session_version
+          AND s.profile_id=crm.employees.profile_id AND s.profile_version=p.session_version
+      ), updated_at=NOW() WHERE employee_id=$1`, [userId]);
+    });
+  } catch (err) {
+    logger.error({ err }, "Session logout failed");
+    res.status(503).json({ ok: false, error: "Unable to sign out. Please try again." });
+    return;
+  }
   await query(
     `INSERT INTO crm.admin_audit_trail (employee_id, action, details) VALUES ($1, 'LOGOUT', 'User logged out')`,
     [userId]
   ).catch(() => {});
-  res.clearCookie(COOKIE_NAME);
+  res.clearCookie(COOKIE_NAME, { path: "/" });
   res.json({ ok: true });
 });
 

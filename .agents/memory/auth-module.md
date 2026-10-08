@@ -15,6 +15,23 @@ removing account locks, approval checks or required password changes.
 staff members' codes to its inbox. Configure the delivery address outside
 memory, and never display development OTP codes in production as a workaround.
 
+
+## Session revocation decisions
+
+Scope account revocation to that employee and access-policy revocation to staff
+using the affected profile, not to the whole organization. Logout affects only
+the current session; self-service password change may return one replacement
+session while invalidating all prior cookies.
+
+**Why:** Staff security changes must take effect before JWT expiry without
+interrupting unrelated staff. A global signing-key rotation is too broad, and
+cookie clearing alone does not invalidate copied cookies.
+
+**How to apply:** Keep server-side checks persistent and fail closed, including
+when the database cannot verify a session. Do not introduce a revocation cache
+that delays changes. Preserve the authorizing security snapshot across session
+replacement so concurrent access changes cannot upgrade a stale cookie.
+
 ## Resend permission checks
 A sending-only Resend key may reject domain-listing requests while still being
 fully able to send login emails.

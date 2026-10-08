@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { logger } from "./logger";
+import { sessionIsActive } from "./auth-sessions";
 
 const COOKIE_NAME = "mis_session";
 const SECRET = process.env["SESSION_SECRET"] ?? "dev-secret-change-me";
@@ -10,6 +11,7 @@ export interface JwtPayload {
   username: string;
   name: string;
   profileId: number;
+  sid: string;
   passwordChangeRequired?: boolean;
   otpVerified?: boolean;
   iat?: number;
@@ -44,11 +46,16 @@ export function verifyOtpChallenge(token: string): { sub: number; challengeId: s
 
 export function verifyToken(token: string): JwtPayload {
   const decoded = jwt.verify(token, SECRET);
-  if (typeof decoded === "string" || decoded.temp) throw new Error("Invalid session token");
+  if (typeof decoded === "string" || decoded.temp
+    || !Number.isInteger(decoded.sub) || !Number.isInteger(decoded.profileId)
+    || typeof decoded.sid !== "string"
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decoded.sid)) {
+    throw new Error("Invalid session token");
+  }
   return decoded as unknown as JwtPayload;
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const token = req.cookies?.[COOKIE_NAME] as string | undefined;
   if (!token) {
     res.status(401).json({ ok: false, error: "Not authenticated" });
@@ -56,6 +63,17 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   }
   try {
     req.user = verifyToken(token);
+  } catch {
+    res.clearCookie(COOKIE_NAME, { path: "/" });
+    res.status(401).json({ ok: false, error: "Session expired. Please log in again." });
+    return;
+  }
+  try {
+    if (!await sessionIsActive(req.user.sid, req.user.sub, req.user.profileId)) {
+      res.clearCookie(COOKIE_NAME, { path: "/" });
+      res.status(401).json({ ok: false, error: "Session revoked. Please log in again." });
+      return;
+    }
     const otpUsername = process.env.MIS_LOGIN_OTP_USERNAME?.trim() || "admin";
     if (req.user.username?.toLowerCase() === otpUsername.toLowerCase() && !req.user.otpVerified) {
       res.clearCookie(COOKIE_NAME, { path: "/" });
@@ -69,9 +87,8 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     }
     next();
   } catch (err) {
-    logger.warn({ err }, "Invalid session token");
-    res.clearCookie(COOKIE_NAME);
-    res.status(401).json({ ok: false, error: "Session expired. Please log in again." });
+    logger.error({ err }, "Session verification unavailable");
+    res.status(503).json({ ok: false, error: "Unable to verify your session. Please try again." });
   }
 }
 

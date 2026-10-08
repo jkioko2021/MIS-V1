@@ -105,7 +105,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await fetch(`${AUTH_BASE}/logout`, { method: "POST", credentials: "include" }).catch(() => {});
+    const res = await fetch(`${AUTH_BASE}/logout`, { method: "POST", credentials: "include" });
+    // A revoked session is already signed out; outages must not look successful.
+    if (!res.ok && res.status !== 401) throw new Error("Unable to sign out. Please try again.");
     setState({ user: null, loading: false, passwordExpired: false });
   }, []);
 

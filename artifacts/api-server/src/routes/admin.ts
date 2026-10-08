@@ -557,17 +557,23 @@ router.put("/admin/profiles/:id/access", async (req: Request, res: Response) => 
   };
   if (!Array.isArray(items)) { res.status(400).json({ ok: false, error: "items array required." }); return; }
   try {
-    await query(`DELETE FROM crm.menu_access WHERE profile_id=$1`, [profileId]);
-    for (const it of items) {
-      await query(
+    await withTransaction(async client => {
+      // Lock the profile so a replacement access set and its revocation commit together.
+      await client.query("SELECT profile_id FROM crm.profiles WHERE profile_id=$1 FOR UPDATE", [profileId]);
+      await client.query(`DELETE FROM crm.menu_access WHERE profile_id=$1`, [profileId]);
+      // Even saving an empty access set must invalidate this profile's sessions.
+      await client.query("UPDATE crm.profiles SET session_version=session_version+1 WHERE profile_id=$1", [profileId]);
+      for (const it of items) {
+        await client.query(
         `INSERT INTO crm.menu_access
            (profile_id, main_menu_name, sub_menu_name, page_url, menu_order,
             can_access, can_add, can_edit, can_delete, read_only)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
         [profileId, it.main_menu_name, it.sub_menu_name, it.page_url, it.menu_order,
          !!it.can_access, !!it.can_add, !!it.can_edit, !!it.can_delete, !!it.read_only]
-      );
-    }
+        );
+      }
+    });
     await query(`INSERT INTO crm.admin_audit_trail (employee_id, action, details) VALUES ($1,'ACCESS_UPDATED',$2)`,
       [req.user!.sub, `Updated access rights for profile ID ${profileId}`]).catch(() => {});
     res.json({ ok: true });
