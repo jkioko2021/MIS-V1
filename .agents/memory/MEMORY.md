@@ -32,3 +32,4 @@
 - [GI workflow rules](gi-workflow-rules.md) — Nonmedical forward goes to GI; assigned GI staff return to Register or forward Cashier; preserve NONMEDICAL team compatibility.
 - [Workspace preview diagnostics](workspace-preview-diagnostics.md) — A healthy MIS preview does not prove the containing Replit Build view works; distinguish workspace, pane and menus.
 - [Business Status visibility](business-status-visibility.md) — Trackers can monitor handoffs without bypassing private-file ownership; scope options/counts and identity-specific caches.
+- [Git provider authentication](git-provider-auth.md) — Git CLI uses the source-control provider; healthy connection metadata does not prove push credentials work.
