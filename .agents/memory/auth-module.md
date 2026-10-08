@@ -13,8 +13,16 @@ A short-lived **temp token** (5 min JWT, `{ temp: true }`) bridges the login and
 - reset required after 30 days (`last_password_reset`)
 - history tracked in `crm.password_history`
 
-## Default seed password
-All seeded employees: `AAR@2024!` (bcrypt $2b$10$, 10 rounds).
+## Published login credentials
+Do not store password values in memory or assume enrollment defaults match a
+published account's current credentials.
+
+**Why:** Live accounts can have changed passwords, and development account
+records do not prove which accounts exist in the published database.
+
+**How to apply:** Verify the deployment URL and available live account metadata.
+Describe a source-defined enrollment default only as an unverified default,
+never as a confirmed published password.
 
 ## Route layout (Express)
 `app.use("/api", router)` — so all router-level paths drop the `/api` prefix:
