@@ -34,3 +34,4 @@
 - [Workspace preview diagnostics](workspace-preview-diagnostics.md) — A healthy MIS preview does not prove the containing Replit Build view works; distinguish workspace, pane and menus.
 - [Business Status visibility](business-status-visibility.md) — Trackers can monitor handoffs without bypassing private-file ownership; scope options/counts and identity-specific caches.
 - [Git provider authentication](git-provider-auth.md) — Git CLI uses the source-control provider; healthy connection metadata does not prove push credentials work.
+- [Dependency security upgrades](dependency-security-upgrades.md) — Preserve module compatibility when narrowing audit overrides; legacy declarations need usage checks before framework upgrades.

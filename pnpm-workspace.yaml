@@ -35,6 +35,8 @@ minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - '@replit/*'
   - stripe-replit-sync
+  # Security remediation: this release removes the unpatched sprintf-js dependency.
+  - tedious
 
 onlyBuiltDependencies:
   - '@swc/core'
@@ -64,7 +66,8 @@ overrides:
   '@tailwindcss/oxide>@tailwindcss/oxide-linux-x64-musl': '-'
   '@tailwindcss/oxide>@tailwindcss/oxide-win32-arm64-msvc': '-'
   '@tailwindcss/oxide>@tailwindcss/oxide-win32-x64-msvc': '-'
-  esbuild: 0.27.3
+  brace-expansion@>=4.0.0 <5.0.12: '5.0.12'
+  esbuild: 0.28.2
   esbuild>@esbuild/aix-ppc64: '-'
   esbuild>@esbuild/android-arm: '-'
   esbuild>@esbuild/android-arm64: '-'
@@ -90,6 +93,9 @@ overrides:
   esbuild>@esbuild/win32-arm64: '-'
   esbuild>@esbuild/win32-ia32: '-'
   esbuild>@esbuild/win32-x64: '-'
+  fast-copy@>=4.0.0 <4.1.0: '4.1.0'
+  fast-uri@>=3.0.0 <3.1.8: '3.1.8'
+  js-yaml@>=4.0.0 <4.3.2: '4.3.2'
   lightningcss>lightningcss-android-arm64: '-'
   lightningcss>lightningcss-darwin-arm64: '-'
   lightningcss>lightningcss-darwin-x64: '-'
@@ -100,6 +106,11 @@ overrides:
   lightningcss>lightningcss-linux-x64-musl: '-'
   lightningcss>lightningcss-win32-arm64-msvc: '-'
   lightningcss>lightningcss-win32-x64-msvc: '-'
+  markdown-it@<14.3.1: '14.3.1'
+  nanoid@<3.3.18: '3.3.18'
+  postcss-selector-parser@<7.1.6: '7.1.6'
+  proxy-addr@>=1.1.0 <2.0.8: '2.0.8'
+  qs@>=2.2.5 <6.16.0: '6.16.0'
   rollup>@rollup/rollup-android-arm-eabi: '-'
   rollup>@rollup/rollup-android-arm64: '-'
   rollup>@rollup/rollup-darwin-arm64: '-'
@@ -124,3 +135,6 @@ overrides:
   rollup>@rollup/rollup-win32-ia32-msvc: '-'
   rollup>@rollup/rollup-win32-x64-gnu: '-'
   rollup>@rollup/rollup-win32-x64-msvc: '-'
+  source-map-js@>=1.0.0 <1.2.2: '1.2.2'
+  uuid@<11.1.1: '11.1.1'
+  tedious@>=20.0.0 <20.3.7: '20.3.7'

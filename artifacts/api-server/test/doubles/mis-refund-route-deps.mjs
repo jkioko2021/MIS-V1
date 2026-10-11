@@ -22,7 +22,11 @@ export function requireAuth(req, _res, next) {
 export const requireBusinessTrackingAccess = (_req, _res, next) => next();
 export const setBpoReviewAccess = (_req, _res, next) => next();
 export const requireBpoQueueAccess = (_req, _res, next) => next();
-export const requireBpoAllocatedAccess = (_req, _res, next) => next();
+export const requireBpoAllocatedAccess = (_req, res, next) => {
+  // Match the authorization context provided by the real allocated middleware.
+  res.locals.canAccessMembershipAllocated = state().canAccessMembershipAllocated ?? true;
+  next();
+};
 export const requireAllocatedFileReadAccess = (_req, _res, next) => next();
 export const requireBusinessFileAccess = (_req, _res, next) => next();
 

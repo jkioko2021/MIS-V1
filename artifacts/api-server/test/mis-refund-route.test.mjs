@@ -93,6 +93,14 @@ async function requestWith(testState, pathname) {
   }
 }
 
+test("refund summary denies callers without membership allocation permission", async () => {
+  const testState = state({ canAccessMembershipAllocated: false });
+  const response = await requestWith(testState, "/mis/business/allocated/refunds-summary");
+
+  assert.equal(response.status, 403);
+  assert.deepEqual(testState.ledgerCalls, []);
+});
+
 test("refund summary scopes a BPO administrator to their CRM ledger owner", async () => {
   const testState = state();
   const response = await requestWith(testState, "/mis/business/allocated/refunds-summary");
