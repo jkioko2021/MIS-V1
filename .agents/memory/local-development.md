@@ -16,11 +16,16 @@ private messages/documents outside public paths and Git. Development email captu
 is not external delivery. Database backups do not contain cloud document bytes.
 
 Do not treat the historical migrations or partial Drizzle schema as a clean-database
-bootstrap. Use an approved complete backup or a separately designed sanitized
-reference-data/account provisioning process.
+bootstrap. Keep approved backup restoration and clean synthetic initialization as
+separate workflows. Clean seeds must not contain real employees/business records,
+production passwords or automatic account resets; initial test-admin creation
+must be explicitly requested.
 
-**Why:** The migrations were built on an existing imported CRM schema, and local
-setup must not claim an empty database will support the app.
+**Why:** Historical migrations assume an imported CRM schema. The user requested
+a clean local alternative without real data, production passwords or automatic
+password resets.
 
-**How to apply:** Fail clearly when prerequisite tables/reference data are absent;
-never automatically reset accounts or export business data to work around setup.
+**How to apply:** Fail clearly when prerequisites are absent; never automatically
+reset accounts or export business data to work around setup. Preserve required
+role names and operational document labels in synthetic catalogs, since they
+participate in authorization and validation, not just display.

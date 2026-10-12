@@ -69,16 +69,16 @@ async function checkDatabase(env) {
       [required]);
     const found = new Set(result.rows.map(row => row.table_name));
     const missing = required.filter(table => !found.has(table));
-    if (missing.length) throw new Error(`Restore a current development backup. Missing tables: ${missing.join(", ")}. See the database migration notes in docs/LOCAL_DEVELOPMENT.md.`);
+    if (missing.length) throw new Error(`Database setup incomplete. Missing tables: ${missing.join(", ")}. Use the clean baseline on an empty database or restore an approved complete backup; see docs/LOCAL_DEVELOPMENT.md.`);
     const user = await client.query(
       "SELECT 1 FROM crm.employees WHERE lower(username)=lower($1) AND NOT is_deleted LIMIT 1",
       [env.MIS_LOGIN_OTP_USERNAME || "admin"]);
-    if (!user.rowCount) throw new Error("Configured OTP account is missing from the restored database.");
+    if (!user.rowCount) throw new Error("Configured OTP account is missing. For a clean baseline, explicitly run local:db:admin; for a restored database, use its approved account.");
     console.info("Local database connected; core tables and configured OTP account are present.");
     console.info("This is a setup check, not an exhaustive workflow/schema validation.");
   } catch (error) {
     // Database connection errors may include credentials or network details: do not print them.
-    if (String(error.message).startsWith("Restore ") || String(error.message).startsWith("Configured ")) throw error;
+    if (String(error.message).startsWith("Database setup incomplete.") || String(error.message).startsWith("Configured ")) throw error;
     throw new Error("Local database check failed. Check PostgreSQL, your local credentials, and restored schema.");
   } finally { await client.end().catch(() => {}); }
 }
@@ -103,6 +103,19 @@ async function main() {
   if (command === "check") {
     await checkDatabase(env);
     console.info("Local email capture and disk storage are enabled. Replit services will not be contacted.");
+    return;
+  }
+  if (command === "db-init" || command === "db-admin") {
+    if (process.argv.length !== 3) throw new Error("Database commands take no arguments; never pass passwords on the command line.");
+    const { bootstrapDatabase, provisionAdmin, promptAdminPassword } = await import("./local-database.mjs");
+    if (command === "db-init") {
+      await bootstrapDatabase(env);
+      console.info("Clean local baseline and synthetic reference catalogs created. No employee or business records were copied.");
+      console.info("Run pnpm local:db:admin to explicitly provision your test administrator.");
+    } else {
+      await provisionAdmin(env, await promptAdminPassword());
+      console.info("Synthetic administrator created. OTP, password expiry and session security remain enabled.");
+    }
     return;
   }
   if (command === "mail") {
