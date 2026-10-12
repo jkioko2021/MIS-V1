@@ -11,6 +11,7 @@ import {
 } from './risk-ui';
 
 type Props = {
+  mode?: 'assessment' | 'review';
   summaries: RiskDepartmentSummary[];
   options: RiskOptionsResponseData;
   department: string;
@@ -20,7 +21,7 @@ type Props = {
   setComments: (value: string) => void;
   mutating: boolean;
   onSubmit: (row: RiskDepartmentSummary) => void;
-  onSelect: (riskCode: string) => void;
+  onSelect: (riskCode: string, trigger?: HTMLButtonElement) => void;
   loading: boolean;
   error: string;
   retry: () => void;
@@ -48,12 +49,14 @@ function ScopeExposure({ score, band }: { score: string; band: string }) {
 }
 
 export default function RiskAssessmentSummary({
-  summaries, options, department, period, selectedRisk, comments, setComments, mutating, onSubmit, onSelect, loading, error, retry,
+  mode = 'assessment', summaries, options, department, period, selectedRisk, comments, setComments, mutating, onSubmit, onSelect, loading, error, retry,
 }: Props) {
   const [chosenDepartment, setChosenDepartment] = useState('');
   const [chosenPeriod, setChosenPeriod] = useState('');
 
-  const departments = useMemo(() => [...new Map(summaries.map(row => [row.depart_code, row])).values()], [summaries]);
+  const eligibleSummaries = useMemo(() => summaries.filter(row =>
+    row.workflow_status === (mode === 'review' ? 'SUBMITTED' : 'OPEN')), [summaries, mode]);
+  const departments = useMemo(() => [...new Map(eligibleSummaries.map(row => [row.depart_code, row])).values()], [eligibleSummaries]);
   const compatibleRisk = selectedRisk
     && (!department || department === selectedRisk.depart_code)
     && (!period || String(selectedRisk.period_id) === period)
@@ -67,17 +70,17 @@ export default function RiskAssessmentSummary({
   }, [compatibleRisk?.depart_code, compatibleRisk?.period_id]);
   const selectedDepartment = department || compatibleRisk?.depart_code || chosenDepartment;
   const departmentRows = useMemo(
-    () => summaries.filter(row => !selectedDepartment || row.depart_code === selectedDepartment),
-    [summaries, selectedDepartment],
+    () => eligibleSummaries.filter(row => !selectedDepartment || row.depart_code === selectedDepartment),
+    [eligibleSummaries, selectedDepartment],
   );
   const periodRows = useMemo(() => [...new Map(departmentRows.map(row => [String(row.period_id ?? ''), row])).values()], [departmentRows]);
   const selectedPeriod = period || (compatibleRisk?.period_id != null ? String(compatibleRisk.period_id) : chosenPeriod);
-  const row = summaries.find(item => item.depart_code === selectedDepartment && String(item.period_id ?? '') === selectedPeriod);
+  const row = eligibleSummaries.find(item => item.depart_code === selectedDepartment && String(item.period_id ?? '') === selectedPeriod);
   const scopeKey = selectedDepartment && selectedPeriod ? `${selectedDepartment}:${selectedPeriod}` : '';
   const activeRecordsQuery = useRiskRecords(
     options.actor.username,
-    { access: 'update', ...(selectedDepartment ? { depart_code: selectedDepartment } : {}), ...(selectedPeriod ? { period_id: Number(selectedPeriod) } : {}) },
-    Boolean(scopeKey),
+    { access: mode === 'review' ? 'review' : 'update', view: mode === 'review' ? 'submitted' : 'open', ...(selectedDepartment ? { depart_code: selectedDepartment } : {}), ...(selectedPeriod ? { period_id: Number(selectedPeriod) } : {}) },
+    Boolean(scopeKey && row),
   );
   const returnedRecords = envelopeData<RiskRecord[]>(activeRecordsQuery.data);
   const activeRecords = useMemo(
@@ -123,8 +126,8 @@ export default function RiskAssessmentSummary({
     <div className="flex flex-col justify-between gap-4 border-b border-border bg-muted/30 p-5 sm:flex-row sm:items-end sm:px-6">
       <div className="max-w-2xl">
         <div className="mb-2 flex items-center gap-2 text-primary"><ClipboardList className="h-4 w-4" /><span className="text-[10px] font-bold uppercase tracking-[.17em]">Department cycle closeout</span></div>
-        <h3 className="font-[Manrope] text-xl font-extrabold sm:text-2xl">Risk summary</h3>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">Saved risks are ranked by impact (1–5) × likelihood (1–5), with the highest risk score first. This separate 1–25 score does not change inherent or residual exposure. Historical ratings that cannot be mapped are not ranked; reassess them using current impact and likelihood choices. Submit for review becomes available only when every active risk is assessed and has a saved root cause.</p>
+        <h3 className="font-[Manrope] text-xl font-extrabold sm:text-2xl">{mode === 'review' ? 'Submitted risk summary' : 'Risk summary'}</h3>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">Saved risks are ranked by impact (1–5) × likelihood (1–5), with the highest risk score first. This separate 1–25 score does not change inherent or residual exposure. {mode === 'review' ? 'Review the submitted assessments, root causes and action plans, then record your Review or Return decision below.' : 'Historical ratings that cannot be mapped are not ranked; reassess them using current impact and likelihood choices. Once submitted, this summary moves to Risk Register Review.'}</p>
         <div className="mt-3 flex flex-wrap gap-2" aria-label="Risk ranking color key">{[['Critical', '15–25'], ['High', '10–14'], ['Medium', '5–9'], ['Low', '1–4']].map(([level, range]) => <span key={level} className={`rounded-full px-2 py-1 text-[10px] font-semibold ${riskExposureColors(level).badge}`}>{level} · {range}</span>)}</div>
       </div>
       <div className="grid w-full gap-3 sm:w-auto sm:min-w-[420px] sm:grid-cols-2">
@@ -145,7 +148,7 @@ export default function RiskAssessmentSummary({
 
     {(loading || error) ? <div className="p-5">{loading ? <SkeletonRows /> : <ErrorNotice message={error} onRetry={retry} />}</div>
       : !scopeKey ? <div className="p-5"><EmptyState title="Choose a register cycle" description="Select a department and reporting period above, or select a risk to derive its department and period." /></div>
-        : !row ? <div className="p-5"><EmptyState title="No summary for this cycle" description="This department and period do not have a risk register summary." /></div>
+        : !row ? <div className="p-5"><EmptyState title={mode === 'review' ? 'No register awaiting review for this cycle' : 'No register awaiting assessment for this cycle'} description={mode === 'review' ? 'Only submitted registers awaiting a Risk Owner decision appear here.' : 'Submitted registers leave this summary and are available in Risk Register Review. Saved assessments and history are retained.'} /></div>
           : <div className="p-5 sm:p-6">
             <div className="mb-4 flex flex-col gap-3 border-l-2 border-primary pl-4 sm:flex-row sm:items-center sm:justify-between">
               <div><div className="text-sm font-bold">{row.depart_name}</div><div className="mt-1 font-[Space_Mono] text-[10px] text-muted-foreground">{row.depart_code} · Period {row.period_id} · {dateLabel(row.period_from)} – {dateLabel(row.period_to)}</div></div>
@@ -175,14 +178,14 @@ export default function RiskAssessmentSummary({
                               <td className="px-4 py-3 align-top font-bold" data-testid={`risk-summary-score-${record.risk_code}`}>{record.risk_score ?? '—'}{record.risk_score != null && <span className="ml-1 text-[10px] font-normal text-muted-foreground">/ 25</span>}</td>
                               <td className="px-4 py-3 align-top" data-testid={`risk-summary-rank-${record.risk_code}`}><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${colors.badge}`} aria-label={`Risk ranking: ${record.risk_ranking ?? 'Not ranked'}`}>{record.risk_ranking ?? 'Not ranked'}</span></td>
                               <td className={`max-w-[260px] border-l-4 px-4 py-3 ${colors.edge}`}>
-                                <button className="text-left" data-testid={`select-summary-risk-${record.risk_code}`} onClick={() => onSelect(record.risk_code)}>
+                                <button className="text-left" data-testid={`select-summary-risk-${record.risk_code}`} onClick={event => onSelect(record.risk_code, event.currentTarget)}>
                                   <span className="block font-[Space_Mono] text-[10px] text-primary">{record.risk_code}</span>
                                   <span className="mt-1 block font-semibold leading-5 hover:text-primary">{record.risk_title}</span>
                                   {highest && <span className={`mt-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${colors.badge}`}>Highest risk score</span>}
                                 </button>
                                 <div className="mt-2"><RiskStatusPill risk={record} /></div>
-                                <button type="button" data-testid={`revise-summary-risk-${record.risk_code}`} disabled={mutating} className="mt-2 block text-xs font-semibold text-primary underline underline-offset-2 disabled:opacity-50" onClick={() => onSelect(record.risk_code)} aria-label={`${record.can_edit ? 'Revise' : 'View'} assessment: ${record.risk_title}`}>
-                                  {record.can_edit ? 'Revise assessment' : 'View assessment'}
+                                <button type="button" data-testid={`revise-summary-risk-${record.risk_code}`} disabled={mutating} className="mt-2 block text-xs font-semibold text-primary underline underline-offset-2 disabled:opacity-50" onClick={event => onSelect(record.risk_code, event.currentTarget)} aria-label={`${mode === 'review' ? 'Review' : record.can_edit ? 'Revise' : 'View'} assessment: ${record.risk_title}`}>
+                                  {mode === 'review' ? 'Review assessment' : record.can_edit ? 'Revise assessment' : 'View assessment'}
                                 </button>
                               </td>
                               <td className="px-4 py-3"><span className="font-semibold">{factorName(record.i_rate, record.ranking_snapshot?.impact?.label)}</span></td>
@@ -197,7 +200,7 @@ export default function RiskAssessmentSummary({
                       </table>
                     </div>}
 
-            <div className="mt-6 grid gap-5 border-t border-border pt-5 lg:grid-cols-[1fr_auto] lg:items-end">
+            {mode === 'assessment' && <div className="mt-6 grid gap-5 border-t border-border pt-5 lg:grid-cols-[1fr_auto] lg:items-end">
               <div>
                 <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground"><ShieldAlert className="h-3.5 w-3.5" /> Submit for Risk Owner review</div>
                 {!activeOwner && <div role="alert" data-testid="risk-summary-owner-warning" className="mb-4 flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-3 text-rose-950">
@@ -223,7 +226,7 @@ export default function RiskAssessmentSummary({
               <button type="button" data-testid="button-submit-risk-summary" disabled={!canSubmit} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-bold text-primary-foreground transition hover:brightness-95 disabled:pointer-events-none disabled:opacity-45" onClick={() => row && canSubmit && onSubmit(row)}>
                 <Send className="h-4 w-4" />Submit for review
               </button>
-            </div>
+            </div>}
           </div>}
   </section>;
 }

@@ -9,6 +9,12 @@ Update Register is accessible to the specific champions assigned to each departm
 
 **How to apply:** Keep champion and owner scopes separate in links, department filters and server authorization. Do not infer responsibility from a staff member's home department or restrict an owner to one department. Explicit department assignments supersede conflicting old champion mappings. Preserve existing administrator/Risk Management oversight unless the user changes it.
 
+Risk Register Review should present the risk summary as its main risk list. Clicking Review assessment opens a popup containing Risk Details, Root causes & action plans, and Risk exposures, rather than an inline editor.
+
+**Why:** The user explicitly requested the summary on the Review page and a popup for these three parts of the selected risk.
+
+**How to apply:** Keep this presentation specific to Review; preserve the champion's existing Update Register workflow and the owner's department-scoped access. A popup must show the selected risk's saved information without deleting notes or history.
+
 Risk administration is restricted to Risk Management and administrators, not automatically to department champions or owners. It covers officer/owner mapping and adding/modifying departments.
 
 **Why:** The user explicitly chose this access scope.
