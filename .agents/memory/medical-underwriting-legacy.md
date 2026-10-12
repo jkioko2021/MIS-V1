@@ -5,7 +5,7 @@ description: Interpretation constraints when reproducing the legacy medical revi
 
 Do not claim exact legacy handoff parity without the SQL definition of `sp_Business_MEDUW_Action`. The imported WebForms source reveals action codes and procedure parameters, but not the procedure's routing internals.
 
-**Why:** The user asked for a similar medical-underwriter review page, and the available source does not establish the Forward destination or contain the legacy HPC disease/source catalog data.
+**Why:** The user asked for a similar medical-underwriter review page. The older snapshot did not establish the procedure's routing internals. The updated archive supplies its definition, so that historical absence must no longer be assumed. HPC lookup table definitions likewise do not establish populated catalog values.
 
 **How to apply:** Preserve observed fields/actions while explicitly identifying modern routing decisions. Do not infer that an active Membership Admin is the Forward destination from missing procedure internals. Apply the user-directed BPO routing below. Do not invent lookup values or claim email notifications are sent without a configured transport.
 
