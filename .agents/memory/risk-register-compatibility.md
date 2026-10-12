@@ -13,7 +13,13 @@ The user subsequently supplied explicit impact, likelihood, control-effectivenes
 
 **Why:** These calibrations were supplied directly, rather than inferred from historical assessment labels.
 
-**How to apply:** Fetch active ratings from their reference table, convert fractions to percentages for display and back for calculation, and retain custom numeric entry for historical/noncatalogue values. Loading a catalogue must not recalculate saved assessments.
+**How to apply:** Fetch active ratings from their reference table and retain numeric factors internally for calculation. Loading a catalogue must not recalculate saved assessments.
+
+Assessment selections for impact, likelihood and control effectiveness must show descriptive labels only, not numeric ratings or numeric input fields. A risk can have more than one root cause.
+
+**Why:** The user explicitly requested hidden numeric ratings and multiple root causes per risk.
+
+**How to apply:** Keep approved numeric factors behind the labels for scoring; retain unmatched historical factors without displaying their numbers or remapping them. Allow adding a separate root cause with its own action plan without overwriting existing causes.
 
 Keep inherent and residual bands distinct, and retain separate ranges even when their level labels match.
 

@@ -145,9 +145,16 @@ function RiskRegisterWorkspace() {
       onSave={(data, code) => updateRisk.mutate({ riskCode: code, data }, {
         onSuccess: response => announce(response, 'Assessment saved.'), onError: error => setMutationError(queryError(error)),
       })}
-      onCause={(data, code) => saveCause.mutate({ riskCode: code, data }, {
-        onSuccess: response => announce(response, 'Root cause and action saved.'), onError: error => setMutationError(queryError(error)),
-      })} />;
+      onCause={async (data, code) => {
+        try {
+          const response = await saveCause.mutateAsync({ riskCode: code, data });
+          announce(response, 'Root cause and action saved.');
+          return !envelopeError(response);
+        } catch (error) {
+          setMutationError(queryError(error));
+          return false;
+        }
+      }} />;
 
   const setPage = (page: PageKey) => setLocation(page === 'dashboard' ? '/risk' : `/risk/${page}`);
   const announce = (response: unknown, success: string) => {
