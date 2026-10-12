@@ -5,6 +5,17 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface RiskAdministrationDepartment {
+  depart_code: string;
+  depart_name: string;
+  is_active: boolean;
+}
+
+export interface RiskAdministrationDepartmentResponse {
+  ok: boolean;
+  data: RiskAdministrationDepartment;
+}
+
 export interface RiskRecordInput {
   depart_code: string;
   period_id: number;
@@ -267,6 +278,23 @@ export interface RiskMutationResponse {
 export interface HealthStatus {
   status: string;
 }
+
+export type ListRiskAdministrationDepartments200 = {
+  ok: boolean;
+  data: RiskAdministrationDepartment[];
+};
+
+export type CreateRiskAdministrationDepartmentBody = {
+  /** @maxLength 20 */
+  depart_code: string;
+  /** @maxLength 100 */
+  depart_name: string;
+};
+
+export type UpdateRiskAdministrationDepartmentBody = {
+  /** @maxLength 100 */
+  depart_name: string;
+};
 
 export type GetClientRatingOptions200Data = {
   ratings: string[];

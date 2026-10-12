@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './createRiskAdministrationDepartmentBody';
 export * from './getClientRatingOptions200';
 export * from './getClientRatingOptions200Data';
 export * from './getClientRatingsReportParams';
@@ -21,9 +22,12 @@ export * from './listClientRatings200DataRecordsItem';
 export * from './listClientRatingsParams';
 export * from './listClientRatingsRating';
 export * from './listClientRatingsSearchBy';
+export * from './listRiskAdministrationDepartments200';
 export * from './listRiskRegisterRecordsAccess';
 export * from './listRiskRegisterRecordsParams';
 export * from './listRiskRegisterRecordsView';
+export * from './riskAdministrationDepartment';
+export * from './riskAdministrationDepartmentResponse';
 export * from './riskAssessmentInput';
 export * from './riskAssignmentInput';
 export * from './riskCauseInput';
@@ -50,3 +54,4 @@ export * from './riskRootCause';
 export * from './riskSummaryResponse';
 export * from './riskWorkflowInput';
 export * from './riskWorkflowInputAction';
+export * from './updateRiskAdministrationDepartmentBody';

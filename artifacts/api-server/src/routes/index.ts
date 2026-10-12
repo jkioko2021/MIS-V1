@@ -15,10 +15,12 @@ import giRouter from "./gi";
 import businessStatusRouter from "./business-status";
 import riskRegisterRouter from "./risk-register";
 import clientRatingsRouter from "./client-ratings";
+import riskAdministrationRouter from "./risk-administration";
 
 const router: IRouter = Router();
 router.use(riskRegisterRouter);
 router.use(clientRatingsRouter);
+router.use(riskAdministrationRouter);
 
 router.use(healthRouter);
 router.use(authRouter);

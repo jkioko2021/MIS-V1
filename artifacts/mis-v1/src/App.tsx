@@ -10,6 +10,7 @@ import HomePage from '@/pages/home';
 import BusinessTrackingPage from '@/pages/business';
 import AllocatedFilesPage from '@/pages/business/allocated-files';
 import RiskRegisterPage from '@/pages/risk';
+import RiskAdministrationPage from '@/pages/risk-administration';
 import { useRiskOptions } from '@/pages/risk/use-risk-register';
 import { canAccessRiskPage } from '@/pages/risk/risk-access';
 import LoginPage from '@/pages/login';
@@ -56,6 +57,7 @@ type NavItem = {
   cashierOnly?: boolean;
   dpuOnly?: boolean;
   giOnly?: boolean;
+  riskAdminOnly?: boolean;
   children?: NavItem[];
 };
 
@@ -100,8 +102,14 @@ const NAV_SECTIONS: Array<{
           { href: '/risk/history', label: 'Risk Register view', icon: History },
           { href: '/risk/client-rating', label: 'Client Rating', icon: SearchCheck },
           { href: '/risk', label: 'Risk Dashboard', icon: Shield },
-          { href: '/risk/champions', label: 'Map Risk Champions', icon: UsersRound },
           { href: '/risk/closed', label: 'Closed Archives', icon: Archive },
+        ],
+      },
+      {
+        href: '/risk-administration', label: 'Risk administration', icon: Settings, riskAdminOnly: true,
+        children: [
+          { href: '/risk-administration/mappings', label: 'Map Risk Officers & Owners', icon: UsersRound },
+          { href: '/risk-administration/departments', label: 'Departments', icon: Database },
         ],
       },
       { href: '/discovery', label: 'DB Discovery',      icon: Database },
@@ -193,10 +201,11 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
               )}
               {section.items.map((item) => {
                 const { href, label, icon: Icon } = item;
+                if (item.riskAdminOnly && !riskActor?.can_manage) return null;
                 const bpoOnly = 'bpoOnly' in item && item.bpoOnly;
                 if (bpoOnly && !canSeeAllocatedFiles) return null;
                 if ('giOnly' in item && item.giOnly && !canSeeGi) return null;
-                const active = location === href || (href !== '/' && location.startsWith(href));
+                const active = location === href || (href !== '/' && location.startsWith(`${href}/`));
                 const visibleChildren = item.children?.filter(child =>
                   (child.href !== '/risk/update' || canAccessRiskPage(riskActor, 'update'))
                   && (child.href !== '/risk/review' || canAccessRiskPage(riskActor, 'review'))
@@ -411,6 +420,8 @@ function ProtectedRouter() {
           <Route path="/risk"             component={RiskRegisterPage} />
           <Route path="/risk/client-rating" component={RiskRegisterPage} />
           <Route path="/risk/:view"       component={RiskRegisterPage} />
+          <Route path="/risk-administration" component={RiskAdministrationPage} />
+          <Route path="/risk-administration/:view" component={RiskAdministrationPage} />
           <Route path="/medical-underwriting">
             {() => <Redirect to="/business/medical-review" />}
           </Route>

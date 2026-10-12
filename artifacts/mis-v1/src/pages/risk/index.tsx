@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'wouter';
+import { Redirect, useLocation } from 'wouter';
 import { useAuth } from '@/lib/auth-context';
 import ClientRatingsPage from './client-ratings';
 import { canAccessRiskPage, riskPageDepartments } from './risk-access';
@@ -35,7 +35,6 @@ const PAGES: Array<{ key: PageKey; title: string; short: string; icon: typeof Sh
   { key: 'history', title: 'Risk Register view', short: 'Risk Register view', icon: History },
   { key: 'client-rating', title: 'Client Rating', short: 'Client Rating', icon: BadgeCheck },
   { key: 'dashboard', title: 'Risk Dashboard', short: 'Risk Dashboard', icon: Shield },
-  { key: 'champions', title: 'Map Risk Champions', short: 'Map Risk Champions', icon: UsersRound },
   { key: 'closed', title: 'Closed Archives', short: 'Closed Archives', icon: Archive },
 ];
 const navLabels: Record<string, PageKey> = Object.fromEntries(PAGES.map(item => [item.key, item.key]));
@@ -284,6 +283,7 @@ function RiskRegisterWorkspace() {
 
 export default function RiskRegisterPage() {
   const [location] = useLocation();
+  if (location === '/risk/champions') return <Redirect to="/risk-administration/mappings" />;
   if (location === '/risk/client-rating') return <ClientRatingsPage />;
   return <RiskRegisterWorkspace />;
 }

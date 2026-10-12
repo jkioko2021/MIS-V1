@@ -8,6 +8,59 @@
 import * as zod from 'zod';
 
 
+export const ListRiskAdministrationDepartmentsResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.array(zod.object({
+  "depart_code": zod.string(),
+  "depart_name": zod.string(),
+  "is_active": zod.boolean()
+}))
+})
+
+
+export const createRiskAdministrationDepartmentBodyDepartCodeMax = 20;
+
+export const createRiskAdministrationDepartmentBodyDepartNameMax = 100;
+
+
+
+export const CreateRiskAdministrationDepartmentBody = zod.object({
+  "depart_code": zod.string().max(createRiskAdministrationDepartmentBodyDepartCodeMax),
+  "depart_name": zod.string().max(createRiskAdministrationDepartmentBodyDepartNameMax)
+})
+
+export const CreateRiskAdministrationDepartmentResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.object({
+  "depart_code": zod.string(),
+  "depart_name": zod.string(),
+  "is_active": zod.boolean()
+})
+})
+
+
+export const UpdateRiskAdministrationDepartmentParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const updateRiskAdministrationDepartmentBodyDepartNameMax = 100;
+
+
+
+export const UpdateRiskAdministrationDepartmentBody = zod.object({
+  "depart_name": zod.string().max(updateRiskAdministrationDepartmentBodyDepartNameMax)
+})
+
+export const UpdateRiskAdministrationDepartmentResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.object({
+  "depart_code": zod.string(),
+  "depart_name": zod.string(),
+  "is_active": zod.boolean()
+})
+})
+
+
 export const GetClientRatingOptionsResponse = zod.object({
   "ok": zod.boolean(),
   "data": zod.object({

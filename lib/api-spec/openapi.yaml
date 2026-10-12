@@ -11,6 +11,60 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /risk-administration/departments:
+    get:
+      operationId: listRiskAdministrationDepartments
+      responses:
+        "200":
+          description: Risk departments for authorized administration
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/RiskAdministrationDepartment" }
+    post:
+      operationId: createRiskAdministrationDepartment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [depart_code, depart_name]
+              properties:
+                depart_code: { type: string, maxLength: 20 }
+                depart_name: { type: string, maxLength: 100 }
+      responses:
+        "201":
+          description: Department created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskAdministrationDepartmentResponse" }
+  /risk-administration/departments/{code}:
+    patch:
+      operationId: updateRiskAdministrationDepartment
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [depart_name]
+              properties:
+                depart_name: { type: string, maxLength: 100 }
+      responses:
+        "200":
+          description: Department name updated; stable code and existing references retained
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskAdministrationDepartmentResponse" }
   /client-ratings/options:
     get:
       operationId: getClientRatingOptions
@@ -267,6 +321,19 @@ paths:
                 $ref: "#/components/schemas/HealthStatus"
 components:
   schemas:
+    RiskAdministrationDepartment:
+      type: object
+      required: [depart_code, depart_name, is_active]
+      properties:
+        depart_code: { type: string }
+        depart_name: { type: string }
+        is_active: { type: boolean }
+    RiskAdministrationDepartmentResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok: { type: boolean }
+        data: { $ref: "#/components/schemas/RiskAdministrationDepartment" }
     RiskRecordInput:
       type: object
       required: [depart_code, period_id, objective_code, risk_title, risk_description, risk_category, risk_consequence]
