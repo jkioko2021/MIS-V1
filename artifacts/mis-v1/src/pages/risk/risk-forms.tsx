@@ -97,7 +97,7 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
   const [assessmentSaved, setAssessmentSaved] = useState(false);
   const [rootSaved, setRootSaved] = useState(false);
   const [rootDirty, setRootDirty] = useState(false);
-  const [activeTab, setActiveTab] = useState<'causes' | 'exposures'>('causes');
+  const [activeTab, setActiveTab] = useState<'details' | 'causes' | 'exposures'>('details');
   const lastAssessmentRisk = useRef('');
   useEffect(() => {
     if (!risk || (rootDirty && lastAssessmentRisk.current === risk.risk_code)) return;
@@ -114,7 +114,7 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
     setConsequence(risk?.risk_consequence ?? ''); setObjective(risk?.objective_code ?? '');
     setCategory(risk?.risk_category ?? '');
     setRootId(''); setCause(''); setRootControls(''); setMitigations(''); setDueDate(''); setOwner('');
-    setStatus(''); setComment(''); setFormError(''); setAssessmentError(''); setAssessmentSaved(false); setRootSaved(false); setRootDirty(false); setActiveTab('causes');
+    setStatus(''); setComment(''); setFormError(''); setAssessmentError(''); setAssessmentSaved(false); setRootSaved(false); setRootDirty(false); setActiveTab('details');
   }, [risk?.risk_code]);
   const inherent = Number(impact) * Number(likelihood);
   const residual = inherent * (1 - Number(effectiveness || 0) / 100);
@@ -140,7 +140,9 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
       setAssessmentError('Enter an assessment comment before saving.'); return;
     }
     if (!objective || !category || !riskTitle.trim() || !description.trim() || !consequence.trim()) {
-      setAssessmentError('Complete the risk title, objective, category, description and consequence before saving.'); return;
+      setAssessmentError('Complete the risk title, objective, category, description and consequences in Risk Details before saving.');
+      setActiveTab('details');
+      return;
     }
     if (comment.trim().length > 4000) {
       setAssessmentError('Assessment comments must contain no more than 4,000 characters.'); return;
@@ -185,12 +187,12 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
         if (lastAssessmentRisk.current === code) setFormError('The root cause and action plan could not be saved. Your entries are retained; please try again.');
       }
   };
-  const selectTab = (tab: 'causes' | 'exposures') => {
+  const selectTab = (tab: 'details' | 'causes' | 'exposures') => {
     if (tab === 'exposures' && allowed && roots.length === 0) return;
     setActiveTab(tab);
   };
   const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    const tabs: Array<'causes' | 'exposures'> = ['causes', 'exposures'];
+    const tabs: Array<'details' | 'causes' | 'exposures'> = ['details', 'causes', 'exposures'];
     const current = tabs.indexOf(activeTab);
     let next = current;
     if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (current + 1) % tabs.length;
@@ -212,9 +214,31 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
     </div>
      <div className="overflow-hidden rounded-2xl border border-border bg-card">
        <div role="tablist" aria-label="Risk assessment sections" className="flex flex-wrap border-b border-border px-3 pt-3 sm:px-5">
+         <button id="risk-tab-details" type="button" role="tab" aria-controls="risk-panel-details" aria-selected={activeTab === 'details'} tabIndex={activeTab === 'details' ? 0 : -1} onClick={() => selectTab('details')} onKeyDown={handleTabKeyDown} className={`border-b-2 px-3 py-3 text-left text-sm font-semibold transition-colors ${activeTab === 'details' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>Risk Details</button>
          <button id="risk-tab-causes" type="button" role="tab" aria-controls="risk-panel-causes" aria-selected={activeTab === 'causes'} tabIndex={activeTab === 'causes' ? 0 : -1} onClick={() => selectTab('causes')} onKeyDown={handleTabKeyDown} className={`border-b-2 px-3 py-3 text-left text-sm font-semibold transition-colors ${activeTab === 'causes' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>Root causes &amp; action plans</button>
          <button id="risk-tab-exposures" type="button" role="tab" aria-controls="risk-panel-exposures" aria-selected={activeTab === 'exposures'} aria-disabled={allowed && roots.length === 0 ? 'true' : undefined} tabIndex={activeTab === 'exposures' ? 0 : -1} onClick={() => selectTab('exposures')} onKeyDown={handleTabKeyDown} className={`border-b-2 px-3 py-3 text-left text-sm font-semibold transition-colors ${activeTab === 'exposures' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'} ${allowed && roots.length === 0 ? 'cursor-not-allowed opacity-50' : ''}`}>Risk exposures</button>
        </div>
+       <section id="risk-panel-details" role="tabpanel" aria-labelledby="risk-tab-details" hidden={activeTab !== 'details'} className="p-5" onChange={() => setAssessmentSaved(false)}>
+         <h3 className="font-[Manrope] text-lg font-bold">Risk Details</h3>
+         <p className="mb-4 mt-1 text-xs text-muted-foreground">Review the risk details, then complete root causes and the exposure assessment. Changes are saved together when you click Save Assessment.</p>
+         <div className="grid gap-4 sm:grid-cols-2">
+           <div className="sm:col-span-2"><Field label="Risk title"><input className={fieldClass} value={riskTitle} onChange={event => setRiskTitle(event.target.value)} maxLength={150} disabled={!allowed} required /></Field></div>
+           <Field label="Department objective"><select className={fieldClass} value={objective} onChange={event => setObjective(event.target.value)} disabled={!allowed} required>
+             <option value="">Choose objective</option>{objectives.filter(item => item.depart_code === risk.depart_code).map(item => <option key={item.obj_code} value={item.obj_code}>{item.obj_name}</option>)}
+             {risk.objective_code && !objectives.some(item => item.depart_code === risk.depart_code && item.obj_code === risk.objective_code)
+               && <option value={risk.objective_code}>{risk.objective_code} · historical choice (retained)</option>}
+           </select></Field>
+           <Field label="Risk category"><select className={fieldClass} value={category} onChange={event => setCategory(event.target.value)} disabled={!allowed} required>
+             <option value="">Choose category</option>{categories.map(item => <option key={item.category_code} value={item.category_code}>{item.category_name}</option>)}
+             {risk.risk_category && !categories.some(item => item.category_code === risk.risk_category)
+               && <option value={risk.risk_category}>{risk.category_name ?? risk.risk_category} · historical choice (retained)</option>}
+           </select></Field>
+           <div className="sm:col-span-2"><Field label="Risk description"><textarea className={`${fieldClass} min-h-20`} value={description} onChange={event => setDescription(event.target.value)} disabled={!allowed} required /></Field></div>
+           <div className="sm:col-span-2"><Field label="Consequences"><textarea className={`${fieldClass} min-h-20`} value={consequence} onChange={event => setConsequence(event.target.value)} disabled={!allowed} required /></Field></div>
+         </div>
+         {assessmentError && <p role="alert" className="mt-3 text-xs font-medium text-destructive">{assessmentError}</p>}
+         <div className="mt-4 flex justify-end"><button type="button" className={secondaryButton} onClick={() => selectTab('causes')}>Continue to Root causes &amp; action plans</button></div>
+       </section>
        <section id="risk-panel-causes" role="tabpanel" aria-labelledby="risk-tab-causes" hidden={activeTab !== 'causes'} className="p-5">
         <form onSubmit={saveRoot} className="space-y-4">
          <div className="mb-4 flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-[Manrope] text-lg font-bold">Root causes &amp; action plans</h3><p className="mt-1 text-xs text-muted-foreground">A risk can have multiple root causes, each with its own action plan. Select a saved cause to edit it, or add another.</p></div><button type="button" className={secondaryButton} onClick={startNewRoot} disabled={!allowed || mutating}>Add another root cause</button></div>
@@ -247,21 +271,6 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
         {allowed && roots.length === 0 && <p role="status" className="mb-4 rounded-lg bg-secondary/70 p-3 text-xs text-foreground">Save at least one root cause and action plan before completing the risk exposure assessment.</p>}
      <form onSubmit={saveAssessment} noValidate onChange={() => setAssessmentSaved(false)}>
       <h3 className="font-[Manrope] text-lg font-bold">Assessment & controls</h3><p className="mb-4 mt-1 text-xs text-muted-foreground">Exposure is recalculated as impact × likelihood. Residual exposure applies the new control fraction to inherent exposure.</p>
-      <div className="mb-5 grid gap-4 sm:grid-cols-2">
-        <div className="sm:col-span-2"><Field label="Risk title"><input className={fieldClass} value={riskTitle} onChange={event => setRiskTitle(event.target.value)} maxLength={150} disabled={!allowed} required /></Field></div>
-        <Field label="Department objective"><select className={fieldClass} value={objective} onChange={event => setObjective(event.target.value)} disabled={!allowed} required>
-          <option value="">Choose objective</option>{objectives.filter(item => item.depart_code === risk.depart_code).map(item => <option key={item.obj_code} value={item.obj_code}>{item.obj_name}</option>)}
-          {risk.objective_code && !objectives.some(item => item.depart_code === risk.depart_code && item.obj_code === risk.objective_code)
-            && <option value={risk.objective_code}>{risk.objective_code} · historical choice (retained)</option>}
-        </select></Field>
-        <Field label="Risk category"><select className={fieldClass} value={category} onChange={event => setCategory(event.target.value)} disabled={!allowed} required>
-          <option value="">Choose category</option>{categories.map(item => <option key={item.category_code} value={item.category_code}>{item.category_name}</option>)}
-          {risk.risk_category && !categories.some(item => item.category_code === risk.risk_category)
-            && <option value={risk.risk_category}>{risk.category_name ?? risk.risk_category} · historical choice (retained)</option>}
-        </select></Field>
-        <div className="sm:col-span-2"><Field label="Description"><textarea className={`${fieldClass} min-h-20`} value={description} onChange={event => setDescription(event.target.value)} disabled={!allowed} required /></Field></div>
-        <div className="sm:col-span-2"><Field label="Consequence"><textarea className={`${fieldClass} min-h-20`} value={consequence} onChange={event => setConsequence(event.target.value)} disabled={!allowed} required /></Field></div>
-      </div>
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <fieldset className="min-w-0 space-y-4 rounded-xl border border-border p-4">
           <legend className="px-2 font-[Manrope] text-base font-bold">Inherent Risk Exposures</legend>
