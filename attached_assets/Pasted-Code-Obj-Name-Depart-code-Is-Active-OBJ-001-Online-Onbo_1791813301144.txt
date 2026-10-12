@@ -1,0 +1,160 @@
+Code	Obj_Name	Depart_code	Is_Active
+OBJ-001	Online Onboarding / Enrolment	D-01-202104	1
+OBJ-002	Fraud Control	D-01-202104	1
+OBJ-003	Digitize Customer Communication 	D-01-202104	1
+OBJ-004	eOxegen Optimization 	D-01-202104	1
+OBJ-005	Loss Ratio Management	D-01-202104	1
+OBJ-006	eOxegen Optimization 	D-01-202104	1
+OBJ-007	Mobile processing of claims - MTIBA	D-01-202104	1
+OBJ-008	IP Preauthorization With M tiba Platform	D-01-202111	1
+OBJ-009	Enhancing of Case management module (IP)	D-01-202111	1
+OBJ-010	Resumption of OP preauthorization for services above defined threshold	D-01-202111	1
+OBJ-011	Daily vetting of interim bills	D-01-202111	1
+OBJ-012	smooth end to end admission and discharge process	D-01-202111	1
+OBJ-013	Involves analyzing provider trends in terms of provider costs change especially for high impact providers	D-01-202111	1
+OBJ-014	Use of cheaper pharmacies as opposed to hospital pharmacies- empanelment of more lower cost pharmacies, campaigns to sensitize clients to use MyDawa	D-01-202111	1
+OBJ-015	Use of telemedicine and drug delivery	D-01-202111	1
+OBJ-016	Achieve WFH 98%	D-01-202111	1
+OBJ-017	Weekly monitoring of staff activities/performance-Dashboard	D-01-202111	1
+OBJ-018	Enhancing of Case management module (IP)	D-01-202111	1
+OBJ-019	Fraud Detection and Control	D-01-202110	1
+OBJ-020	Quality Assurance & Cost Management	D-01-202110	1
+OBJ-021	Efficient Claims Adjudication	D-01-202110	1
+OBJ-022	Adherence to TAT's	D-01-202110	1
+OBJ-023	Delightful Customer Experience	D-01-202110	1
+OBJ-024	Quality Assurance & Cost Management	D-01-202110	1
+OBJ-025	Efficient Claims Adjudication	D-01-202110	1
+OBJ-026	Improve Customer Satisfaction Index (CSI)	D-01-202101	1
+OBJ-027	Improve call centre service levels	D-01-202101	1
+OBJ-028	Prompt resolution of customer complaints (IRA)	D-01-202101	1
+OBJ-029	SLA TAT achievement	D-01-202101	1
+OBJ-030	Reduction of off system authorizations	D-01-202101	1
+OBJ-031	Fraud Detection and Control	D-01-202110	1
+OBJ-032	Delightful Customer Experience	D-01-202110	1
+OBJ-033	Adherance to TAT's	D-01-202110	1
+OBJ-034	Staff Engagement	D-01-202110	1
+OBJ-035	Data integrity	D-01-202110	1
+OBJ_120	Reporting	D-01-202116	1
+OBJ_121	Budgeting	D-01-202116	1
+OBJ_122	Regulatory compliance	D-01-202116	1
+OBJ_123	Treasury  Management	D-01-202116	1
+OBJ_124	Fixed deposits	D-01-202116	1
+OBJ_125	Fund Management	D-01-202116	1
+OBJ_126	System Integrity	D-01-202116	1
+OBJ_127	Claims Payments	D-01-202116	1
+OBJ_128	Annual Accounts 	D-01-202116	1
+OBJ_129	Auditing	D-01-202116	1
+OBJ_130	Fraud	D-01-202116	1
+OBJ_131	Procurement	D-01-202116	1
+OBJ_132	Commissions	D-01-202116	1
+OBJ_133	Reconciliations	D-01-202116	1
+OBJ_134	Fixed Assets	D-01-202116	1
+OBJ-036	Human Resource Management Information Systems	D-01-202102	1
+OBJ-037	Staff Wellness	D-01-202102	1
+OBJ-038	Cost Management	D-01-202102	1
+OBJ-039	Delightful Customer Experience	D-01-202102	1
+OBJ-040	HR Policies and Procedures	D-01-202102	1
+OBJ-041	Fraud Management	D-01-202102	1
+OBJ-042	Performance Management	D-01-202102	1
+OBJ-043	Occupational Health and Safety	D-01-202102	1
+OBJ-044	Obligatory and statutory Compliance	D-01-202102	1
+OBJ-045	Digitization of medical insurance registration and personal accident	D-01-202103	1
+OBJ-046	Migration to the Cloud	D-01-202103	1
+OBJ-047	Attain IT Security Certification 	D-01-202103	1
+OBJ-048	System Performance	D-01-202103	1
+OBJ-049	Optimise system availability	D-01-202103	1
+OBJ-050	Business process	D-01-202103	1
+OBJ-051	Compliance to IT Security	D-01-202103	1
+OBJ-052	Drive Postive publicity 	D-01-202120	1
+OBJ-053	Product Development 	D-01-202120	1
+OBJ-054	Product Marketing & Promotion 	D-01-202120	1
+OBJ-055	Media management 	D-01-202120	1
+OBJ-056	Communication to stakeholders 	D-01-202120	1
+OBJ-057	Ensure Implementation online Purchase portals 	D-01-202120	1
+OBJ-058	Media management 	D-01-202120	1
+OBJ-059	Product Marketing & Promotion 	D-01-202120	1
+OBJ-060	Fraud Detection and Control	D-01-202105	1
+OBJ-061	Internal Process Efficiency	D-01-202105	1
+OBJ-062	Digitazlization and online communication	D-01-202105	1
+OBJ-063	Loss Ratio 73.4%	D-01-202105	1
+OBJ-064	Staff Engagement	D-01-202105	1
+OBJ-065	Data integrity	D-01-202105	1
+OBJ-066	Fraud Management	D-01-202105	1
+OBJ-067	Hospitalization rate	D-01-202105	1
+OBJ-068	Outpatient Visit Rate	D-01-202105	1
+OBJ-069	Mortality Rate	D-01-202105	1
+OBJ-070	Member Engagement	D-01-202105	1
+OBJ-071	Compliance with Underwriting guidelines	D-01-202115	1
+OBJ-072	Data Governance	D-01-202115	1
+OBJ-073	Ensure update is done on Approved rates	D-01-202115	1
+OBJ-074	Adherence to SLA and Turn Around Times	D-01-202115	1
+OBJ-075	System Associated departmental objectives	D-01-202115	1
+OBJ-076	Ensuring Departmental Staff Attain Professional Training	D-01-202115	1
+OBJ-077	Profitability	D-01-202107	1
+OBJ-078	Systemized Reporting Reinsurance Module	D-01-202107	1
+OBJ-079	Digitization and Online Communication	D-01-202107	1
+OBJ-080	Stabilizing underwriting / operating results	D-01-202107	1
+OBJ-081	Assessment and review of various activities, compliance and progress and areas of improvement	D-01-202107	1
+OBJ-082	Proper Reserving	D-01-202104	1
+OBJ-083	Implementation of new projects or standards IFRS 17	D-01-202104	1
+OBJ-084	Proper Pricing	D-01-202104	1
+OBJ-085	Review the accuracy of data	D-01-202104	1
+OBJ-086	Cost management and control	D-01-202109	1
+OBJ-087	Rising Costs of Healthcare	D-01-202109	1
+OBJ-088	Fraud detection and control	D-01-202109	1
+OBJ-089	Adherance to SLAs and TATs	D-01-202109	1
+OBJ-090	Customer Experience	D-01-202109	1
+OBJ-091	To ensure Customer's data privacy	D-01-202109	1
+OBJ-092	Recording files 	D-01-202118	1
+OBJ-093	Digitizing of all records	D-01-202118	1
+OBJ-094	Respond to customer requests/complaints/compliments	D-01-202118	1
+OBJ-095	Adherence to SLA and Turn Around Times	D-01-202118	1
+OBJ-096	Ensuring Departmental Staff Attain Professional Training	D-01-202118	1
+OBJ-097	System Associated departmental objectives	D-01-202118	1
+OBJ-098	Working remotely	D-01-202118	1
+OBJ-099	System Functionality Challenges	D-01-202106	1
+OBJ-100	Low Retention Levels 	D-01-202106	1
+OBJ-101	Credit Risk	D-01-202106	1
+OBJ-102	Price inflexibility	D-01-202113	1
+OBJ-103	Regulatory Compliance	D-01-202113	1
+OBJ-104	Tax Compliance	D-01-202113	1
+OBJ-105	Misselling and Overselling	D-01-202113	1
+OBJ-106	Conflicts on Account Acquisition	D-01-202113	1
+OBJ-107	Customer Retention	D-01-202113	1
+OBJ-108	Poor KYC on our Members	D-01-202113	1
+OBJ-109	Poor KYC on our Agents	D-01-202113	1
+OBJ-110	Loss of Business	D-01-202113	1
+OBJ-111	Fraud detection and control	D-01-202115	1
+OBJ-072	Proper Pricing	D-01-202104	1
+OBJ-073	Review the accuracy of data	D-01-202104	1
+OBJ-074	Assessment and review of various activities, compliance and progress and areas of improvement	D-01-202104	1
+OBJ-075	Experience Review to get a high summary of emerging tends	D-01-202104	1
+OBJ-076	Review the accuracy of data	D-01-202104	1
+OBJ-077	Intermediary Management	D-01-202123	1
+OBJ-078	Intermediary Management	D-01-202123	1
+OBJ-079	Revenue Generation	D-01-202123	1
+OBJ-080	Departmental Objective	D-01-202123	1
+OBJ-112	Proper alignment of Strategic initiatives	D-01-202121	1
+OBJ-113	Proper Change Management	D-01-202121	1
+OBJ-114	Proper Strategic Planining and execution of Strategic plan	D-01-202121	1
+OBJ-115	Effective Performance monitoring and reporting	D-01-202121	1
+OBJ-116	Proper Strategic Planining and execution of Strategic plan	D-01-202121	1
+OBJ-065	Quality Assurance & Cost Management	D-01-202121	1
+OBJ-066	Fraud Detection and Control	D-01-202122	1
+OBJ-067	Efficient Claims Adjudication	D-01-202122	1
+OBJ-068	Quality Assurance & Cost Management	D-01-202122	1
+OBJ-069	Delightful Customer Experience	D-01-202122	1
+OBJ-070	Adherence to TAT's	D-01-202122	1
+OBJ-071	Quality Assurance & Cost Management	D-01-202122	1
+OBJ-117	Regulatory Compliance	D-01-202125	1
+OBJ-118	Financial Crime	D-01-202125	1
+OBJ-119	Operational Risk	D-01-202125	1
+OBJ-120	Business Continuity	D-01-202125	1
+OBJ-121	Legal and Litigation Risk	D-01-202125	1
+OBJ-122	Product/System Risk Assessments	D-01-202125	1
+OBJ-123	Regulatory Reporting & Compliance Monitoring	D-01-202125	1
+OBJ-124	Ensure accurate, transparent, and standardized ESG data collection, reporting	D-01-202126	1
+OBJ-125	Promote  environmental sustainability through measurable long-term, and verifiable carbon reduction	D-01-202126	1
+OBJ-126	Embed DEI and ethical governance practices into organizational culture and operations.	D-01-202126	1
+OBJ-127	Ensure accurate, transparent, and standardized ESG data collection reporting	D-01-202126	1
+OBJ-128	Strengthen internal controls	D-01-202126	1

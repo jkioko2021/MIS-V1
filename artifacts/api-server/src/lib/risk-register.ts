@@ -93,7 +93,7 @@ export const causeInput = z.object({
   root_cause: z.string().trim().min(1).max(8000),
   current_contr: optionalText(8000), mitigations: z.string().trim().min(1).max(8000),
   due_date: calendarDate, action_owner: z.string().trim().min(1).max(100),
-  action_status: z.enum(["Open","Behind schedule","Closed"]),
+  action_status: z.string().trim().min(1).max(50),
   expected_updated_at: z.string().datetime({ offset: true }),
 });
 export const cycleInput = z.object({

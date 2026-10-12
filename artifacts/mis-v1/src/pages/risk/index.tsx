@@ -132,6 +132,10 @@ function RiskRegisterWorkspace() {
     ? <ErrorNotice message={detailFailure || queryError(detailQuery.error)} onRetry={() => detailQuery.refetch()} />
     : <AssessmentPanel risk={detail?.risk} roots={detail?.root_causes ?? []} staff={options?.staff ?? []}
       objectives={options?.objectives ?? []} categories={options?.categories ?? []}
+      actionStatuses={options?.action_statuses ?? []}
+      controlRatings={options?.control_effectiveness ?? []}
+      impactFactors={options?.impact_factors ?? []} likelihoodFactors={options?.likelihood_factors ?? []}
+      exposureBands={options?.exposure_bands ?? []}
       loading={Boolean(selectedRiskCode) && detailQuery.isLoading} mutating={mutating}
       onSave={(data, code) => updateRisk.mutate({ riskCode: code, data }, {
         onSuccess: response => announce(response, 'Assessment saved.'), onError: error => setMutationError(queryError(error)),
@@ -204,10 +208,10 @@ function RiskRegisterWorkspace() {
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div><div className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Risk office / {PAGES.find(item => item.key === activePage)?.short}</div><h2 className="mt-1 font-[Manrope] text-2xl font-bold">{title}</h2></div>
           <div className="grid grid-cols-2 gap-2 sm:flex">
-            <Field label="Department"><select aria-label="Filter by department" data-testid="select-risk-department" className={`${fieldClass} min-w-44`} value={department} onChange={event => setDepartment(event.target.value)}>
+            <Field label="Department"><select aria-label="Filter by department" data-testid="select-risk-department" className={`${fieldClass} sm:min-w-44`} value={department} onChange={event => setDepartment(event.target.value)}>
               <option value="">All mapped departments</option>{departments.map((item, index) => <option key={item.depart_code ?? index} value={item.depart_code ?? ''}>{item.depart_name ?? item.depart_code}</option>)}
             </select></Field>
-            <Field label="Reporting period"><select aria-label="Filter by period" data-testid="select-risk-period" className={`${fieldClass} min-w-44`} value={period} onChange={event => setPeriod(event.target.value)}>
+            <Field label="Reporting period"><select aria-label="Filter by period" data-testid="select-risk-period" className={`${fieldClass} sm:min-w-44`} value={period} onChange={event => setPeriod(event.target.value)}>
               <option value="">Latest / all periods</option>{periods.map((item, index) => <option key={item.period_id ?? index} value={String(item.period_id ?? '')}>{dateLabel(item.period_from)} – {dateLabel(item.period_to)} · {item.status ?? '—'}</option>)}
             </select></Field>
           </div>
@@ -242,7 +246,7 @@ function RiskRegisterWorkspace() {
 
         {activePage === 'new' && <NewRiskForm options={options} activeDepartment={department} period={period} mutation={createRisk} mutating={mutating} onSubmit={response => announce(response, 'Risk registered.')} onError={error => setMutationError(queryError(error))} />}
 
-        {activePage === 'update' && <section className="grid gap-5 xl:grid-cols-[0.9fr_1.4fr]">
+        {activePage === 'update' && <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
            <RecordsTable records={records} loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={selectAssessment} search={search} setSearch={setSearch} title="Choose a risk to assess" compact />
            {assessmentEditor}
         </section>}

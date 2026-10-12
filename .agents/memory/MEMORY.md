@@ -40,3 +40,4 @@
 - [Enterprise risk compatibility](risk-register-compatibility.md) — Do not infer calibrated factors from historical effectiveness codes or unpopulated catalogs.
 - [Department risk access](risk-department-access.md) — Champions update their departments; owners review theirs and may own multiple departments.
 - [OpenAPI generator compatibility](openapi-generator-compatibility.md) — Match generated Zod syntax to the target library; auto-detection can pick the wrong major.
+- [Responsive grid measurements](responsive-grid-measurements.md) — Page width can hide clipped grid children; verify card and control bounds on mobile.

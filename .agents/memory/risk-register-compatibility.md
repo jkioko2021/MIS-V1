@@ -9,6 +9,24 @@ Do not infer approved risk-rating catalogs or effectiveness fractions from the h
 
 **How to apply:** Keep AML client ratings separate from departmental Enterprise Risk Register assessments. Until approved catalogs are supplied, use explicit numeric factors and percentages with the verified legacy residual-exposure formula.
 
+The user subsequently supplied explicit impact, likelihood, control-effectiveness and I/R exposure catalogues. Approved factors and criteria can now be selected from those reference tables.
+
+**Why:** These calibrations were supplied directly, rather than inferred from historical assessment labels.
+
+**How to apply:** Fetch active ratings from their reference table, convert fractions to percentages for display and back for calculation, and retain custom numeric entry for historical/noncatalogue values. Loading a catalogue must not recalculate saved assessments.
+
+Keep inherent and residual bands distinct, and retain separate ranges even when their level labels match.
+
+**Why:** The supplied inherent catalogue has two Low ranges with different treatment guidance; collapsing by label would lose the user's distinction.
+
+**How to apply:** Classify the rounded score using risk type and inclusive bounds, not a level-name key. Do not silently assign a band to a historical score outside the calibrated ranges.
+
+Objective codes are department-scoped and can legitimately repeat across departments.
+
+**Why:** The supplied objective master reuses codes for different objective names in different departments.
+
+**How to apply:** Resolve, import and validate by department plus objective code. Do not globally deduplicate, renumber or remap existing objectives or their linked risks.
+
 When increasing fractional precision, preserve the integer capacity needed for historical codes. A stored percentage below 1% must not be reinterpreted as a fraction.
 
 **Why:** Old codes and newly entered control fractions share a legacy storage field. Narrowing its integer range or guessing percentage units from magnitude can corrupt valid existing assessments.
@@ -26,3 +44,9 @@ For legacy register imports, do not infer department signoff or global reporting
 **Why:** Legacy exports can contain completed actions and reviewed assessments without evidence that the department register was signed off or the global reporting period was closed. Inferring closure would change workflow permissions.
 
 **How to apply:** Retain the complete source in import history, including original labels and attribution. Import supplied row-level numeric factors without treating them as approved global rating catalogs. Historical usernames and owner codes do not grant access; department assignments remain explicit.
+
+Existing retired action statuses may remain unchanged on their own historical actions, but cannot be selected for new actions or transitions.
+
+**Why:** The supplied action catalogue excludes legacy Open. Preserving historical records must not add Open back to the approved choices.
+
+**How to apply:** Show a legacy option only while editing an action already using it; validate new selections against the active catalogue on the server and keep status corrections auditable.

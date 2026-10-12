@@ -48,15 +48,6 @@ export type RiskAssessmentInput = RiskRecordInput & {
   comments: string;
 };
 
-export type RiskCauseInputActionStatus = typeof RiskCauseInputActionStatus[keyof typeof RiskCauseInputActionStatus];
-
-
-export const RiskCauseInputActionStatus = {
-  Open: 'Open',
-  Behind_schedule: 'Behind schedule',
-  Closed: 'Closed',
-} as const;
-
 export interface RiskCauseInput {
   root_id?: number;
   root_cause: string;
@@ -64,7 +55,12 @@ export interface RiskCauseInput {
   mitigations: string;
   due_date: string;
   action_owner: string;
-  action_status: RiskCauseInputActionStatus;
+  /**
+     * Active status from RiskOptionsResponse.action_statuses. An existing retired status can be retained unchanged.
+     * @minLength 1
+     * @maxLength 50
+     */
+  action_status: string;
   expected_updated_at: string;
 }
 
@@ -197,6 +193,65 @@ export interface RiskLookup {
   [key: string]: unknown;
  }
 
+export interface RiskDepartmentCreateInput {
+  /** @maxLength 20 */
+  depart_code: string;
+  /** @maxLength 100 */
+  depart_name: string;
+}
+
+export interface RiskDepartmentUpdateInput {
+  /** @maxLength 100 */
+  depart_name: string;
+}
+
+export interface RiskActionStatus {
+  code: string;
+  status: string;
+  /** @nullable */
+  description: string | null;
+}
+
+export interface RiskControlEffectiveness {
+  eff_factor: string;
+  qual_criteria: string;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  rating: number;
+}
+
+export interface RiskImpactFactor {
+  code: string;
+  label: string;
+  factor: number;
+  rate: string;
+}
+
+export interface RiskLikelihoodFactor {
+  code: string;
+  label: string;
+  factor: number;
+  criteria: string;
+}
+
+export type RiskExposureBandRiskType = typeof RiskExposureBandRiskType[keyof typeof RiskExposureBandRiskType];
+
+
+export const RiskExposureBandRiskType = {
+  I: 'I',
+  R: 'R',
+} as const;
+
+export interface RiskExposureBand {
+  risk_type: RiskExposureBandRiskType;
+  level: string;
+  minimum: number;
+  maximum: number;
+  description: string;
+}
+
 export type RiskOptionsResponseDataActor = {
   username: string;
   can_manage: boolean;
@@ -212,6 +267,11 @@ export type RiskOptionsResponseData = {
   periods: RiskLookup[];
   staff: RiskLookup[];
   assignments: RiskLookup[];
+  action_statuses: RiskActionStatus[];
+  control_effectiveness: RiskControlEffectiveness[];
+  impact_factors: RiskImpactFactor[];
+  likelihood_factors: RiskLikelihoodFactor[];
+  exposure_bands: RiskExposureBand[];
 };
 
 export interface RiskOptionsResponse {
@@ -282,18 +342,6 @@ export interface HealthStatus {
 export type ListRiskAdministrationDepartments200 = {
   ok: boolean;
   data: RiskAdministrationDepartment[];
-};
-
-export type CreateRiskAdministrationDepartmentBody = {
-  /** @maxLength 20 */
-  depart_code: string;
-  /** @maxLength 100 */
-  depart_name: string;
-};
-
-export type UpdateRiskAdministrationDepartmentBody = {
-  /** @maxLength 100 */
-  depart_name: string;
 };
 
 export type GetClientRatingOptions200Data = {

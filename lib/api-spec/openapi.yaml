@@ -34,11 +34,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [depart_code, depart_name]
-              properties:
-                depart_code: { type: string, maxLength: 20 }
-                depart_name: { type: string, maxLength: 100 }
+              $ref: "#/components/schemas/RiskDepartmentCreateInput"
       responses:
         "201":
           description: Department created
@@ -55,10 +51,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [depart_name]
-              properties:
-                depart_name: { type: string, maxLength: 100 }
+              $ref: "#/components/schemas/RiskDepartmentUpdateInput"
       responses:
         "200":
           description: Department name updated; stable code and existing references retained
@@ -368,7 +361,11 @@ components:
         mitigations: { type: string }
         due_date: { type: string, format: date }
         action_owner: { type: string }
-        action_status: { type: string, enum: [Open, Behind schedule, Closed] }
+        action_status:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Active status from RiskOptionsResponse.action_statuses. An existing retired status can be retained unchanged.
         expected_updated_at: { type: string, format: date-time }
     RiskWorkflowInput:
       type: object
@@ -469,6 +466,56 @@ components:
         period_from: { type: string }
         period_to: { type: string }
         status: { type: string }
+    RiskDepartmentCreateInput:
+      type: object
+      required: [depart_code, depart_name]
+      properties:
+        depart_code: { type: string, maxLength: 20 }
+        depart_name: { type: string, maxLength: 100 }
+    RiskDepartmentUpdateInput:
+      type: object
+      required: [depart_name]
+      properties:
+        depart_name: { type: string, maxLength: 100 }
+    RiskActionStatus:
+      type: object
+      required: [code, status, description]
+      properties:
+        code: { type: string }
+        status: { type: string }
+        description: { type: [string, "null"] }
+    RiskControlEffectiveness:
+      type: object
+      required: [eff_factor, qual_criteria, rating]
+      properties:
+        eff_factor: { type: string }
+        qual_criteria: { type: string }
+        rating: { type: number, minimum: 0, maximum: 1 }
+    RiskImpactFactor:
+      type: object
+      required: [code, label, factor, rate]
+      properties:
+        code: { type: string }
+        label: { type: string }
+        factor: { type: number }
+        rate: { type: string }
+    RiskLikelihoodFactor:
+      type: object
+      required: [code, label, factor, criteria]
+      properties:
+        code: { type: string }
+        label: { type: string }
+        factor: { type: number }
+        criteria: { type: string }
+    RiskExposureBand:
+      type: object
+      required: [risk_type, level, minimum, maximum, description]
+      properties:
+        risk_type: { type: string, enum: [I, R] }
+        level: { type: string }
+        minimum: { type: number }
+        maximum: { type: number }
+        description: { type: string }
     RiskOptionsResponse:
       type: object
       required: [ok, data]
@@ -476,7 +523,7 @@ components:
         ok: { type: boolean }
         data:
           type: object
-          required: [actor, departments, categories, objectives, periods, staff, assignments]
+          required: [actor, departments, categories, objectives, periods, staff, assignments, action_statuses, control_effectiveness, impact_factors, likelihood_factors, exposure_bands]
           properties:
             actor:
               type: object
@@ -492,6 +539,11 @@ components:
             periods: { type: array, items: { $ref: "#/components/schemas/RiskLookup" } }
             staff: { type: array, items: { $ref: "#/components/schemas/RiskLookup" } }
             assignments: { type: array, items: { $ref: "#/components/schemas/RiskLookup" } }
+            action_statuses: { type: array, items: { $ref: "#/components/schemas/RiskActionStatus" } }
+            control_effectiveness: { type: array, items: { $ref: "#/components/schemas/RiskControlEffectiveness" } }
+            impact_factors: { type: array, items: { $ref: "#/components/schemas/RiskImpactFactor" } }
+            likelihood_factors: { type: array, items: { $ref: "#/components/schemas/RiskLikelihoodFactor" } }
+            exposure_bands: { type: array, items: { $ref: "#/components/schemas/RiskExposureBand" } }
     RiskRecordsResponse:
       type: object
       required: [ok, data]

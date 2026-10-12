@@ -6,9 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type CreateRiskAdministrationDepartmentBody = {
-  /** @maxLength 20 */
-  depart_code: string;
+export interface RiskDepartmentUpdateInput {
   /** @maxLength 100 */
   depart_name: string;
-};
+}

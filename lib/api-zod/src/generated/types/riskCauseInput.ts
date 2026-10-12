@@ -5,7 +5,6 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { RiskCauseInputActionStatus } from './riskCauseInputActionStatus';
 
 export interface RiskCauseInput {
   root_id?: number;
@@ -14,6 +13,11 @@ export interface RiskCauseInput {
   mitigations: string;
   due_date: Date;
   action_owner: string;
-  action_status: RiskCauseInputActionStatus;
+  /**
+     * Active status from RiskOptionsResponse.action_statuses. An existing retired status can be retained unchanged.
+     * @minLength 1
+     * @maxLength 50
+     */
+  action_status: string;
   expected_updated_at: Date;
 }

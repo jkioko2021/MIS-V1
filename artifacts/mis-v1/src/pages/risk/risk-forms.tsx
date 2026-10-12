@@ -1,8 +1,21 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ClipboardCheck, ClipboardList, FilePlus2 } from 'lucide-react';
-import type { RiskAssessmentInput, RiskCauseInput, RiskLookup, RiskRecord, RiskRootCause, RiskOptionsResponseData } from '@workspace/api-client-react';
+import type { RiskActionStatus, RiskControlEffectiveness, RiskImpactFactor, RiskLikelihoodFactor, RiskExposureBand, RiskAssessmentInput, RiskCauseInput, RiskLookup, RiskRecord, RiskRootCause, RiskOptionsResponseData } from '@workspace/api-client-react';
 import { useCreateRisk } from './use-risk-register';
 import { buttonClass, dateLabel, EmptyState, Exposure, Field, fieldClass, secondaryButton, SkeletonRows, StatusPill, text } from './risk-ui';
+
+function CalibratedExposure({ label, value, riskType, bands }: { label: string; value: string; riskType: 'I' | 'R'; bands: RiskExposureBand[] }) {
+  const score = Number.parseFloat(value);
+  const rounded = Math.round(score * 100) / 100;
+  const band = bands.find(item => item.risk_type === riskType && rounded >= item.minimum && rounded <= item.maximum);
+  return <div className="min-w-0 rounded-lg bg-muted/30">
+    <Exposure label={label} value={value} />
+    {Number.isFinite(score) && <div className="break-words px-3 pb-3 text-xs">
+      <p className="font-semibold">{band?.level ?? 'No configured band'}</p>
+      {band && <p className="mt-1 text-[11px] text-muted-foreground">{band.description}</p>}
+    </div>}
+  </div>;
+}
 
 export function NewRiskForm({ options, activeDepartment, period, mutation, mutating, onSubmit, onError }: {
   options: RiskOptionsResponseData; activeDepartment: string; period: string; mutation: ReturnType<typeof useCreateRisk>;
@@ -17,7 +30,7 @@ export function NewRiskForm({ options, activeDepartment, period, mutation, mutat
   const [consequence, setConsequence] = useState('');
   const departments = options.actor.can_manage ? options.departments : options.departments.filter(item => options.actor.champion_departments.includes(item.depart_code ?? ''));
   const periods = options.periods ?? [];
-  const objectives = (options.objectives ?? []).filter(item => !depart || item.depart_code === depart);
+  const objectives = (options.objectives ?? []).filter(item => item.depart_code === depart);
   useEffect(() => {
     if (activeDepartment && departments.some(item => item.depart_code === activeDepartment)) setDepart(activeDepartment);
     else if (!departments.some(item => item.depart_code === depart)) setDepart(departments[0]?.depart_code ?? '');
@@ -52,8 +65,11 @@ export function NewRiskForm({ options, activeDepartment, period, mutation, mutat
   </section>;
 }
 
-export function AssessmentPanel({ risk, roots, staff, objectives, categories, loading, mutating, onSave, onCause }: {
+export function AssessmentPanel({ risk, roots, staff, objectives, categories, actionStatuses, controlRatings, impactFactors, likelihoodFactors, exposureBands, loading, mutating, onSave, onCause }: {
   risk?: RiskRecord; roots: RiskRootCause[]; staff: RiskLookup[]; objectives: RiskLookup[]; categories: RiskLookup[];
+  actionStatuses: RiskActionStatus[];
+  controlRatings: RiskControlEffectiveness[];
+  impactFactors: RiskImpactFactor[]; likelihoodFactors: RiskLikelihoodFactor[]; exposureBands: RiskExposureBand[];
   loading: boolean; mutating: boolean;
   onSave: (data: RiskAssessmentInput, code: string) => void;
   onCause: (data: RiskCauseInput, code: string) => void;
@@ -74,7 +90,7 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, lo
   const [rootControls, setRootControls] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [owner, setOwner] = useState('');
-  const [status, setStatus] = useState<RiskCauseInput['action_status']>('Open');
+  const [status, setStatus] = useState<RiskCauseInput['action_status']>('');
   const [rootId, setRootId] = useState('');
   const [formError, setFormError] = useState('');
   const [rootDirty, setRootDirty] = useState(false);
@@ -94,13 +110,14 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, lo
     setConsequence(risk?.risk_consequence ?? ''); setObjective(risk?.objective_code ?? '');
     setCategory(risk?.risk_category ?? '');
     setRootId(''); setCause(''); setRootControls(''); setMitigations(''); setDueDate(''); setOwner('');
-    setStatus('Open'); setComment(''); setFormError(''); setRootDirty(false);
+    setStatus(''); setComment(''); setFormError(''); setRootDirty(false);
   }, [risk?.risk_code]);
   const inherent = Number(impact) * Number(likelihood);
   const residual = inherent * (1 - Number(effectiveness || 0) / 100);
   if (loading) return <section className="rounded-2xl border border-border bg-card p-5"><SkeletonRows /></section>;
   if (!risk) return <EmptyState title="Select a risk to continue" description="Choose a record from the list to complete its assessment, edit controls or add a root cause." />;
   const allowed = risk.can_edit === true;
+  const selectedControl = effectiveness.trim() ? controlRatings.find(item => Math.abs(item.rating * 100 - Number(effectiveness)) < 1e-7) : undefined;
   const saveAssessment = (event: FormEvent) => {
     event.preventDefault();
     const i = Number(impact); const l = Number(likelihood); const eff = Number(effectiveness);
@@ -115,6 +132,11 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, lo
   };
   const saveRoot = (event: FormEvent) => {
     event.preventDefault();
+    const retainedStatus = roots.find(root => String(root.root_id) === rootId)?.action_status;
+    if (!actionStatuses.some(item => item.status === status) && (!rootId || retainedStatus !== status)) {
+      setFormError('Select an approved action status.');
+      return;
+    }
     if (!cause.trim() || !mitigations.trim() || !dueDate || !owner.trim()) {
       setFormError('Root cause, mitigations, due date and action owner must be provided.'); return;
     }
@@ -122,15 +144,15 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, lo
     onCause({ ...(rootId ? { root_id: Number(rootId) } : {}), root_cause: cause.trim(), current_contr: rootControls, mitigations: mitigations.trim(), due_date: dueDate, action_owner: owner.trim(), action_status: status, expected_updated_at: risk.updated_at }, risk.risk_code);
     setRootDirty(false);
   };
-  return <section className="space-y-4">
+  return <section className="min-w-0 space-y-4">
     <div className="rounded-2xl border border-border bg-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-[Space_Mono] text-[10px] text-muted-foreground">{risk.risk_code} · {risk.depart_name ?? risk.depart_code}</div><h3 className="mt-1 font-[Manrope] text-xl font-bold">{risk.risk_title}</h3></div><StatusPill status={risk.workflow_status} /></div>
       {risk.workflow_status.toLowerCase().includes('submit') && <p className="mt-4 rounded-lg bg-secondary/70 p-3 text-xs text-foreground">Mapped owners and management can correct assessments and mitigations while the register is submitted. Editability follows the server-provided can_edit permission.</p>}
       {risk.can_edit === false && <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">This record is not editable in its current workflow state. Existing assessments and root causes remain visible.</p>}
-      <div className="mt-5 grid grid-cols-3 gap-2">
-        <Exposure label="Inherent exposure" value={Number.isFinite(inherent) && inherent > 0 ? inherent.toFixed(2) : text(risk.i_risk_exposure)} />
+      <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <CalibratedExposure label="Inherent exposure" value={Number.isFinite(inherent) && inherent > 0 ? inherent.toFixed(2) : text(risk.i_risk_exposure)} riskType="I" bands={exposureBands} />
         <Exposure label="Control effectiveness" value={effectiveness ? `${effectiveness}%` : risk.perceived_contr_eff ? `${risk.perceived_contr_eff}%` : 'Enter value'} />
-        <Exposure label="Residual exposure" value={Number.isFinite(residual) && inherent > 0 ? residual.toFixed(2) : text(risk.r_risk_exposure)} />
+        <CalibratedExposure label="Residual exposure" value={Number.isFinite(residual) && inherent > 0 ? residual.toFixed(2) : text(risk.r_risk_exposure)} riskType="R" bands={exposureBands} />
       </div>
     </div>
     <form onSubmit={saveAssessment} className="rounded-2xl border border-border bg-card p-5">
@@ -147,9 +169,29 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, lo
         <div className="sm:col-span-2"><Field label="Consequence"><textarea className={`${fieldClass} min-h-20`} value={consequence} onChange={event => setConsequence(event.target.value)} disabled={!allowed} required /></Field></div>
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Impact factor (0–100)"><input className={fieldClass} type="number" min="0.01" max="100" step="any" value={impact} onChange={event => setImpact(event.target.value)} disabled={!allowed} required /></Field>
-        <Field label="Likelihood factor (0–100)"><input className={fieldClass} type="number" min="0.01" max="100" step="any" value={likelihood} onChange={event => setLikelihood(event.target.value)} disabled={!allowed} required /></Field>
-        <Field label="Control effectiveness (%)" hint="Enter a percentage; it is converted to the stored 0–1 factor. Historical perceived rate is not used."><input className={fieldClass} type="number" min="0" max="100" step="any" value={effectiveness} onChange={event => setEffectiveness(event.target.value)} disabled={!allowed} required /></Field>
+        <Field label="Impact factor (0–100)">
+          <select className={`${fieldClass} mb-2`} aria-label="Approved impact factor" value={impact.trim() ? impactFactors.find(item => item.factor === Number(impact))?.code ?? '' : ''} onChange={event => setImpact(String(impactFactors.find(item => item.code === event.target.value)?.factor ?? ''))} disabled={!allowed || impactFactors.length === 0}>
+            <option value="">Custom / choose impact</option>{impactFactors.map(item => <option key={item.code} value={item.code}>{item.label} · {item.factor}</option>)}
+          </select>
+          <input className={fieldClass} type="number" min="0.01" max="100" step="any" value={impact} onChange={event => setImpact(event.target.value)} disabled={!allowed} required aria-label="Impact numeric factor" />
+        </Field>
+        <Field label="Likelihood factor" hint={likelihoodFactors.find(item => item.factor === Number(likelihood))?.criteria ?? 'Approved ratings are fractions (0–1). Historical custom numeric values remain readable.'}>
+          <select className={`${fieldClass} mb-2`} aria-label="Approved likelihood factor" value={likelihood.trim() ? likelihoodFactors.find(item => item.factor === Number(likelihood))?.code ?? '' : ''} onChange={event => setLikelihood(String(likelihoodFactors.find(item => item.code === event.target.value)?.factor ?? ''))} disabled={!allowed || likelihoodFactors.length === 0}>
+            <option value="">Custom / choose likelihood</option>{likelihoodFactors.map(item => <option key={item.code} value={item.code}>{item.label} · {item.factor}</option>)}
+          </select>
+          <input className={fieldClass} type="number" min="0.01" max="100" step="any" value={likelihood} onChange={event => setLikelihood(event.target.value)} disabled={!allowed} required aria-label="Likelihood numeric factor" />
+        </Field>
+        <Field label="Control effectiveness (%)" hint={selectedControl?.qual_criteria ?? 'Choose an approved rating or enter a custom percentage. Stored as a 0–1 factor.'}>
+          <select className={`${fieldClass} mb-2`} value={selectedControl?.eff_factor ?? ''} onChange={event => {
+            const rating = controlRatings.find(item => item.eff_factor === event.target.value);
+            if (rating) setEffectiveness(String(rating.rating * 100));
+            else setEffectiveness('');
+          }} disabled={!allowed || controlRatings.length === 0} aria-label="Approved control effectiveness rating" data-testid="select-control-effectiveness">
+            <option value="">Custom / choose rating</option>
+            {controlRatings.map(item => <option key={item.eff_factor} value={item.eff_factor}>{item.eff_factor} · {item.rating * 100}%</option>)}
+          </select>
+          <input className={fieldClass} type="number" min="0" max="100" step="any" value={effectiveness} onChange={event => setEffectiveness(event.target.value)} disabled={!allowed} required aria-label="Control effectiveness percentage" />
+        </Field>
         <div className="sm:col-span-3"><Field label="Current controls"><textarea className={`${fieldClass} min-h-16`} value={currentControls} onChange={event => setCurrentControls(event.target.value)} disabled={!allowed} /></Field></div>
         <div className="sm:col-span-3"><Field label="Desired control effectiveness"><textarea className={`${fieldClass} min-h-16`} value={desiredControls} onChange={event => setDesiredControls(event.target.value)} disabled={!allowed} /></Field></div>
         <div className="sm:col-span-3"><Field label="Assessment comment (required)"><textarea className={`${fieldClass} min-h-16`} value={comment} onChange={event => setComment(event.target.value)} disabled={!allowed} required placeholder="Explain the basis for this assessment or what changed." /></Field></div>
@@ -166,10 +208,17 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, lo
         <Field label="Current controls"><input className={fieldClass} value={rootControls} onChange={event => { setRootControls(event.target.value); setRootDirty(true); }} disabled={!allowed} /></Field>
         <Field label="Due date"><input className={fieldClass} type="date" value={dueDate} onChange={event => { setDueDate(event.target.value); setRootDirty(true); }} disabled={!allowed} required /></Field>
         <Field label="Action owner (MIS username)"><select className={fieldClass} value={owner} onChange={event => { setOwner(event.target.value); setRootDirty(true); }} disabled={!allowed} required><option value="">Choose owner</option>{staff.map((person, index) => <option key={person.username ?? index} value={person.username ?? ''}>{person.employee_name ?? person.username} · {person.username}</option>)}</select></Field>
-        <Field label="Action status"><select className={fieldClass} value={status} onChange={event => { setStatus(event.target.value as RiskCauseInput['action_status']); setRootDirty(true); }} disabled={!allowed}><option>Open</option><option>Behind schedule</option><option>Closed</option></select></Field>
+        <Field label="Action status" hint={actionStatuses.find(item => item.status === status)?.description ?? (status && !actionStatuses.some(item => item.status === status) ? 'Historical status. Keep unchanged or choose an approved status.' : undefined)}>
+          <select className={fieldClass} value={status} onChange={event => { setStatus(event.target.value); setRootDirty(true); }} disabled={!allowed || actionStatuses.length === 0} required data-testid="select-risk-action-status">
+            <option value="">Choose action status</option>
+            {status && !actionStatuses.some(item => item.status === status) && roots.some(root => String(root.root_id) === rootId && root.action_status === status) && <option value={status}>{status} (legacy)</option>}
+            {actionStatuses.map(item => <option key={item.code} value={item.status}>{item.code} · {item.status}</option>)}
+          </select>
+          {actionStatuses.length === 0 && <p role="alert" className="mt-1 text-xs text-destructive">Action statuses are unavailable. Refresh the page before saving.</p>}
+        </Field>
       </div>
       {formError && <p role="alert" className="mt-3 text-xs font-medium text-destructive">{formError}</p>}
-      <div className="mt-4 flex justify-end"><button className={secondaryButton} disabled={!allowed || mutating} type="submit"><ClipboardList className="h-4 w-4" />Save root cause</button></div>
+      <div className="mt-4 flex justify-end"><button className={secondaryButton} disabled={!allowed || mutating || actionStatuses.length === 0} type="submit"><ClipboardList className="h-4 w-4" />Save root cause</button></div>
     </form>
   </section>;
 }

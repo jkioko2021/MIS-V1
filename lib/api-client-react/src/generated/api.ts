@@ -20,7 +20,6 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
-  CreateRiskAdministrationDepartmentBody,
   GetClientRatingOptions200,
   GetClientRatingsReportParams,
   GetRiskRegisterHistoryParams,
@@ -35,6 +34,8 @@ import type {
   RiskAssignmentInput,
   RiskCauseInput,
   RiskCommentInput,
+  RiskDepartmentCreateInput,
+  RiskDepartmentUpdateInput,
   RiskDetailResponse,
   RiskHistoryResponse,
   RiskMutationResponse,
@@ -44,8 +45,7 @@ import type {
   RiskRecordResponse,
   RiskRecordsResponse,
   RiskSummaryResponse,
-  RiskWorkflowInput,
-  UpdateRiskAdministrationDepartmentBody
+  RiskWorkflowInput
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -154,14 +154,14 @@ export const getCreateRiskAdministrationDepartmentUrl = () => {
   return `/api/risk-administration/departments`
 }
 
-export const createRiskAdministrationDepartment = async (createRiskAdministrationDepartmentBody: CreateRiskAdministrationDepartmentBody, options?: Parameters<typeof customFetch>[1]): Promise<RiskAdministrationDepartmentResponse> => {
+export const createRiskAdministrationDepartment = async (riskDepartmentCreateInput: RiskDepartmentCreateInput, options?: Parameters<typeof customFetch>[1]): Promise<RiskAdministrationDepartmentResponse> => {
 
   return customFetch<RiskAdministrationDepartmentResponse>(getCreateRiskAdministrationDepartmentUrl(),
   {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(createRiskAdministrationDepartmentBody)
+    body: JSON.stringify(riskDepartmentCreateInput)
   }
 );}
 
@@ -170,8 +170,8 @@ export const createRiskAdministrationDepartment = async (createRiskAdministratio
 
 
 export const getCreateRiskAdministrationDepartmentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRiskAdministrationDepartment>>, TError,{data: BodyType<CreateRiskAdministrationDepartmentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createRiskAdministrationDepartment>>, TError,{data: BodyType<CreateRiskAdministrationDepartmentBody>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRiskAdministrationDepartment>>, TError,{data: BodyType<RiskDepartmentCreateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createRiskAdministrationDepartment>>, TError,{data: BodyType<RiskDepartmentCreateInput>}, TContext> => {
 
 const mutationKey = ['createRiskAdministrationDepartment'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -183,7 +183,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRiskAdministrationDepartment>>, {data: BodyType<CreateRiskAdministrationDepartmentBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRiskAdministrationDepartment>>, {data: BodyType<RiskDepartmentCreateInput>}> = (props) => {
           const {data} = props ?? {};
 
           return  createRiskAdministrationDepartment(data,requestOptions)
@@ -197,15 +197,15 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type CreateRiskAdministrationDepartmentMutationResult = NonNullable<Awaited<ReturnType<typeof createRiskAdministrationDepartment>>>
-    export type CreateRiskAdministrationDepartmentMutationBody = BodyType<CreateRiskAdministrationDepartmentBody>
+    export type CreateRiskAdministrationDepartmentMutationBody = BodyType<RiskDepartmentCreateInput>
     export type CreateRiskAdministrationDepartmentMutationError = ErrorType<unknown>
 
     export const useCreateRiskAdministrationDepartment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRiskAdministrationDepartment>>, TError,{data: BodyType<CreateRiskAdministrationDepartmentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRiskAdministrationDepartment>>, TError,{data: BodyType<RiskDepartmentCreateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createRiskAdministrationDepartment>>,
         TError,
-        {data: BodyType<CreateRiskAdministrationDepartmentBody>},
+        {data: BodyType<RiskDepartmentCreateInput>},
         TContext
       > => {
       return useMutation(getCreateRiskAdministrationDepartmentMutationOptions(options));
@@ -220,14 +220,14 @@ export const getUpdateRiskAdministrationDepartmentUrl = (code: string,) => {
 }
 
 export const updateRiskAdministrationDepartment = async (code: string,
-    updateRiskAdministrationDepartmentBody: UpdateRiskAdministrationDepartmentBody, options?: Parameters<typeof customFetch>[1]): Promise<RiskAdministrationDepartmentResponse> => {
+    riskDepartmentUpdateInput: RiskDepartmentUpdateInput, options?: Parameters<typeof customFetch>[1]): Promise<RiskAdministrationDepartmentResponse> => {
 
   return customFetch<RiskAdministrationDepartmentResponse>(getUpdateRiskAdministrationDepartmentUrl(code),
   {
     ...options,
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(updateRiskAdministrationDepartmentBody)
+    body: JSON.stringify(riskDepartmentUpdateInput)
   }
 );}
 
@@ -236,8 +236,8 @@ export const updateRiskAdministrationDepartment = async (code: string,
 
 
 export const getUpdateRiskAdministrationDepartmentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRiskAdministrationDepartment>>, TError,{code: string;data: BodyType<UpdateRiskAdministrationDepartmentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateRiskAdministrationDepartment>>, TError,{code: string;data: BodyType<UpdateRiskAdministrationDepartmentBody>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRiskAdministrationDepartment>>, TError,{code: string;data: BodyType<RiskDepartmentUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateRiskAdministrationDepartment>>, TError,{code: string;data: BodyType<RiskDepartmentUpdateInput>}, TContext> => {
 
 const mutationKey = ['updateRiskAdministrationDepartment'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -249,7 +249,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRiskAdministrationDepartment>>, {code: string;data: BodyType<UpdateRiskAdministrationDepartmentBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRiskAdministrationDepartment>>, {code: string;data: BodyType<RiskDepartmentUpdateInput>}> = (props) => {
           const {code,data} = props ?? {};
 
           return  updateRiskAdministrationDepartment(code,data,requestOptions)
@@ -263,15 +263,15 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type UpdateRiskAdministrationDepartmentMutationResult = NonNullable<Awaited<ReturnType<typeof updateRiskAdministrationDepartment>>>
-    export type UpdateRiskAdministrationDepartmentMutationBody = BodyType<UpdateRiskAdministrationDepartmentBody>
+    export type UpdateRiskAdministrationDepartmentMutationBody = BodyType<RiskDepartmentUpdateInput>
     export type UpdateRiskAdministrationDepartmentMutationError = ErrorType<unknown>
 
     export const useUpdateRiskAdministrationDepartment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRiskAdministrationDepartment>>, TError,{code: string;data: BodyType<UpdateRiskAdministrationDepartmentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRiskAdministrationDepartment>>, TError,{code: string;data: BodyType<RiskDepartmentUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateRiskAdministrationDepartment>>,
         TError,
-        {code: string;data: BodyType<UpdateRiskAdministrationDepartmentBody>},
+        {code: string;data: BodyType<RiskDepartmentUpdateInput>},
         TContext
       > => {
       return useMutation(getUpdateRiskAdministrationDepartmentMutationOptions(options));

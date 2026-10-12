@@ -123,6 +123,11 @@ export const GetClientRatingsReportQueryParams = zod.object({
 export const GetClientRatingsReportResponse = zod.unknown()
 
 
+export const getRiskRegisterOptionsResponseDataControlEffectivenessItemRatingMin = 0;
+export const getRiskRegisterOptionsResponseDataControlEffectivenessItemRatingMax = 1;
+
+
+
 export const GetRiskRegisterOptionsResponse = zod.object({
   "ok": zod.boolean(),
   "data": zod.object({
@@ -227,6 +232,35 @@ export const GetRiskRegisterOptionsResponse = zod.object({
   "period_from": zod.string().optional(),
   "period_to": zod.string().optional(),
   "status": zod.string().optional()
+})),
+  "action_statuses": zod.array(zod.object({
+  "code": zod.string(),
+  "status": zod.string(),
+  "description": zod.string().nullable()
+})),
+  "control_effectiveness": zod.array(zod.object({
+  "eff_factor": zod.string(),
+  "qual_criteria": zod.string(),
+  "rating": zod.number().min(getRiskRegisterOptionsResponseDataControlEffectivenessItemRatingMin).max(getRiskRegisterOptionsResponseDataControlEffectivenessItemRatingMax)
+})),
+  "impact_factors": zod.array(zod.object({
+  "code": zod.string(),
+  "label": zod.string(),
+  "factor": zod.number(),
+  "rate": zod.string()
+})),
+  "likelihood_factors": zod.array(zod.object({
+  "code": zod.string(),
+  "label": zod.string(),
+  "factor": zod.number(),
+  "criteria": zod.string()
+})),
+  "exposure_bands": zod.array(zod.object({
+  "risk_type": zod.enum(['I', 'R']),
+  "level": zod.string(),
+  "minimum": zod.number(),
+  "maximum": zod.number(),
+  "description": zod.string()
 }))
 })
 })
@@ -445,6 +479,10 @@ export const SaveRiskRegisterRootCauseParams = zod.object({
   "riskCode": zod.coerce.string()
 })
 
+export const saveRiskRegisterRootCauseBodyActionStatusMax = 50;
+
+
+
 export const SaveRiskRegisterRootCauseBody = zod.object({
   "root_id": zod.number().int().optional(),
   "root_cause": zod.string(),
@@ -452,7 +490,7 @@ export const SaveRiskRegisterRootCauseBody = zod.object({
   "mitigations": zod.string(),
   "due_date": zod.coerce.date(),
   "action_owner": zod.string(),
-  "action_status": zod.enum(['Open', 'Behind schedule', 'Closed']),
+  "action_status": zod.string().min(1).max(saveRiskRegisterRootCauseBodyActionStatusMax).describe('Active status from RiskOptionsResponse.action_statuses. An existing retired status can be retained unchanged.'),
   "expected_updated_at": zod.coerce.date()
 })
 

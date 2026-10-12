@@ -9,7 +9,7 @@ export function RecordsTable({ records, loading, error, retry, onSelect, search,
   records: RiskRecordWithCompletedActions[]; loading: boolean; error: string; retry: () => void; onSelect: (code: string) => void;
   search: string; setSearch: (value: string) => void; title: string; compact?: boolean; closedView?: boolean;
 }) {
-  return <section className="rounded-2xl border border-border bg-card">
+  return <section className="min-w-0 w-full max-w-full rounded-2xl border border-border bg-card">
     <div className="flex flex-col justify-between gap-3 border-b border-border p-4 sm:flex-row sm:items-center">
       <div><h3 className="font-[Manrope] text-lg font-bold">{title}</h3><p className="text-xs text-muted-foreground">{records.length} record{records.length === 1 ? '' : 's'} in selected scope</p></div>
       <label className="relative block sm:w-64"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><input aria-label="Search risk records" data-testid="input-risk-search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search title or risk ID" className="mt-1 w-full rounded-lg border border-input bg-card px-3 py-2.5 pl-9 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15" /></label>
@@ -17,9 +17,9 @@ export function RecordsTable({ records, loading, error, retry, onSelect, search,
     {closedView && <div className="border-b border-border bg-muted/45 px-4 py-3 text-xs leading-5 text-muted-foreground">
       This view combines risks from archived reporting periods and risks with at least one completed mitigation action. A listed risk does not imply its whole department register is closed.
     </div>}
-    <div className={compact ? 'max-h-[700px] overflow-y-auto' : ''}>
+    <div className={compact ? 'min-w-0 max-w-full max-h-[700px] overflow-y-auto' : 'min-w-0 max-w-full'}>
       {loading ? <div className="p-4"><SkeletonRows /></div> : error ? <div className="p-4"><ErrorNotice message={error} onRetry={retry} /></div> : records.length ? <div className="divide-y divide-border/70">
-        {records.map(record => <button key={record.risk_code} onClick={() => onSelect(record.risk_code)} data-testid={`risk-record-${record.risk_code}`} className="group flex w-full items-center gap-4 px-4 py-4 text-left transition hover:bg-muted/55">
+        {records.map(record => <button key={record.risk_code} onClick={() => onSelect(record.risk_code)} data-testid={`risk-record-${record.risk_code}`} className="group flex min-w-0 w-full max-w-full items-center gap-4 px-4 py-4 text-left transition hover:bg-muted/55">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-secondary text-primary"><ShieldAlert className="h-4 w-4" /></span>
           <span className="min-w-0 flex-1"><span className="flex flex-wrap items-center gap-2"><span className="font-[Space_Mono] text-[10px] text-muted-foreground">{record.risk_code}</span><StatusPill status={record.workflow_status} />{!record.assessment_updated && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">Assessment needed</span>}
             {closedView && <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${Number(record.completed_action_count ?? 0) > 0 ? 'bg-emerald-50 text-emerald-800' : 'bg-stone-100 text-stone-700'}`}>

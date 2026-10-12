@@ -6,7 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export * from './createRiskAdministrationDepartmentBody';
 export * from './getClientRatingOptions200';
 export * from './getClientRatingOptions200Data';
 export * from './getClientRatingsReportParams';
@@ -26,19 +25,26 @@ export * from './listRiskAdministrationDepartments200';
 export * from './listRiskRegisterRecordsAccess';
 export * from './listRiskRegisterRecordsParams';
 export * from './listRiskRegisterRecordsView';
+export * from './riskActionStatus';
 export * from './riskAdministrationDepartment';
 export * from './riskAdministrationDepartmentResponse';
 export * from './riskAssessmentInput';
 export * from './riskAssignmentInput';
 export * from './riskCauseInput';
-export * from './riskCauseInputActionStatus';
 export * from './riskCommentInput';
+export * from './riskControlEffectiveness';
+export * from './riskDepartmentCreateInput';
 export * from './riskDepartmentSummary';
+export * from './riskDepartmentUpdateInput';
 export * from './riskDetailResponse';
 export * from './riskDetailResponseData';
+export * from './riskExposureBand';
+export * from './riskExposureBandRiskType';
 export * from './riskHistoryEvent';
 export * from './riskHistoryEventSnapshot';
 export * from './riskHistoryResponse';
+export * from './riskImpactFactor';
+export * from './riskLikelihoodFactor';
 export * from './riskLookup';
 export * from './riskMutationResponse';
 export * from './riskMutationResponseData';
@@ -54,4 +60,3 @@ export * from './riskRootCause';
 export * from './riskSummaryResponse';
 export * from './riskWorkflowInput';
 export * from './riskWorkflowInputAction';
-export * from './updateRiskAdministrationDepartmentBody';

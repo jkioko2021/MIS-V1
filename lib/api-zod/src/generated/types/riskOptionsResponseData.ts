@@ -5,6 +5,11 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { RiskActionStatus } from './riskActionStatus';
+import type { RiskControlEffectiveness } from './riskControlEffectiveness';
+import type { RiskExposureBand } from './riskExposureBand';
+import type { RiskImpactFactor } from './riskImpactFactor';
+import type { RiskLikelihoodFactor } from './riskLikelihoodFactor';
 import type { RiskLookup } from './riskLookup';
 import type { RiskOptionsResponseDataActor } from './riskOptionsResponseDataActor';
 
@@ -16,4 +21,9 @@ export type RiskOptionsResponseData = {
   periods: RiskLookup[];
   staff: RiskLookup[];
   assignments: RiskLookup[];
+  action_statuses: RiskActionStatus[];
+  control_effectiveness: RiskControlEffectiveness[];
+  impact_factors: RiskImpactFactor[];
+  likelihood_factors: RiskLikelihoodFactor[];
+  exposure_bands: RiskExposureBand[];
 };

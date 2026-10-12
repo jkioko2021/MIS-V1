@@ -52,11 +52,11 @@ router.get("/risk-register/options", async (req,res) => {
     if (!canManage(a) && !a.champion_departments.length && !a.owner_departments.length) {
       res.json({ok:true,data:{
         actor:{username:a.username,can_manage:false,champion_departments:[],owner_departments:[]},
-        departments:[],categories:[],objectives:[],periods:[],staff:[],assignments:[],
+        departments:[],categories:[],objectives:[],periods:[],staff:[],assignments:[],action_statuses:[],control_effectiveness:[],impact_factors:[],likelihood_factors:[],exposure_bands:[],
       }});
       return;
     }
-    const [departments,categories,objectives,periods,staff,assignments] = await Promise.all([
+    const [departments,categories,objectives,periods,staff,assignments,action_statuses,control_effectiveness,impact_factors,likelihood_factors,exposure_bands] = await Promise.all([
       query(`SELECT depart_code,depart_name FROM risk.departments
         WHERE is_active AND ($1::boolean OR depart_code=ANY($2::text[])) ORDER BY depart_name`,params),
       query("SELECT category_code,category_name FROM risk.categories WHERE is_active ORDER BY category_name"),
@@ -69,10 +69,17 @@ router.get("/risk-register/options", async (req,res) => {
         : Promise.resolve([]),
       query(`SELECT depart_code,champion_username,owner_username FROM risk.department_assignments
         WHERE $1::boolean OR depart_code=ANY($2::text[])`,params),
+      query(`SELECT status_code AS code,status_name AS status,description
+        FROM risk.action_statuses WHERE is_active ORDER BY status_code`),
+      query(`SELECT eff_factor,qual_criteria,rating::float8 AS rating
+        FROM risk.control_effectiveness WHERE is_active ORDER BY rating DESC,eff_factor`),
+      query("SELECT impact_code AS code,impact_factor AS label,rate_factor::float8 AS factor,rate FROM risk.impact_factors WHERE is_active ORDER BY impact_code"),
+      query("SELECT likelihood_code AS code,likelihood_factor AS label,rating::float8 AS factor,qualification_criteria AS criteria FROM risk.likelihood_factors WHERE is_active ORDER BY likelihood_code"),
+      query("SELECT risk_type,level,minimum::float8,maximum::float8,description FROM risk.exposure_bands ORDER BY risk_type,minimum"),
     ]);
     res.json({ok:true,data:{actor:{username:a.username,can_manage:canManage(a),
       champion_departments:a.champion_departments,owner_departments:a.owner_departments},
-    departments,categories,objectives,periods,staff,assignments}});
+    departments,categories,objectives,periods,staff,assignments,action_statuses,control_effectiveness,impact_factors,likelihood_factors,exposure_bands}});
   } catch (err) { riskFailure(req,res,err); }
 });
 router.get("/risk-register/records", async (req,res) => {
@@ -146,6 +153,8 @@ router.put("/risk-register/records/:riskCode",async(req,res)=>{
       const [updated]=await txQuery<Record<string,unknown>>(client,`UPDATE risk.risk_master SET
         objective_code=$2,risk_title=$3,risk_description=$4,risk_category=$5,risk_consequence=$6,
         i_rate=$7,l_rate=$8,i_risk_exposure=$9,i_risk_rate=$9,perceived_rate=$10,
+        risk_impact=(SELECT impact_code FROM risk.impact_factors WHERE is_active AND rate_factor=$7 ORDER BY impact_code LIMIT 1),
+        risk_likelihood=(SELECT likelihood_code FROM risk.likelihood_factors WHERE is_active AND rating=$8 ORDER BY likelihood_code LIMIT 1),
         perceived_contr_eff=$11,r_risk_exposure=$12,r_risk_rate=$12,current_contr=$13,
         desired_contr_effe=$14,assessment_updated=TRUE,updated_at=NOW() WHERE risk_code=$1
         RETURNING *,to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at`,
@@ -168,6 +177,11 @@ router.post("/risk-register/records/:riskCode/root-causes",async(req,res)=>{
         ? await txQuery(client,"SELECT * FROM risk.root_causes WHERE root_id=$1 AND risk_code=$2 FOR UPDATE",[input.root_id,code])
         : [];
       if(input.root_id && !existing) throw new RiskError(404,"Root cause does not belong to this risk.");
+      const approvedStatus = await txQuery(client,
+        "SELECT status_code FROM risk.action_statuses WHERE status_name=$1 AND is_active FOR SHARE",
+        [input.action_status]);
+      if (!approvedStatus.length && existing?.action_status !== input.action_status)
+        throw new RiskError(400,"Select an approved action status.");
       if (!existing || existing.action_owner !== input.action_owner) {
         const staff=await txQuery(client,`SELECT e.username FROM crm.employees e JOIN crm.profiles p ON p.profile_id=e.profile_id
           WHERE e.username=$1 AND e.activated AND e.approved AND NOT e.employee_locked AND NOT e.is_deleted AND p.is_active`,

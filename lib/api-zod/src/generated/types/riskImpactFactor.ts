@@ -6,7 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type UpdateRiskAdministrationDepartmentBody = {
-  /** @maxLength 100 */
-  depart_name: string;
-};
+export interface RiskImpactFactor {
+  code: string;
+  label: string;
+  factor: number;
+  rate: string;
+}

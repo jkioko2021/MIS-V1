@@ -1,7 +1,7 @@
 import { AlertCircle, ClipboardList } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-export const fieldClass = 'mt-1 w-full rounded-lg border border-input bg-card px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-55';
+export const fieldClass = 'mt-1 w-full min-w-0 max-w-full rounded-lg border border-input bg-card px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-55';
 export const buttonClass = 'inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:brightness-105 disabled:pointer-events-none disabled:opacity-45';
 export const secondaryButton = 'inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted disabled:pointer-events-none disabled:opacity-45';
 
@@ -67,7 +67,7 @@ export function SkeletonRows() {
   return <div className="space-y-3" aria-label="Loading risk data">{[0, 1, 2].map(item => <div key={item} className="h-[72px] animate-pulse rounded-xl bg-muted" />)}</div>;
 }
 export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
-  return <label className="block text-xs font-semibold text-foreground">{label}{children}{hint && <span className="mt-1 block text-[11px] font-normal text-muted-foreground">{hint}</span>}</label>;
+  return <label className="block min-w-0 max-w-full break-words text-xs font-semibold text-foreground">{label}{children}{hint && <span className="mt-1 block text-[11px] font-normal text-muted-foreground">{hint}</span>}</label>;
 }
 export function Exposure({ label, value }: { label: string; value: string }) {
   return <div className="rounded-lg bg-muted/65 p-3"><div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{label}</div><div className="mt-1 font-[Space_Mono] text-lg font-bold">{value}</div></div>;
