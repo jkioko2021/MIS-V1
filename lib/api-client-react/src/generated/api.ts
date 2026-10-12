@@ -31,6 +31,7 @@ import type {
   ListClientRatings200,
   ListClientRatingsParams,
   ListRiskAdministrationDepartments200,
+  ListRiskAdministrationReferences200,
   ListRiskRegisterRecordsParams,
   MedicalDocumentInput,
   RecordAllocatedDocumentUpload201,
@@ -54,6 +55,10 @@ import type {
   RiskRecordInput,
   RiskRecordResponse,
   RiskRecordsResponse,
+  RiskReferenceCatalog,
+  RiskReferenceCreateInput,
+  RiskReferenceResponse,
+  RiskReferenceUpdateInput,
   RiskSummaryResponse,
   RiskWorkflowInput
 } from './api.schemas';
@@ -84,6 +89,11 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
+export const getListRiskAdministrationReferencesUrl = (catalog: RiskReferenceCatalog,) => {
+
+
+  return `/api/risk-administration/references/${catalog}`
+}
 export const getListRiskAdministrationDepartmentsUrl = () => {
 
 
@@ -1517,3 +1527,164 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type PreviewRiskRegisterImportMutationResult = NonNullable<Awaited<ReturnType<typeof previewRiskRegisterImport>>>
+
+export type ListRiskAdministrationReferencesQueryResult = NonNullable<Awaited<ReturnType<typeof listRiskAdministrationReferences>>>
+
+export const getListRiskAdministrationReferencesQueryKey = (catalog: RiskReferenceCatalog,) => {
+    return [
+    `/api/risk-administration/references/${catalog}`
+    ] as const;
+    }
+
+export const listRiskAdministrationReferences = async (catalog: RiskReferenceCatalog, options?: Parameters<typeof customFetch>[1]): Promise<ListRiskAdministrationReferences200> => {
+
+  return customFetch<ListRiskAdministrationReferences200>(getListRiskAdministrationReferencesUrl(catalog),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+    export type CreateRiskAdministrationReferenceMutationError = ErrorType<unknown>
+
+export const updateRiskAdministrationReference = async (catalog: RiskReferenceCatalog,
+    code: string,
+    riskReferenceUpdateInput: RiskReferenceUpdateInput, options?: Parameters<typeof customFetch>[1]): Promise<RiskReferenceResponse> => {
+
+  return customFetch<RiskReferenceResponse>(getUpdateRiskAdministrationReferenceUrl(catalog,code),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(riskReferenceUpdateInput)
+  }
+);}
+
+    export type UpdateRiskAdministrationReferenceMutationBody = BodyType<RiskReferenceUpdateInput>
+
+    export type UpdateRiskAdministrationReferenceMutationResult = NonNullable<Awaited<ReturnType<typeof updateRiskAdministrationReference>>>
+
+export type ListRiskAdministrationReferencesQueryError = ErrorType<unknown>
+
+export function useListRiskAdministrationReferences<TData = Awaited<ReturnType<typeof listRiskAdministrationReferences>>, TError = ErrorType<unknown>>(
+ catalog: RiskReferenceCatalog, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRiskAdministrationReferences>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRiskAdministrationReferencesQueryOptions(catalog,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getCreateRiskAdministrationReferenceUrl = (catalog: RiskReferenceCatalog,) => {
+
+
+  return `/api/risk-administration/references/${catalog}`
+}
+
+export const getUpdateRiskAdministrationReferenceUrl = (catalog: RiskReferenceCatalog,
+    code: string,) => {
+
+
+  return `/api/risk-administration/references/${catalog}/${code}`
+}
+
+export const getCreateRiskAdministrationReferenceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRiskAdministrationReference>>, TError,{catalog: RiskReferenceCatalog;data: BodyType<RiskReferenceCreateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createRiskAdministrationReference>>, TError,{catalog: RiskReferenceCatalog;data: BodyType<RiskReferenceCreateInput>}, TContext> => {
+
+const mutationKey = ['createRiskAdministrationReference'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRiskAdministrationReference>>, {catalog: RiskReferenceCatalog;data: BodyType<RiskReferenceCreateInput>}> = (props) => {
+          const {catalog,data} = props ?? {};
+
+          return  createRiskAdministrationReference(catalog,data,requestOptions)
+        }
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRiskAdministrationReferenceMutationResult = NonNullable<Awaited<ReturnType<typeof createRiskAdministrationReference>>>
+
+    export const useCreateRiskAdministrationReference = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRiskAdministrationReference>>, TError,{catalog: RiskReferenceCatalog;data: BodyType<RiskReferenceCreateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createRiskAdministrationReference>>,
+        TError,
+        {catalog: RiskReferenceCatalog;data: BodyType<RiskReferenceCreateInput>},
+        TContext
+      > => {
+      return useMutation(getCreateRiskAdministrationReferenceMutationOptions(options));
+    }
+
+export const getListRiskAdministrationReferencesQueryOptions = <TData = Awaited<ReturnType<typeof listRiskAdministrationReferences>>, TError = ErrorType<unknown>>(catalog: RiskReferenceCatalog, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRiskAdministrationReferences>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRiskAdministrationReferencesQueryKey(catalog);
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRiskAdministrationReferences>>> = ({ signal }) => listRiskAdministrationReferences(catalog, { signal, ...requestOptions });
+
+
+   return  { queryKey, queryFn, enabled: catalog !== null && catalog !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRiskAdministrationReferences>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export const createRiskAdministrationReference = async (catalog: RiskReferenceCatalog,
+    riskReferenceCreateInput: RiskReferenceCreateInput, options?: Parameters<typeof customFetch>[1]): Promise<RiskReferenceResponse> => {
+
+  return customFetch<RiskReferenceResponse>(getCreateRiskAdministrationReferenceUrl(catalog),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(riskReferenceCreateInput)
+  }
+);}
+
+    export type CreateRiskAdministrationReferenceMutationBody = BodyType<RiskReferenceCreateInput>
+
+export const getUpdateRiskAdministrationReferenceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRiskAdministrationReference>>, TError,{catalog: RiskReferenceCatalog;code: string;data: BodyType<RiskReferenceUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateRiskAdministrationReference>>, TError,{catalog: RiskReferenceCatalog;code: string;data: BodyType<RiskReferenceUpdateInput>}, TContext> => {
+
+const mutationKey = ['updateRiskAdministrationReference'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRiskAdministrationReference>>, {catalog: RiskReferenceCatalog;code: string;data: BodyType<RiskReferenceUpdateInput>}> = (props) => {
+          const {catalog,code,data} = props ?? {};
+
+          return  updateRiskAdministrationReference(catalog,code,data,requestOptions)
+        }
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateRiskAdministrationReferenceMutationError = ErrorType<unknown>
+
+    export const useUpdateRiskAdministrationReference = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRiskAdministrationReference>>, TError,{catalog: RiskReferenceCatalog;code: string;data: BodyType<RiskReferenceUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateRiskAdministrationReference>>,
+        TError,
+        {catalog: RiskReferenceCatalog;code: string;data: BodyType<RiskReferenceUpdateInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateRiskAdministrationReferenceMutationOptions(options));
+    }

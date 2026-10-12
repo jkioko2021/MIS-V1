@@ -41,12 +41,15 @@ function presentRecord(r: Record<string,unknown>, a: RiskActor) {
     && (canManage(a) || a.champion_departments.includes(String(r.depart_code)))
     || status === "SUBMITTED" && (canManage(a) || a.owner_departments.includes(String(r.depart_code)))};
 }
-async function validateCatalogs(client: import("pg").PoolClient, input: z.infer<typeof recordInput>) {
+async function validateCatalogs(client: import("pg").PoolClient, input: z.infer<typeof recordInput>,
+  existing?: Record<string, unknown>) {
   const [valid] = await txQuery<{valid:boolean}>(client, `SELECT
     EXISTS(SELECT 1 FROM risk.departments WHERE depart_code=$1 AND is_active)
-    AND EXISTS(SELECT 1 FROM risk.categories WHERE category_code=$2 AND is_active)
-    AND EXISTS(SELECT 1 FROM risk.objectives WHERE obj_code=$3 AND depart_code=$1 AND is_active) AS valid`,
-  [input.depart_code,input.risk_category,input.objective_code]);
+    AND EXISTS(SELECT 1 FROM risk.categories WHERE category_code=$2 AND (is_active OR $4::boolean) FOR SHARE)
+    AND EXISTS(SELECT 1 FROM risk.objectives WHERE obj_code=$3 AND depart_code=$1 AND (is_active OR $5::boolean) FOR SHARE) AS valid`,
+  [input.depart_code,input.risk_category,input.objective_code,
+    existing?.risk_category === input.risk_category,
+    existing?.objective_code === input.objective_code && existing?.depart_code === input.depart_code]);
   if (!valid?.valid) throw new RiskError(400,"Select an active department, category, and an objective belonging to that department.");
 }
 router.get("/risk-register/options", async (req,res) => {
@@ -123,13 +126,14 @@ router.post("/risk-register/records", async (req,res) => {
       if (r.depart_code !== input.depart_code || p.period_id !== input.period_id)
         throw new RiskError(400,"A risk cannot be moved to a different department or reporting period.");
       assertRecordEditable(s,a,input.depart_code); assertFresh(r.updated_at,input.expected_updated_at);
-      await validateCatalogs(client,input);
+      // Retirement removes new choices, not the ability to maintain a risk retaining its own historical choices.
+      await validateCatalogs(client,input,r);
       const score=calculateRisk(input.i_rate,input.l_rate,input.control_effectiveness);
       const [updated]=await txQuery<Record<string,unknown>>(client,`UPDATE risk.risk_master SET
         objective_code=$2,risk_title=$3,risk_description=$4,risk_category=$5,risk_consequence=$6,
         i_rate=$7,l_rate=$8,i_risk_exposure=$9,i_risk_rate=$9,perceived_rate=$10,
-        risk_impact=(SELECT impact_code FROM risk.impact_factors WHERE is_active AND rate_factor=$7 ORDER BY impact_code LIMIT 1),
-        risk_likelihood=(SELECT likelihood_code FROM risk.likelihood_factors WHERE is_active AND rating=$8 ORDER BY likelihood_code LIMIT 1),
+        risk_impact=COALESCE((SELECT impact_code FROM risk.impact_factors WHERE is_active AND rate_factor=$7 ORDER BY impact_code LIMIT 1),risk_impact),
+        risk_likelihood=COALESCE((SELECT likelihood_code FROM risk.likelihood_factors WHERE is_active AND rating=$8 ORDER BY likelihood_code LIMIT 1),risk_likelihood),
         perceived_contr_eff=$11,r_risk_exposure=$12,r_risk_rate=$12,current_contr=$13,
         desired_contr_effe=$14,assessment_updated=TRUE,updated_at=NOW() WHERE risk_code=$1
         RETURNING *,to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at`,
@@ -150,13 +154,14 @@ router.post("/risk-register/records/:riskCode/root-causes",async(req,res)=>{
       if (r.depart_code !== input.depart_code || p.period_id !== input.period_id)
         throw new RiskError(400,"A risk cannot be moved to a different department or reporting period.");
       assertRecordEditable(s,a,input.depart_code); assertFresh(r.updated_at,input.expected_updated_at);
-      await validateCatalogs(client,input);
+      // Retirement removes new choices, not the ability to maintain a risk retaining its own historical choices.
+      await validateCatalogs(client,input,r);
       const score=calculateRisk(input.i_rate,input.l_rate,input.control_effectiveness);
       const [updated]=await txQuery<Record<string,unknown>>(client,`UPDATE risk.risk_master SET
         objective_code=$2,risk_title=$3,risk_description=$4,risk_category=$5,risk_consequence=$6,
         i_rate=$7,l_rate=$8,i_risk_exposure=$9,i_risk_rate=$9,perceived_rate=$10,
-        risk_impact=(SELECT impact_code FROM risk.impact_factors WHERE is_active AND rate_factor=$7 ORDER BY impact_code LIMIT 1),
-        risk_likelihood=(SELECT likelihood_code FROM risk.likelihood_factors WHERE is_active AND rating=$8 ORDER BY likelihood_code LIMIT 1),
+        risk_impact=COALESCE((SELECT impact_code FROM risk.impact_factors WHERE is_active AND rate_factor=$7 ORDER BY impact_code LIMIT 1),risk_impact),
+        risk_likelihood=COALESCE((SELECT likelihood_code FROM risk.likelihood_factors WHERE is_active AND rating=$8 ORDER BY likelihood_code LIMIT 1),risk_likelihood),
         perceived_contr_eff=$11,r_risk_exposure=$12,r_risk_rate=$12,current_contr=$13,
         desired_contr_effe=$14,assessment_updated=TRUE,updated_at=NOW() WHERE risk_code=$1
         RETURNING *,to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at`,

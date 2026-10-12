@@ -761,3 +761,94 @@ export const ConfirmRiskRegisterImportResponse = zod.object({
 })
 
 export const confirmRiskRegisterImportBodyOneSourceNameMax = 200;
+
+export const ListRiskAdministrationReferencesParams = zod.object({
+  "catalog": zod.enum(['action-statuses', 'categories', 'control-effectiveness', 'objectives'])
+})
+
+export const updateRiskAdministrationReferenceBodyLabelMax = 1000;
+
+export const CreateRiskAdministrationReferenceParams = zod.object({
+  "catalog": zod.enum(['action-statuses', 'categories', 'control-effectiveness', 'objectives'])
+})
+
+export const createRiskAdministrationReferenceBodyDescriptionMax = 5000;
+
+export const UpdateRiskAdministrationReferenceResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.object({
+  "code": zod.string(),
+  "label": zod.string(),
+  "description": zod.string().nullable(),
+  "rating": zod.number().nullable(),
+  "depart_code": zod.string().nullable(),
+  "is_active": zod.boolean()
+})
+})
+
+export const createRiskAdministrationReferenceBodyLabelMax = 1000;
+
+export const updateRiskAdministrationReferenceBodyRatingMax = 1;
+
+export const createRiskAdministrationReferenceBodyRatingMin = 0;
+
+export const createRiskAdministrationReferenceBodyRatingMax = 1;
+
+export const createRiskAdministrationReferenceBodyCodeMax = 50;
+
+export const UpdateRiskAdministrationReferenceBody = zod.object({
+  "label": zod.string().min(1).max(updateRiskAdministrationReferenceBodyLabelMax),
+  "description": zod.string().max(updateRiskAdministrationReferenceBodyDescriptionMax).nullish(),
+  "rating": zod.number().min(updateRiskAdministrationReferenceBodyRatingMin).max(updateRiskAdministrationReferenceBodyRatingMax).optional(),
+  "is_active": zod.boolean(),
+  "depart_code": zod.string().optional().describe('Required for objectives; selects the immutable department\/code pair'),
+  "expected": zod.object({
+  "code": zod.string(),
+  "label": zod.string(),
+  "description": zod.string().nullable(),
+  "rating": zod.number().nullable(),
+  "depart_code": zod.string().nullable(),
+  "is_active": zod.boolean()
+}).optional().describe('Last loaded reference; reject stale edits or status changes rather than overwriting another administrator')
+})
+
+export const CreateRiskAdministrationReferenceResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.object({
+  "code": zod.string(),
+  "label": zod.string(),
+  "description": zod.string().nullable(),
+  "rating": zod.number().nullable(),
+  "depart_code": zod.string().nullable(),
+  "is_active": zod.boolean()
+})
+})
+
+export const ListRiskAdministrationReferencesResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.array(zod.object({
+  "code": zod.string(),
+  "label": zod.string(),
+  "description": zod.string().nullable(),
+  "rating": zod.number().nullable(),
+  "depart_code": zod.string().nullable(),
+  "is_active": zod.boolean()
+}))
+})
+
+export const CreateRiskAdministrationReferenceBody = zod.object({
+  "code": zod.string().min(1).max(createRiskAdministrationReferenceBodyCodeMax),
+  "label": zod.string().min(1).max(createRiskAdministrationReferenceBodyLabelMax),
+  "description": zod.string().max(createRiskAdministrationReferenceBodyDescriptionMax).nullish(),
+  "rating": zod.number().min(createRiskAdministrationReferenceBodyRatingMin).max(createRiskAdministrationReferenceBodyRatingMax).optional().describe('Required fractional rating for control-effectiveness'),
+  "depart_code": zod.string().optional().describe('Required active department for objectives')
+})
+
+export const UpdateRiskAdministrationReferenceParams = zod.object({
+  "catalog": zod.enum(['action-statuses', 'categories', 'control-effectiveness', 'objectives']),
+  "code": zod.coerce.string()
+})
+
+export const updateRiskAdministrationReferenceBodyDescriptionMax = 5000;
+
+export const updateRiskAdministrationReferenceBodyRatingMin = 0;

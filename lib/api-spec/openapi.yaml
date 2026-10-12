@@ -11,6 +11,54 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /risk-administration/references/{catalog}:
+    parameters:
+      - { name: catalog, in: path, required: true, schema: { $ref: "#/components/schemas/RiskReferenceCatalog" } }
+    get:
+      operationId: listRiskAdministrationReferences
+      responses:
+        "200":
+          description: All active and retired reference choices for management
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/RiskReference" }
+    post:
+      operationId: createRiskAdministrationReference
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RiskReferenceCreateInput" }
+      responses:
+        "201":
+          description: Reference created and audited
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskReferenceResponse" }
+  /risk-administration/references/{catalog}/{code}:
+    parameters:
+      - { name: catalog, in: path, required: true, schema: { $ref: "#/components/schemas/RiskReferenceCatalog" } }
+      - { name: code, in: path, required: true, schema: { type: string } }
+    patch:
+      operationId: updateRiskAdministrationReference
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RiskReferenceUpdateInput" }
+      responses:
+        "200":
+          description: Reference updated, retired or reactivated without deleting historical references
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskReferenceResponse" }
   /risk-administration/departments:
     get:
       operationId: listRiskAdministrationDepartments
@@ -440,6 +488,46 @@ paths:
           description: Allocation changed before the upload could be saved
 components:
   schemas:
+    RiskReferenceCatalog:
+      type: string
+      enum: [action-statuses, categories, control-effectiveness, objectives]
+    RiskReference:
+      type: object
+      required: [code, label, description, rating, depart_code, is_active]
+      properties:
+        code: { type: string }
+        label: { type: string }
+        description: { type: ["string", "null"] }
+        rating: { type: ["number", "null"] }
+        depart_code: { type: ["string", "null"] }
+        is_active: { type: boolean }
+    RiskReferenceResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok: { type: boolean }
+        data: { $ref: "#/components/schemas/RiskReference" }
+    RiskReferenceCreateInput:
+      type: object
+      required: [code, label]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 50 }
+        label: { type: string, minLength: 1, maxLength: 1000 }
+        description: { type: ["string", "null"], maxLength: 5000 }
+        rating: { type: number, minimum: 0, maximum: 1, description: Required fractional rating for control-effectiveness }
+        depart_code: { type: string, description: Required active department for objectives }
+    RiskReferenceUpdateInput:
+      type: object
+      required: [label, is_active]
+      properties:
+        label: { type: string, minLength: 1, maxLength: 1000 }
+        description: { type: ["string", "null"], maxLength: 5000 }
+        rating: { type: number, minimum: 0, maximum: 1 }
+        is_active: { type: boolean }
+        depart_code: { type: string, description: Required for objectives; selects the immutable department/code pair, never moves an objective }
+        expected:
+          $ref: "#/components/schemas/RiskReference"
+          description: Last loaded reference; reject stale edits or status changes rather than overwriting another administrator
     RiskAdministrationDepartment:
       type: object
       required: [depart_code, depart_name, is_active]

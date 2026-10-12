@@ -11,16 +11,24 @@ import {
 import type { RiskLookup, RiskOptionsResponseData, RiskAdministrationDepartment } from '@workspace/api-client-react';
 import { useAuth } from '@/lib/auth-context';
 import { useRiskOptions, useAssignRiskTeam } from '../risk/use-risk-register';
+import RiskReferences, { referenceConfigs } from './references';
+import type { RiskReferenceCatalog } from '@workspace/api-client-react';
 import {
   AlertCircle, ArrowRight, BadgeCheck, Building2, Check, CircleHelp, Edit3, Plus, RefreshCw,
   ShieldCheck, UsersRound,
 } from 'lucide-react';
 
-type TabKey = 'overview' | 'mappings' | 'departments';
+type TabKey = 'overview' | 'mappings' | 'departments' | RiskReferenceCatalog;
+
+const referenceKeys: RiskReferenceCatalog[] = ['action-statuses', 'categories', 'control-effectiveness', 'objectives'];
 const tabs: Array<{ key: TabKey; label: string; href: string }> = [
   { key: 'overview', label: 'Administration', href: '/risk-administration' },
   { key: 'mappings', label: 'Map Risk Officers & Owners', href: '/risk-administration/mappings' },
   { key: 'departments', label: 'Departments', href: '/risk-administration/departments' },
+  { key: 'objectives', label: 'Objectives', href: '/risk-administration/objectives' },
+  { key: 'categories', label: 'Categories', href: '/risk-administration/categories' },
+  { key: 'action-statuses', label: 'Action statuses', href: '/risk-administration/action-statuses' },
+  { key: 'control-effectiveness', label: 'Control effectiveness', href: '/risk-administration/control-effectiveness' },
 ];
 const inputClass = 'w-full rounded-xl border border-[#c8d5d3] bg-[#fffefa] px-3.5 py-3 text-sm text-[#183735] outline-none transition focus:border-[#14766f] focus:ring-4 focus:ring-[#14766f]/10 disabled:cursor-not-allowed disabled:opacity-60';
 const primaryButton = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#155e59] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#104c48] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#155e59] disabled:pointer-events-none disabled:opacity-45';
@@ -48,8 +56,8 @@ export default function RiskAdministrationPage() {
   const { user } = useAuth();
   const username = user?.username ?? '';
   const [location, setLocation] = useLocation();
-  const route: TabKey = location.replace(/\/+$/, '') === '/risk-administration/mappings' ? 'mappings'
-    : location.replace(/\/+$/, '') === '/risk-administration/departments' ? 'departments' : 'overview';
+  const route: TabKey = tabs.find(tab => tab.key !== 'overview' && location.replace(/\/+$/, '') === tab.href)?.key ?? 'overview';
+  const referenceRoute = (referenceKeys as string[]).includes(route) ? route as RiskReferenceCatalog : null;
   const optionsQuery = useRiskOptions(username);
   const optionsFailure = optionsQuery.isError ? messageOf(optionsQuery.error, 'Could not load risk administration access.') : payloadError(optionsQuery.data);
   const options = !optionsFailure ? optionsData(optionsQuery.data) : undefined;
@@ -182,6 +190,7 @@ export default function RiskAdministrationPage() {
             : !authorized ? <AccessNotice title="Access denied" description="Risk administration is available to MIS management only. No administration data or controls are shown for this account." />
               : <div key={username}>
                 {route === 'overview' && <Overview options={options!} navigate={setLocation} />}
+                {referenceRoute && <RiskReferences key={referenceRoute} catalog={referenceRoute} username={username} />}
                 {route === 'mappings' && <section className="grid gap-5 xl:grid-cols-[.78fr_1.22fr]">
                   <form ref={mappingFormRef} onSubmit={saveMapping} className="rounded-3xl border border-[#d8e3df] bg-[#fffefa] p-5 shadow-[0_10px_36px_-30px_rgba(16,66,60,.5)] sm:p-7">
                     <SectionHeading icon={<UsersRound className="h-5 w-5" />} eyebrow="Department responsibility" title="Map Risk Officers & Owners" detail="Choose a department first. Existing assignments are loaded into the form so any replacement is deliberate." />
@@ -261,6 +270,16 @@ function Overview({ options, navigate }: { options: RiskOptionsResponseData; nav
             <div className="mb-5 grid h-10 w-10 place-items-center rounded-xl bg-[#e8ede2] text-[#546e57]"><Building2 className="h-5 w-5" /></div><div className="text-xs font-bold uppercase tracking-wider text-[#658079]">02 · Maintain list</div><h3 className="mt-2 text-lg font-bold">Departments</h3><p className="mt-2 text-sm leading-5 text-[#69817b]">Create departments or rename existing records while preserving status.</p><span className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-[#155e59]">Open department list <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></span>
           </button>
         </div>
+      </div>
+    </section>
+    <section className="rounded-3xl border border-[#d8e3df] bg-[#fffefa] p-5 sm:p-7">
+      <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#708a83]">03 · Reference lists</p>
+      <h2 className="mt-2 font-[Manrope] text-xl font-extrabold tracking-tight">The vocabulary of the register</h2>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {referenceKeys.map(key => <button key={key} data-testid={`link-reference-${key}`} onClick={() => navigate(`/risk-administration/${key}`)} className="group rounded-2xl border border-[#d9e5e0] bg-[#f4f8f5] p-4 text-left transition hover:-translate-y-0.5 hover:border-[#9ebdb3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#155e59]">
+          <h3 className="font-bold">{referenceConfigs[key].title}</h3><p className="mt-1 line-clamp-3 text-xs leading-5 text-[#69817b]">{referenceConfigs[key].intro}</p>
+          <span className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-[#155e59]">Manage <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" /></span>
+        </button>)}
       </div>
     </section>
     <div className="flex items-start gap-3 rounded-2xl border border-[#d8e3df] bg-[#eaf1ec] p-4 text-xs leading-5 text-[#506b64]"><CircleHelp className="mt-0.5 h-4 w-4 shrink-0 text-[#55766d]" /><p>Every change is scoped to your signed-in management identity. Existing risk records and event history are not rewritten when department responsibility changes.</p></div>

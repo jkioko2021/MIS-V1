@@ -62,3 +62,15 @@ Full import-batch provenance must not inherit the access scope of a single impor
 **Why:** A mixed-department source contains information that a champion or owner of only one department must not see through an otherwise authorized row's history.
 
 **How to apply:** Keep row-level evidence department-scoped; retain the exact full batch only in management-restricted history.
+
+Reference administration deliberately retires choices rather than offering deletion, even when no current live risk points to them. Treat action-status names as stable historical identifiers, not editable display labels.
+
+**Why:** Historical actions store status names, and the exact name Closed has completion semantics. References can also survive in audit snapshots and imported history beyond live foreign-key checks.
+
+**How to apply:** To replace a status name, retire the old choice and create a distinct choice. Do not rewrite historical actions or recalculate saved assessments when maintaining reference lists.
+
+Retiring a category or department objective must not block an assessment that retains that risk's existing choice; changing to a different choice still requires an active catalogue entry.
+
+**Why:** Retirement is intended to stop new use, not freeze ongoing maintenance of historical risks.
+
+**How to apply:** Compare against the locked existing risk, scope objectives by department and code, and show only that risk's retained historical choices alongside active options. Do not null out stored impact/likelihood classifications when a valid custom numeric factor has no approved match.

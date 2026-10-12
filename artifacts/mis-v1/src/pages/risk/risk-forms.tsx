@@ -161,9 +161,13 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
         <div className="sm:col-span-2"><Field label="Risk title"><input className={fieldClass} value={riskTitle} onChange={event => setRiskTitle(event.target.value)} maxLength={150} disabled={!allowed} required /></Field></div>
         <Field label="Department objective"><select className={fieldClass} value={objective} onChange={event => setObjective(event.target.value)} disabled={!allowed} required>
           <option value="">Choose objective</option>{objectives.filter(item => item.depart_code === risk.depart_code).map(item => <option key={item.obj_code} value={item.obj_code}>{item.obj_name}</option>)}
+          {risk.objective_code && !objectives.some(item => item.depart_code === risk.depart_code && item.obj_code === risk.objective_code)
+            && <option value={risk.objective_code}>{risk.objective_code} · historical choice (retained)</option>}
         </select></Field>
         <Field label="Risk category"><select className={fieldClass} value={category} onChange={event => setCategory(event.target.value)} disabled={!allowed} required>
           <option value="">Choose category</option>{categories.map(item => <option key={item.category_code} value={item.category_code}>{item.category_name}</option>)}
+          {risk.risk_category && !categories.some(item => item.category_code === risk.risk_category)
+            && <option value={risk.risk_category}>{risk.category_name ?? risk.risk_category} · historical choice (retained)</option>}
         </select></Field>
         <div className="sm:col-span-2"><Field label="Description"><textarea className={`${fieldClass} min-h-20`} value={description} onChange={event => setDescription(event.target.value)} disabled={!allowed} required /></Field></div>
         <div className="sm:col-span-2"><Field label="Consequence"><textarea className={`${fieldClass} min-h-20`} value={consequence} onChange={event => setConsequence(event.target.value)} disabled={!allowed} required /></Field></div>

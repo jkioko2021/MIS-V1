@@ -36,7 +36,7 @@ import {
 import {
   Home, FileText, Shield, Database, Bell, Banknote, ClipboardCheck, FilePlus2,
   ChevronRight, LogOut, User, Users, Settings, SlidersHorizontal, Menu, X,
-  Workflow, BadgeCheck, CalendarDays, LockKeyhole, Archive, History, UsersRound, SearchCheck,
+  Workflow, BadgeCheck, CalendarDays, LockKeyhole, Archive, History, UsersRound, SearchCheck, Target, Tags, ListChecks, Gauge,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -110,6 +110,10 @@ const NAV_SECTIONS: Array<{
         children: [
           { href: '/risk-administration/mappings', label: 'Map Risk Officers & Owners', icon: UsersRound },
           { href: '/risk-administration/departments', label: 'Departments', icon: Database },
+          { href: '/risk-administration/objectives', label: 'Objectives', icon: Target },
+          { href: '/risk-administration/categories', label: 'Categories', icon: Tags },
+          { href: '/risk-administration/action-statuses', label: 'Action statuses', icon: ListChecks },
+          { href: '/risk-administration/control-effectiveness', label: 'Control effectiveness', icon: Gauge },
         ],
       },
       { href: '/discovery', label: 'DB Discovery',      icon: Database },
