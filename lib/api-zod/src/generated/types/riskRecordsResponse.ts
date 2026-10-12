@@ -6,8 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { RiskRecord } from './riskRecord';
+import type { RiskRecordsResponseTotals } from './riskRecordsResponseTotals';
 
 export interface RiskRecordsResponse {
   ok: boolean;
   data: RiskRecord[];
+  /** Counts across the full authorized filtered scope, before the 500-record display limit. */
+  totals: RiskRecordsResponseTotals;
 }

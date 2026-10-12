@@ -78,6 +78,7 @@ export * from './riskRecord';
 export * from './riskRecordInput';
 export * from './riskRecordResponse';
 export * from './riskRecordsResponse';
+export * from './riskRecordsResponseTotals';
 export * from './riskReference';
 export * from './riskReferenceCatalog';
 export * from './riskReferenceCreateInput';

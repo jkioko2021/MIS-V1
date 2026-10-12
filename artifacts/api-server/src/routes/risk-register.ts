@@ -21,7 +21,7 @@ const filters = z.object({
   view: z.enum(["all","open","submitted","reviewed","signed","closed"]).optional().default("all"),
   search: z.string().max(150).optional().default(""),
 });
-const selectRecords = `SELECT r.*,r.period_from::text,r.period_to::text,p.period_id,
+const selectRecords = (extraColumns = "") => `SELECT ${extraColumns} r.*,r.period_from::text,r.period_to::text,p.period_id,
   to_char(r.updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at,
   (SELECT count(*)::integer FROM risk.root_causes done WHERE done.risk_code=r.risk_code
     AND done.action_status='Closed') AS completed_action_count,
@@ -91,7 +91,11 @@ router.get("/risk-register/records", async (req,res) => {
     const f = filters.parse(req.query), a = actor(res);
     const pageScope = workspaceScope(a, f.access);
     if (f.depart_code) assertDepartment(a,f.depart_code, f.access === "update" ? "edit" : f.access === "review" ? "review" : "view");
-    const rows = await query<Record<string,unknown>>(`${selectRecords}
+    // Window counts run before LIMIT and share the exact authorization/filter
+    // predicate and database snapshot with the displayed records.
+    const rows = await query<Record<string,unknown>>(`${selectRecords(`
+      count(*) OVER ()::integer AS scope_active_risks,
+      (count(*) FILTER (WHERE r.assessment_updated) OVER ())::integer AS scope_assessed_risks,`)}
       WHERE r.is_active AND ($1::boolean OR r.depart_code=ANY($2::text[]))
       AND ($3::text='' OR r.depart_code=$3) AND ($4::integer=0 OR p.period_id=$4)
       AND (r.risk_title ILIKE $5 OR r.risk_code ILIKE $5)
@@ -105,13 +109,17 @@ router.get("/risk-register/records", async (req,res) => {
           OR $6='signed' AND COALESCE(s.sign_off,FALSE)))
       ORDER BY r.period_from DESC,r.r_risk_exposure DESC NULLS LAST,r.risk_code LIMIT 500`,
     [...pageScope,f.depart_code,f.period_id,`%${f.search}%`,f.view]);
-    res.json({ok:true,data:rows.map(r=>presentRecord(r,a))});
+    const totals = {
+      active_risks: Number(rows[0]?.scope_active_risks ?? 0),
+      assessed_risks: Number(rows[0]?.scope_assessed_risks ?? 0),
+    };
+    res.json({ok:true,totals,data:rows.map(({scope_active_risks,scope_assessed_risks,...r})=>presentRecord(r,a))});
   } catch (err) { riskFailure(req,res,err); }
 });
 router.get("/risk-register/records/:riskCode", async (req,res) => {
   try {
     const a=actor(res), code=String(req.params.riskCode);
-    const [risk]=await query<Record<string,unknown>>(`${selectRecords} WHERE r.risk_code=$1`,[code]);
+    const [risk]=await query<Record<string,unknown>>(`${selectRecords()} WHERE r.risk_code=$1`,[code]);
     if (!risk) throw new RiskError(404,"Risk was not found.");
     assertDepartment(a,String(risk.depart_code));
     const [root_causes,events]=await Promise.all([

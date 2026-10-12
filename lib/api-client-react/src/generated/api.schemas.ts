@@ -490,9 +490,21 @@ export interface RiskOptionsResponse {
   data: RiskOptionsResponseData;
 }
 
+/**
+ * Counts across the full authorized filtered scope, before the 500-record display limit.
+ */
+export type RiskRecordsResponseTotals = {
+  /** @minimum 0 */
+  active_risks: number;
+  /** @minimum 0 */
+  assessed_risks: number;
+};
+
 export interface RiskRecordsResponse {
   ok: boolean;
   data: RiskRecord[];
+  /** Counts across the full authorized filtered scope, before the 500-record display limit. */
+  totals: RiskRecordsResponseTotals;
 }
 
 export interface RiskRecordResponse {

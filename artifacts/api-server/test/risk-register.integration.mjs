@@ -172,6 +172,64 @@ try{
     assert.deepEqual(dualReview.map(row=>row.depart_code),[f.departments[1]]);
     await ok("/assignments","admin","POST",{depart_code:f.departments[1],
       champion_username:f.accounts.unrelated.username,owner_username:f.accounts.owner.username});
+    // Dashboard counts must cover the full filtered scope, not the 500-row
+    // display sample. Keep these fixtures isolated from ordinary register data.
+    const extraPeriod=await ok("/periods","admin","POST",{
+      period_from:`${year}-04-01`,period_to:`${year}-06-30`},201);
+    f.periods.push(extraPeriod.period_id);await save();
+    const bulkPrefix=`${f.prefix}X`;
+    for(const [suffix,department,count,assessed,periodId,active] of [
+      ["A",f.department,620,600,f.period,true],
+      ["B",f.departments[1],550,550,f.period,true],
+      ["P",f.department,30,30,extraPeriod.period_id,true],
+      ["I",f.department,10,10,f.period,false],
+    ]){
+      await pool.query(`INSERT INTO risk.risk_master
+        (risk_code,depart_code,period_from,period_to,risk_title,entered_by,is_active,assessment_updated)
+        SELECT $1||n::text,$2,p.period_from,p.period_to,
+          $3||CASE WHEN n<=20 THEN ' needle' ELSE ' ordinary' END,$4,$5,n<=$6
+        FROM risk.periods p CROSS JOIN generate_series(1,$7::integer) n WHERE p.period_id=$8`,
+        [bulkPrefix+suffix,department,bulkPrefix,f.accounts.admin.username,active,assessed,count,periodId]);
+    }
+    const checkTotals=async(label,params,active,assessed,departments)=>{
+      const result=await api(`/records?${new URLSearchParams(params)}`,label);
+      assert.equal(result.status,200);
+      assert.equal(result.body.ok,true);
+      assert.deepEqual(result.body.totals,{active_risks:active,assessed_risks:assessed});
+      assert.equal(result.body.data.length,Math.min(active,500));
+      assert(result.body.data.every(row=>departments.includes(row.depart_code)));
+      assert(result.body.data.every(row=>!("scope_active_risks" in row) && !("scope_assessed_risks" in row)));
+    };
+    const selected={access:"view",period_id:String(f.period)};
+    await checkTotals("champion",selected,621,600,[f.department]);
+    await checkTotals("owner",selected,1172,1150,f.departments);
+    await checkTotals("admin",selected,1172,1150,f.departments);
+    await checkTotals("owner",{...selected,depart_code:f.department},621,600,[f.department]);
+    await checkTotals("champion",{access:"view"},651,630,[f.department]);
+    await checkTotals("owner",{access:"view"},1202,1180,f.departments);
+    await checkTotals("champion",{...selected,search:"needle"},20,20,[f.department]);
+    await checkTotals("owner",{...selected,search:"needle"},40,40,f.departments);
+    await checkTotals("owner",{...selected,search:bulkPrefix+"A620"},1,0,[f.department]);
+    await checkTotals("owner",{...selected,search:"no-such-risk"},0,0,[]);
+    await checkTotals("champion",{...selected,view:"open"},621,600,[f.department]);
+    await pool.query(`INSERT INTO risk.department_summary(depart_code,period_from,period_to,submitted)
+      SELECT $1,period_from,period_to,TRUE FROM risk.periods WHERE period_id=$2
+      ON CONFLICT(depart_code,period_from,period_to) DO UPDATE SET submitted=TRUE`,
+      [f.departments[1],f.period]);
+    await checkTotals("owner",{...selected,view:"submitted",access:"review"},551,550,[f.departments[1]]);
+    await checkTotals("champion",{...selected,view:"submitted"},0,0,[]);
+    await checkTotals("unrelated",{...selected,depart_code:f.departments[1]},551,550,[f.departments[1]]);
+    assert.equal((await api(`/records?${new URLSearchParams({...selected,depart_code:f.departments[1]})}`,"champion")).status,403);
+    // A dual-role actor must not receive owner totals in the champion queue.
+    await ok("/assignments","admin","POST",{depart_code:f.departments[1],
+      champion_username:f.accounts.unrelated.username,owner_username:f.accounts.champion.username});
+    await checkTotals("champion",{...selected,access:"update"},621,600,[f.department]);
+    await checkTotals("champion",{...selected,access:"review",view:"submitted"},551,550,[f.departments[1]]);
+    await ok("/assignments","admin","POST",{depart_code:f.departments[1],
+      champion_username:f.accounts.unrelated.username,owner_username:f.accounts.owner.username});
+    await pool.query("DELETE FROM risk.risk_master WHERE risk_code LIKE $1",[bulkPrefix+"%"]);
+    await pool.query("DELETE FROM risk.register_history WHERE period_id=$1",[extraPeriod.period_id]);
+    await pool.query("DELETE FROM risk.periods WHERE period_id=$1",[extraPeriod.period_id]);
     // Remove only the extra synthetic private risk, so the browser can close
     // the remaining registered department without modifying real departments.
     await pool.query("DELETE FROM risk.register_history WHERE risk_code=$1",[privateRisk.risk_code]);
@@ -183,7 +241,7 @@ try{
       await ok("/workflow","champion","POST",wf("SUBMIT"));
     }
     await save();
-    console.log("Risk live checks passed: department isolation, multi-department owner and dual-role page scopes, stale champion-map rejection, role gates, stale updates, exact scoring, return/reassessment, review/sign-off, closure guards, and retained history.");
+    console.log("Risk live checks passed: full-scope totals above 500 rows, department/period/search/workflow isolation, multi-department owner and dual-role page scopes, stale champion-map rejection, role gates, stale updates, exact scoring, return/reassessment, review/sign-off, closure guards, and retained history.");
     if(!process.argv.includes("--keep")) await cleanup();
     else console.log("Private browser fixture ready at /tmp/mis-risk-fixtures.json.");
   }

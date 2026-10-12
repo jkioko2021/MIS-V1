@@ -16,14 +16,16 @@ export function residualRiskSummary(value: string | null | undefined, bands: Ris
     : { label: Number.isFinite(score) ? 'Unclassified' : 'Not assessed', description: Number.isFinite(score) ? 'No configured residual risk band matches the saved assessment.' : 'Complete the assessment to determine the residual risk level.' };
 }
 
-export function RecordsTable({ records, loading, error, retry, onSelect, search, setSearch, title, compact = false, closedView = false, assessmentList = false, exposureBands = [] }: {
+export function RecordsTable({ records, totalRecords, loading, error, retry, onSelect, search, setSearch, title, compact = false, closedView = false, assessmentList = false, exposureBands = [] }: {
   records: RiskRecordWithCompletedActions[]; loading: boolean; error: string; retry: () => void; onSelect: (code: string) => void;
   search: string; setSearch: (value: string) => void; title: string; compact?: boolean; closedView?: boolean;
-  assessmentList?: boolean; exposureBands?: RiskExposureBand[];
+  assessmentList?: boolean; exposureBands?: RiskExposureBand[]; totalRecords?: number;
 }) {
   return <section className="min-w-0 w-full max-w-full rounded-2xl border border-border bg-card">
     <div className="flex flex-col justify-between gap-3 border-b border-border p-4 sm:flex-row sm:items-center">
-      <div><h3 className="font-[Manrope] text-lg font-bold">{title}</h3><p className="text-xs text-muted-foreground">{records.length} record{records.length === 1 ? '' : 's'} in selected scope</p></div>
+      <div><h3 className="font-[Manrope] text-lg font-bold">{title}</h3><p className="text-xs text-muted-foreground">{loading || error ? '—' : totalRecords !== undefined && totalRecords > records.length
+        ? `Showing ${records.length} of ${totalRecords} matching risks. Narrow the department, period or search to find other records.`
+        : `${records.length} record${records.length === 1 ? '' : 's'} in selected scope`}</p></div>
       <label className="relative block sm:w-64"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><input aria-label="Search risk records" data-testid="input-risk-search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search title or risk ID" className="mt-1 w-full rounded-lg border border-input bg-card px-3 py-2.5 pl-9 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15" /></label>
     </div>
     {closedView && <div className="border-b border-border bg-muted/45 px-4 py-3 text-xs leading-5 text-muted-foreground">

@@ -473,6 +473,12 @@ export const ListRiskRegisterRecordsQueryParams = zod.object({
   "search": zod.coerce.string().optional()
 })
 
+export const listRiskRegisterRecordsResponseTotalsActiveRisksMin = 0;
+
+export const listRiskRegisterRecordsResponseTotalsAssessedRisksMin = 0;
+
+
+
 export const ListRiskRegisterRecordsResponse = zod.object({
   "ok": zod.boolean(),
   "data": zod.array(zod.object({
@@ -502,7 +508,11 @@ export const ListRiskRegisterRecordsResponse = zod.object({
   "updated_at": zod.coerce.date(),
   "workflow_status": zod.string(),
   "can_edit": zod.boolean().optional()
-}))
+})),
+  "totals": zod.object({
+  "active_risks": zod.number().int().min(listRiskRegisterRecordsResponseTotalsActiveRisksMin),
+  "assessed_risks": zod.number().int().min(listRiskRegisterRecordsResponseTotalsAssessedRisksMin)
+}).describe('Counts across the full authorized filtered scope, before the 500-record display limit.')
 })
 
 

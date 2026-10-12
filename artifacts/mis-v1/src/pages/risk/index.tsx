@@ -180,8 +180,9 @@ function RiskRegisterWorkspace() {
   };
 
   const title = PAGES.find(item => item.key === activePage)?.title ?? 'Risk dashboard';
-  const openRecords = records.filter(item => item.is_active !== false);
-  const assessedCount = openRecords.filter(item => item.assessment_updated).length;
+  const recordTotals = !recordsQuery.isError && !recordsFailure ? recordsQuery.data?.totals : undefined;
+  const activeCount = recordTotals?.active_risks;
+  const assessedCount = recordTotals?.assessed_risks;
   const overdueCount = summaries.reduce((total, item) => total + (item.overdue_actions ?? 0), 0);
   const optionsFailure = optionsQuery.data && !envelopeData(optionsQuery.data) ? envelopeError(optionsQuery.data) : '';
   const activePeriod = periods.find(item => String(item.period_id) === period);
@@ -243,8 +244,8 @@ function RiskRegisterWorkspace() {
                 <button className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#e8d6a2] px-4 py-2.5 text-sm font-bold text-[#193c35] hover:bg-[#f0e4c2]" onClick={() => setPage('new')}><FilePlus2 className="h-4 w-4" /> Register a risk <ArrowUpRight className="h-4 w-4" /></button>
               </div>
               <div className="relative mt-8 grid max-w-lg grid-cols-3 border-t border-white/15 pt-5">
-                <div><strong className="block font-[Space_Mono] text-2xl">{openRecords.length}</strong><span className="text-xs text-white/65">Active risks</span></div>
-                <div><strong className="block font-[Space_Mono] text-2xl">{assessedCount}</strong><span className="text-xs text-white/65">Assessed</span></div>
+                <div><strong className="block font-[Space_Mono] text-2xl">{activeCount ?? '—'}</strong><span className="text-xs text-white/65">Active risks</span></div>
+                <div><strong className="block font-[Space_Mono] text-2xl">{assessedCount ?? '—'}</strong><span className="text-xs text-white/65">Assessed</span></div>
                 <div><strong className="block font-[Space_Mono] text-2xl">{overdueCount}</strong><span className="text-xs text-white/65">Behind schedule</span></div>
               </div>
             </div>
@@ -257,7 +258,8 @@ function RiskRegisterWorkspace() {
                 </div>)}</div> : <EmptyState title="No department summaries yet" description="Summaries appear when risk data is available for this period." />}
             </div>
           </div>
-           <RecordsTable records={records} loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={viewDetails} search={search} setSearch={setSearch} title="Risk register" />
+           <p className="text-xs text-muted-foreground">Active risks and Assessed cover all matching risks in your authorized departments and selected reporting period.</p>
+           <RecordsTable records={records} totalRecords={activeCount} loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={viewDetails} search={search} setSearch={setSearch} title="Risk register" />
         </section>}
 
         {activePage === 'new' && <NewRiskForm options={options} activeDepartment={department} period={period} mutation={createRisk} mutating={mutating} onSubmit={response => announce(response, 'Risk registered.')} onError={error => setMutationError(queryError(error))} />}
@@ -266,7 +268,7 @@ function RiskRegisterWorkspace() {
           <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.45fr)]">
             <div className="min-w-0">
               <div className="mb-3 flex items-center gap-3"><span className="grid h-8 w-8 place-items-center rounded-lg bg-secondary font-[Space_Mono] text-xs font-bold text-primary">01</span><div><h3 className="font-[Manrope] text-base font-bold">Choose a risk</h3><p className="text-xs text-muted-foreground">Search this permitted assessment queue.</p></div></div>
-              <RecordsTable records={records} loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={selectAssessment} search={search} setSearch={setSearch} title="Assessment queue" compact assessmentList exposureBands={options.exposure_bands ?? []} />
+              <RecordsTable records={records} totalRecords={activeCount} loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={selectAssessment} search={search} setSearch={setSearch} title="Assessment queue" compact assessmentList exposureBands={options.exposure_bands ?? []} />
             </div>
             <div className="min-w-0">
               <div className="mb-3 flex items-center gap-3"><span className="grid h-8 w-8 place-items-center rounded-lg bg-secondary font-[Space_Mono] text-xs font-bold text-primary">02</span><div><h3 className="font-[Manrope] text-base font-bold">Assess and mitigate</h3><p className="text-xs text-muted-foreground">Update factors, controls, actions and root causes.</p></div></div>
@@ -293,7 +295,7 @@ function RiskRegisterWorkspace() {
 
         {activePage === 'review' && <section className="space-y-5">
           <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">Owner review is a recorded decision. Add a comment before approving or returning a department register; comments remain attached to its history.</div>
-           <RecordsTable records={records} loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={selectAssessment} search={search} setSearch={setSearch} title="Submitted risks" />
+           <RecordsTable records={records} totalRecords={activeCount} loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={selectAssessment} search={search} setSearch={setSearch} title="Submitted risks" />
            {selectedRiskCode && assessmentEditor}
           <WorkflowPanel summaries={summaries} departments={departments} assignments={options.assignments} period={period} actor={actor} manage={manage} comments={comments} setComments={setComments} mutating={workflow.isPending} onAction={(action, row) => chooseAction(action, row)} />
         </section>}
@@ -314,7 +316,7 @@ function RiskRegisterWorkspace() {
           }} />
         </section>}
 
-         {activePage === 'closed' && <RecordsTable records={records} closedView loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={viewDetails} search={search} setSearch={setSearch} title="Closed action & archive records" />}
+         {activePage === 'closed' && <RecordsTable records={records} totalRecords={activeCount} closedView loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={viewDetails} search={search} setSearch={setSearch} title="Closed action & archive records" />}
         {activePage === 'history' && <HistoryTable events={history} loading={historyQuery.isLoading} error={historyFailure || (historyQuery.isError ? queryError(historyQuery.error) : '')} retry={() => historyQuery.refetch()} />}
         {activePage === 'import' && manage && <RiskImportPanel key={username} options={options} />}
         {activePage === 'champions' && <TeamMapping options={options} manage={manage} mutating={assignTeam.isPending} onAssign={data => assignTeam.mutate({ data }, { onSuccess: response => announce(response, 'Department team mapping saved.'), onError: error => setMutationError(queryError(error)) })} />}

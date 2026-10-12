@@ -828,10 +828,17 @@ components:
             exposure_bands: { type: array, items: { $ref: "#/components/schemas/RiskExposureBand" } }
     RiskRecordsResponse:
       type: object
-      required: [ok, data]
+      required: [ok, data, totals]
       properties:
         ok: { type: boolean }
         data: { type: array, items: { $ref: "#/components/schemas/RiskRecord" } }
+        totals:
+          type: object
+          description: Counts across the full authorized filtered scope, before the 500-record display limit.
+          required: [active_risks, assessed_risks]
+          properties:
+            active_risks: { type: integer, minimum: 0 }
+            assessed_risks: { type: integer, minimum: 0 }
     RiskRecordResponse:
       type: object
       required: [ok, data]
