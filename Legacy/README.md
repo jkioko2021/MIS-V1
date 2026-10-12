@@ -31,6 +31,9 @@ SHA-256:
 - `Database/DB_MASTER_RENEWAL.sql`
 - `Database/Doc_Arc_DB.sql`
 
+Additional user-supplied SQL Server reference scripts are stored in the root
+`databases/` folder. See `databases/README.md` for their target databases and origins.
+
 These are SQL Server reference scripts, not migrations for the modern PostgreSQL
 application. Some include data inserts. Inspect them without executing them;
 running, importing, or converting database scripts requires a separate request.
