@@ -3,6 +3,7 @@
 
 # No need to store the pnpm store twice.
 .local
+/attached_assets/0_CRM-Replit-Source_1791786043557.zip
 /generated-artifacts/
 /.local-dev/
 /.env.local

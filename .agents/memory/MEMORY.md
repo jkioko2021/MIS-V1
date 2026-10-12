@@ -1,6 +1,7 @@
 # Agent Memory Index
 
-- [MIS Legacy Discovery](mis-legacy-discovery.md) — Legacy CRM is ASP.NET WebForms .NET 4.0 VB.NET; 76 pages, 184 Crystal Reports, 57+ SPs; critical credential exposure in web.config
+- [Updated legacy source](legacy-source-policy.md) — User-designated updated archive supersedes the old snapshot; see Legacy/README.md before legacy analysis.
+- [MIS Legacy Discovery](mis-legacy-discovery.md) — Historical findings from the older snapshot; revalidate against the user-designated updated archive.
 - [MIS Database Map](mis-database-map.md) — 7 confirmed databases (CRM, SALES, MISREPORTS, DATA_REPOSITORY_DB_CLAPI, AAR_RISK_DB, COMMISSION, Doc_Arc_DB); DB connectivity blocked
 - [MIS DB Discovery Tool](mis-db-discovery-tool.md) — Live SQL Server explorer built in mis-v1/api-server; blocked by VPN firewall (fix: add 34.63.120.253/32 to AWS SG port 1433)
 - [MIS Business Rules Extraction](mis-bizrules-progress.md) — BR-AUTH/AUTHZ complete; BR-BT and BR-RISK partial; all docs in 03_Business_Rules/

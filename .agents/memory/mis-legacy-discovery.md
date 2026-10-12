@@ -1,9 +1,13 @@
 ---
 name: MIS Legacy Discovery
-description: Key facts from /Legacy/CRM structural discovery — technology, databases, risks, critical blockers
+description: Historical discovery of the older legacy snapshot; revalidate against the updated source
 ---
 
 # MIS Legacy Discovery — Key Facts
+
+These are historical findings from the older snapshot, not a current inventory.
+The user has designated a newer archive as the authoritative source; consult
+`Legacy/README.md` and `legacy-source-policy.md` before relying on these findings.
 
 **Why:** Durable reference so future sessions don't re-inspect /Legacy from scratch.
 

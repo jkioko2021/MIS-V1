@@ -52,3 +52,5 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+# Large uploaded legacy reference; authority and checksum are recorded in Legacy/README.md.
+/attached_assets/0_CRM-Replit-Source_1791786043557.zip
