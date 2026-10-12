@@ -84,6 +84,8 @@ try{
     assert(options.actor.champion_departments.includes(f.department));
     assert.equal(options.actor.can_manage,false);
     f.category=options.categories[0].category_code;await save();
+    const activeActionStatus=options.action_statuses.find(item=>item.status!=="Closed")?.status;
+    assert.ok(activeActionStatus,"The approved action-status list needs an active non-closed choice for workflow verification.");
     assert.equal((await api("/options",null)).status,401);
     const input={depart_code:f.department,period_id:f.period,objective_code:f.objective,
       risk_title:"Synthetic operational risk",risk_description:"Temporary verification record",
@@ -110,7 +112,7 @@ try{
     assert.equal((await api(`/records/${risk.risk_code}`,"champion","PUT",assessment)).status,409);
     await ok(`/records/${risk.risk_code}/root-causes`,"champion","POST",{
       root_cause:"Process dependency",current_contr:"Existing operational control",mitigations:"Strengthen review checks",
-      due_date:`${year}-03-01`,action_owner:f.accounts.champion.username,action_status:"Planned",
+      due_date:`${year}-03-01`,action_owner:f.accounts.champion.username,action_status:activeActionStatus,
       expected_updated_at:assessed.updated_at});
     await ok("/workflow","champion","POST",wf("SUBMIT"));
     assert.equal((await api("/workflow","champion","POST",wf("SIGN_OFF"))).status,403);
@@ -151,6 +153,15 @@ try{
     assert.equal(ownerRows.length,2);
     const ownerSummaries=await ok(`/summary?access=review&period_id=${f.period}`,"owner","GET");
     assert.deepEqual(ownerSummaries.map(row=>row.depart_code).sort(),[...f.departments].sort());
+    // Dashboard defaults omit depart_code, but the server still scopes both data contracts.
+    for (const [label,expected] of [["admin",f.departments],["owner",f.departments],["champion",[f.department]]]) {
+      const dashboardRows=await ok(`/records?access=view&period_id=${f.period}`,label,"GET");
+      assert.deepEqual(dashboardRows.map(row=>row.depart_code).sort(),[...expected].sort());
+      assert(dashboardRows.every(row=>row.risk_code && row.risk_title),"Dashboard receives risks, not history events.");
+      const dashboardSummary=await ok(`/summary?access=view&period_id=${f.period}`,label,"GET");
+      assert(dashboardSummary.filter(row=>expected.includes(row.depart_code)).every(row=>row.total_risks===1));
+      if (label!=="admin") assert.deepEqual(dashboardSummary.map(row=>row.depart_code).sort(),[...expected].sort());
+    }
     const championRows=await ok(`/records?access=update&period_id=${f.period}`,"champion","GET");
     assert.deepEqual(championRows.map(row=>row.depart_code),[f.department]);
     await ok("/assignments","admin","POST",{depart_code:f.departments[1],

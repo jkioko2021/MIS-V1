@@ -6,9 +6,8 @@ description: Distinguish pending reference migrations from import or authorizati
 Compilation and server health checks do not prove that the development database
 contains the schema required by an authenticated workflow.
 
-**Why:** Pending reference-list work once made the entire risk options endpoint
-fail because its new reference table had not yet been created in development.
-This prevented the import UI from loading before import validation even ran.
+**Why:** An authenticated workflow can depend on approved reference tables that
+are not exercised by compilation or server health checks.
 
 **How to apply:** Treat schema readiness as a separate prerequisite for data
 workflow verification. Never substitute fallback reference values for required

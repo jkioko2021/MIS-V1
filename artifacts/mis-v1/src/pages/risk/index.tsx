@@ -25,6 +25,7 @@ import {
 } from './risk-ui';
 import RiskImportPanel from './risk-import';
 import RiskAssessmentSummary from './risk-assessment-summary';
+import { riskDepartmentSelection } from './department-filter';
 
 type PageKey = 'dashboard' | 'new' | 'update' | 'review' | 'summary' | 'status' | 'open' | 'close' | 'closed' | 'history' | 'client-rating' | 'champions' | 'import';
 const PAGES: Array<{ key: PageKey; title: string; short: string; icon: typeof Shield }> = [
@@ -52,14 +53,19 @@ function RiskRegisterWorkspace() {
   const savedOptions = envelopeData<RiskOptionsResponseData>(optionsQuery.data);
   const options = !optionsQuery.isError && savedOptions?.actor?.username === username ? savedOptions : undefined;
   const actor = options?.actor;
-  const [department, setDepartment] = useState('');
+  const [departmentChoices, setDepartmentChoices] = useState<Partial<Record<PageKey, string>>>({});
   const pageCodes = riskPageDepartments(actor, activePage);
   const departments = (options?.departments ?? []).filter(item => pageCodes === null || pageCodes.includes(item.depart_code ?? ''));
+  const department = riskDepartmentSelection(activePage, departmentChoices[activePage], departments);
+  const setDepartment = (value: string) => setDepartmentChoices(choices => ({ ...choices, [activePage]: value }));
   const pageAllowed = canAccessRiskPage(actor, activePage);
   const dataEnabled = Boolean(options && pageAllowed && (!department || departments.some(item => item.depart_code === department)));
   const access = activePage === 'update' ? 'update' as const : activePage === 'review' ? 'review' as const : 'view' as const;
   const periods = options?.periods ?? [];
-  const [period, setPeriod] = useState('');
+  const [viewPeriod, setViewPeriod] = useState('');
+  const [updatePeriod, setUpdatePeriod] = useState('');
+  const period = activePage === 'update' ? updatePeriod : viewPeriod;
+  const setPeriod = activePage === 'update' ? setUpdatePeriod : setViewPeriod;
   const [search, setSearch] = useState('');
   const [selectedRiskCode, setSelectedRiskCode] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -75,22 +81,18 @@ function RiskRegisterWorkspace() {
   const initializedFor = useRef('');
   useEffect(() => {
     if (!options || actor?.username !== username) return;
-    const filterScope = `${username}:${activePage === 'update' ? 'update' : 'view'}`;
-    if (initializedFor.current !== filterScope) {
-      initializedFor.current = filterScope;
-      const suggested = departments[0]?.depart_code;
-      // Imported risks can span earlier reporting periods and multiple departments.
-      // The Update queue remains scoped to this actor by the API and pageCodes.
-      setDepartment(activePage === 'update' ? '' : suggested ?? '');
+    if (initializedFor.current !== username) {
+      initializedFor.current = username;
       const active = periods.find(item => String(item.status ?? '').toLowerCase() === 'open');
-      setPeriod(activePage === 'update' ? '' : active?.period_id ? String(active.period_id) : '');
+      setViewPeriod(active?.period_id ? String(active.period_id) : '');
       setSearch('');
     } else {
       // Empty values intentionally mean "All", not "pick a default again".
-      if (department && !departments.some(item => item.depart_code === department)) setDepartment('');
+      const choice = departmentChoices[activePage];
+      if (choice && !departments.some(item => item.depart_code === choice)) setDepartment('');
       if (period && !periods.some(item => String(item.period_id) === period)) setPeriod('');
     }
-  }, [options, actor, departments, periods, username, department, period, activePage]);
+  }, [options, actor, departments, periods, username, activePage, departmentChoices, period]);
 
   const params = useMemo(() => ({
     access,
@@ -326,7 +328,9 @@ function RiskRegisterWorkspace() {
 
 export default function RiskRegisterPage() {
   const [location] = useLocation();
+  const { user } = useAuth();
   if (location === '/risk/champions') return <Redirect to="/risk-administration/mappings" />;
   if (location === '/risk/client-rating') return <ClientRatingsPage />;
-  return <RiskRegisterWorkspace />;
+  // Never reuse another actor's filters, selected detail or notices, even with cached options.
+  return <RiskRegisterWorkspace key={user?.username ?? ''} />;
 }

@@ -8,6 +8,7 @@ import {
   assertEditable, assertRecordEditable, assertFresh, lockedRecord, history, calendarDate,
 } from "../lib/risk-register";
 import { riskWorkflowRouter } from "./risk-workflow";
+import { riskImportRouter } from "./risk-import-routes";
 
 const router = Router();
 router.use("/risk-register", privateRiskResponses, requireAuth, requireRiskActor);
@@ -308,4 +309,5 @@ router.post("/risk-register/periods",async(req,res)=>{
   }catch(err){riskFailure(req,res,err);}
 });
 router.use(riskWorkflowRouter);
+router.use(riskImportRouter);
 export default router;
