@@ -23,6 +23,7 @@ import {
   type MedicalUploadInput,
 } from '@/lib/medical-underwriting-api';
 import { DataField, dateLabel, errorText, isForbidden, moneyLabel, SectionHeading } from './shared';
+import { misApi } from '@/lib/mis-api';
 
 type Envelope<T> = { ok: boolean; data: T; error?: string };
 type DetailResult = Envelope<MedicalDetail>;
@@ -64,8 +65,9 @@ export function MedicalFileDetail({
   const [docInvoice, setDocInvoice] = useState('');
   const [docAmount, setDocAmount] = useState('');
   const [docPolicy, setDocPolicy] = useState('');
-  const [riskRate, setRiskRate] = useState('');
+  const [riskRate, setRiskRate] = useState<NonNullable<MedicalUploadInput['risk_rate']> | ''>('');
   const [riskReason, setRiskReason] = useState('');
+  const [originatingSystem, setOriginatingSystem] = useState<NonNullable<MedicalUploadInput['originating_system']> | ''>('');
   const [hpcForm, setHpcForm] = useState<HpcInput>({
     member_no: '',
     member_name: '',
@@ -90,6 +92,11 @@ export function MedicalFileDetail({
   });
 
   const detail = detailQuery.data?.data;
+  const { data: amlSystems } = useQuery({
+    queryKey: ['aml-originating-systems'],
+    queryFn: () => misApi.amlOriginatingSystems(),
+    refetchInterval: 30_000,
+  });
   const file = detail?.file;
   const isDeclined = /declin/i.test(file?.file_status ?? '');
   const canRegisterHpc = !isDeclined || file?.mu_revert === true;
@@ -215,6 +222,9 @@ export function MedicalFileDetail({
       if (isAmlRisk && (!AML_RISK_RATES.includes(riskRate as (typeof AML_RISK_RATES)[number]) || !riskReason.trim())) {
         throw new Error('AML risk documents require a risk rate and rating reason.');
       }
+      if (isAmlRisk && !amlSystems?.data.systems.some(system => system.value === originatingSystem)) {
+        throw new Error('Select an approved AML originating system before uploading.');
+      }
       const storageKey = await medicalApi.uploadBytes(localFile);
       const payload: MedicalUploadInput = {
         req_id: selectedRequirement.req_id,
@@ -225,7 +235,7 @@ export function MedicalFileDetail({
         ...((isInvoiceDoc || isCreditNote) ? { invoice_no: docInvoice.trim() } : {}),
         ...(isCreditNote ? { amount: docAmount.trim() } : {}),
         ...(docPolicy.trim() ? { policy_code: docPolicy.trim() } : {}),
-        ...(isAmlRisk ? { risk_rate: riskRate, risk_reason: riskReason.trim() } : {}),
+        ...(isAmlRisk ? { risk_rate: riskRate || undefined, risk_reason: riskReason.trim(), originating_system: originatingSystem || undefined } : {}),
       };
       return medicalApi.upload(fileNo, payload);
     },
@@ -237,6 +247,7 @@ export function MedicalFileDetail({
       setDocPolicy('');
       setRiskRate('');
       setRiskReason('');
+      setOriginatingSystem('');
       await refreshFileAndQueues();
     },
   });
@@ -356,6 +367,7 @@ export function MedicalFileDetail({
                   setDocPolicy('');
                   setRiskRate('');
                   setRiskReason('');
+                  setOriginatingSystem('');
                 }} className="h-10 w-full rounded-lg border border-[#cfddd6] bg-white px-3 text-sm font-normal text-[#294540] disabled:opacity-60" data-testid="select-document-requirement">
                   <option value="">Choose a requirement</option>
                   {requirements.map(requirement => <option key={requirement.req_id} value={requirement.req_id}>{requirement.req_name}</option>)}
@@ -385,7 +397,7 @@ export function MedicalFileDetail({
               )}
               {isAmlRisk && <>
                 <label className="space-y-1.5 text-xs font-semibold text-[#546c66]">AML risk rate
-                  <select disabled={!reviewable || uploadMutation.isPending} value={riskRate} onChange={event => setRiskRate(event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-[#cfddd6] bg-white px-3 text-sm font-normal disabled:opacity-60" data-testid="select-document-risk-rate">
+                  <select disabled={!reviewable || uploadMutation.isPending} value={riskRate} onChange={event => setRiskRate(event.target.value as typeof riskRate)} className="mt-1 h-10 w-full rounded-lg border border-[#cfddd6] bg-white px-3 text-sm font-normal disabled:opacity-60" data-testid="select-document-risk-rate">
                     <option value="">Select risk rate</option>
                     {AML_RISK_RATES.map(rate => <option key={rate} value={rate}>{rate}</option>)}
                   </select>
@@ -393,12 +405,20 @@ export function MedicalFileDetail({
                 <label className="space-y-1.5 text-xs font-semibold text-[#546c66]">Rating reason
                   <input disabled={!reviewable || uploadMutation.isPending} value={riskReason} maxLength={4000} onChange={event => setRiskReason(event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-[#cfddd6] bg-white px-3 text-sm font-normal disabled:opacity-60" data-testid="input-document-risk-reason" />
                 </label>
+                <label className="space-y-1.5 text-xs font-semibold text-[#546c66]">Originating system
+                  <select disabled={!reviewable || uploadMutation.isPending || !amlSystems?.data.systems.length}
+                    value={originatingSystem} onChange={event => setOriginatingSystem(event.target.value as typeof originatingSystem)}
+                    className="mt-1 h-10 w-full rounded-lg border border-[#cfddd6] bg-white px-3 text-sm font-normal disabled:opacity-60" data-testid="select-medical-aml-system">
+                    <option value="">{amlSystems?.data.systems.length ? 'Select originating system' : 'Approved systems unavailable'}</option>
+                    {amlSystems?.data.systems.map(system => <option key={system.value} value={system.value}>{system.label}</option>)}
+                  </select>
+                </label>
               </>}
             </div>
             {uploadMutation.isError && <p role="alert" className="mt-3 text-xs font-medium text-[#a14b39]">{errorText(uploadMutation.error)}</p>}
             {uploadMutation.isSuccess && <p className="mt-3 text-xs font-semibold text-[#36776d]" role="status">Document attached to the medical file.</p>}
             <div className="mt-3 flex justify-end">
-              <button type="button" disabled={!reviewable || uploadMutation.isPending} onClick={() => uploadMutation.mutate()} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#27655e] px-4 text-xs font-semibold text-white transition hover:bg-[#1f574f] disabled:cursor-not-allowed disabled:opacity-55" data-testid="button-upload-medical-document">{uploadMutation.isPending ? 'Uploading…' : 'Upload document'}<ArrowRight size={13} /></button>
+              <button type="button" disabled={!reviewable || uploadMutation.isPending || (isAmlRisk && !amlSystems?.data.systems.some(system => system.value === originatingSystem))} onClick={() => uploadMutation.mutate()} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#27655e] px-4 text-xs font-semibold text-white transition hover:bg-[#1f574f] disabled:cursor-not-allowed disabled:opacity-55" data-testid="button-upload-medical-document">{uploadMutation.isPending ? 'Uploading…' : 'Upload document'}<ArrowRight size={13} /></button>
             </div>
           </div>
         </section>

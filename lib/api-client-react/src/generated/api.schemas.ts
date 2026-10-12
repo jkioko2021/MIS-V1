@@ -339,6 +339,100 @@ export interface HealthStatus {
   status: string;
 }
 
+export type AllocatedDocumentInputRiskRate = typeof AllocatedDocumentInputRiskRate[keyof typeof AllocatedDocumentInputRiskRate];
+
+
+export const AllocatedDocumentInputRiskRate = {
+  Low: 'Low',
+  High: 'High',
+  Medium: 'Medium',
+} as const;
+
+export type AllocatedDocumentInputOriginatingSystem = typeof AllocatedDocumentInputOriginatingSystem[keyof typeof AllocatedDocumentInputOriginatingSystem];
+
+
+export const AllocatedDocumentInputOriginatingSystem = {
+  eOx: 'eOx',
+  AIMS: 'AIMS',
+} as const;
+
+/**
+ * Dedicated AML risk documents require rate, reason and originating_system. AML Report proof-only uploads do not; any new optional classification requires all three. Existing saved records are not changed.
+ */
+export interface AllocatedDocumentInput {
+  req_id: number;
+  filename: string;
+  /**
+     * @minimum 1
+     * @maximum 10485760
+     */
+  filesize: number;
+  mime_type?: string;
+  storage_key: string;
+  /** @maxLength 25 */
+  invoice_no?: string;
+  amount?: string;
+  /** @maxLength 100 */
+  policy_code?: string;
+  risk_rate?: AllocatedDocumentInputRiskRate;
+  risk_reason?: string;
+  originating_system?: AllocatedDocumentInputOriginatingSystem;
+}
+
+export type MedicalDocumentInput = AllocatedDocumentInput & {
+  /** @maxLength 200 */
+  mime_type: string;
+};
+
+export type AmlOriginatingSystemOptionValue = typeof AmlOriginatingSystemOptionValue[keyof typeof AmlOriginatingSystemOptionValue];
+
+
+export const AmlOriginatingSystemOptionValue = {
+  eOx: 'eOx',
+  AIMS: 'AIMS',
+} as const;
+
+export interface AmlOriginatingSystemOption {
+  value: AmlOriginatingSystemOptionValue;
+  label: string;
+}
+
+export type AmlOriginatingSystemsResponseData = {
+  source: string;
+  systems: AmlOriginatingSystemOption[];
+};
+
+export interface AmlOriginatingSystemsResponse {
+  ok: boolean;
+  data: AmlOriginatingSystemsResponseData;
+}
+
+export interface AllocatedDocumentUpload {
+  upload_id: number;
+  /** @nullable */
+  req_id: number | null;
+  filename: string;
+  /** @nullable */
+  filesize: number | null;
+  /** @nullable */
+  mime_type: string | null;
+  storage_key: string;
+  uploaded_by: string;
+  uploaded_at: string;
+  /** @nullable */
+  invoice_no: string | null;
+  /** @nullable */
+  amount: number | null;
+  /** @nullable */
+  policy_code: string | null;
+  /** @nullable */
+  risk_rate: string | null;
+  /** @nullable */
+  risk_reason: string | null;
+  /** @nullable */
+  originating_system: string | null;
+}
+
 export type ListRiskAdministrationDepartments200 = {
   ok: boolean;
   data: RiskAdministrationDepartment[];
@@ -350,6 +444,7 @@ export type GetClientRatingOptions200Data = {
   total: number;
   source: string;
   scope: string;
+  /** New classifications capture a system; older records may still have null. */
   system_captured: boolean;
 };
 
@@ -401,6 +496,10 @@ export type ListClientRatings200DataRecordsItem = {
   policy_code: string | null;
   proposer: string;
   cover_type: string | null;
+  /**
+     * Explicit saved originating system; unavailable on original records without one.
+     * @nullable
+     */
   system: string | null;
   risk_rating: string;
   reason: string;
@@ -499,5 +598,28 @@ export const GetRiskRegisterSummaryAccess = {
 export type GetRiskRegisterHistoryParams = {
 period_id?: number;
 depart_code?: string;
+};
+
+export type RecordMedicalDocumentUpload201Data = {
+  upload_id: number;
+};
+
+export type RecordMedicalDocumentUpload201 = {
+  ok: boolean;
+  data: RecordMedicalDocumentUpload201Data;
+};
+
+export type ListAllocatedDocumentUploads200 = {
+  ok: boolean;
+  data: AllocatedDocumentUpload[];
+};
+
+export type RecordAllocatedDocumentUpload201Data = {
+  upload_id: number;
+};
+
+export type RecordAllocatedDocumentUpload201 = {
+  ok: boolean;
+  data: RecordAllocatedDocumentUpload201Data;
 };
 

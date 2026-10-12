@@ -218,6 +218,12 @@ sanitizer for backups and is never applied during server startup or deployment.
 
 ## 4. Build and run
 
+When updating an existing local database for originating-system capture on AML
+classifications, apply `lib/db/migrations/0036_aml_originating_system.sql` to that
+local database before running the updated API. It adds nullable document metadata
+and approved-value validation; it does not backfill or change original ratings,
+proof-upload requirements, or handoff flags.
+
 ```bash
 pnpm local:build
 pnpm local:dev

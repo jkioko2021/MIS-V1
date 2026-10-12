@@ -35,7 +35,7 @@ const input = z.object({
 // Do not derive a customer rating from enterprise risk assessment scores.
 const records = `SELECT u.upload_id AS rating_id,u.file_no,
   NULLIF(TRIM(u.policy_code),'') AS policy_code,b.proposer_name AS proposer,
-  b.client_type::text AS cover_type,NULL::text AS system,
+  b.client_type::text AS cover_type,NULLIF(TRIM(u.originating_system),'') AS system,
   TRIM(u.risk_rate) AS risk_rating,u.risk_reason AS reason,
   NULLIF(TRIM(u.invoice_no),'') AS invoice_number,u.uploaded_by AS entered_by,
   u.uploaded_at AS entry_date
@@ -61,7 +61,7 @@ router.get("/client-ratings/options", async (req, res) => {
       total: counts[0]?.total ?? 0,
       source: "Saved AML classifications on MIS business documents. Historical legacy client-rating records have not been imported.",
       scope: "Administrators and Risk Management only. Department champion or owner mapping does not grant access to global customer information.",
-      system_captured: false,
+      system_captured: true,
     } });
   } catch (err) { riskFailure(req, res, err); }
 });

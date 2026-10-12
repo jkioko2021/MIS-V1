@@ -1,3 +1,4 @@
+import type { MedicalDocumentInput } from '@workspace/api-client-react';
 export type MedicalFile = {
   file_no: string; proposer_name: string; family_code: string | null;
   receive_dt: string; premium: string | number; file_status: string;
@@ -21,10 +22,7 @@ export type HpcInput = {
   condition: string; disease_code?: string; diagnosed_date?: string;
   mobile?: string; email?: string; source?: string; followup_date?: string; notes?: string;
 };
-export type MedicalUploadInput = {
-  req_id: number; filename: string; filesize: number; mime_type: string; storage_key: string;
-  invoice_no?: string; amount?: string; policy_code?: string; risk_rate?: string; risk_reason?: string;
-};
+export type MedicalUploadInput = MedicalDocumentInput;
 export type MedicalDetail = {
   file: MedicalFile;
   notes: { note_id: number; note_from: string; notes: string; note_date: string }[];

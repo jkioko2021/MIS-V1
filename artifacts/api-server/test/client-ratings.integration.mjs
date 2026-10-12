@@ -1,7 +1,9 @@
 // Development-only fixtures. --keep supports one authenticated browser pass;
 // --cleanup removes only this script's synthetic metadata/accounts.
 import assert from "node:assert/strict";
-import { readFile, writeFile, rm } from "node:fs/promises";
+import { readFile, writeFile, rm, mkdtemp } from "node:fs/promises";
+import { pathToFileURL, fileURLToPath } from "node:url";
+import { build } from "esbuild";
 import { randomBytes, randomUUID } from "node:crypto";
 import pg from "pg";
 import bcrypt from "bcrypt";
@@ -18,12 +20,28 @@ async function cleanup() {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    await client.query("DELETE FROM crm.business_doc_checklist WHERE file_no=ANY($1::varchar[])", [f.files]);
+    await client.query("DELETE FROM crm.business_tracking_notes WHERE file_no=ANY($1::varchar[])", [f.files]);
     await client.query("DELETE FROM crm.business_uploads WHERE file_no=ANY($1::varchar[])", [f.files]);
     await client.query("DELETE FROM crm.business_tracking WHERE file_no=ANY($1::varchar[])", [f.files]);
     await client.query("DELETE FROM crm.admin_audit_trail WHERE username=ANY($1::varchar[])", [f.users]);
     await client.query("DELETE FROM crm.employees WHERE username=ANY($1::varchar[])", [f.users]);
     if (f.createdProfile) await client.query("DELETE FROM crm.profiles WHERE profile_id=$1", [f.createdProfile]);
     await client.query("COMMIT");
+    if (f.objects?.length) {
+      const temp = await mkdtemp(fileURLToPath(new URL("../node_modules/.aml-cleanup-", import.meta.url)));
+      try {
+        const out = `${temp}/storage.mjs`;
+        await build({ entryPoints: [fileURLToPath(new URL("../src/lib/objectStorage.ts", import.meta.url))],
+          outfile: out, bundle: true, packages: "external", platform: "node", format: "esm" });
+        const { ObjectStorageService } = await import(pathToFileURL(out).href);
+        const storage = new ObjectStorageService();
+        for (const key of f.objects) {
+          const object = await storage.getObjectEntityFile(key);
+          await object.delete({ ignoreNotFound: true });
+        }
+      } finally { await rm(temp, { recursive: true, force: true }); }
+    }
     await rm(fixturePath, { force: true });
   } catch (err) { await client.query("ROLLBACK"); throw err; }
   finally { client.release(); }
@@ -35,6 +53,14 @@ async function api(path = "", role = "admin") {
   const text = await response.text();
   return { status: response.status, headers: response.headers, text,
     body: response.headers.get("content-type")?.includes("application/json") ? JSON.parse(text) : null };
+}
+async function businessApi(path, role = "admin", data) {
+  const response = await fetch(`http://localhost:80/api${path}`, {
+    method: data ? "POST" : "GET",
+    headers: { "Content-Type": "application/json", Cookie: `mis_session=${f.cookies[role]}` },
+    ...(data ? { body: JSON.stringify(data) } : {}),
+  });
+  return { status: response.status, body: await response.json() };
 }
 try {
   if (process.argv.includes("--cleanup")) {
@@ -56,7 +82,10 @@ try {
     }
     const password = `ClientT!${randomBytes(18).toString("hex")}`;
     const hash = await bcrypt.hash(password, 10);
-    for (const [role, profileId] of [["admin", 1], ["champion", 9], ["manager", managerProfile]]) {
+    const { rows: [bpo] } = await pool.query(`SELECT profile_id FROM crm.profiles
+      WHERE is_active AND LOWER(TRIM(profile_name)) IN ('bpo','bpo admin','bpo review') LIMIT 1`);
+    assert(bpo, "An approved BPO profile is required for assigned-user checks.");
+    for (const [role, profileId] of [["admin", 1], ["champion", 9], ["manager", managerProfile], ["bpo", bpo.profile_id], ["otherBpo", bpo.profile_id]]) {
       const username = `${f.prefix}_${role}`;
       f.users.push(username);
       await save();
@@ -122,7 +151,7 @@ try {
     assert.equal((await api(search, "manager")).status, 200);
     const options = await api("/options");
     assert(options.body.data.reasons.includes(f.reason));
-    assert.equal(options.body.data.system_captured, false);
+    assert.equal(options.body.data.system_captured, true);
     const report = await api(`/report${search}`);
     assert.equal(report.status, 200);
     assert.match(report.headers.get("content-type"), /text\/csv/);
@@ -131,12 +160,72 @@ try {
     assert(report.text.includes(`"'@${f.prefix}`)); // Excel formula neutralization.
     const filtered = await api(`/report${search}&rating=High`);
     assert.equal(filtered.text.trim().split("\r\n").length, 8);
-    await pool.query("UPDATE crm.employees SET activated=FALSE WHERE username=$1", [f.accounts.admin.username]);
-    assert([401, 403].includes((await api(search)).status));
-    await pool.query("UPDATE crm.employees SET activated=TRUE WHERE username=$1", [f.accounts.admin.username]);
+    // Exercise the real private-storage upload and allocation capture, then
+    // verify the same saved value in the read-only page data and private CSV.
+    const fileNo = f.files[0];
+    await pool.query(`UPDATE crm.business_tracking SET allocated=TRUE,allocated_to=$2,file_status='ALLOCATED'
+      WHERE file_no=$1`, [fileNo, f.accounts.bpo.username]);
+    const { rows: [document] } = await pool.query(`SELECT req_id FROM crm.business_req
+      WHERE LOWER(TRIM(req_name))='aml report' AND is_active LIMIT 1`);
+    assert(document);
+    f.amlReqId = document.req_id;
+    const source = await businessApi("/business/aml/originating-systems", "bpo");
+    assert.deepEqual(source.body.data.systems.map(s => s.value), ["eOx", "AIMS"]);
+    const bytes = Buffer.from("%PDF-1.4\nSynthetic AML test evidence\n%%EOF");
+    const requested = await businessApi("/storage/uploads/request-url", "bpo", {
+      name: "Synthetic AML.pdf", size: bytes.length, contentType: "application/pdf",
+    });
+    assert.equal(requested.status, 200);
+    f.objects = [requested.body.objectPath];
+    await save();
+    const stored = await fetch(requested.body.uploadURL, {
+      method: "PUT", body: bytes, headers: { "Content-Type": "application/pdf" },
+    });
+    assert.equal(stored.status, 200);
+    const uploadPath = `/business/allocated/${encodeURIComponent(fileNo)}/uploads`;
+    const metadata = { req_id: document.req_id, filename: "Synthetic AML.pdf", filesize: bytes.length,
+      mime_type: "application/pdf", storage_key: requested.body.objectPath };
+    const classified = { ...metadata, risk_rate: "High", risk_reason: f.reason,
+      policy_code: `${f.prefix}_CAPTURE` };
+    assert.equal((await businessApi(uploadPath, "otherBpo", { ...classified, originating_system: "eOx" })).status, 403);
+    for (const system of [undefined, "CLAPI", "eox"]) {
+      const rejected = await businessApi(uploadPath, "bpo", { ...classified, originating_system: system });
+      assert.equal(rejected.status, 400);
+      assert.match(rejected.body.error, /approved AML originating system/);
+    }
+    const proof = await businessApi(uploadPath, "bpo", metadata);
+    assert.equal(proof.status, 201, proof.body.error);
+    const proofRow = await pool.query("SELECT risk_rate,originating_system FROM crm.business_uploads WHERE upload_id=$1",
+      [proof.body.data.upload_id]);
+    assert.deepEqual(proofRow.rows[0], { risk_rate: null, originating_system: null });
+    for (const system of ["eOx", "AIMS"]) {
+      const captured = await businessApi(uploadPath, "bpo", { ...classified, originating_system: system });
+      assert.equal(captured.status, 201, captured.body.error);
+      const saved = await pool.query(`SELECT originating_system,risk_rate,risk_reason FROM crm.business_uploads
+        WHERE upload_id=$1`, [captured.body.data.upload_id]);
+      assert.deepEqual(saved.rows[0], { originating_system: system, risk_rate: "High", risk_reason: f.reason });
+    }
+    const capturedList = await api(`?search_by=policy&search=${f.prefix}_CAPTURE`);
+    assert.deepEqual(capturedList.body.data.records.map(r => r.system).sort(), ["AIMS", "eOx"]);
+    const capturedCsv = await api(`/report?search_by=policy&search=${f.prefix}_CAPTURE`);
+    assert(capturedCsv.text.includes('"eOx"'));
+    assert(capturedCsv.text.includes('"AIMS"'));
+    assert.equal((await api(`/report${search}`, "bpo")).status, 403);
+    assert.equal((await businessApi(uploadPath, "otherBpo")).status, 403);
+    const original = await api(`?search_by=policy&search=${f.prefix}_POLICY_22`);
+    assert.equal(original.body.data.records[0].system, null);
+    assert.equal(original.body.data.records[0].reason, f.reason);
+    assert.equal((await api(search)).body.data.total, 25); // Proof-only upload is not a classification.
+    const history = await pool.query(`SELECT COUNT(*)::int AS n FROM crm.admin_audit_trail
+      WHERE username=$1 AND action_type='BT_UPLOAD'`, [f.accounts.bpo.username]);
+    assert.equal(history.rows[0].n, 3);
+    // Denial revokes this session; do this after capture/report assertions.
+    await pool.query("UPDATE crm.employees SET activated=FALSE WHERE username=$1", [f.accounts.otherBpo.username]);
+    assert([401, 403].includes((await api(search, "otherBpo")).status));
+    await pool.query("UPDATE crm.employees SET activated=TRUE WHERE username=$1", [f.accounts.otherBpo.username]);
     f.expectedPolicy = expectedPolicy;
     await save();
-    console.log("Client Rating checks passed: admin/manager authorization; staff, anonymous and inactive denial; filters; exact policy search; pagination; inactive-upload history retained; CSV parity and formula protection.");
+    console.log("Client Rating checks passed: approved-system capture via real private uploads; proof-only uploads unchanged; original metadata retained; assigned-user permissions; list/CSV parity; private report authorization; filters and formula protection.");
   }
 } finally {
   if (f && !process.argv.includes("--keep") && !process.argv.includes("--cleanup")) await cleanup();

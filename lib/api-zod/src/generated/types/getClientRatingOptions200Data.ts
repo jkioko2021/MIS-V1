@@ -12,5 +12,6 @@ export type GetClientRatingOptions200Data = {
   total: number;
   source: string;
   scope: string;
+  /** New classifications capture a system; older records may still have null. */
   system_captured: boolean;
 };

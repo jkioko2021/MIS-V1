@@ -300,7 +300,7 @@ export default function ClientRatingsPage() {
             </div>
           </footer>
         </>}
-        {options.system_captured === false && <p className="flex items-center gap-2 px-1 text-xs text-muted-foreground"><BadgeCheck className="h-4 w-4 shrink-0 text-primary" />System information is not captured by the modern classification source; no values are inferred.</p>}
+        <p className="flex items-center gap-2 px-1 text-xs text-muted-foreground"><BadgeCheck className="h-4 w-4 shrink-0 text-primary" />Originating system is saved on new AML classifications. Older records without a saved system remain “Not captured”; exports leave those values blank. No values are inferred.</p>
       </main>}
 
       {!options && !optionsQuery.isLoading && !optionsQuery.isError && !optionFailure && !forbidden && <div className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">

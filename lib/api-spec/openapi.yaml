@@ -80,7 +80,9 @@ paths:
                       total: { type: integer }
                       source: { type: string }
                       scope: { type: string }
-                      system_captured: { type: boolean }
+                      system_captured:
+                        type: boolean
+                        description: New classifications capture a system; older records may still have null.
   /client-ratings:
     get:
       operationId: listClientRatings
@@ -116,7 +118,9 @@ paths:
                             policy_code: { type: string, nullable: true }
                             proposer: { type: string }
                             cover_type: { type: string, nullable: true }
-                            system: { type: string, nullable: true }
+                            system:
+                              type: ["string", "null"]
+                              description: Explicit saved originating system; unavailable on original records without one.
                             risk_rating: { type: string }
                             reason: { type: string }
                             invoice_number: { type: string, nullable: true }
@@ -312,6 +316,98 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /medical-underwriting/files/{fileNo}/uploads:
+    post:
+      operationId: recordMedicalDocumentUpload
+      parameters:
+        - name: fileNo
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MedicalDocumentInput" }
+      responses:
+        "201":
+          description: Private medical document saved; AML classifications require an approved originating system
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    required: [upload_id]
+                    properties:
+                      upload_id: { type: integer }
+        "400":
+          description: Invalid document or classification metadata
+        "403":
+          description: Medical account or assigned-user permission required
+  /business/aml/originating-systems:
+    get:
+      operationId: getAmlOriginatingSystems
+      responses:
+        "200":
+          description: Authenticated staff catalog verified from the updated legacy AML writers
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AmlOriginatingSystemsResponse" }
+  /business/allocated/{fileNo}/uploads:
+    parameters:
+      - name: fileNo
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: listAllocatedDocumentUploads
+      responses:
+        "200":
+          description: Private document metadata for the assigned user or SuperAdmin
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/AllocatedDocumentUpload" }
+        "403":
+          description: Not assigned to this file
+    post:
+      operationId: recordAllocatedDocumentUpload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AllocatedDocumentInput" }
+      responses:
+        "201":
+          description: Document classification saved without changing original uploads
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    required: [upload_id]
+                    properties:
+                      upload_id: { type: integer }
+        "400":
+          description: Invalid document metadata or unapproved originating system
+        "403":
+          description: Not assigned to this file
+        "409":
+          description: Allocation changed before the upload could be saved
 components:
   schemas:
     RiskAdministrationDepartment:
@@ -610,4 +706,63 @@ components:
           type: string
       required:
         - status
-
+    MedicalDocumentInput:
+      allOf:
+        - { $ref: "#/components/schemas/AllocatedDocumentInput" }
+        - type: object
+          required: [mime_type]
+          properties:
+            mime_type: { type: string, maxLength: 200 }
+    AmlOriginatingSystemsResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok: { type: boolean }
+        data:
+          type: object
+          required: [systems, source]
+          properties:
+            source: { type: string }
+            systems:
+              type: array
+              items: { $ref: "#/components/schemas/AmlOriginatingSystemOption" }
+    AmlOriginatingSystemOption:
+      type: object
+      required: [value, label]
+      properties:
+        value: { type: string, enum: [eOx, AIMS] }
+        label: { type: string }
+    AllocatedDocumentInput:
+      type: object
+      required: [req_id, filename, filesize, storage_key]
+      description: Dedicated AML risk documents require rate, reason and originating_system. AML Report proof-only uploads do not; any new optional classification requires all three. Existing saved records are not changed.
+      properties:
+        req_id: { type: integer }
+        filename: { type: string }
+        filesize: { type: integer, minimum: 1, maximum: 10485760 }
+        mime_type: { type: string }
+        storage_key: { type: string }
+        invoice_no: { type: string, maxLength: 25 }
+        amount: { type: string }
+        policy_code: { type: string, maxLength: 100 }
+        risk_rate: { type: string, enum: [Low, High, Medium] }
+        risk_reason: { type: string }
+        originating_system: { type: string, enum: [eOx, AIMS] }
+    AllocatedDocumentUpload:
+      type: object
+      required: [upload_id, req_id, filename, filesize, mime_type, storage_key, uploaded_by, uploaded_at, invoice_no, amount, policy_code, risk_rate, risk_reason, originating_system]
+      properties:
+        upload_id: { type: integer }
+        req_id: { type: ["integer", "null"] }
+        filename: { type: string }
+        filesize: { type: ["integer", "null"] }
+        mime_type: { type: ["string", "null"] }
+        storage_key: { type: string }
+        uploaded_by: { type: string }
+        uploaded_at: { type: string, format: date-time }
+        invoice_no: { type: ["string", "null"] }
+        amount: { type: ["number", "null"] }
+        policy_code: { type: ["string", "null"] }
+        risk_rate: { type: ["string", "null"] }
+        risk_reason: { type: ["string", "null"] }
+        originating_system: { type: ["string", "null"] }

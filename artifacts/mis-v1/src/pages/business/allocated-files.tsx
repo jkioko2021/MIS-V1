@@ -155,6 +155,7 @@ function AllocatedFileSheet({
     policyCode: '',
     riskRate: '',
     riskReason: '',
+    originatingSystem: '',
   });
   const [pendingDocumentFile, setPendingDocumentFile] = useState<File | null>(null);
   const { toast } = useToast();
@@ -192,6 +193,11 @@ function AllocatedFileSheet({
   const { data: amlRiskReasonSourceRes } = useQuery({
     queryKey: ['aml-risk-reason-source'],
     queryFn: () => misApi.amlRiskReasons(),
+    refetchInterval: 30_000,
+  });
+  const { data: amlSystemsRes } = useQuery({
+    queryKey: ['aml-originating-systems'],
+    queryFn: () => misApi.amlOriginatingSystems(),
     refetchInterval: 30_000,
   });
   const { data: destinationRes, isLoading: destinationLoading } = useQuery({
@@ -327,6 +333,8 @@ function AllocatedFileSheet({
         policy_code: documentTransaction.policyCode || undefined,
         risk_rate: documentTransaction.riskRate || undefined,
         risk_reason: documentTransaction.riskReason || undefined,
+        originating_system: documentTransaction.riskRate || documentTransaction.riskReason
+          ? documentTransaction.originatingSystem || undefined : undefined,
       });
     },
     onSuccess: async () => {
@@ -338,6 +346,7 @@ function AllocatedFileSheet({
         policyCode: '',
         riskRate: '',
         riskReason: '',
+        originatingSystem: '',
       }));
       setPendingDocumentFile(null);
       await Promise.all([
@@ -584,6 +593,7 @@ function AllocatedFileSheet({
                                   <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                                      <div>
                                        <p>{upload.filename} · uploaded {fmtDate(upload.uploaded_at)}</p>
+                                       {upload.risk_rate && <p>AML {upload.risk_rate} · {upload.risk_reason} · System: {upload.originating_system || 'Not captured'}</p>}
                                        {(upload.invoice_no || upload.amount != null || upload.policy_code || upload.risk_rate) && (
                                          <p className="mt-0.5">
                                            {[
@@ -751,6 +761,7 @@ function AllocatedFileSheet({
                   riskReasonSourceAvailable={amlRiskReasonSource?.available ?? false}
                   riskReasonSourceMessage={amlRiskReasonSource?.message}
                   riskReasonOptions={amlRiskReasonSource?.reasons ?? []}
+                  systemOptions={amlSystemsRes?.data?.systems ?? []}
                   onChange={setDocumentTransaction}
                   onFileChange={setPendingDocumentFile}
                   onUpload={() => uploadMutation.mutate()}

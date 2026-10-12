@@ -12,6 +12,10 @@ export type ListClientRatings200DataRecordsItem = {
   policy_code: string | null;
   proposer: string;
   cover_type: string | null;
+  /**
+     * Explicit saved originating system; unavailable on original records without one.
+     * @nullable
+     */
   system: string | null;
   risk_rating: string;
   reason: string;

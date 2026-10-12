@@ -20,15 +20,21 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AllocatedDocumentInput,
+  AmlOriginatingSystemsResponse,
   GetClientRatingOptions200,
   GetClientRatingsReportParams,
   GetRiskRegisterHistoryParams,
   GetRiskRegisterSummaryParams,
   HealthStatus,
+  ListAllocatedDocumentUploads200,
   ListClientRatings200,
   ListClientRatingsParams,
   ListRiskAdministrationDepartments200,
   ListRiskRegisterRecordsParams,
+  MedicalDocumentInput,
+  RecordAllocatedDocumentUpload201,
+  RecordMedicalDocumentUpload201,
   RiskAdministrationDepartmentResponse,
   RiskAssessmentInput,
   RiskAssignmentInput,
@@ -1415,4 +1421,278 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
+
+export const getRecordMedicalDocumentUploadUrl = (fileNo: string,) => {
+
+
+
+
+  return `/api/medical-underwriting/files/${fileNo}/uploads`
+}
+
+export const recordMedicalDocumentUpload = async (fileNo: string,
+    medicalDocumentInput: MedicalDocumentInput, options?: Parameters<typeof customFetch>[1]): Promise<RecordMedicalDocumentUpload201> => {
+
+  return customFetch<RecordMedicalDocumentUpload201>(getRecordMedicalDocumentUploadUrl(fileNo),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(medicalDocumentInput)
+  }
+);}
+
+
+
+
+
+export const getRecordMedicalDocumentUploadMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordMedicalDocumentUpload>>, TError,{fileNo: string;data: BodyType<MedicalDocumentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordMedicalDocumentUpload>>, TError,{fileNo: string;data: BodyType<MedicalDocumentInput>}, TContext> => {
+
+const mutationKey = ['recordMedicalDocumentUpload'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordMedicalDocumentUpload>>, {fileNo: string;data: BodyType<MedicalDocumentInput>}> = (props) => {
+          const {fileNo,data} = props ?? {};
+
+          return  recordMedicalDocumentUpload(fileNo,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordMedicalDocumentUploadMutationResult = NonNullable<Awaited<ReturnType<typeof recordMedicalDocumentUpload>>>
+    export type RecordMedicalDocumentUploadMutationBody = BodyType<MedicalDocumentInput>
+    export type RecordMedicalDocumentUploadMutationError = ErrorType<void>
+
+    export const useRecordMedicalDocumentUpload = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordMedicalDocumentUpload>>, TError,{fileNo: string;data: BodyType<MedicalDocumentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordMedicalDocumentUpload>>,
+        TError,
+        {fileNo: string;data: BodyType<MedicalDocumentInput>},
+        TContext
+      > => {
+      return useMutation(getRecordMedicalDocumentUploadMutationOptions(options));
+    }
+
+export const getGetAmlOriginatingSystemsUrl = () => {
+
+
+
+
+  return `/api/business/aml/originating-systems`
+}
+
+export const getAmlOriginatingSystems = async ( options?: Parameters<typeof customFetch>[1]): Promise<AmlOriginatingSystemsResponse> => {
+
+  return customFetch<AmlOriginatingSystemsResponse>(getGetAmlOriginatingSystemsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAmlOriginatingSystemsQueryKey = () => {
+    return [
+    `/api/business/aml/originating-systems`
+    ] as const;
+    }
+
+
+export const getGetAmlOriginatingSystemsQueryOptions = <TData = Awaited<ReturnType<typeof getAmlOriginatingSystems>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAmlOriginatingSystems>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAmlOriginatingSystemsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAmlOriginatingSystems>>> = ({ signal }) => getAmlOriginatingSystems({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAmlOriginatingSystems>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAmlOriginatingSystemsQueryResult = NonNullable<Awaited<ReturnType<typeof getAmlOriginatingSystems>>>
+export type GetAmlOriginatingSystemsQueryError = ErrorType<unknown>
+
+
+
+export function useGetAmlOriginatingSystems<TData = Awaited<ReturnType<typeof getAmlOriginatingSystems>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAmlOriginatingSystems>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAmlOriginatingSystemsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListAllocatedDocumentUploadsUrl = (fileNo: string,) => {
+
+
+
+
+  return `/api/business/allocated/${fileNo}/uploads`
+}
+
+export const listAllocatedDocumentUploads = async (fileNo: string, options?: Parameters<typeof customFetch>[1]): Promise<ListAllocatedDocumentUploads200> => {
+
+  return customFetch<ListAllocatedDocumentUploads200>(getListAllocatedDocumentUploadsUrl(fileNo),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAllocatedDocumentUploadsQueryKey = (fileNo: string,) => {
+    return [
+    `/api/business/allocated/${fileNo}/uploads`
+    ] as const;
+    }
+
+
+export const getListAllocatedDocumentUploadsQueryOptions = <TData = Awaited<ReturnType<typeof listAllocatedDocumentUploads>>, TError = ErrorType<void>>(fileNo: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAllocatedDocumentUploads>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAllocatedDocumentUploadsQueryKey(fileNo);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAllocatedDocumentUploads>>> = ({ signal }) => listAllocatedDocumentUploads(fileNo, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: fileNo !== null && fileNo !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAllocatedDocumentUploads>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAllocatedDocumentUploadsQueryResult = NonNullable<Awaited<ReturnType<typeof listAllocatedDocumentUploads>>>
+export type ListAllocatedDocumentUploadsQueryError = ErrorType<void>
+
+
+
+export function useListAllocatedDocumentUploads<TData = Awaited<ReturnType<typeof listAllocatedDocumentUploads>>, TError = ErrorType<void>>(
+ fileNo: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAllocatedDocumentUploads>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAllocatedDocumentUploadsQueryOptions(fileNo,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRecordAllocatedDocumentUploadUrl = (fileNo: string,) => {
+
+
+
+
+  return `/api/business/allocated/${fileNo}/uploads`
+}
+
+export const recordAllocatedDocumentUpload = async (fileNo: string,
+    allocatedDocumentInput: AllocatedDocumentInput, options?: Parameters<typeof customFetch>[1]): Promise<RecordAllocatedDocumentUpload201> => {
+
+  return customFetch<RecordAllocatedDocumentUpload201>(getRecordAllocatedDocumentUploadUrl(fileNo),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(allocatedDocumentInput)
+  }
+);}
+
+
+
+
+
+export const getRecordAllocatedDocumentUploadMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordAllocatedDocumentUpload>>, TError,{fileNo: string;data: BodyType<AllocatedDocumentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordAllocatedDocumentUpload>>, TError,{fileNo: string;data: BodyType<AllocatedDocumentInput>}, TContext> => {
+
+const mutationKey = ['recordAllocatedDocumentUpload'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordAllocatedDocumentUpload>>, {fileNo: string;data: BodyType<AllocatedDocumentInput>}> = (props) => {
+          const {fileNo,data} = props ?? {};
+
+          return  recordAllocatedDocumentUpload(fileNo,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordAllocatedDocumentUploadMutationResult = NonNullable<Awaited<ReturnType<typeof recordAllocatedDocumentUpload>>>
+    export type RecordAllocatedDocumentUploadMutationBody = BodyType<AllocatedDocumentInput>
+    export type RecordAllocatedDocumentUploadMutationError = ErrorType<void>
+
+    export const useRecordAllocatedDocumentUpload = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordAllocatedDocumentUpload>>, TError,{fileNo: string;data: BodyType<AllocatedDocumentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordAllocatedDocumentUpload>>,
+        TError,
+        {fileNo: string;data: BodyType<AllocatedDocumentInput>},
+        TContext
+      > => {
+      return useMutation(getRecordAllocatedDocumentUploadMutationOptions(options));
+    }
 

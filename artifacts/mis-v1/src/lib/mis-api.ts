@@ -1,3 +1,5 @@
+import type { AmlOriginatingSystemsResponse, AllocatedDocumentInput } from '@workspace/api-client-react';
+
 const API_BASE = "/api";
 
 async function get<T>(path: string, params?: Record<string, string>): Promise<T> {
@@ -228,6 +230,7 @@ export interface BusinessUpload {
   policy_code?: string | null;
   risk_rate?: string | null;
   risk_reason?: string | null;
+  originating_system?: string | null;
 }
 
 export interface AmlRiskReasonSource {
@@ -360,11 +363,7 @@ export const misApi = {
     req_id?: number; filename: string; filesize?: number;
     mime_type?: string; storage_key: string;
   }) => post<ApiResponse<{ upload_id: number }>>(`/business/${encodeURIComponent(fileNo)}/uploads`, body),
-  businessAllocatedRecordUpload: (fileNo: string, body: {
-    req_id: number; filename: string; filesize?: number;
-    mime_type?: string; storage_key: string;
-    invoice_no?: string; amount?: string; policy_code?: string; risk_rate?: string; risk_reason?: string;
-  }) => post<ApiResponse<{ upload_id: number }>>(`/business/allocated/${encodeURIComponent(fileNo)}/uploads`, body),
+  businessAllocatedRecordUpload: (fileNo: string, body: AllocatedDocumentInput) => post<ApiResponse<{ upload_id: number }>>(`/business/allocated/${encodeURIComponent(fileNo)}/uploads`, body),
   businessDeleteUpload: (fileNo: string, uploadId: number) =>
     del<ApiResponse<void>>(`/business/${encodeURIComponent(fileNo)}/uploads/${uploadId}`),
 
@@ -378,6 +377,7 @@ export const misApi = {
   updateBusinessRequirement: (docId: number, body: BusinessRequirementInput) =>
     put<ApiResponse<ConfigurableBusinessRequirement>>(`/admin/business-requirements/${docId}`, body),
   amlRiskReasons: () => get<ApiResponse<AmlRiskReasonSource>>('/business/aml/risk-reasons'),
+  amlOriginatingSystems: () => get<AmlOriginatingSystemsResponse>('/business/aml/originating-systems'),
   bpoReviewers: () => get<ApiResponse<BpoReviewer[]>>('/business/bpo-reviewers'),
   walkInStaff: () => get<ApiResponse<Employee[]>>('/business/walk-in-staff'),
   counties: () => get<ApiResponse<string[]>>('/business/counties'),

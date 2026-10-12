@@ -6,6 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './allocatedDocumentInput';
+export * from './allocatedDocumentInputOriginatingSystem';
+export * from './allocatedDocumentInputRiskRate';
+export * from './allocatedDocumentUpload';
+export * from './amlOriginatingSystemOption';
+export * from './amlOriginatingSystemOptionValue';
+export * from './amlOriginatingSystemsResponse';
+export * from './amlOriginatingSystemsResponseData';
 export * from './getClientRatingOptions200';
 export * from './getClientRatingOptions200Data';
 export * from './getClientRatingsReportParams';
@@ -15,6 +23,7 @@ export * from './getRiskRegisterHistoryParams';
 export * from './getRiskRegisterSummaryAccess';
 export * from './getRiskRegisterSummaryParams';
 export * from './healthStatus';
+export * from './listAllocatedDocumentUploads200';
 export * from './listClientRatings200';
 export * from './listClientRatings200Data';
 export * from './listClientRatings200DataRecordsItem';
@@ -25,6 +34,11 @@ export * from './listRiskAdministrationDepartments200';
 export * from './listRiskRegisterRecordsAccess';
 export * from './listRiskRegisterRecordsParams';
 export * from './listRiskRegisterRecordsView';
+export * from './medicalDocumentInput';
+export * from './recordAllocatedDocumentUpload201';
+export * from './recordAllocatedDocumentUpload201Data';
+export * from './recordMedicalDocumentUpload201';
+export * from './recordMedicalDocumentUpload201Data';
 export * from './riskActionStatus';
 export * from './riskAdministrationDepartment';
 export * from './riskAdministrationDepartmentResponse';

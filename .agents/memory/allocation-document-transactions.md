@@ -62,3 +62,17 @@ for every AML Report.
 frontend list. AML Report risk metadata remains optional; when provided, require
 a valid rate/reason pair. Dedicated AML-risk documents retain their mandatory
 metadata validation.
+
+Originating-system choices for AML classifications must be verified from the
+user-designated updated source, not guessed from prefixes or automatically
+assigned from a business lane. The verified legacy AML writers explicitly pass
+eOx for medical allocations and AIMS for nonmedical allocations.
+
+**Why:** The Client Rating System column was an explicit source-system value;
+the user requested approved choices and preservation of unavailable historical
+values rather than inferred backfills.
+
+**How to apply:** Offer the verified choices for explicit selection when saving
+a new classification. Leave existing missing values unavailable. Proof-only AML
+Reports and forwarding must not acquire a system-selection prerequisite. Shared
+upload validators have multiple callers; preserve a usable capture path for each.

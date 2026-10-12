@@ -3,14 +3,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { BusinessDoc } from '@/lib/mis-api';
+import type { AllocatedDocumentInput } from '@workspace/api-client-react';
 
 export type AllocationDocumentTransaction = {
   reqId: number | '';
   invoiceNo: string;
   amount: string;
   policyCode: string;
-  riskRate: string;
+  riskRate: NonNullable<AllocatedDocumentInput['risk_rate']> | '';
   riskReason: string;
+  originatingSystem: NonNullable<AllocatedDocumentInput['originating_system']> | '';
 };
 
 type Props = {
@@ -21,6 +23,7 @@ type Props = {
   riskReasonSourceAvailable: boolean;
   riskReasonSourceMessage?: string;
   riskReasonOptions: Array<{ value: string; label: string }>;
+  systemOptions: Array<{ value: string; label: string }>;
   onChange: (next: AllocationDocumentTransaction) => void;
   onFileChange: (file: File | null) => void;
   onUpload: () => void;
@@ -45,6 +48,7 @@ export function BusinessTransactionPanel({
   riskReasonSourceAvailable,
   riskReasonSourceMessage,
   riskReasonOptions,
+  systemOptions,
   onChange,
   onFileChange,
   onUpload,
@@ -76,6 +80,9 @@ export function BusinessTransactionPanel({
                   : (flags?.isAmlRisk || (usesRiskFields && (value.riskRate || value.riskReason))) &&
                       (!value.riskRate.trim() || !value.riskReason.trim())
                     ? 'Select an AML risk rate and rating reason.'
+                    : usesRiskFields && (value.riskRate || value.riskReason) &&
+                        !systemOptions.some(option => option.value === value.originatingSystem)
+                      ? systemOptions.length ? 'Select an approved originating system.' : 'Approved originating systems are unavailable. Retry before saving a classification.'
                     : null;
   const canUpload =
     !!selectedDocument &&
@@ -120,6 +127,7 @@ export function BusinessTransactionPanel({
                   policyCode: '',
                   riskRate: '',
                   riskReason: '',
+                  originatingSystem: '',
                 })
               }
               disabled={isUploading}
@@ -201,7 +209,7 @@ export function BusinessTransactionPanel({
             <select
               id="transaction-aml-rate"
               value={value.riskRate}
-              onChange={event => onChange({ ...value, riskRate: event.target.value })}
+              onChange={event => onChange({ ...value, riskRate: event.target.value as AllocationDocumentTransaction['riskRate'] })}
               disabled={isUploading || !usesRiskFields}
               className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-70"
             >
@@ -249,6 +257,26 @@ export function BusinessTransactionPanel({
                   ? riskReasonSourceMessage ?? 'AML rating reasons are currently unavailable.'
                   : 'AML fields are inactive unless an AML risk document is selected.'}
               </span>
+            </div>
+          )}
+
+          {usesRiskFields && (
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="transaction-aml-system">Originating System</Label>
+              <select
+                id="transaction-aml-system"
+                data-testid="select-transaction-aml-system"
+                value={value.originatingSystem}
+                onChange={event => onChange({ ...value, originatingSystem: event.target.value as AllocationDocumentTransaction['originatingSystem'] })}
+                disabled={isUploading || !value.riskRate || !value.riskReason || !systemOptions.length}
+                className="h-9 w-full rounded-md border border-[#b9d5d0] bg-background px-2 text-sm disabled:opacity-70"
+              >
+                <option value="">{systemOptions.length ? 'Select originating system…' : 'Unavailable'}</option>
+                {systemOptions.map(system => <option key={system.value} value={system.value}>{system.label}</option>)}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Required for a new AML classification. An AML Report uploaded only as proof does not require a system. Existing classifications remain unchanged.
+              </p>
             </div>
           )}
 

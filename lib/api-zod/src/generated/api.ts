@@ -69,7 +69,7 @@ export const GetClientRatingOptionsResponse = zod.object({
   "total": zod.number().int(),
   "source": zod.string(),
   "scope": zod.string(),
-  "system_captured": zod.boolean()
+  "system_captured": zod.boolean().describe('New classifications capture a system; older records may still have null.')
 })
 })
 
@@ -99,7 +99,7 @@ export const ListClientRatingsResponse = zod.object({
   "policy_code": zod.string().nullable(),
   "proposer": zod.string(),
   "cover_type": zod.string().nullable(),
-  "system": zod.string().nullable(),
+  "system": zod.string().nullable().describe('Explicit saved originating system; unavailable on original records without one.'),
   "risk_rating": zod.string(),
   "reason": zod.string(),
   "invoice_number": zod.string().nullable(),
@@ -603,6 +603,115 @@ export const AssignRiskRegisterTeamResponse = zod.object({
  */
 export const HealthCheckResponse = zod.object({
   "status": zod.string()
+})
+
+
+export const RecordMedicalDocumentUploadParams = zod.object({
+  "fileNo": zod.coerce.string()
+})
+
+export const recordMedicalDocumentUploadBodyOneFilesizeMax = 10485760;
+
+export const recordMedicalDocumentUploadBodyOneInvoiceNoMax = 25;
+
+export const recordMedicalDocumentUploadBodyOnePolicyCodeMax = 100;
+
+export const recordMedicalDocumentUploadBodyTwoMimeTypeMax = 200;
+
+
+
+export const RecordMedicalDocumentUploadBody = zod.object({
+  "req_id": zod.number().int(),
+  "filename": zod.string(),
+  "filesize": zod.number().int().min(1).max(recordMedicalDocumentUploadBodyOneFilesizeMax),
+  "mime_type": zod.string(),
+  "storage_key": zod.string(),
+  "invoice_no": zod.string().max(recordMedicalDocumentUploadBodyOneInvoiceNoMax).optional(),
+  "amount": zod.string().optional(),
+  "policy_code": zod.string().max(recordMedicalDocumentUploadBodyOnePolicyCodeMax).optional(),
+  "risk_rate": zod.enum(['Low', 'High', 'Medium']).optional(),
+  "risk_reason": zod.string().optional(),
+  "originating_system": zod.enum(['eOx', 'AIMS']).optional()
+}).describe('Dedicated AML risk documents require rate, reason and originating_system. AML Report proof-only uploads do not; any new optional classification requires all three. Existing saved records are not changed.').and(zod.object({
+  "mime_type": zod.string().max(recordMedicalDocumentUploadBodyTwoMimeTypeMax)
+}))
+
+export const RecordMedicalDocumentUploadResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.object({
+  "upload_id": zod.number().int()
+})
+})
+
+
+export const GetAmlOriginatingSystemsResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.object({
+  "source": zod.string(),
+  "systems": zod.array(zod.object({
+  "value": zod.enum(['eOx', 'AIMS']),
+  "label": zod.string()
+}))
+})
+})
+
+
+export const ListAllocatedDocumentUploadsParams = zod.object({
+  "fileNo": zod.coerce.string()
+})
+
+export const ListAllocatedDocumentUploadsResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.array(zod.object({
+  "upload_id": zod.number().int(),
+  "req_id": zod.number().int().nullable(),
+  "filename": zod.string(),
+  "filesize": zod.number().int().nullable(),
+  "mime_type": zod.string().nullable(),
+  "storage_key": zod.string(),
+  "uploaded_by": zod.string(),
+  "uploaded_at": zod.coerce.date(),
+  "invoice_no": zod.string().nullable(),
+  "amount": zod.number().nullable(),
+  "policy_code": zod.string().nullable(),
+  "risk_rate": zod.string().nullable(),
+  "risk_reason": zod.string().nullable(),
+  "originating_system": zod.string().nullable()
+}))
+})
+
+
+export const RecordAllocatedDocumentUploadParams = zod.object({
+  "fileNo": zod.coerce.string()
+})
+
+export const recordAllocatedDocumentUploadBodyFilesizeMax = 10485760;
+
+export const recordAllocatedDocumentUploadBodyInvoiceNoMax = 25;
+
+export const recordAllocatedDocumentUploadBodyPolicyCodeMax = 100;
+
+
+
+export const RecordAllocatedDocumentUploadBody = zod.object({
+  "req_id": zod.number().int(),
+  "filename": zod.string(),
+  "filesize": zod.number().int().min(1).max(recordAllocatedDocumentUploadBodyFilesizeMax),
+  "mime_type": zod.string().optional(),
+  "storage_key": zod.string(),
+  "invoice_no": zod.string().max(recordAllocatedDocumentUploadBodyInvoiceNoMax).optional(),
+  "amount": zod.string().optional(),
+  "policy_code": zod.string().max(recordAllocatedDocumentUploadBodyPolicyCodeMax).optional(),
+  "risk_rate": zod.enum(['Low', 'High', 'Medium']).optional(),
+  "risk_reason": zod.string().optional(),
+  "originating_system": zod.enum(['eOx', 'AIMS']).optional()
+}).describe('Dedicated AML risk documents require rate, reason and originating_system. AML Report proof-only uploads do not; any new optional classification requires all three. Existing saved records are not changed.')
+
+export const RecordAllocatedDocumentUploadResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.object({
+  "upload_id": zod.number().int()
+})
 })
 
 

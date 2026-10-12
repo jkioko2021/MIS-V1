@@ -5,6 +5,7 @@ import { query, queryOne, withTransaction, txQuery } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
 import { requireAllocatedFileReadAccess, requireBpoAllocatedAccess, requireBpoForwardAccess, requireBpoReviewAccess, requireBusinessDeleteAccess, requireBusinessFileAccess, requireBusinessTrackingAccess } from "../lib/business-permissions";
 import { isAllocationDocument, isExcludedAllocationDocument } from "../lib/allocation-documents";
+import { AML_ORIGINATING_SYSTEMS, amlSystemValidation } from "../lib/aml-systems";
 import { logger } from "../lib/logger";
 import { ObjectNotFoundError, ObjectStorageService } from "../lib/document-storage";
 import { queueCorporatePricing } from "../lib/pricing-review";
@@ -170,6 +171,7 @@ export function uploadDocumentValidation(input: {
   policyCode?: unknown;
   riskRate?: unknown;
   riskReason?: unknown;
+  originatingSystem?: unknown;
 }): string | null {
   const filename = safeUploadFilename(input.filename);
   const extension = filename.slice(filename.lastIndexOf(".")).toLowerCase();
@@ -209,9 +211,13 @@ export function uploadDocumentValidation(input: {
   if (input.policyCode != null && text(input.policyCode).length > 100) {
     return "Policy code must be 100 characters or fewer.";
   }
-  if (isAmlRisk && (!AML_RISK_RATES.has(riskRate) || !riskReason)) {
+  if ((isAmlRisk || riskRate || riskReason) && (!AML_RISK_RATES.has(riskRate) || !riskReason)) {
     return "AML risk documents require a risk rate and rating reason.";
   }
+  const systemError = amlSystemValidation({
+    reqName: input.reqName, riskRate, riskReason, system: input.originatingSystem,
+  });
+  if (systemError) return systemError;
   return null;
 }
 
@@ -457,6 +463,13 @@ router.get("/business/allocation-destinations", requireBpoAllocatedAccess, async
 });
 
 // User-approved AML reference values are maintained in the local lookup table.
+router.get("/business/aml/originating-systems", (_req: Request, res: Response) => {
+  res.json({ ok: true, data: {
+    systems: AML_ORIGINATING_SYSTEMS.map(value => ({ value, label: value })),
+    source: "Verified AML writers in the updated legacy source: medical eOx and nonmedical AIMS. Select the actual originating system; no values are inferred.",
+  } });
+});
+
 router.get("/business/aml/risk-reasons", async (_req: Request, res: Response) => {
   try {
     const rows = await query<{ reason_name: string }>(
@@ -1069,10 +1082,11 @@ router.get("/business/allocated/:fileNo/uploads", requireAllocatedFileReadAccess
       storage_key: string; uploaded_by: string; uploaded_at: string;
       invoice_no: string | null; amount: number | null; policy_code: string | null;
       risk_rate: string | null; risk_reason: string | null;
+      originating_system: string | null;
     }>(
       `SELECT upload_id, req_id, filename, filesize, mime_type,
               storage_key, uploaded_by, uploaded_at, invoice_no, amount,
-              policy_code, risk_rate, risk_reason
+              policy_code, risk_rate, risk_reason, originating_system
        FROM crm.business_uploads
        WHERE file_no=$1 AND is_active=TRUE
        ORDER BY uploaded_at DESC`,
@@ -1092,10 +1106,11 @@ router.post("/business/allocated/:fileNo/uploads", requireAllocatedFileReadAcces
     res.status(400).json({ ok: false, error: "A file number is required." });
     return;
   }
-  const { req_id, filename, filesize, mime_type, storage_key, invoice_no, amount, policy_code, risk_rate, risk_reason } =
+  const { req_id, filename, filesize, mime_type, storage_key, invoice_no, amount, policy_code, risk_rate, risk_reason, originating_system } =
     req.body as {
       req_id?: number; filename?: string; filesize?: number; mime_type?: string; storage_key?: string;
       invoice_no?: unknown; amount?: unknown; policy_code?: unknown; risk_rate?: unknown; risk_reason?: unknown;
+      originating_system?: unknown;
     };
   if (!filename || !storage_key || !req_id) {
     res.status(400).json({ ok: false, error: "Select a document and provide its filename and storage key." });
@@ -1135,6 +1150,7 @@ router.post("/business/allocated/:fileNo/uploads", requireAllocatedFileReadAcces
       filename, filesize, reqName: requirement.req_name, invoiceNo: invoice_no,
       allocationInvoice: true,
       amount, policyCode: policy_code, riskRate: risk_rate, riskReason: risk_reason,
+      originatingSystem: originating_system,
     });
     if (validationError) {
       res.status(400).json({ ok: false, error: validationError });
@@ -1183,13 +1199,14 @@ router.post("/business/allocated/:fileNo/uploads", requireAllocatedFileReadAcces
       const [upload] = await txQuery<{ upload_id: number }>(client,
         `INSERT INTO crm.business_uploads
            (file_no, req_id, filename, filesize, mime_type, storage_key, uploaded_by,
-            invoice_no, amount, policy_code, risk_rate, risk_reason)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+            invoice_no, amount, policy_code, risk_rate, risk_reason, originating_system)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
          RETURNING upload_id`,
         [
           fileNo, Number(req_id), cleanFilename, filesize ?? null, mime_type ?? null, storage_key,
           req.user!.username, text(invoice_no) || null, amountValue, text(policy_code) || null,
           text(risk_rate) || null, text(risk_reason) || null,
+          text(originating_system) || null,
         ],
       );
       if (!upload) throw new Error("UPLOAD_RECORD_FAILED");

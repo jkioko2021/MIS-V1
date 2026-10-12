@@ -1,3 +1,4 @@
+import { AML_ORIGINATING_SYSTEMS } from "../lib/aml-systems";
 import { Router } from "express";
 import { Readable } from "stream";
 import { z } from "zod";
@@ -41,6 +42,7 @@ const uploadSchema = z.object({
   mime_type: z.string().max(200), storage_key: z.string().regex(/^\/objects\/uploads\/[a-zA-Z0-9-]+$/),
   invoice_no: optionalText(25), amount: optionalText(50), policy_code: optionalText(100),
   risk_rate: optionalText(20), risk_reason: optionalText(4000),
+  originating_system: z.enum(AML_ORIGINATING_SYSTEMS).optional(),
 });
 const fileNoOf = (value: string | string[]) => Array.isArray(value) ? value[0]! : value;
 
@@ -200,7 +202,8 @@ router.post("/medical-underwriting/files/:fileNo/uploads", async (req, res) => {
       if (!requirement) throw new MedicalError(400, "Select an active document requirement applicable to this file.");
       const validation = uploadDocumentValidation({ filename: input.filename, filesize: input.filesize,
         reqName: requirement.req_name, invoiceNo: input.invoice_no, amount: input.amount,
-        policyCode: input.policy_code, riskRate: input.risk_rate, riskReason: input.risk_reason });
+        policyCode: input.policy_code, riskRate: input.risk_rate, riskReason: input.risk_reason,
+        originatingSystem: input.originating_system });
       if (validation) throw new MedicalError(400, validation);
       if (input.amount && (!Number.isFinite(Number(input.amount)) || Number(input.amount) < 0))
         throw new MedicalError(400, "Amount must be a non-negative number.");
@@ -209,11 +212,11 @@ router.post("/medical-underwriting/files/:fileNo/uploads", async (req, res) => {
       const [metadata] = await object.getMetadata();
       if (Number(metadata.size) !== input.filesize) throw new MedicalError(400, "Uploaded document size does not match.");
       const [upload] = await txQuery(client, `INSERT INTO crm.business_uploads
-        (file_no,req_id,filename,filesize,mime_type,storage_key,uploaded_by,invoice_no,amount,policy_code,risk_rate,risk_reason)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING upload_id`,
+        (file_no,req_id,filename,filesize,mime_type,storage_key,uploaded_by,invoice_no,amount,policy_code,risk_rate,risk_reason,originating_system)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING upload_id`,
       [fileNo, input.req_id, safeUploadFilename(input.filename), input.filesize, input.mime_type, input.storage_key,
         res.locals.medUsername, input.invoice_no || null, input.amount ? Number(input.amount) : null,
-        input.policy_code || null, input.risk_rate || null, input.risk_reason || null]);
+        input.policy_code || null, input.risk_rate || null, input.risk_reason || null, input.originating_system || null]);
       await txQuery(client, `UPDATE crm.business_doc_checklist SET upload_id=$3,acknowledged_by=$4,acknowledged_at=NOW()
         WHERE file_no=$1 AND req_id=$2 AND is_selected`, [fileNo, input.req_id, upload!.upload_id, res.locals.medUsername]);
       await txQuery(client, `UPDATE crm.business_tracking SET updated_at=NOW() WHERE file_no=$1`, [fileNo]);
