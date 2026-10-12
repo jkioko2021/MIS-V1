@@ -39,6 +39,18 @@ The Update Register risk summary must order risks by highest saved residual expo
 
 **How to apply:** Sort scores numerically, keep missing exposures last, show textual level labels alongside severity colors, and do not recompute or alter saved assessments just to order the rows.
 
+The Update Register summary shows only successfully saved assessments for the current department and reporting period. Users must be able to view every saved root cause per risk; review submission still covers all active risks in that cycle.
+
+**Why:** The user explicitly requested risks to appear after Save Assessment, root-cause visibility per risk, and submission only once all risks are assessed.
+
+**How to apply:** Do not restrict readiness checks to the visible assessed subset or to the chooser search results. Returned/reopened assessments must be saved again before appearing; no existing root causes or history should be deleted.
+
+Hide Root ID and risk code in the Root causes & action plans section.
+
+**Why:** The user explicitly asked to hide both identifiers.
+
+**How to apply:** Keep the identifiers internally for selection and updates; hide them in desktop columns, mobile cards and root-editor headings. This does not change risk-code visibility elsewhere in the register.
+
 Objective codes are department-scoped and can legitimately repeat across departments.
 
 **Why:** The supplied objective master reuses codes for different objective names in different departments.

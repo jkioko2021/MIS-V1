@@ -40,6 +40,7 @@ vm.runInNewContext(compiled, {
     if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx };
     if (name === './risk-ui') return ui;
     if (name === './use-risk-register') return {};
+    if (name === './risk-root-cause-table') return { default: 'RiskRootCauseTable' };
     if (name === 'lucide-react') return {};
     throw new Error(`Unexpected dependency: ${name}`);
   },
@@ -107,12 +108,13 @@ async function main() {
   find(node => node.type === 'form').props.onSubmit({ preventDefault() {} });
   assert.equal(payload.desired_contr_effe, 'Good');
   assert.equal(payload.control_effectiveness, 0.8);
-  button('Existing cause').props.onClick();
+  find(node => node.type === 'RiskRootCauseTable').props.onSelect(props.roots[0]);
   assert.equal(field('Root cause').props.value, 'Existing cause');
+  assert.equal(field('Current controls').type, 'textarea');
   let rootForm = () => flatten(render()).filter(node => node.type === 'form')[1];
   await rootForm().props.onSubmit({ preventDefault() {} });
   assert.equal(payload.root_id, 11);
-  button('Existing cause').props.onClick();
+  find(node => node.type === 'RiskRootCauseTable').props.onSelect(props.roots[0]);
   button('Add another root cause').props.onClick();
   assert.equal(field('Root cause').props.value, '');
   fillRoot();

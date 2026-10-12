@@ -5,6 +5,7 @@ import { useRiskRecords } from './use-risk-register';
 import { RiskSubmissionGate } from './risk-workflow';
 import { orderRiskSummary } from './risk-summary-order';
 import { riskExposureColors } from './risk-exposure-colors';
+import RiskSummaryCauses from './risk-summary-causes';
 import {
   dateLabel, EmptyState, envelopeData, envelopeError, ErrorNotice, Field, fieldClass, SkeletonRows,
 } from './risk-ui';
@@ -30,7 +31,8 @@ function factorName(value: string | null | undefined, factors: Array<{ code: str
   const normalized = String(value).trim().toLowerCase();
   const found = factors.find(item =>
     [item.code, item.label, String(item.factor), item.rate, item.criteria]
-      .some(candidate => candidate != null && String(candidate).trim().toLowerCase() === normalized),
+      .some(candidate => candidate != null && String(candidate).trim().toLowerCase() === normalized)
+      || (normalized !== '' && Number.isFinite(Number(value)) && Number(item.factor) === Number(value)),
   );
   return found?.label ?? 'Historical rating';
 }
@@ -83,6 +85,7 @@ export default function RiskAssessmentSummary({
     () => orderRiskSummary((returnedRecords ?? []).filter(item => item.is_active !== false)),
     [returnedRecords],
   );
+  const assessedRecords = activeRecords.filter(record => record.assessment_updated === true);
   const recordsError = activeRecordsQuery.data ? envelopeError(activeRecordsQuery.data) ?? '' : '';
   const recordsFailed = activeRecordsQuery.isError || Boolean(recordsError);
   const listShort = Boolean(row && returnedRecords && !recordsFailed && activeRecords.length !== row.total_risks);
@@ -107,15 +110,17 @@ export default function RiskAssessmentSummary({
           : !isChampion ? 'Only management or a champion mapped to this department can submit its register.'
             : !isOpen ? `This register is ${row.workflow_status || 'not open'}; only an open register can be submitted.`
               : !activeOwner ? 'No active Risk Owner is mapped to this department. Contact management to assign one.'
-                : activeRecordsQuery.isLoading || activeRecordsQuery.isFetching || !returnedRecords ? 'Checking every active risk and its root causes…'
-                  : recordsFailed ? recordsError || 'The active risk list could not be verified. Retry before submitting.'
+                : recordsFailed ? recordsError || 'The active risk list could not be verified. Retry before submitting.'
+                  : activeRecordsQuery.isLoading || activeRecordsQuery.isFetching || !returnedRecords ? 'Checking every active risk and its root causes…'
                     : listShort ? `The active risk list is incomplete: ${activeRecords.length} returned of ${row.total_risks} expected. Retry the register query.`
+                      : assessedRecords.length !== activeRecords.length ? `Save assessments for all active risks before submitting: ${assessedRecords.length} of ${row.total_risks} assessed.`
                       : !gateCurrent || !gateReady ? readiness.label || 'Checking assessment and root-cause readiness…'
                         : !comments.trim() ? 'Add a decision comment before sending this register for review.'
                             : mutating ? 'A risk register action is being saved. Wait for it to finish before submitting again.'
                               : '';
 
   const canSubmit = Boolean(row && !loading && !error && isChampion && isOpen && activeOwner
+    && activeRecords.length > 0 && assessedRecords.length === activeRecords.length
     && !activeRecordsQuery.isLoading && !activeRecordsQuery.isFetching && !recordsFailed && !listShort && gateReady && comments.trim() && !mutating);
 
   return <section className="overflow-hidden rounded-2xl border border-border bg-card" data-testid="risk-assessment-summary">
@@ -123,7 +128,7 @@ export default function RiskAssessmentSummary({
       <div className="max-w-2xl">
         <div className="mb-2 flex items-center gap-2 text-primary"><ClipboardList className="h-4 w-4" /><span className="text-[10px] font-bold uppercase tracking-[.17em]">Department cycle closeout</span></div>
         <h3 className="font-[Manrope] text-xl font-extrabold sm:text-2xl">Risk summary</h3>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">Every active risk in this department and period, ordered by highest saved residual exposure first. Risks without a saved exposure appear last. This summary is independent of the assessment-list search.</p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">Risks appear here after Save Assessment succeeds for this department and period, ordered by highest residual exposure first. Submit for review becomes available only when every active risk is assessed and has a saved root cause.</p>
         <div className="mt-3 flex flex-wrap gap-2" aria-label="Residual risk color key">{['Extreme', 'High', 'Moderate', 'Low'].map(level => <span key={level} className={`rounded-full px-2 py-1 text-[10px] font-semibold ${riskExposureColors(level).badge}`}>{level}</span>)}</div>
       </div>
       <div className="grid w-full gap-3 sm:w-auto sm:min-w-[420px] sm:grid-cols-2">
@@ -148,24 +153,24 @@ export default function RiskAssessmentSummary({
           : <div className="p-5 sm:p-6">
             <div className="mb-4 flex flex-col gap-3 border-l-2 border-primary pl-4 sm:flex-row sm:items-center sm:justify-between">
               <div><div className="text-sm font-bold">{row.depart_name}</div><div className="mt-1 font-[Space_Mono] text-[10px] text-muted-foreground">{row.depart_code} · Period {row.period_id} · {dateLabel(row.period_from)} – {dateLabel(row.period_to)}</div></div>
-              <div className="flex flex-wrap items-center gap-2 text-xs"><span className="rounded-md bg-secondary px-2.5 py-1.5 font-semibold text-primary">{row.total_risks} active risks expected</span><span className="rounded-md border border-border px-2.5 py-1.5">{row.assessed_risks ?? 0} assessed</span></div>
+              <div className="flex flex-wrap items-center gap-2 text-xs"><span className="rounded-md bg-secondary px-2.5 py-1.5 font-semibold text-primary">{row.total_risks} active risks expected</span><span data-testid="risk-summary-progress" className="rounded-md border border-border px-2.5 py-1.5">{assessedRecords.length} of {row.total_risks} assessed</span></div>
             </div>
 
             {activeRecordsQuery.isLoading ? <div className="py-4"><SkeletonRows /></div>
               : recordsFailed ? <ErrorNotice message={recordsError || 'Could not load the complete risk list.'} onRetry={() => activeRecordsQuery.refetch()} />
                 : listShort ? <div className="mb-4"><ErrorNotice message={`The register returned ${activeRecords.length} active risks, but the department summary expects ${row.total_risks}. Submission is blocked until the complete cycle is returned.`} onRetry={() => activeRecordsQuery.refetch()} /></div>
-                  : activeRecords.length === 0 ? <div className="py-4"><EmptyState title="No active risks in this cycle" description="There are no active risk records to include in this department summary." /></div>
+                  : assessedRecords.length === 0 ? <div className="py-4"><EmptyState title="No current assessments saved" description="Choose a risk above and click Save Assessment. Successfully saved assessments will appear here; unfinished risks remain in the assessment list." /></div>
                     : <div className="overflow-x-auto rounded-xl border border-border">
                       <table className="w-full min-w-[1120px] text-left text-sm">
                         <thead className="bg-muted/60 text-[10px] uppercase tracking-wider text-muted-foreground">
-                          <tr>{['Risk code / title', 'Impact', 'Likelihood', 'Inherent exposure', 'Perceived control', 'Residual exposure', 'Assessment'].map(label => <th key={label} className="px-4 py-3 font-bold">{label}</th>)}</tr>
+                          <tr>{['Risk code / title', 'Impact', 'Likelihood', 'Inherent exposure', 'Perceived control', 'Residual exposure', 'Root causes'].map(label => <th key={label} className="px-4 py-3 font-bold">{label}</th>)}</tr>
                         </thead>
                         <tbody className="divide-y divide-border">
-                          {activeRecords.map(record => {
+                          {assessedRecords.map(record => {
                             const inherent = exposureBand(record.i_risk_exposure, 'I', options);
                             const residual = exposureBand(record.r_risk_exposure, 'R', options);
                             const colors = riskExposureColors(residual.band);
-                            const topExposure = activeRecords[0]?.r_risk_exposure;
+                            const topExposure = assessedRecords[0]?.r_risk_exposure;
                             const highest = topExposure != null && topExposure.trim() !== '' && Number.isFinite(Number(topExposure))
                               && residual.score !== '—' && Number(residual.score) === Number(topExposure);
                             const controlPercent = record.perceived_contr_eff == null ? Number.NaN : Number(record.perceived_contr_eff);
@@ -185,7 +190,7 @@ export default function RiskAssessmentSummary({
                               <td className="px-4 py-3"><ScopeExposure score={inherent.score} band={inherent.band} /></td>
                               <td className="px-4 py-3"><span className="font-semibold">{control?.eff_factor ?? (record.perceived_contr_eff != null ? 'Historical rating' : 'Not assessed')}</span><span className="mt-1 block text-[10px] text-muted-foreground">{control?.qual_criteria ?? 'Retained as recorded'}</span></td>
                               <td className="px-4 py-3"><ScopeExposure score={residual.score} band={residual.band} /></td>
-                              <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${record.assessment_updated ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900'}`}>{record.assessment_updated ? 'Assessed' : 'Assessment needed'}</span></td>
+                              <td className="px-4 py-3"><RiskSummaryCauses username={options.actor.username} riskCode={record.risk_code} staff={options.staff} /></td>
                             </tr>;
                           })}
                         </tbody>

@@ -69,13 +69,12 @@ export function RiskSubmissionGate({ username, departCode, periodId, ownerAssign
   const [statuses, setStatuses] = useState<Record<string, RiskReadinessState>>({});
   const onReadyRef = useMemo(() => ({ current: onReady }), []);
   onReadyRef.current = onReady;
-  useEffect(() => { setStatuses({}); }, [listQuery.data]);
   const listError = listQuery.data ? envelopeError(listQuery.data) : undefined;
   const listFailed = listQuery.isError || Boolean(listError);
   const detailFailed = activeRecords.some(record => statuses[record.risk_code] === 'error');
   const waiting = enabled && ownerAssigned && (listQuery.isLoading || listQuery.isFetching || !records || activeRecords.some(record => !statuses[record.risk_code] || statuses[record.risk_code] === 'loading'));
   const completeList = expectedRiskCount === undefined || activeRecords.length === expectedRiskCount;
-  const ready = enabled && ownerAssigned && !waiting && !listFailed && completeList && activeRecords.length > 0 && activeRecords.every(record => statuses[record.risk_code] === 'ready');
+  const ready = enabled && ownerAssigned && !waiting && !listFailed && completeList && activeRecords.length > 0 && activeRecords.every(record => record.assessment_updated && statuses[record.risk_code] === 'ready');
   const label = !ownerAssigned ? 'No active owner is mapped for this department. Contact management to assign an owner before submitting.'
     : listFailed ? 'Could not verify assessment and root-cause readiness. Retry the register query.'
     : detailFailed ? 'Could not verify one or more risk details. Reload the register before submitting.'
