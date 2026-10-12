@@ -35,6 +35,8 @@ const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.Modu
 const exportsObject = {};
 vm.runInNewContext(compiled, {
   exports: exportsObject,
+  window: { requestAnimationFrame: callback => callback() },
+  document: { getElementById: () => ({ focus() {} }) },
   require(name) {
     if (name === 'react') return react;
     if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx };
@@ -48,7 +50,7 @@ vm.runInNewContext(compiled, {
 let payload;
 let saveSucceeds = true;
 const props = {
-  risk: { risk_code: 'TEST', depart_code: 'D', period_id: 1, can_edit: true, workflow_status: 'OPEN', i_rate: '70', l_rate: '0.65', perceived_contr_eff: '80', desired_contr_effe: 'Original desired-control notes', objective_code: 'OBJ', risk_category: 'CAT', risk_title: 'Risk', risk_description: 'Description', risk_consequence: 'Consequence', updated_at: 'initial' },
+  risk: { risk_code: 'TEST', depart_code: 'D', period_id: 1, can_edit: true, workflow_status: 'OPEN', i_rate: '70', l_rate: '0.65', perceived_contr_eff: '80', current_contr: 'Legacy assessment controls retained', desired_contr_effe: 'Original desired-control notes', objective_code: 'OBJ', risk_category: 'CAT', risk_title: 'Risk', risk_description: 'Description', risk_consequence: 'Consequence', updated_at: 'initial' },
   roots: [{ root_id: 11, root_cause: 'Existing cause', mitigations: 'Existing mitigation', due_date: '2026-12-01', action_owner: 'owner', action_status: 'Planned' }],
   staff: [{ username: 'owner' }], objectives: [{ obj_code: 'OBJ', depart_code: 'D' }], categories: [{ category_code: 'CAT' }],
   actionStatuses: [{ code: 'AC_02', status: 'Planned' }],
@@ -88,7 +90,19 @@ function fillRoot() {
 }
 async function main() {
   const nodes = flatten(render());
-  const assessmentForm = () => flatten(render()).filter(node => node.type === 'form')[0];
+  const tab = label => find(node => node.props?.role === 'tab' && flattenText(node) === label);
+  assert.equal(tab('Root causes & action plans').props['aria-selected'], true, 'Root causes is the first/default tab');
+  assert.equal(tab('Risk exposures').props['aria-selected'], false);
+  assert.deepEqual(nodes.filter(node => node.props?.role === 'tab').map(flattenText), ['Root causes & action plans', 'Risk exposures']);
+  field('Root cause').props.onChange({ target: { value: 'Draft kept across tabs' } });
+  tab('Risk exposures').props.onClick();
+  assert.equal(tab('Risk exposures').props['aria-selected'], true);
+  assert.equal(find(node => node.props?.id === 'risk-panel-causes').props.hidden, true);
+  tab('Root causes & action plans').props.onClick();
+  assert.equal(field('Root cause').props.value, 'Draft kept across tabs', 'Switching tabs keeps an unsaved root draft');
+  tab('Root causes & action plans').props.onKeyDown({ key: 'ArrowRight', preventDefault() {} });
+  assert.equal(tab('Risk exposures').props['aria-selected'], true, 'Keyboard navigation changes tabs');
+  const assessmentForm = () => find(node => node.type === 'form' && flattenText(node).includes('Assessment & controls'));
   assert.equal(assessmentForm().props.noValidate, true, 'Required-field errors are handled visibly in the assessment form');
   await assessmentForm().props.onSubmit({ preventDefault() {} });
   assert.equal(payload, undefined, 'Blank comments must not submit an assessment');
@@ -104,19 +118,21 @@ async function main() {
   assert.equal(flatten(sections[1]).filter(node => node.type === 'select').length, 2);
   assert.equal(field('Desired control effectiveness').type, 'select');
   field('Assessment comment (required)').props.onChange({ target: { value: 'Testing' } });
-  await find(node => node.type === 'form').props.onSubmit({ preventDefault() {} });
+  await assessmentForm().props.onSubmit({ preventDefault() {} });
   assert.equal(payload.i_rate, 70);
   assert.equal(payload.l_rate, 0.65);
   assert.equal(payload.control_effectiveness, 0.8);
+  assert.equal(payload.current_contr, 'Legacy assessment controls retained', 'Removing the exposure control field must not erase historical data');
+  assert.equal(flatten(render()).filter(node => node.type === 'Field' && node.props.label === 'Current controls').length, 1, 'Current controls is shown only on the root-cause form');
   assert.equal(payload.desired_contr_effe, 'Original desired-control notes');
   field('Desired control effectiveness').props.onChange({ target: { value: 'Good' } });
-  await find(node => node.type === 'form').props.onSubmit({ preventDefault() {} });
+  await assessmentForm().props.onSubmit({ preventDefault() {} });
   assert.equal(payload.desired_contr_effe, 'Good');
   assert.equal(payload.control_effectiveness, 0.8);
   find(node => node.type === 'RiskRootCauseTable').props.onSelect(props.roots[0]);
   assert.equal(field('Root cause').props.value, 'Existing cause');
   assert.equal(field('Current controls').type, 'textarea');
-  let rootForm = () => flatten(render()).filter(node => node.type === 'form')[1];
+  let rootForm = () => find(node => node.type === 'form' && flattenText(node).includes('Root causes & action plans'));
   await rootForm().props.onSubmit({ preventDefault() {} });
   assert.equal(payload.root_id, 11);
   find(node => node.type === 'RiskRootCauseTable').props.onSelect(props.roots[0]);
@@ -136,7 +152,7 @@ async function main() {
   assert.equal(field('Impact factor').props.value, 'historical');
   assert.equal(field('Likelihood factor').props.value, 'historical');
   assert.equal(field('Perceived control effectiveness').props.value, 'historical');
-  await find(node => node.type === 'form').props.onSubmit({ preventDefault() {} });
+  await assessmentForm().props.onSubmit({ preventDefault() {} });
   assert.equal(payload.i_rate, 42);
   assert.equal(payload.l_rate, 0.3);
   assert.equal(payload.control_effectiveness, 0.17);
@@ -152,6 +168,22 @@ async function main() {
   await assessmentForm().props.onSubmit({ preventDefault() {} });
   assert(flattenText(assessmentForm()).includes('Assessment saved successfully.'));
   assert(!flattenText(assessmentForm()).includes('Your entries are retained'));
+  const savedRoots = props.roots;
+  props.roots = [];
+  tab('Root causes & action plans').props.onClick();
+  assert.equal(tab('Risk exposures').props['aria-disabled'], 'true');
+  tab('Risk exposures').props.onClick();
+  assert.equal(tab('Root causes & action plans').props['aria-selected'], true, 'Rootless editable risk cannot enter assessment');
+  payload = undefined;
+  await assessmentForm().props.onSubmit({ preventDefault() {} });
+  assert.equal(payload, undefined, 'Handler also blocks assessment before a root cause is persisted');
+  props.risk = { ...props.risk, can_edit: false };
+  tab('Risk exposures').props.onClick();
+  assert.equal(tab('Risk exposures').props['aria-selected'], true, 'Read-only users can view exposures without roots');
+  props.roots = savedRoots;
+  props.risk = { ...props.risk, risk_code: 'OTHER', can_edit: true };
+  render();
+  assert.equal(tab('Root causes & action plans').props['aria-selected'], true, 'Changing risk restarts the root-first flow');
   console.log('PASS: separate inherent/residual sections and label-only dropdowns preserve calculations and historical desired-control notes; root causes support edit/add, failed-save retention and successful reset.');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

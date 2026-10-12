@@ -51,6 +51,12 @@ Hide Root ID and risk code in the Root causes & action plans section.
 
 **How to apply:** Keep the identifiers internally for selection and updates; hide them in desktop columns, mobile cards and root-editor headings. This does not change risk-code visibility elsewhere in the register.
 
+Assessment entry uses two tabs: Root causes & action plans first, then Risk exposures. Users save a root cause before completing the assessment. Current controls belongs on the root-cause form, not under exposures.
+
+**Why:** The user requested this order and field placement, with Save Assessment computing the summary.
+
+**How to apply:** Keep drafts when switching tabs and refresh the saved summary after assessment persistence. Preserve historical risk-level control notes even though their input is no longer shown; this is a presentation change, not permission to delete saved notes.
+
 Objective codes are department-scoped and can legitimately repeat across departments.
 
 **Why:** The supplied objective master reuses codes for different objective names in different departments.

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { ClipboardCheck, ClipboardList, FilePlus2 } from 'lucide-react';
 import type { RiskActionStatus, RiskControlEffectiveness, RiskImpactFactor, RiskLikelihoodFactor, RiskExposureBand, RiskAssessmentInput, RiskCauseInput, RiskLookup, RiskRecord, RiskRootCause, RiskOptionsResponseData } from '@workspace/api-client-react';
 import { useCreateRisk } from './use-risk-register';
@@ -83,7 +83,6 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
   const [impact, setImpact] = useState('');
   const [likelihood, setLikelihood] = useState('');
   const [effectiveness, setEffectiveness] = useState('');
-  const [currentControls, setCurrentControls] = useState('');
   const [desiredControls, setDesiredControls] = useState('');
   const [comment, setComment] = useState('');
   const [cause, setCause] = useState('');
@@ -96,7 +95,9 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
   const [formError, setFormError] = useState('');
   const [assessmentError, setAssessmentError] = useState('');
   const [assessmentSaved, setAssessmentSaved] = useState(false);
+  const [rootSaved, setRootSaved] = useState(false);
   const [rootDirty, setRootDirty] = useState(false);
+  const [activeTab, setActiveTab] = useState<'causes' | 'exposures'>('causes');
   const lastAssessmentRisk = useRef('');
   useEffect(() => {
     if (!risk || (rootDirty && lastAssessmentRisk.current === risk.risk_code)) return;
@@ -106,14 +107,14 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
     // This column stores a percentage, including valid values below 1%.
     // Do not infer fractional units from its magnitude.
     setEffectiveness(Number.isFinite(historicalPercent) ? String(historicalPercent) : '');
-    setCurrentControls(risk.current_contr ?? ''); setDesiredControls(risk.desired_contr_effe ?? '');
+    setDesiredControls(risk.desired_contr_effe ?? '');
   }, [risk?.risk_code, risk?.updated_at]);
   useEffect(() => {
     setRiskTitle(risk?.risk_title ?? ''); setDescription(risk?.risk_description ?? '');
     setConsequence(risk?.risk_consequence ?? ''); setObjective(risk?.objective_code ?? '');
     setCategory(risk?.risk_category ?? '');
     setRootId(''); setCause(''); setRootControls(''); setMitigations(''); setDueDate(''); setOwner('');
-    setStatus(''); setComment(''); setFormError(''); setAssessmentError(''); setAssessmentSaved(false); setRootDirty(false);
+    setStatus(''); setComment(''); setFormError(''); setAssessmentError(''); setAssessmentSaved(false); setRootSaved(false); setRootDirty(false); setActiveTab('causes');
   }, [risk?.risk_code]);
   const inherent = Number(impact) * Number(likelihood);
   const residual = inherent * (1 - Number(effectiveness || 0) / 100);
@@ -125,6 +126,12 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
     event.preventDefault();
     if (!allowed || mutating) return;
     setAssessmentSaved(false);
+    if (roots.length === 0) {
+      setAssessmentError('');
+      setFormError('Save at least one root cause and action plan before completing the risk exposure assessment.');
+      setActiveTab('causes');
+      return;
+    }
     const i = Number(impact); const l = Number(likelihood); const eff = Number(effectiveness);
     if (!impact.trim() || !likelihood.trim() || !effectiveness.trim() || !(i > 0 && i <= 100 && l > 0 && l <= 100 && eff >= 0 && eff <= 100)) {
       setAssessmentError('Select valid impact, likelihood and perceived control effectiveness before saving.'); return;
@@ -141,7 +148,7 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
     setAssessmentError('');
     const code = risk.risk_code;
     try {
-      const error = await onSave({ depart_code: risk.depart_code, period_id: risk.period_id, objective_code: objective, risk_title: riskTitle.trim(), risk_description: description.trim(), risk_category: category, risk_consequence: consequence.trim(), i_rate: i, l_rate: l, control_effectiveness: eff / 100, current_contr: currentControls, desired_contr_effe: desiredControls, expected_updated_at: risk.updated_at, comments: comment.trim() }, code);
+      const error = await onSave({ depart_code: risk.depart_code, period_id: risk.period_id, objective_code: objective, risk_title: riskTitle.trim(), risk_description: description.trim(), risk_category: category, risk_consequence: consequence.trim(), i_rate: i, l_rate: l, control_effectiveness: eff / 100, current_contr: risk.current_contr ?? '', desired_contr_effe: desiredControls, expected_updated_at: risk.updated_at, comments: comment.trim() }, code);
       if (lastAssessmentRisk.current !== code) return;
       if (error) setAssessmentError(error);
       else setAssessmentSaved(true);
@@ -149,9 +156,9 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
       if (lastAssessmentRisk.current === code) setAssessmentError('The assessment could not be saved. Your entries are retained; please try again.');
     }
   };
-   const startNewRoot = () => {
+    const startNewRoot = () => {
      setRootId(''); setCause(''); setRootControls(''); setMitigations('');
-     setDueDate(''); setOwner(''); setStatus(''); setFormError(''); setRootDirty(false);
+      setDueDate(''); setOwner(''); setStatus(''); setFormError(''); setRootSaved(false); setRootDirty(false);
    };
    const saveRoot = async (event: FormEvent) => {
     event.preventDefault();
@@ -164,10 +171,38 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
     if (!cause.trim() || !mitigations.trim() || !dueDate || !owner.trim()) {
       setFormError('Root cause, mitigations, due date and action owner must be provided.'); return;
     }
-    setFormError('');
+      setFormError(''); setRootSaved(false);
      const code = risk.risk_code;
-     const saved = await onCause({ ...(rootId ? { root_id: Number(rootId) } : {}), root_cause: cause.trim(), current_contr: rootControls, mitigations: mitigations.trim(), due_date: dueDate, action_owner: owner.trim(), action_status: status, expected_updated_at: risk.updated_at }, code);
-     if (saved && lastAssessmentRisk.current === code) startNewRoot();
+      try {
+        const saved = await onCause({ ...(rootId ? { root_id: Number(rootId) } : {}), root_cause: cause.trim(), current_contr: rootControls, mitigations: mitigations.trim(), due_date: dueDate, action_owner: owner.trim(), action_status: status, expected_updated_at: risk.updated_at }, code);
+        if (lastAssessmentRisk.current !== code) return;
+        if (saved) {
+          setRootSaved(true);
+          startNewRoot();
+          setRootSaved(true);
+        } else setFormError('The root cause and action plan could not be saved. Your entries are retained; please try again.');
+      } catch {
+        if (lastAssessmentRisk.current === code) setFormError('The root cause and action plan could not be saved. Your entries are retained; please try again.');
+      }
+  };
+  const selectTab = (tab: 'causes' | 'exposures') => {
+    if (tab === 'exposures' && allowed && roots.length === 0) return;
+    setActiveTab(tab);
+  };
+  const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    const tabs: Array<'causes' | 'exposures'> = ['causes', 'exposures'];
+    const current = tabs.indexOf(activeTab);
+    let next = current;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (current + 1) % tabs.length;
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (current - 1 + tabs.length) % tabs.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = tabs.length - 1;
+    else return;
+    event.preventDefault();
+    const target = tabs[next];
+    if (target === 'exposures' && allowed && roots.length === 0) return;
+    setActiveTab(target);
+    window.requestAnimationFrame(() => document.getElementById(`risk-tab-${target}`)?.focus());
   };
   return <section className="min-w-0 space-y-4">
     <div className="rounded-2xl border border-border bg-card p-5">
@@ -175,7 +210,42 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
       {risk.workflow_status.toLowerCase().includes('submit') && <p className="mt-4 rounded-lg bg-secondary/70 p-3 text-xs text-foreground">Mapped owners and management can correct assessments and mitigations while the register is submitted. Editability follows the server-provided can_edit permission.</p>}
       {risk.can_edit === false && <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">This record is not editable in its current workflow state. Existing assessments and root causes remain visible.</p>}
     </div>
-    <form onSubmit={saveAssessment} noValidate onChange={() => setAssessmentSaved(false)} className="rounded-2xl border border-border bg-card p-5">
+     <div className="overflow-hidden rounded-2xl border border-border bg-card">
+       <div role="tablist" aria-label="Risk assessment sections" className="flex flex-wrap border-b border-border px-3 pt-3 sm:px-5">
+         <button id="risk-tab-causes" type="button" role="tab" aria-controls="risk-panel-causes" aria-selected={activeTab === 'causes'} tabIndex={activeTab === 'causes' ? 0 : -1} onClick={() => selectTab('causes')} onKeyDown={handleTabKeyDown} className={`border-b-2 px-3 py-3 text-left text-sm font-semibold transition-colors ${activeTab === 'causes' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>Root causes &amp; action plans</button>
+         <button id="risk-tab-exposures" type="button" role="tab" aria-controls="risk-panel-exposures" aria-selected={activeTab === 'exposures'} aria-disabled={allowed && roots.length === 0 ? 'true' : undefined} tabIndex={activeTab === 'exposures' ? 0 : -1} onClick={() => selectTab('exposures')} onKeyDown={handleTabKeyDown} className={`border-b-2 px-3 py-3 text-left text-sm font-semibold transition-colors ${activeTab === 'exposures' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'} ${allowed && roots.length === 0 ? 'cursor-not-allowed opacity-50' : ''}`}>Risk exposures</button>
+       </div>
+       <section id="risk-panel-causes" role="tabpanel" aria-labelledby="risk-tab-causes" hidden={activeTab !== 'causes'} className="p-5">
+        <form onSubmit={saveRoot} className="space-y-4">
+         <div className="mb-4 flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-[Manrope] text-lg font-bold">Root causes &amp; action plans</h3><p className="mt-1 text-xs text-muted-foreground">A risk can have multiple root causes, each with its own action plan. Select a saved cause to edit it, or add another.</p></div><button type="button" className={secondaryButton} onClick={startNewRoot} disabled={!allowed || mutating}>Add another root cause</button></div>
+         <RiskRootCauseTable roots={roots} staff={staff} selectedRootId={rootId} mutating={mutating} onSelect={root => { setRootId(String(root.root_id)); setCause(root.root_cause); setRootControls(root.current_contr ?? ''); setMitigations(root.mitigations ?? ''); setDueDate(root.due_date?.slice(0, 10) ?? ''); setOwner(root.action_owner ?? ''); setStatus(root.action_status as RiskCauseInput['action_status']); setRootDirty(true); setFormError(''); setRootSaved(false); }} />
+         <p className="mb-3 text-xs font-semibold">{rootId ? 'Editing selected root cause' : 'Adding a new root cause'}</p>
+         <div className="grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2"><Field label="Root cause"><textarea className={`${fieldClass} min-h-16`} value={cause} onChange={event => { setCause(event.target.value); setRootDirty(true); setRootSaved(false); }} disabled={!allowed} required /></Field></div>
+          <div className="sm:col-span-2"><Field label="Mitigations"><textarea className={`${fieldClass} min-h-16`} value={mitigations} onChange={event => { setMitigations(event.target.value); setRootDirty(true); setRootSaved(false); }} disabled={!allowed} required /></Field></div>
+          <div className="sm:col-span-2"><Field label="Current controls"><textarea className={`${fieldClass} min-h-16`} value={rootControls} onChange={event => { setRootControls(event.target.value); setRootDirty(true); setRootSaved(false); }} disabled={!allowed} /></Field></div>
+          <Field label="Due date"><input className={fieldClass} type="date" value={dueDate} onChange={event => { setDueDate(event.target.value); setRootDirty(true); setRootSaved(false); }} disabled={!allowed} required /></Field>
+          <Field label="Action owner (MIS username)"><select className={fieldClass} value={owner} onChange={event => { setOwner(event.target.value); setRootDirty(true); setRootSaved(false); }} disabled={!allowed} required><option value="">Choose owner</option>{owner && !staff.some(person => person.username === owner) && roots.some(root => String(root.root_id) === rootId && root.action_owner === owner) && <option value={owner}>{owner} (historical, retained)</option>}{staff.map((person, index) => <option key={person.username ?? index} value={person.username ?? ''}>{person.employee_name ?? person.username} · {person.username}</option>)}</select></Field>
+          <Field label="Action status" hint={actionStatuses.find(item => item.status === status)?.description ?? (status && !actionStatuses.some(item => item.status === status) ? 'Historical status. Keep unchanged or choose an approved status.' : undefined)}>
+            <select className={fieldClass} value={status} onChange={event => { setStatus(event.target.value); setRootDirty(true); setRootSaved(false); }} disabled={!allowed || actionStatuses.length === 0} required data-testid="select-risk-action-status">
+              <option value="">Choose action status</option>
+              {status && !actionStatuses.some(item => item.status === status) && roots.some(root => String(root.root_id) === rootId && root.action_status === status) && <option value={status}>{status} (legacy)</option>}
+              {actionStatuses.map(item => <option key={item.code} value={item.status}>{item.code} · {item.status}</option>)}
+            </select>
+            {actionStatuses.length === 0 && <p role="alert" className="mt-1 text-xs text-destructive">Action statuses are unavailable. Refresh the page before saving.</p>}
+          </Field>
+         </div>
+         {formError && <p role="alert" className="mt-3 text-xs font-medium text-destructive">{formError}</p>}
+         {rootSaved && <p role="status" className="mt-3 rounded-lg bg-primary/10 p-3 text-xs text-primary">Root cause and action plan saved successfully. You can add another cause or continue to risk exposures.</p>}
+         <div className="mt-4 flex flex-wrap justify-between gap-3">
+           <button type="button" className={secondaryButton} disabled={roots.length === 0} onClick={() => selectTab('exposures')}>Continue to Risk exposures</button>
+           <button className={secondaryButton} disabled={!allowed || mutating || actionStatuses.length === 0} type="submit"><ClipboardList className="h-4 w-4" />{rootId ? 'Update root cause' : 'Save new root cause'}</button>
+         </div>
+        </form>
+       </section>
+       <section id="risk-panel-exposures" role="tabpanel" aria-labelledby="risk-tab-exposures" hidden={activeTab !== 'exposures'} className="p-5">
+        {allowed && roots.length === 0 && <p role="status" className="mb-4 rounded-lg bg-secondary/70 p-3 text-xs text-foreground">Save at least one root cause and action plan before completing the risk exposure assessment.</p>}
+     <form onSubmit={saveAssessment} noValidate onChange={() => setAssessmentSaved(false)}>
       <h3 className="font-[Manrope] text-lg font-bold">Assessment & controls</h3><p className="mb-4 mt-1 text-xs text-muted-foreground">Exposure is recalculated as impact × likelihood. Residual exposure applies the new control fraction to inherent exposure.</p>
       <div className="mb-5 grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2"><Field label="Risk title"><input className={fieldClass} value={riskTitle} onChange={event => setRiskTitle(event.target.value)} maxLength={150} disabled={!allowed} required /></Field></div>
@@ -236,35 +306,13 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
         </fieldset>
       </div>
       <div className="mt-4 grid gap-4">
-        <Field label="Current controls"><textarea className={`${fieldClass} min-h-16`} value={currentControls} onChange={event => setCurrentControls(event.target.value)} disabled={!allowed} /></Field>
         <Field label="Assessment comment (required)"><textarea className={`${fieldClass} min-h-16`} value={comment} onChange={event => setComment(event.target.value)} maxLength={4000} disabled={!allowed} required placeholder="Explain the basis for this assessment or what changed." /></Field>
       </div>
       {assessmentError && <p role="alert" className="mt-4 rounded-lg bg-destructive/10 p-3 text-xs text-destructive">{assessmentError}</p>}
       {assessmentSaved && <p role="status" className="mt-4 rounded-lg bg-primary/10 p-3 text-xs text-primary">Assessment saved successfully.</p>}
-      {formError && <p role="alert" className="mt-3 text-xs font-medium text-destructive">{formError}</p>}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-muted-foreground">Last updated {dateLabel(risk.updated_at)}</span><button className={buttonClass} disabled={!allowed || mutating} type="submit"><ClipboardCheck className="h-4 w-4" />Save assessment</button></div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-muted-foreground">Last updated {dateLabel(risk.updated_at)}</span><button className={buttonClass} disabled={!allowed || mutating || roots.length === 0} type="submit"><ClipboardCheck className="h-4 w-4" />Save assessment</button></div>
     </form>
-    <form onSubmit={saveRoot} className="rounded-2xl border border-border bg-card p-5">
-       <div className="mb-4 flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-[Manrope] text-lg font-bold">Root causes & action plans</h3><p className="mt-1 text-xs text-muted-foreground">A risk can have multiple root causes, each with its own action plan. Select a saved cause to edit it, or add another.</p></div><button type="button" className={secondaryButton} onClick={startNewRoot} disabled={!allowed || mutating}>Add another root cause</button></div>
-      <RiskRootCauseTable roots={roots} staff={staff} selectedRootId={rootId} mutating={mutating} onSelect={root => { setRootId(String(root.root_id)); setCause(root.root_cause); setRootControls(root.current_contr ?? ''); setMitigations(root.mitigations ?? ''); setDueDate(root.due_date?.slice(0, 10) ?? ''); setOwner(root.action_owner ?? ''); setStatus(root.action_status as RiskCauseInput['action_status']); setRootDirty(true); }} />
-       <p className="mb-3 text-xs font-semibold">{rootId ? 'Editing selected root cause' : 'Adding a new root cause'}</p>
-       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="sm:col-span-2"><Field label="Root cause"><textarea className={`${fieldClass} min-h-16`} value={cause} onChange={event => { setCause(event.target.value); setRootDirty(true); }} disabled={!allowed} required /></Field></div>
-        <div className="sm:col-span-2"><Field label="Mitigations"><textarea className={`${fieldClass} min-h-16`} value={mitigations} onChange={event => { setMitigations(event.target.value); setRootDirty(true); }} disabled={!allowed} required /></Field></div>
-        <div className="sm:col-span-2"><Field label="Current controls"><textarea className={`${fieldClass} min-h-16`} value={rootControls} onChange={event => { setRootControls(event.target.value); setRootDirty(true); }} disabled={!allowed} /></Field></div>
-        <Field label="Due date"><input className={fieldClass} type="date" value={dueDate} onChange={event => { setDueDate(event.target.value); setRootDirty(true); }} disabled={!allowed} required /></Field>
-        <Field label="Action owner (MIS username)"><select className={fieldClass} value={owner} onChange={event => { setOwner(event.target.value); setRootDirty(true); }} disabled={!allowed} required><option value="">Choose owner</option>{owner && !staff.some(person => person.username === owner) && roots.some(root => String(root.root_id) === rootId && root.action_owner === owner) && <option value={owner}>{owner} (historical, retained)</option>}{staff.map((person, index) => <option key={person.username ?? index} value={person.username ?? ''}>{person.employee_name ?? person.username} · {person.username}</option>)}</select></Field>
-        <Field label="Action status" hint={actionStatuses.find(item => item.status === status)?.description ?? (status && !actionStatuses.some(item => item.status === status) ? 'Historical status. Keep unchanged or choose an approved status.' : undefined)}>
-          <select className={fieldClass} value={status} onChange={event => { setStatus(event.target.value); setRootDirty(true); }} disabled={!allowed || actionStatuses.length === 0} required data-testid="select-risk-action-status">
-            <option value="">Choose action status</option>
-            {status && !actionStatuses.some(item => item.status === status) && roots.some(root => String(root.root_id) === rootId && root.action_status === status) && <option value={status}>{status} (legacy)</option>}
-            {actionStatuses.map(item => <option key={item.code} value={item.status}>{item.code} · {item.status}</option>)}
-          </select>
-          {actionStatuses.length === 0 && <p role="alert" className="mt-1 text-xs text-destructive">Action statuses are unavailable. Refresh the page before saving.</p>}
-        </Field>
-      </div>
-      {formError && <p role="alert" className="mt-3 text-xs font-medium text-destructive">{formError}</p>}
-       <div className="mt-4 flex justify-end"><button className={secondaryButton} disabled={!allowed || mutating || actionStatuses.length === 0} type="submit"><ClipboardList className="h-4 w-4" />{rootId ? 'Update root cause' : 'Save new root cause'}</button></div>
-    </form>
+       </section>
+     </div>
   </section>;
 }
