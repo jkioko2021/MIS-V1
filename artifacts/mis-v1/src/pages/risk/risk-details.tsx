@@ -1,13 +1,25 @@
 import { ArrowUpRight, Search, ShieldAlert, X } from 'lucide-react';
-import type { RiskHistoryEvent, RiskRecord, RiskRootCause } from '@workspace/api-client-react';
+import type { RiskExposureBand, RiskHistoryEvent, RiskRecord, RiskRootCause } from '@workspace/api-client-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { dateLabel, EmptyState, ErrorNotice, Exposure, prettyKey, secondaryButton, SkeletonRows, Snapshot, StatusPill, text } from './risk-ui';
 
 type RiskRecordWithCompletedActions = RiskRecord & { completed_action_count?: number };
 
-export function RecordsTable({ records, loading, error, retry, onSelect, search, setSearch, title, compact = false, closedView = false }: {
+export function residualRiskSummary(value: string | null | undefined, bands: RiskExposureBand[]) {
+  const score = value == null || !value.trim() ? Number.NaN : Number(value);
+  const rounded = Math.round(score * 100) / 100;
+  const band = Number.isFinite(score)
+    ? bands.find(item => item.risk_type === 'R' && rounded >= item.minimum && rounded <= item.maximum)
+    : undefined;
+  return band
+    ? { label: band.level, description: band.description }
+    : { label: Number.isFinite(score) ? 'Unclassified' : 'Not assessed', description: Number.isFinite(score) ? 'No configured residual risk band matches the saved assessment.' : 'Complete the assessment to determine the residual risk level.' };
+}
+
+export function RecordsTable({ records, loading, error, retry, onSelect, search, setSearch, title, compact = false, closedView = false, assessmentList = false, exposureBands = [] }: {
   records: RiskRecordWithCompletedActions[]; loading: boolean; error: string; retry: () => void; onSelect: (code: string) => void;
   search: string; setSearch: (value: string) => void; title: string; compact?: boolean; closedView?: boolean;
+  assessmentList?: boolean; exposureBands?: RiskExposureBand[];
 }) {
   return <section className="min-w-0 w-full max-w-full rounded-2xl border border-border bg-card">
     <div className="flex flex-col justify-between gap-3 border-b border-border p-4 sm:flex-row sm:items-center">
@@ -19,7 +31,9 @@ export function RecordsTable({ records, loading, error, retry, onSelect, search,
     </div>}
     <div className={compact ? 'min-w-0 max-w-full max-h-[700px] overflow-y-auto' : 'min-w-0 max-w-full'}>
       {loading ? <div className="p-4"><SkeletonRows /></div> : error ? <div className="p-4"><ErrorNotice message={error} onRetry={retry} /></div> : records.length ? <div className="divide-y divide-border/70">
-        {records.map(record => <button key={record.risk_code} onClick={() => onSelect(record.risk_code)} data-testid={`risk-record-${record.risk_code}`} className="group flex min-w-0 w-full max-w-full items-center gap-4 px-4 py-4 text-left transition hover:bg-muted/55">
+        {records.map(record => {
+          const residual = residualRiskSummary(record.r_risk_exposure, exposureBands);
+          return <button key={record.risk_code} onClick={() => onSelect(record.risk_code)} data-testid={`risk-record-${record.risk_code}`} className="group flex min-w-0 w-full max-w-full items-center gap-4 px-4 py-4 text-left transition hover:bg-muted/55">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-secondary text-primary"><ShieldAlert className="h-4 w-4" /></span>
           <span className="min-w-0 flex-1"><span className="flex flex-wrap items-center gap-2"><span className="font-[Space_Mono] text-[10px] text-muted-foreground">{record.risk_code}</span><StatusPill status={record.workflow_status} />{!record.assessment_updated && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">Assessment needed</span>}
             {closedView && <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${Number(record.completed_action_count ?? 0) > 0 ? 'bg-emerald-50 text-emerald-800' : 'bg-stone-100 text-stone-700'}`}>
@@ -27,10 +41,16 @@ export function RecordsTable({ records, loading, error, retry, onSelect, search,
             </span>}
             {closedView && Number(record.completed_action_count ?? 0) === 0 && <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold text-stone-700">Archived reporting period</span>}</span>
             <span className="mt-1 block truncate text-sm font-semibold">{record.risk_title}</span>
-            <span className="mt-0.5 block truncate text-xs text-muted-foreground">{record.depart_name ?? record.depart_code} · {record.category_name ?? record.risk_category ?? 'Category not set'} · {dateLabel(record.period_from)} – {dateLabel(record.period_to)}</span></span>
-          <span className="hidden min-w-20 text-right sm:block"><span className="block font-[Space_Mono] text-lg font-bold">{record.r_risk_exposure ?? '—'}</span><span className="text-[10px] text-muted-foreground">Residual</span></span>
+            <span className="mt-0.5 block break-words text-xs text-muted-foreground">{record.depart_name ?? record.depart_code} · {record.category_name ?? record.risk_category ?? 'Category not set'}{!assessmentList && <> · {dateLabel(record.period_from)} – {dateLabel(record.period_to)}</>}</span>
+            {assessmentList && <>
+              <span className="mt-2 block line-clamp-2 text-xs leading-5 text-foreground/80">{record.risk_description || record.risk_consequence || 'No risk description recorded.'}</span>
+              <span className="mt-2 flex flex-wrap items-center gap-2 text-xs"><span className="text-muted-foreground">{record.assessment_updated ? 'Residual risk' : 'Last saved residual risk'}</span><span className="rounded-full bg-secondary px-2 py-0.5 font-semibold text-primary">{residual.label}</span></span>
+              <span className="mt-1 block text-xs leading-5 text-muted-foreground">{residual.description}</span>
+            </>}
+          </span>
+          {!assessmentList && <span className="hidden min-w-20 text-right sm:block"><span className="block font-[Space_Mono] text-lg font-bold">{record.r_risk_exposure ?? '—'}</span><span className="text-[10px] text-muted-foreground">Residual</span></span>}
           <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
-        </button>)}</div> : <div className="p-4"><EmptyState title="No risks in this view" description="New entries will appear here as soon as they are registered for the selected department and period." /></div>}
+        </button>; })}</div> : <div className="p-4"><EmptyState title="No risks in this view" description="New entries will appear here as soon as they are registered for the selected department and period." /></div>}
     </div>
   </section>;
 }
