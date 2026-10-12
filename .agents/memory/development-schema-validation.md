@@ -20,8 +20,12 @@ and development schema together before treating that check as evidence.
 
 **Why:** Newly merged workflow side effects can introduce cleanup dependencies
 that an older API never creates; tests against that process miss the dependency.
+Standalone SQL migrations can also remain unapplied after the post-merge ORM
+schema sync succeeds.
 
 **How to apply:** After merged API changes, restart its managed workflow and apply
 the existing development migrations before verifying fixture creation and cleanup.
+Check included standalone SQL migrations explicitly rather than assuming the
+post-merge schema sync executed them.
 Do not change the production schema or skip missing-table failures to make the
 development check pass.
