@@ -47,7 +47,7 @@ vm.runInNewContext(compiled, {
 let payload;
 let saveSucceeds = true;
 const props = {
-  risk: { risk_code: 'TEST', depart_code: 'D', period_id: 1, can_edit: true, workflow_status: 'OPEN', i_rate: '70', l_rate: '0.65', perceived_contr_eff: '80', objective_code: 'OBJ', risk_category: 'CAT', risk_title: 'Risk', risk_description: 'Description', risk_consequence: 'Consequence', updated_at: 'initial' },
+  risk: { risk_code: 'TEST', depart_code: 'D', period_id: 1, can_edit: true, workflow_status: 'OPEN', i_rate: '70', l_rate: '0.65', perceived_contr_eff: '80', desired_contr_effe: 'Original desired-control notes', objective_code: 'OBJ', risk_category: 'CAT', risk_title: 'Risk', risk_description: 'Description', risk_consequence: 'Consequence', updated_at: 'initial' },
   roots: [{ root_id: 11, root_cause: 'Existing cause', mitigations: 'Existing mitigation', due_date: '2026-12-01', action_owner: 'owner', action_status: 'Planned' }],
   staff: [{ username: 'owner' }], objectives: [{ obj_code: 'OBJ', depart_code: 'D' }], categories: [{ category_code: 'CAT' }],
   actionStatuses: [{ code: 'AC_02', status: 'Planned' }],
@@ -89,10 +89,23 @@ async function main() {
   const nodes = flatten(render());
   assert.equal(nodes.filter(node => node.type === 'input' && node.props.type === 'number').length, 0);
   for (const label of ['Major', 'Likely', 'Good']) assert(nodes.some(node => node.type === 'option' && node.props.children === label));
+  const sections = nodes.filter(node => node.type === 'fieldset');
+  assert.equal(sections.length, 2);
+  assert(flattenText(sections[0]).includes('Inherent Risk Exposures'));
+  assert(flattenText(sections[1]).includes('Residual Risk Exposures'));
+  assert(flatten(sections[0]).some(node => node.type === 'Field' && node.props.label === 'Impact factor'));
+  assert(!flatten(sections[0]).some(node => node.type === 'Field' && node.props.label.includes('control')));
+  assert.equal(flatten(sections[1]).filter(node => node.type === 'select').length, 2);
+  assert.equal(field('Desired control effectiveness').type, 'select');
   field('Assessment comment (required)').props.onChange({ target: { value: 'Testing' } });
   find(node => node.type === 'form').props.onSubmit({ preventDefault() {} });
   assert.equal(payload.i_rate, 70);
   assert.equal(payload.l_rate, 0.65);
+  assert.equal(payload.control_effectiveness, 0.8);
+  assert.equal(payload.desired_contr_effe, 'Original desired-control notes');
+  field('Desired control effectiveness').props.onChange({ target: { value: 'Good' } });
+  find(node => node.type === 'form').props.onSubmit({ preventDefault() {} });
+  assert.equal(payload.desired_contr_effe, 'Good');
   assert.equal(payload.control_effectiveness, 0.8);
   button('Existing cause').props.onClick();
   assert.equal(field('Root cause').props.value, 'Existing cause');
@@ -115,11 +128,11 @@ async function main() {
   render();
   assert.equal(field('Impact factor').props.value, 'historical');
   assert.equal(field('Likelihood factor').props.value, 'historical');
-  assert.equal(field('Control effectiveness').props.value, 'historical');
+  assert.equal(field('Perceived control effectiveness').props.value, 'historical');
   find(node => node.type === 'form').props.onSubmit({ preventDefault() {} });
   assert.equal(payload.i_rate, 42);
   assert.equal(payload.l_rate, 0.3);
   assert.equal(payload.control_effectiveness, 0.17);
-  console.log('PASS: label-only ratings preserve calculations and historical values; root causes support edit/add, failed-save retention and successful reset.');
+  console.log('PASS: separate inherent/residual sections and label-only dropdowns preserve calculations and historical desired-control notes; root causes support edit/add, failed-save retention and successful reset.');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

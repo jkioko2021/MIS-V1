@@ -21,6 +21,12 @@ Assessment selections for impact, likelihood and control effectiveness must show
 
 **How to apply:** Keep approved numeric factors behind the labels for scoring; retain unmatched historical factors without displaying their numbers or remapping them. Allow adding a separate root cause with its own action plan without overwriting existing causes.
 
+Keep inherent and residual assessment sections separate as in the updated legacy Update page: impact/likelihood for inherent exposure, perceived/desired control dropdowns for residual exposure. Desired control is a target, not the control factor used for current residual scoring.
+
+**Why:** The user asked for the legacy separation and dropdown layout. The reference page has these four dropdowns; its direct exposure-selection code is commented out.
+
+**How to apply:** Calculate exposure from the selected factors, retain historical desired-control notes unchanged unless explicitly replaced, and never silently substitute a desired target for perceived control.
+
 Keep inherent and residual bands distinct, and retain separate ranges even when their level labels match.
 
 **Why:** The supplied inherent catalogue has two Low ranges with different treatment guidance; collapsing by label would lose the user's distinction.

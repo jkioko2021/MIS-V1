@@ -155,11 +155,6 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
       <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-[Space_Mono] text-[10px] text-muted-foreground">{risk.risk_code} · {risk.depart_name ?? risk.depart_code}</div><h3 className="mt-1 font-[Manrope] text-xl font-bold">{risk.risk_title}</h3></div><StatusPill status={risk.workflow_status} /></div>
       {risk.workflow_status.toLowerCase().includes('submit') && <p className="mt-4 rounded-lg bg-secondary/70 p-3 text-xs text-foreground">Mapped owners and management can correct assessments and mitigations while the register is submitted. Editability follows the server-provided can_edit permission.</p>}
       {risk.can_edit === false && <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">This record is not editable in its current workflow state. Existing assessments and root causes remain visible.</p>}
-      <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <CalibratedExposure label="Inherent exposure" value={Number.isFinite(inherent) && inherent > 0 ? inherent.toFixed(2) : text(risk.i_risk_exposure)} riskType="I" bands={exposureBands} />
-         <Exposure label="Control effectiveness" value={selectedControl?.eff_factor ?? (effectiveness ? 'Historical rating' : 'Choose rating')} />
-        <CalibratedExposure label="Residual exposure" value={Number.isFinite(residual) && inherent > 0 ? residual.toFixed(2) : text(risk.r_risk_exposure)} riskType="R" bands={exposureBands} />
-      </div>
     </div>
     <form onSubmit={saveAssessment} className="rounded-2xl border border-border bg-card p-5">
       <h3 className="font-[Manrope] text-lg font-bold">Assessment & controls</h3><p className="mb-4 mt-1 text-xs text-muted-foreground">Exposure is recalculated as impact × likelihood. Residual exposure applies the new control fraction to inherent exposure.</p>
@@ -178,7 +173,10 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
         <div className="sm:col-span-2"><Field label="Description"><textarea className={`${fieldClass} min-h-20`} value={description} onChange={event => setDescription(event.target.value)} disabled={!allowed} required /></Field></div>
         <div className="sm:col-span-2"><Field label="Consequence"><textarea className={`${fieldClass} min-h-20`} value={consequence} onChange={event => setConsequence(event.target.value)} disabled={!allowed} required /></Field></div>
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <fieldset className="min-w-0 space-y-4 rounded-xl border border-border p-4">
+          <legend className="px-2 font-[Manrope] text-base font-bold">Inherent Risk Exposures</legend>
+          <p className="text-xs text-muted-foreground">Risk exposure before controls. Choose the impact and likelihood.</p>
          <Field label="Impact factor">
            <select className={fieldClass} aria-label="Approved impact factor" value={impact.trim() ? impactFactors.find(item => item.factor === Number(impact))?.code ?? 'historical' : ''} onChange={event => { if (event.target.value !== 'historical') setImpact(String(impactFactors.find(item => item.code === event.target.value)?.factor ?? '')); }} disabled={!allowed} required>
              <option value="">Choose impact</option>{impactFactors.map(item => <option key={item.code} value={item.code}>{item.label}</option>)}
@@ -191,7 +189,12 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
              {likelihood.trim() && !likelihoodFactors.some(item => item.factor === Number(likelihood)) && <option value="historical">Historical likelihood (retained)</option>}
           </select>
         </Field>
-         <Field label="Control effectiveness" hint={selectedControl?.qual_criteria ?? 'Choose an approved control rating. Existing historical ratings are retained.'}>
+          <CalibratedExposure label="Inherent exposure" value={impact && likelihood && Number.isFinite(inherent) && inherent > 0 ? inherent.toFixed(2) : text(risk.i_risk_exposure)} riskType="I" bands={exposureBands} />
+        </fieldset>
+        <fieldset className="min-w-0 space-y-4 rounded-xl border border-border p-4">
+          <legend className="px-2 font-[Manrope] text-base font-bold">Residual Risk Exposures</legend>
+          <p className="text-xs text-muted-foreground">Risk exposure after perceived controls. Desired control records the target rating.</p>
+         <Field label="Perceived control effectiveness" hint={selectedControl?.qual_criteria ?? 'Choose an approved control rating. Existing historical ratings are retained.'}>
            <select className={fieldClass} value={selectedControl?.eff_factor ?? (effectiveness.trim() ? 'historical' : '')} onChange={event => {
              if (event.target.value === 'historical') return;
             const rating = controlRatings.find(item => item.eff_factor === event.target.value);
@@ -203,9 +206,19 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
              {effectiveness.trim() && !selectedControl && <option value="historical">Historical effectiveness (retained)</option>}
           </select>
         </Field>
-        <div className="sm:col-span-3"><Field label="Current controls"><textarea className={`${fieldClass} min-h-16`} value={currentControls} onChange={event => setCurrentControls(event.target.value)} disabled={!allowed} /></Field></div>
-        <div className="sm:col-span-3"><Field label="Desired control effectiveness"><textarea className={`${fieldClass} min-h-16`} value={desiredControls} onChange={event => setDesiredControls(event.target.value)} disabled={!allowed} /></Field></div>
-        <div className="sm:col-span-3"><Field label="Assessment comment (required)"><textarea className={`${fieldClass} min-h-16`} value={comment} onChange={event => setComment(event.target.value)} disabled={!allowed} required placeholder="Explain the basis for this assessment or what changed." /></Field></div>
+          <Field label="Desired control effectiveness" hint={controlRatings.find(item => item.eff_factor === desiredControls)?.qual_criteria ?? 'Target control rating; this does not replace perceived control in the residual exposure calculation.'}>
+            <select className={fieldClass} aria-label="Desired control effectiveness rating" value={desiredControls} onChange={event => setDesiredControls(event.target.value)} disabled={!allowed}>
+              <option value="">Choose desired control</option>
+              {controlRatings.map(item => <option key={item.eff_factor} value={item.eff_factor}>{item.eff_factor}</option>)}
+              {desiredControls && !controlRatings.some(item => item.eff_factor === desiredControls) && <option value={desiredControls}>Historical desired control (retained)</option>}
+            </select>
+          </Field>
+          <CalibratedExposure label="Residual exposure" value={impact && likelihood && effectiveness && Number.isFinite(residual) && inherent > 0 ? residual.toFixed(2) : text(risk.r_risk_exposure)} riskType="R" bands={exposureBands} />
+        </fieldset>
+      </div>
+      <div className="mt-4 grid gap-4">
+        <Field label="Current controls"><textarea className={`${fieldClass} min-h-16`} value={currentControls} onChange={event => setCurrentControls(event.target.value)} disabled={!allowed} /></Field>
+        <Field label="Assessment comment (required)"><textarea className={`${fieldClass} min-h-16`} value={comment} onChange={event => setComment(event.target.value)} disabled={!allowed} required placeholder="Explain the basis for this assessment or what changed." /></Field>
       </div>
       {formError && <p role="alert" className="mt-3 text-xs font-medium text-destructive">{formError}</p>}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-muted-foreground">Last updated {dateLabel(risk.updated_at)}</span><button className={buttonClass} disabled={!allowed || mutating} type="submit"><ClipboardCheck className="h-4 w-4" />Save assessment</button></div>
