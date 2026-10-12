@@ -884,13 +884,22 @@ components:
         ok: { type: boolean }
         data:
           type: object
-          required: [depart_code, period_id, total_active_risks, assessed_risks, risks_missing_root_causes]
+          required: [depart_code, period_id, total_active_risks, assessed_risks, risks_missing_root_causes, active_owner_available, owner_email_usable, sender_configured]
           properties:
             depart_code: { type: string }
             period_id: { type: integer }
             total_active_risks: { type: integer, minimum: 0 }
             assessed_risks: { type: integer, minimum: 0 }
             risks_missing_root_causes: { type: integer, minimum: 0 }
+            active_owner_available:
+              type: boolean
+              description: An eligible active Risk Owner is mapped to this authorized department. Required for submission.
+            owner_email_usable:
+              type: boolean
+              description: The mapped active owner has a usable email address. Advisory only; no contact details are exposed.
+            sender_configured:
+              type: boolean
+              description: The global sender setting is nonblank. Advisory only; does not confirm provider verification, acceptance or inbox delivery.
     RiskRecordsResponse:
       type: object
       required: [ok, data, totals]

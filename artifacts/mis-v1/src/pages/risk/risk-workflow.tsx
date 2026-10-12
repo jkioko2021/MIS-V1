@@ -74,31 +74,47 @@ export function submissionReadiness(query: ReturnType<typeof useRiskReadiness>, 
   const data = envelopeData<RiskReadinessResponse['data']>(query.data);
   const failed = query.isError || Boolean(query.data && envelopeError(query.data));
   const complete = data?.depart_code === departCode && data.period_id === periodId &&
+    [data.active_owner_available, data.owner_email_usable, data.sender_configured].every(flag => typeof flag === 'boolean') &&
     [data.total_active_risks, data.assessed_risks, data.risks_missing_root_causes].every(n => Number.isSafeInteger(n) && n >= 0) &&
     data.assessed_risks <= data.total_active_risks && data.risks_missing_root_causes <= data.total_active_risks;
   const waiting = query.isLoading || query.isFetching || query.isStale || query.isPlaceholderData || query.mutating || !data;
   const ready = Boolean(username && enabled && ownerAssigned && query.isSuccess && query.data?.ok === true &&
     !waiting && !failed && complete && data && data.total_active_risks > 0 &&
-    data.assessed_risks === data.total_active_risks && data.risks_missing_root_causes === 0);
+    data.active_owner_available && data.assessed_risks === data.total_active_risks && data.risks_missing_root_causes === 0);
   const label = !ownerAssigned ? 'No active owner is mapped for this department. Contact management to assign an owner before submitting.'
     : failed ? 'Could not verify assessment and root-cause readiness. Retry the readiness query.'
       : waiting ? 'Checking active risks and root causes…'
         : !complete ? 'The complete register could not be verified. Retry before submitting.'
+        : !data?.active_owner_available ? 'No active owner is mapped for this department. Contact management to assign an owner before submitting.'
         : data?.total_active_risks === 0 ? 'No active risks are available to submit.'
           : ready ? 'All active risks are assessed and have a root cause.'
             : 'Complete every active assessment and add at least one root cause before submitting.';
   return { ready, label, query, failed, waiting, complete, data };
 }
 
+export function RiskEmailReadinessNotice({ data, refresh }: {
+  data: RiskReadinessResponse['data']; refresh: () => void;
+}) {
+  if (!data.active_owner_available) return null;
+  const warning = !data.owner_email_usable || !data.sender_configured;
+  return <div role="status" data-testid="risk-email-readiness" className={`mt-3 rounded-lg px-3 py-2.5 text-xs leading-5 ${warning ? 'bg-amber-50 text-amber-950' : 'bg-muted text-muted-foreground'}`}>
+    <strong>{warning ? 'Email setup needs attention — submission is still available.' : 'Email setup is ready for queuing.'}</strong>
+    {!data.owner_email_usable && <p>The mapped active Risk Owner has no usable email address. Ask an administrator to correct the owner’s account email.</p>}
+    {!data.sender_configured && <p>The global email sender (MIS_EMAIL_FROM) is missing. Ask an administrator to configure a verified sender.</p>}
+    <p>Your register will remain saved when submitted, even if email cannot be sent. The notice is queued and waits for missing setup to be corrected while the submission remains available for review. Provider acceptance is not confirmation of inbox delivery.</p>
+    <button type="button" className="mt-1 font-bold underline" onClick={refresh}>Refresh email setup check</button>
+  </div>;
+}
+
 export function RiskSubmissionGate({ children, ...scope }: SubmissionScope & {
   children?: (readiness: { ready: boolean; label: string }) => ReactNode;
 }) {
-  const { ready, label, query, failed, waiting, complete } = useSubmissionReadiness(scope);
+  const { ready, label, query, failed, waiting, complete, data } = useSubmissionReadiness(scope);
   const { enabled, departCode } = scope;
   return <>{enabled && <div className={`flex flex-wrap items-center gap-2 rounded-md px-3 py-2 text-[11px] ${ready ? 'bg-emerald-50 text-emerald-900' : failed ? 'bg-rose-50 text-rose-900' : 'bg-amber-50 text-amber-900'}`} data-testid={`submit-readiness-${departCode}`}>
     <span className={`h-1.5 w-1.5 rounded-full ${ready ? 'bg-emerald-600' : failed ? 'bg-rose-600' : 'bg-amber-600'}`} />{label}
     {(failed || (!waiting && !complete)) && <button className="font-bold underline" onClick={() => query.refetch()}>Retry</button>}
-  </div>}{children?.({ ready, label })}</>;
+  </div>}{enabled && complete && !failed && !waiting && data && <RiskEmailReadinessNotice data={data} refresh={() => { void query.refetch(); }} />}{children?.({ ready, label })}</>;
 }
 
 export function SummaryTable({ rows, loading, error, retry, title = 'Department exposure & sign-off' }: { rows: RiskDepartmentSummary[]; loading: boolean; error: string; retry: () => void; title?: string }) {

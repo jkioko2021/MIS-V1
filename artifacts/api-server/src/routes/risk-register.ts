@@ -10,6 +10,7 @@ import {
 import { riskWorkflowRouter } from "./risk-workflow";
 import { riskImportRouter } from "./risk-import-routes";
 import { assessmentRanking } from "../lib/risk-ranking";
+import { activeDepartmentOwner, riskReviewEmailReadiness } from "../lib/risk-notifications";
 
 const router = Router();
 router.use("/risk-register", privateRiskResponses, requireAuth, requireRiskActor);
@@ -232,7 +233,8 @@ router.get("/risk-register/readiness/:departCode/:periodId",async(req,res)=>{
       periodId:z.coerce.number().int().positive(),
     }).parse(req.params),a=actor(res);
     assertDepartment(a,input.departCode,"edit");
-    const [data]=await query(`SELECT d.depart_code,p.period_id,
+    const data=await withTransaction(async client => {
+      const [counts]=await txQuery(client,`SELECT d.depart_code,p.period_id,
       count(r.risk_id)::integer AS total_active_risks,
       count(r.risk_id) FILTER(WHERE r.assessment_updated)::integer AS assessed_risks,
       count(r.risk_id) FILTER(WHERE causes.risk_code IS NULL)::integer AS risks_missing_root_causes
@@ -242,7 +244,10 @@ router.get("/risk-register/readiness/:departCode/:periodId",async(req,res)=>{
       LEFT JOIN (SELECT DISTINCT risk_code FROM risk.root_causes) causes ON causes.risk_code=r.risk_code
       WHERE d.depart_code=$1 AND d.is_active AND p.period_id=$2
       GROUP BY d.depart_code,p.period_id`,[input.departCode,input.periodId]);
-    if(!data) throw new RiskError(404,"Active risk department or reporting period was not found.");
+      if(!counts) throw new RiskError(404,"Active risk department or reporting period was not found.");
+      const owner=await activeDepartmentOwner(client,input.departCode);
+      return {...counts,...riskReviewEmailReadiness(owner)};
+    });
     res.json({ok:true,data});
   }catch(err){riskFailure(req,res,err);}
 });

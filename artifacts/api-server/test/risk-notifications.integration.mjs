@@ -111,8 +111,41 @@ try {
   };
   const notifications = async () => (await client.query(`SELECT *,submitted_at::text FROM risk.review_notifications
     WHERE depart_code=ANY($1::text[]) ORDER BY notification_id`, [codes])).rows;
+  const readiness = async (code = codes[0]) => {
+    const response = await fetch(`${base}/risk-register/readiness/${code}/${period}`);
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.deepEqual(Object.keys(body.data).sort(), [
+      "depart_code", "period_id", "total_active_risks", "assessed_risks", "risks_missing_root_causes",
+      "active_owner_available", "owner_email_usable", "sender_configured",
+    ].sort(), "Readiness exposes scoped flags and counts only");
+    return body.data;
+  };
+  delete process.env.MIS_EMAIL_FROM;
+  assert.equal((await readiness()).sender_configured, false);
+  process.env.MIS_EMAIL_FROM = "   ";
+  assert.equal((await readiness()).sender_configured, false, "Blank sender settings are not usable");
+  delete process.env.MIS_EMAIL_FROM;
+  assert.equal((await fetch(`${base}/risk-register/readiness/unassigned-department/${period}`)).status, 403,
+    "Readiness must not reveal configuration to an unassigned champion");
+  await client.query("UPDATE crm.employees SET email='not-an-address' WHERE username=$1", [owner]);
+  assert.equal((await readiness()).owner_email_usable, false);
+  assert.equal((await readiness()).active_owner_available, true);
+  await client.query("UPDATE crm.employees SET employee_locked=TRUE WHERE username=$1", [owner]);
+  assert.equal((await readiness()).active_owner_available, false);
+  assert.equal((await submit(codes[0])).status, 409, "An inactive owner still blocks submission");
+  await client.query("UPDATE crm.employees SET employee_locked=FALSE,email=NULL WHERE username=$1", [owner]);
+  assert.equal((await readiness()).owner_email_usable, false);
+  assert.equal((await submit(codes[0])).body.data.notification.email_status, "NO_RECIPIENT");
+  await client.query("UPDATE crm.employees SET email=$1 WHERE username=$2", [`${owner}@example.test`,owner]);
+  assert.equal((await readiness(codes[1])).owner_email_usable, true);
+  assert.equal((await submit(codes[1])).body.data.notification.email_status, "WAITING_CONFIGURATION");
+  assert.equal((await client.query("SELECT count(*)::int AS n FROM risk.department_summary WHERE depart_code=ANY($1::text[]) AND submitted", [codes])).rows[0].n, 2,
+    "Email setup problems do not roll back submissions");
   process.env.MIS_EMAIL_FROM = "MIS Test <sender@example.test>";
-  for (const code of codes) {
+  assert.equal((await readiness()).sender_configured, true);
+  assert.equal((await readiness()).owner_email_usable, true, "Repaired configuration is reflected on refresh");
+  for (const code of codes.slice(2)) {
     const result = await submit(code);
     assert.equal(result.status, 200, JSON.stringify(result.body));
     assert.equal(result.body.data.notification.email_status, "PENDING");
@@ -141,6 +174,7 @@ try {
 
   // Current owner access remains scoped even when the same owner owns two departments.
   actorId = employees[owner];
+  assert.equal((await fetch(`${base}/risk-register/readiness/${codes[2]}/${period}`)).status, 403, "Owner cannot inspect a champion's readiness");
   const summary = await (await fetch(`${base}/risk-register/summary?access=review&period_id=${period}`)).json();
   assert.deepEqual(summary.data.map(row => row.depart_code).sort(), codes.slice(0, 2).sort());
   assert.ok(summary.data.every(row => row.review_email_status === "SENT"));

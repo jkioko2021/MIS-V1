@@ -54,7 +54,7 @@ try {
   const deps = {
     db: `export const query=(s,p)=>globalThis.readinessTestQuery(s,p);
       export const txQuery=(c,s,p)=>query(s,p);
-      export const withTransaction=()=>{throw new Error("Readiness must be read-only");};`,
+      export const withTransaction=fn=>fn(null);`,
     auth: `export function requireAuth(req,res,next){
       const id=Number(req.headers['x-test-employee']);
       if(!id){res.status(401).json({ok:false});return;}
@@ -121,7 +121,9 @@ try {
   let result = await request(departments[0]);
   assert.equal(result.status, 200);
   assert.deepEqual(result.body.data, { depart_code: departments[0], period_id: period.period_id,
-    total_active_risks: registerSize, assessed_risks: registerSize, risks_missing_root_causes: 0 });
+    total_active_risks: registerSize, assessed_risks: registerSize, risks_missing_root_causes: 0,
+    active_owner_available: true, owner_email_usable: false,
+    sender_configured: Boolean(process.env.MIS_EMAIL_FROM?.trim()) });
   if (scale) {
     const nodes = [];
     const visit = node => { nodes.push(node); for (const child of node.Plans ?? []) visit(child); };

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, CheckCircle2, ClipboardList, Send, ShieldAlert } from 'lucide-react';
 import type { RiskDepartmentSummary, RiskOptionsResponseData, RiskRecord } from '@workspace/api-client-react';
 import { useRiskRecords } from './use-risk-register';
-import { useSubmissionReadiness } from './risk-workflow';
+import { RiskEmailReadinessNotice, useSubmissionReadiness } from './risk-workflow';
 import { orderRiskSummary } from './risk-summary-order';
 import { riskExposureColors } from './risk-exposure-colors';
 import RiskSummaryCauses from './risk-summary-causes';
@@ -217,6 +217,7 @@ export default function RiskAssessmentSummary({
                   {canSubmit ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <ArrowRight className="mt-0.5 h-4 w-4 shrink-0" />}
                   <span>{canSubmit ? `Ready to forward this register to ${recipientName}.` : blockedReason}</span>
                 </div>
+                {readiness.complete && !readiness.failed && !readiness.waiting && readiness.data && <RiskEmailReadinessNotice data={readiness.data} refresh={() => { void readiness.query.refetch(); }} />}
                  {(readiness.failed || (!readiness.waiting && !readiness.complete)) && <button className="mt-2 text-xs font-bold underline" onClick={() => readiness.query.refetch()}>Retry readiness check</button>}
               </div>
               <button type="button" data-testid="button-submit-risk-summary" disabled={!canSubmit} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-bold text-primary-foreground transition hover:brightness-95 disabled:pointer-events-none disabled:opacity-45" onClick={() => row && canSubmit && onSubmit(row)}>

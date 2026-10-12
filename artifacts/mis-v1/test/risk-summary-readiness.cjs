@@ -10,7 +10,7 @@ vm.runInNewContext(compiled, {
   exports: exported,
   require(name) {
     if (name === 'react' || name === 'lucide-react' || name === './use-risk-register') return {};
-    if (name === 'react/jsx-runtime') return {};
+    if (name === 'react/jsx-runtime') return { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) };
     if (name === './risk-ui') return {
       envelopeData: response => response?.data,
       envelopeError: response => response?.ok === false ? 'Denied' : undefined,
@@ -19,7 +19,8 @@ vm.runInNewContext(compiled, {
   },
 });
 const scope = { username: 'champion', departCode: 'D', periodId: 1, ownerAssigned: true, enabled: true };
-const data = { depart_code: 'D', period_id: 1, total_active_risks: 701, assessed_risks: 701, risks_missing_root_causes: 0 };
+const data = { depart_code: 'D', period_id: 1, total_active_risks: 701, assessed_risks: 701, risks_missing_root_causes: 0,
+  active_owner_available: true, owner_email_usable: true, sender_configured: true };
 const query = { isSuccess: true, data: { ok: true, data } };
 const ready = (q = {}, s = {}) => exported.submissionReadiness({ ...query, ...q }, { ...scope, ...s }).ready;
 assert(ready(), 'Registers over 500 rows use complete counts, not list length');
@@ -37,6 +38,27 @@ assert(!ready({}, { username: '' }));
 assert(!ready({}, { ownerAssigned: false }));
 assert(!ready({}, { enabled: false }));
 assert(ready(), 'A fresh reassessment restores readiness');
+for (const flags of [
+  { owner_email_usable: false }, { sender_configured: false },
+  { owner_email_usable: false, sender_configured: false },
+]) {
+  const changed = { ...data, ...flags };
+  assert(ready({ data: { ok: true, data: changed } }), 'Email problems must not block submission');
+  let refreshed = false;
+  const notice = exported.RiskEmailReadinessNotice({ data: changed, refresh: () => { refreshed = true; } });
+  const text = JSON.stringify(notice);
+  assert(text.includes('submission is still available'));
+  assert(text.includes('Provider acceptance is not confirmation of inbox delivery'));
+  if (flags.owner_email_usable === false) assert(text.includes('no usable email address'));
+  if (flags.sender_configured === false) assert(text.includes('MIS_EMAIL_FROM'));
+  notice.props.children.at(-1).props.onClick();
+  assert(refreshed, 'Configuration can be refreshed after repair');
+}
+assert(!ready({ data: { ok: true, data: { ...data, active_owner_available: false } } }), 'Inactive owners still block submission');
+assert(!ready({ data: { ok: true, data: { ...data, sender_configured: undefined } } }), 'Partial readiness responses fail closed');
+const normalNotice = JSON.stringify(exported.RiskEmailReadinessNotice({ data, refresh() {} }));
+assert(normalNotice.includes('ready for queuing'));
+assert(!normalNotice.includes('Email setup needs attention'), 'Repaired settings remove the warning');
 const hooks = fs.readFileSync(`${__dirname}/../src/pages/risk/use-risk-register.ts`, 'utf8');
 assert(hooks.includes('identityKey(username, getGetRiskRegisterReadinessQueryKey(departCode, periodId))'));
 assert(hooks.includes("refetchOnMount: 'always'"));

@@ -22,6 +22,15 @@ tracking requires a separate provider-event integration.
 **How to apply:** Keep status language explicit and do not describe local mail
 capture or unconfigured sending as external delivery.
 
+Treat missing email setup as advisory before register submission, not as a
+workflow prerequisite; retain the active mapped owner prerequisite.
+
+**Why:** The requested guidance must warn champions without preventing them from
+committing their register for review when mail setup is incomplete.
+
+**How to apply:** Keep email warnings separate from assessment and owner eligibility
+gates. Readiness only asserts local setup presence, not verified provider sendability.
+
 Notify the assigned Risk Owner automatically when the department register is
 submitted for review, with a clear request to review it.
 
@@ -34,9 +43,8 @@ Do not send a premature message claiming an unsubmitted register is available.
 
 Do not treat refusal to list Resend domains as proof that sending is unavailable.
 
-**Why:** This project's connected Resend credential returned “restricted to only
-send emails” on domain inspection. That is a permission boundary for the read
-operation, not evidence that the configured sending connection is broken.
+**Why:** A send-only credential can refuse domain inspection while still allowing
+email sending. Permission to inspect configuration is distinct from sendability.
 
 **How to apply:** Request a verified sender address through the environment
 settings flow when needed; do not replace or reconnect the sending integration

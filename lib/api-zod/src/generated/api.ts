@@ -523,7 +523,10 @@ export const GetRiskRegisterReadinessResponse = zod.object({
   "period_id": zod.number().int(),
   "total_active_risks": zod.number().int().min(getRiskRegisterReadinessResponseDataTotalActiveRisksMin),
   "assessed_risks": zod.number().int().min(getRiskRegisterReadinessResponseDataAssessedRisksMin),
-  "risks_missing_root_causes": zod.number().int().min(getRiskRegisterReadinessResponseDataRisksMissingRootCausesMin)
+  "risks_missing_root_causes": zod.number().int().min(getRiskRegisterReadinessResponseDataRisksMissingRootCausesMin),
+  "active_owner_available": zod.boolean().describe('An eligible active Risk Owner is mapped to this authorized department. Required for submission.'),
+  "owner_email_usable": zod.boolean().describe('The mapped active owner has a usable email address. Advisory only; no contact details are exposed.'),
+  "sender_configured": zod.boolean().describe('The global sender setting is nonblank. Advisory only; does not confirm provider verification, acceptance or inbox delivery.')
 })
 })
 

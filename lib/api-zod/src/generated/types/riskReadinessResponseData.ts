@@ -15,4 +15,10 @@ export type RiskReadinessResponseData = {
   assessed_risks: number;
   /** @minimum 0 */
   risks_missing_root_causes: number;
+  /** An eligible active Risk Owner is mapped to this authorized department. Required for submission. */
+  active_owner_available: boolean;
+  /** The mapped active owner has a usable email address. Advisory only; no contact details are exposed. */
+  owner_email_usable: boolean;
+  /** The global sender setting is nonblank. Advisory only; does not confirm provider verification, acceptance or inbox delivery. */
+  sender_configured: boolean;
 };

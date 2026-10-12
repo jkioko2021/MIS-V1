@@ -6,6 +6,15 @@ import { logger } from "./logger";
 const validEmail = (email: unknown): email is string =>
   typeof email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
+// Scoped flags only: never expose the account address or sender value.
+export function riskReviewEmailReadiness(owner: { email: string | null } | undefined) {
+  return {
+    active_owner_available: Boolean(owner),
+    owner_email_usable: Boolean(owner && validEmail(owner.email)),
+    sender_configured: Boolean(process.env.MIS_EMAIL_FROM?.trim()),
+  };
+}
+
 // This is the same account eligibility boundary used by riskActor.
 export async function activeDepartmentOwner(client: PoolClient, department: string) {
   const [owner] = await txQuery<{ username: string; email: string | null }>(client, `SELECT e.username,e.email
@@ -23,8 +32,9 @@ export async function queueRiskReviewNotification(client: PoolClient, input: {
   periodId: number; periodFrom: string; periodTo: string; submittedBy: string;
   owner: { username: string; email: string | null };
 }) {
-  const status = !validEmail(input.owner.email) ? "NO_RECIPIENT"
-    : process.env.MIS_EMAIL_FROM?.trim() ? "PENDING" : "WAITING_CONFIGURATION";
+  const readiness = riskReviewEmailReadiness(input.owner);
+  const status = !readiness.owner_email_usable ? "NO_RECIPIENT"
+    : readiness.sender_configured ? "PENDING" : "WAITING_CONFIGURATION";
   // No risk snapshots, import identifiers, comments, or other departments enter the email.
   // Navigation instructions do not need a deployment URL and never bypass sign-in.
   const title = `Action required: Review ${input.departmentName} risk register`;
