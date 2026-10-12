@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/lib/auth-context';
+import ClientRatingsPage from './client-ratings';
 import {
   AlertCircle, Archive, ArrowUpRight, BadgeCheck, CalendarDays, Check, ClipboardCheck,
   FilePlus2, History, LockKeyhole, RefreshCw, Shield, UsersRound, Workflow, X,
@@ -21,7 +22,7 @@ import {
   queryError, SkeletonRows, StatusPill,
 } from './risk-ui';
 
-type PageKey = 'dashboard' | 'new' | 'update' | 'review' | 'summary' | 'status' | 'open' | 'close' | 'closed' | 'history' | 'champions';
+type PageKey = 'dashboard' | 'new' | 'update' | 'review' | 'summary' | 'status' | 'open' | 'close' | 'closed' | 'history' | 'client-rating' | 'champions';
 const PAGES: Array<{ key: PageKey; title: string; short: string; icon: typeof Shield }> = [
   { key: 'new', title: 'Add New Risk', short: 'Add New Risk', icon: FilePlus2 },
   { key: 'update', title: 'Update Register', short: 'Update Register', icon: ClipboardCheck },
@@ -31,13 +32,14 @@ const PAGES: Array<{ key: PageKey; title: string; short: string; icon: typeof Sh
   { key: 'open', title: 'Open Register', short: 'Open Register', icon: CalendarDays },
   { key: 'status', title: 'Risk Register Status', short: 'Risk Register Status', icon: ClipboardCheck },
   { key: 'history', title: 'Risk Register view', short: 'Risk Register view', icon: History },
+  { key: 'client-rating', title: 'Client Rating', short: 'Client Rating', icon: BadgeCheck },
   { key: 'dashboard', title: 'Risk Dashboard', short: 'Risk Dashboard', icon: Shield },
   { key: 'champions', title: 'Map Risk Champions', short: 'Map Risk Champions', icon: UsersRound },
   { key: 'closed', title: 'Closed Archives', short: 'Closed Archives', icon: Archive },
 ];
 const navLabels: Record<string, PageKey> = Object.fromEntries(PAGES.map(item => [item.key, item.key]));
 
-export default function RiskRegisterPage() {
+function RiskRegisterWorkspace() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
   const username = user?.username ?? '';
@@ -265,4 +267,10 @@ export default function RiskRegisterPage() {
       {mutating && <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold shadow-lg"><RefreshCw className="h-3.5 w-3.5 animate-spin text-primary" />Saving risk register changes</div>}
     </div>
   </div>;
+}
+
+export default function RiskRegisterPage() {
+  const [location] = useLocation();
+  if (location === '/risk/client-rating') return <ClientRatingsPage />;
+  return <RiskRegisterWorkspace />;
 }

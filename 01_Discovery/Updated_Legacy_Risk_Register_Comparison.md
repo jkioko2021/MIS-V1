@@ -19,6 +19,7 @@ This is the departmental **Enterprise Risk Register**. `Risk_Rating_Client` and 
 | `Risk_Register_Close.aspx` | Close Registers | Close signed-off departments or an entire signed-off reporting period |
 | `Risk_Register_Closed.aspx` | Closed Records | Show completed mitigation actions alongside archived-period records |
 | `Risk_Register_History.aspx` | History | Read retained assessment notes, decisions and snapshots |
+| `Risk_Rating_Client.aspx` | Client Rating | Search persisted AML classifications by proposer/policy; filter rating/reason and export CSV, with separate global-customer permissions |
 | `Risk_Map_Champions.aspx` | Team Mapping | Map active MIS accounts as department champion and owner |
 | `Risk_Status.aspx` | Status | Read-only departmental submission, review, sign-off and closure status |
 

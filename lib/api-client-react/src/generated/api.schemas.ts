@@ -268,6 +268,108 @@ export interface HealthStatus {
   status: string;
 }
 
+export type GetClientRatingOptions200Data = {
+  ratings: string[];
+  reasons: string[];
+  total: number;
+  source: string;
+  scope: string;
+  system_captured: boolean;
+};
+
+export type GetClientRatingOptions200 = {
+  ok: boolean;
+  data: GetClientRatingOptions200Data;
+};
+
+export type ListClientRatingsParams = {
+search_by?: ListClientRatingsSearchBy;
+/**
+ * @maxLength 150
+ */
+search?: string;
+rating?: ListClientRatingsRating;
+reason?: string;
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+page_size?: number;
+};
+
+export type ListClientRatingsSearchBy = typeof ListClientRatingsSearchBy[keyof typeof ListClientRatingsSearchBy];
+
+
+export const ListClientRatingsSearchBy = {
+  proposer: 'proposer',
+  policy: 'policy',
+} as const;
+
+export type ListClientRatingsRating = typeof ListClientRatingsRating[keyof typeof ListClientRatingsRating];
+
+
+export const ListClientRatingsRating = {
+  '': '',
+  Low: 'Low',
+  Medium: 'Medium',
+  High: 'High',
+} as const;
+
+export type ListClientRatings200DataRecordsItem = {
+  rating_id: number;
+  file_no: string;
+  policy_code: string | null;
+  proposer: string;
+  cover_type: string | null;
+  system: string | null;
+  risk_rating: string;
+  reason: string;
+  invoice_number: string | null;
+  entered_by: string;
+  entry_date: string | null;
+};
+
+export type ListClientRatings200Data = {
+  records: ListClientRatings200DataRecordsItem[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+export type ListClientRatings200 = {
+  ok: boolean;
+  data: ListClientRatings200Data;
+};
+
+export type GetClientRatingsReportParams = {
+search_by?: GetClientRatingsReportSearchBy;
+search?: string;
+rating?: GetClientRatingsReportRating;
+reason?: string;
+};
+
+export type GetClientRatingsReportSearchBy = typeof GetClientRatingsReportSearchBy[keyof typeof GetClientRatingsReportSearchBy];
+
+
+export const GetClientRatingsReportSearchBy = {
+  proposer: 'proposer',
+  policy: 'policy',
+} as const;
+
+export type GetClientRatingsReportRating = typeof GetClientRatingsReportRating[keyof typeof GetClientRatingsReportRating];
+
+
+export const GetClientRatingsReportRating = {
+  '': '',
+  Low: 'Low',
+  Medium: 'Medium',
+  High: 'High',
+} as const;
+
 export type ListRiskRegisterRecordsParams = {
 depart_code?: string;
 period_id?: number;

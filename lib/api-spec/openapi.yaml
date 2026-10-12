@@ -11,6 +11,87 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /client-ratings/options:
+    get:
+      operationId: getClientRatingOptions
+      responses:
+        "200":
+          description: Client rating filters, source and access scope
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    required: [ratings, reasons, total, source, scope, system_captured]
+                    properties:
+                      ratings: { type: array, items: { type: string } }
+                      reasons: { type: array, items: { type: string } }
+                      total: { type: integer }
+                      source: { type: string }
+                      scope: { type: string }
+                      system_captured: { type: boolean }
+  /client-ratings:
+    get:
+      operationId: listClientRatings
+      parameters:
+        - { name: search_by, in: query, schema: { type: string, enum: [proposer, policy] } }
+        - { name: search, in: query, schema: { type: string, maxLength: 150 } }
+        - { name: rating, in: query, schema: { type: string, enum: ["", Low, Medium, High] } }
+        - { name: reason, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+      responses:
+        "200":
+          description: Paginated persisted client classifications
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    required: [records, total, page, page_size]
+                    properties:
+                      records:
+                        type: array
+                        items:
+                          type: object
+                          required: [rating_id, file_no, policy_code, proposer, cover_type, system, risk_rating, reason, invoice_number, entered_by, entry_date]
+                          properties:
+                            rating_id: { type: integer }
+                            file_no: { type: string }
+                            policy_code: { type: string, nullable: true }
+                            proposer: { type: string }
+                            cover_type: { type: string, nullable: true }
+                            system: { type: string, nullable: true }
+                            risk_rating: { type: string }
+                            reason: { type: string }
+                            invoice_number: { type: string, nullable: true }
+                            entered_by: { type: string }
+                            entry_date: { type: string, format: date-time, nullable: true }
+                      total: { type: integer }
+                      page: { type: integer }
+                      page_size: { type: integer }
+  /client-ratings/report:
+    get:
+      operationId: getClientRatingsReport
+      parameters:
+        - { name: search_by, in: query, schema: { type: string, enum: [proposer, policy] } }
+        - { name: search, in: query, schema: { type: string } }
+        - { name: rating, in: query, schema: { type: string, enum: ["", Low, Medium, High] } }
+        - { name: reason, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: CSV export of all matching authorized records, up to 10000
+          content:
+            text/csv:
+              schema: { type: string }
   /risk-register/options:
     get:
       operationId: getRiskRegisterOptions

@@ -33,7 +33,7 @@ import {
 import {
   Home, FileText, Shield, Database, Bell, Banknote, ClipboardCheck, FilePlus2,
   ChevronRight, LogOut, User, Users, Settings, SlidersHorizontal, Menu, X,
-  Workflow, BadgeCheck, CalendarDays, LockKeyhole, Archive, History, UsersRound,
+  Workflow, BadgeCheck, CalendarDays, LockKeyhole, Archive, History, UsersRound, SearchCheck,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -96,6 +96,7 @@ const NAV_SECTIONS: Array<{
           { href: '/risk/open', label: 'Open Register', icon: CalendarDays },
           { href: '/risk/status', label: 'Risk Register Status', icon: ClipboardCheck },
           { href: '/risk/history', label: 'Risk Register view', icon: History },
+          { href: '/risk/client-rating', label: 'Client Rating', icon: SearchCheck },
           { href: '/risk', label: 'Risk Dashboard', icon: Shield },
           { href: '/risk/champions', label: 'Map Risk Champions', icon: UsersRound },
           { href: '/risk/closed', label: 'Closed Archives', icon: Archive },
@@ -401,6 +402,7 @@ function ProtectedRouter() {
             {() => <BusinessTrackingPage />}
           </Route>
           <Route path="/risk"             component={RiskRegisterPage} />
+          <Route path="/risk/client-rating" component={RiskRegisterPage} />
           <Route path="/risk/:view"       component={RiskRegisterPage} />
           <Route path="/medical-underwriting">
             {() => <Redirect to="/business/medical-review" />}

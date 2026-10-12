@@ -14,9 +14,11 @@ import recordFilingRouter from "./record-filing";
 import giRouter from "./gi";
 import businessStatusRouter from "./business-status";
 import riskRegisterRouter from "./risk-register";
+import clientRatingsRouter from "./client-ratings";
 
 const router: IRouter = Router();
 router.use(riskRegisterRouter);
+router.use(clientRatingsRouter);
 
 router.use(healthRouter);
 router.use(authRouter);

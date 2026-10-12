@@ -10,10 +10,11 @@ export type RiskActor = {
   username: string; is_admin: boolean; is_manager: boolean;
   champion_departments: string[]; owner_departments: string[];
 };
+export const RISK_MANAGEMENT_SQL = "LOWER(TRIM(p.profile_name)) IN ('risk manager','risk management','risk administrator')";
 export async function riskActor(employeeId: string | number): Promise<RiskActor | null> {
   const [actor] = await query<RiskActor>(`SELECT e.username,
     e.profile_id IN (1,2) AS is_admin,
-    LOWER(TRIM(p.profile_name)) IN ('risk manager','risk management','risk administrator') AS is_manager,
+    ${RISK_MANAGEMENT_SQL} AS is_manager,
     ARRAY(SELECT DISTINCT depart_code FROM (
       SELECT department AS depart_code FROM risk.champions WHERE username=e.username AND is_active
       UNION SELECT depart_code FROM risk.department_assignments WHERE champion_username=e.username
@@ -37,7 +38,7 @@ export function privateRiskResponses(_req: Request, res: Response, next: NextFun
   res.vary("Cookie");
   next();
 }
-export function canManage(a: RiskActor) { return a.is_admin || a.is_manager; }
+export function canManage(a: Pick<RiskActor, "is_admin" | "is_manager">) { return a.is_admin || a.is_manager; }
 export function canViewDepartment(a: RiskActor, code: string) {
   return canManage(a) || a.champion_departments.includes(code) || a.owner_departments.includes(code);
 }

@@ -20,9 +20,13 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  GetClientRatingOptions200,
+  GetClientRatingsReportParams,
   GetRiskRegisterHistoryParams,
   GetRiskRegisterSummaryParams,
   HealthStatus,
+  ListClientRatings200,
+  ListClientRatingsParams,
   ListRiskRegisterRecordsParams,
   RiskAssessmentInput,
   RiskAssignmentInput,
@@ -66,6 +70,233 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetClientRatingOptionsUrl = () => {
+
+
+
+
+  return `/api/client-ratings/options`
+}
+
+export const getClientRatingOptions = async ( options?: Parameters<typeof customFetch>[1]): Promise<GetClientRatingOptions200> => {
+
+  return customFetch<GetClientRatingOptions200>(getGetClientRatingOptionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientRatingOptionsQueryKey = () => {
+    return [
+    `/api/client-ratings/options`
+    ] as const;
+    }
+
+
+export const getGetClientRatingOptionsQueryOptions = <TData = Awaited<ReturnType<typeof getClientRatingOptions>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientRatingOptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientRatingOptionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientRatingOptions>>> = ({ signal }) => getClientRatingOptions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientRatingOptions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientRatingOptionsQueryResult = NonNullable<Awaited<ReturnType<typeof getClientRatingOptions>>>
+export type GetClientRatingOptionsQueryError = ErrorType<unknown>
+
+
+
+export function useGetClientRatingOptions<TData = Awaited<ReturnType<typeof getClientRatingOptions>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientRatingOptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientRatingOptionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListClientRatingsUrl = (params?: ListClientRatingsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/client-ratings?${stringifiedParams}` : `/api/client-ratings`
+}
+
+export const listClientRatings = async (params?: ListClientRatingsParams, options?: Parameters<typeof customFetch>[1]): Promise<ListClientRatings200> => {
+
+  return customFetch<ListClientRatings200>(getListClientRatingsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListClientRatingsQueryKey = (params?: ListClientRatingsParams,) => {
+    return [
+    `/api/client-ratings`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListClientRatingsQueryOptions = <TData = Awaited<ReturnType<typeof listClientRatings>>, TError = ErrorType<unknown>>(params?: ListClientRatingsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientRatings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListClientRatingsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listClientRatings>>> = ({ signal }) => listClientRatings(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listClientRatings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListClientRatingsQueryResult = NonNullable<Awaited<ReturnType<typeof listClientRatings>>>
+export type ListClientRatingsQueryError = ErrorType<unknown>
+
+
+
+export function useListClientRatings<TData = Awaited<ReturnType<typeof listClientRatings>>, TError = ErrorType<unknown>>(
+ params?: ListClientRatingsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientRatings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListClientRatingsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetClientRatingsReportUrl = (params?: GetClientRatingsReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/client-ratings/report?${stringifiedParams}` : `/api/client-ratings/report`
+}
+
+export const getClientRatingsReport = async (params?: GetClientRatingsReportParams, options?: Parameters<typeof customFetch>[1]): Promise<string> => {
+
+  return customFetch<string>(getGetClientRatingsReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientRatingsReportQueryKey = (params?: GetClientRatingsReportParams,) => {
+    return [
+    `/api/client-ratings/report`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetClientRatingsReportQueryOptions = <TData = Awaited<ReturnType<typeof getClientRatingsReport>>, TError = ErrorType<unknown>>(params?: GetClientRatingsReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientRatingsReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientRatingsReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientRatingsReport>>> = ({ signal }) => getClientRatingsReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientRatingsReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientRatingsReportQueryResult = NonNullable<Awaited<ReturnType<typeof getClientRatingsReport>>>
+export type GetClientRatingsReportQueryError = ErrorType<unknown>
+
+
+
+export function useGetClientRatingsReport<TData = Awaited<ReturnType<typeof getClientRatingsReport>>, TError = ErrorType<unknown>>(
+ params?: GetClientRatingsReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientRatingsReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientRatingsReportQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetRiskRegisterOptionsUrl = () => {
 

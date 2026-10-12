@@ -6,9 +6,20 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './getClientRatingOptions200';
+export * from './getClientRatingOptions200Data';
+export * from './getClientRatingsReportParams';
+export * from './getClientRatingsReportRating';
+export * from './getClientRatingsReportSearchBy';
 export * from './getRiskRegisterHistoryParams';
 export * from './getRiskRegisterSummaryParams';
 export * from './healthStatus';
+export * from './listClientRatings200';
+export * from './listClientRatings200Data';
+export * from './listClientRatings200DataRecordsItem';
+export * from './listClientRatingsParams';
+export * from './listClientRatingsRating';
+export * from './listClientRatingsSearchBy';
 export * from './listRiskRegisterRecordsParams';
 export * from './listRiskRegisterRecordsView';
 export * from './riskAssessmentInput';

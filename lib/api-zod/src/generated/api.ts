@@ -8,6 +8,68 @@
 import * as zod from 'zod';
 
 
+export const GetClientRatingOptionsResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.object({
+  "ratings": zod.array(zod.string()),
+  "reasons": zod.array(zod.string()),
+  "total": zod.number().int(),
+  "source": zod.string(),
+  "scope": zod.string(),
+  "system_captured": zod.boolean()
+})
+})
+
+
+export const listClientRatingsQuerySearchMax = 150;
+
+
+export const listClientRatingsQueryPageSizeMax = 100;
+
+
+
+export const ListClientRatingsQueryParams = zod.object({
+  "search_by": zod.enum(['proposer', 'policy']).optional(),
+  "search": zod.coerce.string().max(listClientRatingsQuerySearchMax).optional(),
+  "rating": zod.enum(['', 'Low', 'Medium', 'High']).optional(),
+  "reason": zod.coerce.string().optional(),
+  "page": zod.coerce.number().int().min(1).optional(),
+  "page_size": zod.coerce.number().int().min(1).max(listClientRatingsQueryPageSizeMax).optional()
+})
+
+export const ListClientRatingsResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.object({
+  "records": zod.array(zod.object({
+  "rating_id": zod.number().int(),
+  "file_no": zod.string(),
+  "policy_code": zod.string().nullable(),
+  "proposer": zod.string(),
+  "cover_type": zod.string().nullable(),
+  "system": zod.string().nullable(),
+  "risk_rating": zod.string(),
+  "reason": zod.string(),
+  "invoice_number": zod.string().nullable(),
+  "entered_by": zod.string(),
+  "entry_date": zod.coerce.date().nullable()
+})),
+  "total": zod.number().int(),
+  "page": zod.number().int(),
+  "page_size": zod.number().int()
+})
+})
+
+
+export const GetClientRatingsReportQueryParams = zod.object({
+  "search_by": zod.enum(['proposer', 'policy']).optional(),
+  "search": zod.coerce.string().optional(),
+  "rating": zod.enum(['', 'Low', 'Medium', 'High']).optional(),
+  "reason": zod.coerce.string().optional()
+})
+
+export const GetClientRatingsReportResponse = zod.unknown()
+
+
 export const GetRiskRegisterOptionsResponse = zod.object({
   "ok": zod.boolean(),
   "data": zod.object({
