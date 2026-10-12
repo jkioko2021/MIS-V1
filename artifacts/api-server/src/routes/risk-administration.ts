@@ -16,7 +16,7 @@ const name = z.string().trim().min(1, "Department name is required.").max(100);
 const code = z.string().trim().min(1).max(20).regex(/^[A-Za-z0-9_-]+$/, "Use letters, numbers, hyphens or underscores for the department code.");
 router.get("/risk-administration/departments", async (req, res) => {
   try {
-    const data = await query("SELECT depart_code,depart_name,is_active FROM risk.departments ORDER BY depart_name,depart_code");
+    const data = await query("SELECT depart_code,depart_name,is_active FROM risk.departments WHERE NOT is_archived ORDER BY depart_name,depart_code");
     res.json({ ok: true, data });
   } catch (err) { riskFailure(req, res, err); }
 });
@@ -45,6 +45,8 @@ router.patch("/risk-administration/departments/:code", async (req, res) => {
     const data = await withTransaction(async client => {
       const [before] = await txQuery(client, "SELECT depart_code,depart_name,is_active FROM risk.departments WHERE depart_code=$1 FOR UPDATE", [id]);
       if (!before) throw new RiskError(404, "Department was not found.");
+      const [archived] = await txQuery(client, "SELECT is_archived FROM risk.departments WHERE depart_code=$1", [id]);
+      if (archived?.is_archived) throw new RiskError(409, "Archived departments are retained for history and cannot be edited here.");
       const [after] = await txQuery(client, `UPDATE risk.departments SET depart_name=$2 WHERE depart_code=$1
         RETURNING depart_code,depart_name,is_active`, [id, input.depart_name]);
       await history(client, null, id, null, "DEPARTMENT_UPDATE", actor.username, "Risk department name updated", { before, after });

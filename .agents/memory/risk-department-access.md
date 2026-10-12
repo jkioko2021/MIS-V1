@@ -14,3 +14,9 @@ Risk administration is restricted to Risk Management and administrators, not aut
 **Why:** The user explicitly chose this access scope.
 
 **How to apply:** Use management authorization for both the administration menu and its API operations. Mapping staff means choosing active MIS accounts; it does not itself grant those staff global administration rights.
+
+Older departments outside the supplied department list are archived, not deleted or remapped. The two supplied inactive departments remain part of the current administration list.
+
+**Why:** The user explicitly chose archiving when informed that older departments had linked risks and objectives.
+
+**How to apply:** Exclude archives from current department administration and active selection lists, while retaining historical joins, staff mappings and linked records. Keep inactive and archived distinct. Do not move or delete linked data as an implied part of catalogue cleanup.
