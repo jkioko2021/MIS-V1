@@ -45,7 +45,7 @@ export function WorkflowPanel({ summaries, departments, assignments, period, act
           { id: 'REOPEN', label: 'Reopen', show: closed, allowed: manage, reason: 'Management only. History is preserved.' },
         ];
         return <div key={readinessKey} className="py-4">
-          {!closeView && !openView && <RiskSubmissionGate username={actor?.username ?? ''} departCode={row.depart_code} periodId={row.period_id ?? Number(period)} ownerAssigned={ownerAssigned} enabled={!submitted && !reviewed && !signed && !closed} onReady={(ready, label) => setSubmissionReadiness(previous => ({ ...previous, [readinessKey]: { ready, label } }))} />}
+          {!closeView && !openView && <RiskSubmissionGate username={actor?.username ?? ''} departCode={row.depart_code} periodId={row.period_id ?? Number(period)} ownerAssigned={ownerAssigned} expectedRiskCount={row.total_risks} enabled={!submitted && !reviewed && !signed && !closed} onReady={(ready, label) => setSubmissionReadiness(previous => ({ ...previous, [readinessKey]: { ready, label } }))} />}
           <div className="flex flex-col gap-3 pt-2 lg:flex-row lg:items-center">
             <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{row.depart_name}</div><div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground"><span>{row.total_risks} risks</span><span>{row.assessed_risks ?? 0} assessed</span><span>{row.open_actions ?? 0} open actions</span><span>{row.overdue_actions ?? 0} overdue</span></div></div>
             <StatusPill status={row.workflow_status} />
@@ -59,10 +59,11 @@ export function WorkflowPanel({ summaries, departments, assignments, period, act
 }
 
 type RiskReadinessState = 'loading' | 'ready' | 'missing' | 'error';
-function RiskSubmissionGate({ username, departCode, periodId, ownerAssigned, enabled, onReady }: {
+export function RiskSubmissionGate({ username, departCode, periodId, ownerAssigned, enabled, onReady, expectedRiskCount }: {
   username: string; departCode: string; periodId: number; ownerAssigned: boolean; enabled: boolean; onReady: (ready: boolean, label: string) => void;
+  expectedRiskCount?: number;
 }) {
-  const listQuery = useRiskRecords(username, { depart_code: departCode, period_id: periodId, view: 'open' }, enabled && ownerAssigned && Boolean(periodId));
+  const listQuery = useRiskRecords(username, { access: 'update', depart_code: departCode, period_id: periodId, view: 'open' }, enabled && ownerAssigned && Boolean(periodId));
   const records = envelopeData<RiskRecord[]>(listQuery.data);
   const activeRecords = (records ?? []).filter(record => record.is_active !== false);
   const [statuses, setStatuses] = useState<Record<string, RiskReadinessState>>({});
@@ -72,12 +73,14 @@ function RiskSubmissionGate({ username, departCode, periodId, ownerAssigned, ena
   const listError = listQuery.data ? envelopeError(listQuery.data) : undefined;
   const listFailed = listQuery.isError || Boolean(listError);
   const detailFailed = activeRecords.some(record => statuses[record.risk_code] === 'error');
-  const waiting = enabled && ownerAssigned && (listQuery.isLoading || !records || activeRecords.some(record => !statuses[record.risk_code] || statuses[record.risk_code] === 'loading'));
-  const ready = enabled && ownerAssigned && !waiting && !listFailed && activeRecords.length > 0 && activeRecords.every(record => statuses[record.risk_code] === 'ready');
+  const waiting = enabled && ownerAssigned && (listQuery.isLoading || listQuery.isFetching || !records || activeRecords.some(record => !statuses[record.risk_code] || statuses[record.risk_code] === 'loading'));
+  const completeList = expectedRiskCount === undefined || activeRecords.length === expectedRiskCount;
+  const ready = enabled && ownerAssigned && !waiting && !listFailed && completeList && activeRecords.length > 0 && activeRecords.every(record => statuses[record.risk_code] === 'ready');
   const label = !ownerAssigned ? 'No active owner is mapped for this department. Contact management to assign an owner before submitting.'
     : listFailed ? 'Could not verify assessment and root-cause readiness. Retry the register query.'
     : detailFailed ? 'Could not verify one or more risk details. Reload the register before submitting.'
       : waiting ? 'Checking active risks and root causes…'
+        : !completeList ? 'The complete register could not be loaded. Reload before submitting; every active risk must be checked.'
         : activeRecords.length === 0 ? 'No active risks are available to submit.'
           : ready ? 'All active risks are assessed and have a root cause.'
             : 'Complete every active assessment and add at least one root cause before submitting.';
@@ -94,7 +97,7 @@ function RiskReadinessCheck({ username, riskCode, onStatus }: { username: string
   const query = useRiskRecord(username, riskCode);
   const detail = envelopeData<{ risk: RiskRecord; root_causes: RiskRootCause[] }>(query.data);
   const failure = query.data ? envelopeError(query.data) : undefined;
-  const status: RiskReadinessState = query.isLoading ? 'loading' : query.isError || failure || !detail ? 'error'
+  const status: RiskReadinessState = query.isLoading || query.isFetching ? 'loading' : query.isError || failure || !detail ? 'error'
     : detail.risk.assessment_updated && detail.root_causes.length > 0 ? 'ready' : 'missing';
   const callback = useMemo(() => ({ current: onStatus }), []);
   callback.current = onStatus;

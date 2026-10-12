@@ -24,6 +24,7 @@ import {
   queryError, SkeletonRows, StatusPill,
 } from './risk-ui';
 import RiskImportPanel from './risk-import';
+import RiskAssessmentSummary from './risk-assessment-summary';
 
 type PageKey = 'dashboard' | 'new' | 'update' | 'review' | 'summary' | 'status' | 'open' | 'close' | 'closed' | 'history' | 'client-rating' | 'champions' | 'import';
 const PAGES: Array<{ key: PageKey; title: string; short: string; icon: typeof Shield }> = [
@@ -170,7 +171,8 @@ function RiskRegisterWorkspace() {
     workflow.mutate({ data: { depart_code, period_id, action, comments: comments.trim() } }, {
       onSuccess: response => announce(response, action === 'RETURN' || action === 'REOPEN'
         ? `${action.replace('_', ' ')} recorded. All department risks require reassessment; saved scores, root causes and prior history remain.`
-        : `${action.replace('_', ' ')} recorded.`),
+        : action === 'SUBMIT' ? 'Department register forwarded for Risk Owner review.'
+          : `${action.replace('_', ' ')} recorded.`),
       onError: error => setMutationError(queryError(error)),
     });
   };
@@ -258,9 +260,33 @@ function RiskRegisterWorkspace() {
 
         {activePage === 'new' && <NewRiskForm options={options} activeDepartment={department} period={period} mutation={createRisk} mutating={mutating} onSubmit={response => announce(response, 'Risk registered.')} onError={error => setMutationError(queryError(error))} />}
 
-        {activePage === 'update' && <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
-           <RecordsTable records={records} loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={selectAssessment} search={search} setSearch={setSearch} title="Choose a risk to assess" compact assessmentList exposureBands={options.exposure_bands ?? []} />
-           {assessmentEditor}
+        {activePage === 'update' && <section className="space-y-6">
+          <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.45fr)]">
+            <div className="min-w-0">
+              <div className="mb-3 flex items-center gap-3"><span className="grid h-8 w-8 place-items-center rounded-lg bg-secondary font-[Space_Mono] text-xs font-bold text-primary">01</span><div><h3 className="font-[Manrope] text-base font-bold">Choose a risk</h3><p className="text-xs text-muted-foreground">Search this permitted assessment queue.</p></div></div>
+              <RecordsTable records={records} loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={selectAssessment} search={search} setSearch={setSearch} title="Assessment queue" compact assessmentList exposureBands={options.exposure_bands ?? []} />
+            </div>
+            <div className="min-w-0">
+              <div className="mb-3 flex items-center gap-3"><span className="grid h-8 w-8 place-items-center rounded-lg bg-secondary font-[Space_Mono] text-xs font-bold text-primary">02</span><div><h3 className="font-[Manrope] text-base font-bold">Assess and mitigate</h3><p className="text-xs text-muted-foreground">Update factors, controls, actions and root causes.</p></div></div>
+              {assessmentEditor}
+            </div>
+          </div>
+          <div className="flex items-center gap-3 border-t border-border pt-2"><span className="grid h-8 w-8 place-items-center rounded-lg bg-primary font-[Space_Mono] text-xs font-bold text-primary-foreground">03</span><div><h3 className="font-[Manrope] text-base font-bold">Review the whole cycle</h3><p className="text-xs text-muted-foreground">Confirm every active risk before submitting this department register.</p></div></div>
+          <RiskAssessmentSummary
+            summaries={summaries}
+            options={options}
+            department={department}
+            period={period}
+            selectedRisk={detail?.risk}
+            comments={comments}
+            setComments={setComments}
+            mutating={workflow.isPending}
+            onSubmit={row => chooseAction('SUBMIT', row)}
+            onSelect={selectAssessment}
+            loading={summaryQuery.isLoading || summaryQuery.isFetching}
+            error={summaryFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')}
+            retry={() => summaryQuery.refetch()}
+          />
         </section>}
 
         {activePage === 'review' && <section className="space-y-5">
