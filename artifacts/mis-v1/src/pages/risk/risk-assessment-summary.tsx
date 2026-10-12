@@ -158,7 +158,7 @@ export default function RiskAssessmentSummary({
             {activeRecordsQuery.isLoading ? <div className="py-4"><SkeletonRows /></div>
               : recordsFailed ? <ErrorNotice message={recordsError || 'Could not load the complete risk list.'} onRetry={() => activeRecordsQuery.refetch()} />
                  : listShort ? <div className="mb-4"><ErrorNotice message={`This preview returned ${activeRecords.length} of ${row.total_risks} active risks. Submission readiness is checked separately across the complete register.`} onRetry={() => activeRecordsQuery.refetch()} /></div>
-                  : assessedRecords.length === 0 ? <div className="py-4"><EmptyState title="No current assessments saved" description="Choose a risk above and click Save Assessment. Successfully saved assessments will appear here; unfinished risks remain in the assessment list." /></div>
+                  : assessedRecords.length === 0 ? <div className="py-4"><EmptyState title="No current assessments saved" description="Choose a risk above and click Save Assessment. Every active risk must be reassessed, including risks with closed actions. Saved assessments appear here; unfinished risks remain in the assessment list." /></div>
                     : <div className="overflow-x-auto rounded-xl border border-border">
                       <table className="w-full min-w-[1120px] text-left text-sm">
                         <thead className="bg-muted/60 text-[10px] uppercase tracking-wider text-muted-foreground">

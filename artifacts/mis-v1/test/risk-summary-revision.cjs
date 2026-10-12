@@ -162,5 +162,8 @@ rows.forEach(row => { row.assessment_updated = false; });
 props.mode = 'assessment';
 assert(!revise(), 'Returned risks require reassessment before reappearing in the saved summary');
 rows[0].assessment_updated = true;
+rows[0].risk_status = 'Closed';
 assert(revise(), 'Reassessed returned risks reappear in the assessment summary');
+assert.equal(requestedScope.view, 'open', 'Summary fetches the complete open workflow, not the pending queue');
+assert(revise(), 'Closed-action reassessed risks appear in the saved summary and can be revised');
 console.log('PASS: summary ranking/revision guards, owner warnings, submission clears assessment summary, owner-scoped review retains scores, and return/reassessment restores the summary.');

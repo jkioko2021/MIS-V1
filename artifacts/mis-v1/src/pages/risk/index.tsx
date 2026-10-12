@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Redirect, useLocation } from 'wouter';
 import { useAuth } from '@/lib/auth-context';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import ClientRatingsPage from './client-ratings';
 import { canAccessRiskPage, riskPageDepartments } from './risk-access';
 import {
@@ -26,8 +25,8 @@ import {
 } from './risk-ui';
 import RiskImportPanel from './risk-import';
 import RiskAssessmentSummary from './risk-assessment-summary';
+import RiskReviewDialog from './risk-review-dialog';
 import { riskDepartmentSelection } from './department-filter';
-import { restoreReviewFocus } from './risk-review-focus';
 
 type PageKey = 'dashboard' | 'new' | 'update' | 'review' | 'summary' | 'status' | 'open' | 'close' | 'closed' | 'history' | 'client-rating' | 'champions' | 'import';
 const PAGES: Array<{ key: PageKey; title: string; short: string; icon: typeof Shield }> = [
@@ -71,7 +70,7 @@ function RiskRegisterWorkspace() {
   const [search, setSearch] = useState('');
   const [selectedRiskCode, setSelectedRiskCode] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [assessmentPopupOpen, setAssessmentPopupOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const assessmentTrigger = useRef<HTMLButtonElement | null>(null);
   const [notice, setNotice] = useState('');
   const [mutationError, setMutationError] = useState('');
@@ -79,7 +78,7 @@ function RiskRegisterWorkspace() {
   useEffect(() => {
     setSelectedRiskCode('');
     setDrawerOpen(false);
-    setAssessmentPopupOpen(false);
+    setReviewOpen(false);
     setComments('');
   }, [activePage, department, period, username]);
 
@@ -108,8 +107,7 @@ function RiskRegisterWorkspace() {
   }), [access, department, period, search, activePage]);
   const recordsQuery = useRiskRecords(username, params, dataEnabled);
   const records = (envelopeData<RiskRecord[]>(recordsQuery.data) ?? []).filter(item =>
-    (pageCodes === null || pageCodes.includes(item.depart_code))
-    && (activePage !== 'update' || item.risk_status !== 'Closed'));
+    (pageCodes === null || pageCodes.includes(item.depart_code)));
   const summaryQuery = useRiskSummary(username, { access, ...(department ? { depart_code: department } : {}), ...(period ? { period_id: Number(period) } : {}) }, dataEnabled);
   const summaries = (envelopeData<RiskDepartmentSummary[]>(summaryQuery.data) ?? []).filter(item =>
     (pageCodes === null || pageCodes.includes(item.depart_code))
@@ -148,7 +146,8 @@ function RiskRegisterWorkspace() {
   const reviewAssessment = (code: string, trigger?: HTMLButtonElement) => {
     assessmentTrigger.current = trigger ?? null;
     setSelectedRiskCode(code);
-    setAssessmentPopupOpen(true);
+    setDrawerOpen(false);
+    setReviewOpen(true);
   };
   const assessmentEditor = detailFailure || detailQuery.isError
     ? <ErrorNotice message={detailFailure || queryError(detailQuery.error)} onRetry={() => detailQuery.refetch()} />
@@ -196,6 +195,10 @@ function RiskRegisterWorkspace() {
     if (confirm && !window.confirm(`${action === 'REOPEN' ? 'Reopen' : 'Close'} this register? ${action === 'REOPEN' ? 'Assessment completion will reset for every risk; existing scores and root causes remain and all prior notes stay in history.' : 'The event will be retained in history.'}`)) return;
     workflow.mutate({ data: { depart_code, period_id, action, comments: comments.trim() } }, {
       onSuccess: response => {
+        if (['REVIEW', 'RETURN'].includes(action) && !envelopeError(response)) {
+          setReviewOpen(false);
+          setSelectedRiskCode('');
+        }
         if (action === 'SUBMIT' && !envelopeError(response)) {
           setSelectedRiskCode('');
           setDrawerOpen(false);
@@ -329,7 +332,6 @@ function RiskRegisterWorkspace() {
         </section>}
 
         {activePage === 'review' && <section className="space-y-5">
-          <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">Owner review is a recorded decision. Add a comment before approving or returning a department register; comments remain attached to its history.</div>
            <RiskAssessmentSummary mode="review" summaries={summaries} options={options}
              department={department} period={period} selectedRisk={detail?.risk}
              comments={comments} setComments={setComments} mutating={mutating}
@@ -362,24 +364,12 @@ function RiskRegisterWorkspace() {
         {activePage === 'champions' && <TeamMapping options={options} manage={manage} mutating={assignTeam.isPending} onAssign={data => assignTeam.mutate({ data }, { onSuccess: response => announce(response, 'Department team mapping saved.'), onError: error => setMutationError(queryError(error)) })} />}
       </main>}
 
-      {activePage === 'review' && pageAllowed && <Dialog open={assessmentPopupOpen} onOpenChange={open => {
-        setAssessmentPopupOpen(open);
-        if (!open) setSelectedRiskCode('');
-      }}>
-        <DialogContent data-testid="risk-review-assessment-popup" className="w-[calc(100%-2rem)] max-w-6xl max-h-[calc(100dvh-2rem)] p-4 sm:p-6"
-          onCloseAutoFocus={event => {
-            event.preventDefault();
-            restoreReviewFocus(assessmentTrigger.current);
-          }}>
-          <DialogHeader className="pr-8">
-            <DialogTitle>Review assessment</DialogTitle>
-            <DialogDescription className="break-words">{detail?.risk.risk_title ?? 'Risk details, root causes & action plans, and risk exposures.'}</DialogDescription>
-          </DialogHeader>
-          <div className="min-w-0">{assessmentEditor}</div>
-        </DialogContent>
-      </Dialog>}
-
        {drawerOpen && selectedRiskCode && <RiskDrawer riskCode={selectedRiskCode} risk={detail?.risk} roots={detail?.root_causes ?? []} events={detail?.history ?? []} loading={detailQuery.isLoading} error={detailFailure || (detailQuery.isError ? queryError(detailQuery.error) : '')} onClose={() => setDrawerOpen(false)} />}
+       {activePage === 'review' && pageAllowed && <RiskReviewDialog open={reviewOpen && Boolean(selectedRiskCode)} riskCode={selectedRiskCode}
+         trigger={assessmentTrigger.current} mutating={mutating} onClose={() => {
+           setReviewOpen(false);
+           setSelectedRiskCode('');
+         }}>{assessmentEditor}</RiskReviewDialog>}
       {mutating && <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold shadow-lg"><RefreshCw className="h-3.5 w-3.5 animate-spin text-primary" />Saving risk register changes</div>}
     </div>
   </div>;

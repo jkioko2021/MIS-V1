@@ -180,12 +180,11 @@ try{
       assert.equal(closedRows.some(row=>row.risk_code===risk.risk_code),expectedStatus==="Closed","Partial root closure must not mark a risk closed");
       const allRows=await ok(`/records?access=update&depart_code=${f.department}&period_id=${f.period}`,"champion","GET");
       assert.equal(allRows.find(row=>row.risk_code===risk.risk_code).risk_status,expectedStatus);
-      // Root-driven closure excludes even an unassessed risk from the chooser,
-      // without removing it from the full register or its saved history.
+      // Assessment completion is independent of root-action closure.
       await pool.query("UPDATE risk.risk_master SET assessment_updated=FALSE WHERE risk_code=$1",[risk.risk_code]);
       const pendingRows=await ok(pendingUrl,"champion","GET");
-      assert.equal(pendingRows.some(row=>row.risk_code===risk.risk_code),expectedStatus!=="Closed",
-        "Only all-closed roots leave the assessment queue; partially open/behind-schedule roots remain");
+      assert(pendingRows.some(row=>row.risk_code===risk.risk_code),
+        "Every active unassessed risk remains in the queue, including all-closed roots");
       await pool.query("UPDATE risk.risk_master SET assessment_updated=TRUE WHERE risk_code=$1",[risk.risk_code]);
     }
     await pool.query("DELETE FROM risk.root_causes WHERE root_id=$1",[extraRoot.rows[0].root_id]);

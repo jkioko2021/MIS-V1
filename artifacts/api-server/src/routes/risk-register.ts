@@ -115,7 +115,6 @@ router.get("/risk-register/records", async (req,res) => {
         OR p.status='OPEN' AND NOT COALESCE(s.closed,FALSE) AND (
           $6='open' AND NOT COALESCE(s.submitted,FALSE)
           OR $6='pending_assessment' AND NOT COALESCE(s.submitted,FALSE) AND NOT COALESCE(r.assessment_updated,FALSE)
-            AND NOT (actions.root_cause_count>0 AND actions.completed_action_count=actions.root_cause_count)
           OR $6='submitted' AND COALESCE(s.submitted,FALSE) AND NOT COALESCE(s.reviewed,FALSE)
           OR $6='reviewed' AND COALESCE(s.reviewed,FALSE) AND NOT COALESCE(s.sign_off,FALSE)
           OR $6='signed' AND COALESCE(s.sign_off,FALSE)))

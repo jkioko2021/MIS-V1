@@ -54,6 +54,8 @@ riskWorkflowRouter.post("/risk-register/workflow",async(req,res)=>{
       }
       const reset=["RETURN","REOPEN"].includes(input.action);
       if(reset) {
+        // Root-action closure never exempts an active risk from reassessment.
+        // Reset completion only; retain root statuses, saved ratings and history.
         await txQuery(client,`UPDATE risk.department_summary SET submitted=FALSE,submitted_by=NULL,submitted_at=NULL,
           reviewed=FALSE,reviewed_by=NULL,reviewed_at=NULL,sign_off=FALSE,signed_off_by=NULL,signed_off_at=NULL,
           closed=FALSE,closed_by=NULL,closed_at=NULL,updated_at=NOW() WHERE summary_id=$1`,[s.summary_id]);
