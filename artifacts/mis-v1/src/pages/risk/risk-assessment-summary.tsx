@@ -3,6 +3,8 @@ import { ArrowRight, CheckCircle2, ClipboardList, Send, ShieldAlert } from 'luci
 import type { RiskDepartmentSummary, RiskOptionsResponseData, RiskRecord } from '@workspace/api-client-react';
 import { useRiskRecords } from './use-risk-register';
 import { RiskSubmissionGate } from './risk-workflow';
+import { orderRiskSummary } from './risk-summary-order';
+import { riskExposureColors } from './risk-exposure-colors';
 import {
   dateLabel, EmptyState, envelopeData, envelopeError, ErrorNotice, Field, fieldClass, SkeletonRows,
 } from './risk-ui';
@@ -45,7 +47,7 @@ function exposureBand(value: string | null | undefined, type: 'I' | 'R', options
 function ScopeExposure({ score, band }: { score: string; band: string }) {
   return <span className="flex flex-col gap-1">
     <span className="font-[Space_Mono] text-sm font-bold">{score}</span>
-    <span className="w-fit rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-primary">{band}</span>
+    <span className={`w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold ${riskExposureColors(band).badge}`}>{band}</span>
   </span>;
 }
 
@@ -77,7 +79,10 @@ export default function RiskAssessmentSummary({
     Boolean(scopeKey),
   );
   const returnedRecords = envelopeData<RiskRecord[]>(activeRecordsQuery.data);
-  const activeRecords = (returnedRecords ?? []).filter(item => item.is_active !== false);
+  const activeRecords = useMemo(
+    () => orderRiskSummary((returnedRecords ?? []).filter(item => item.is_active !== false)),
+    [returnedRecords],
+  );
   const recordsError = activeRecordsQuery.data ? envelopeError(activeRecordsQuery.data) ?? '' : '';
   const recordsFailed = activeRecordsQuery.isError || Boolean(recordsError);
   const listShort = Boolean(row && returnedRecords && !recordsFailed && activeRecords.length !== row.total_risks);
@@ -118,7 +123,8 @@ export default function RiskAssessmentSummary({
       <div className="max-w-2xl">
         <div className="mb-2 flex items-center gap-2 text-primary"><ClipboardList className="h-4 w-4" /><span className="text-[10px] font-bold uppercase tracking-[.17em]">Department cycle closeout</span></div>
         <h3 className="font-[Manrope] text-xl font-extrabold sm:text-2xl">Risk summary</h3>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">A full-cycle view of every active risk, independent of the assessment-list search. Prepare one department and reporting period at a time.</p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">Every active risk in this department and period, ordered by highest saved residual exposure first. Risks without a saved exposure appear last. This summary is independent of the assessment-list search.</p>
+        <div className="mt-3 flex flex-wrap gap-2" aria-label="Residual risk color key">{['Extreme', 'High', 'Moderate', 'Low'].map(level => <span key={level} className={`rounded-full px-2 py-1 text-[10px] font-semibold ${riskExposureColors(level).badge}`}>{level}</span>)}</div>
       </div>
       <div className="grid w-full gap-3 sm:w-auto sm:min-w-[420px] sm:grid-cols-2">
         <Field label="Department">
@@ -158,15 +164,20 @@ export default function RiskAssessmentSummary({
                           {activeRecords.map(record => {
                             const inherent = exposureBand(record.i_risk_exposure, 'I', options);
                             const residual = exposureBand(record.r_risk_exposure, 'R', options);
+                            const colors = riskExposureColors(residual.band);
+                            const topExposure = activeRecords[0]?.r_risk_exposure;
+                            const highest = topExposure != null && topExposure.trim() !== '' && Number.isFinite(Number(topExposure))
+                              && residual.score !== '—' && Number(residual.score) === Number(topExposure);
                             const controlPercent = record.perceived_contr_eff == null ? Number.NaN : Number(record.perceived_contr_eff);
                             const control = options.control_effectiveness.find(item =>
                               Number.isFinite(controlPercent) && Math.abs(item.rating * 100 - controlPercent) < 1e-7,
                             );
-                            return <tr key={record.risk_code} data-testid={`risk-summary-row-${record.risk_code}`} className={compatibleRisk?.risk_code === record.risk_code ? 'bg-primary/[.035]' : ''}>
-                              <td className="max-w-[260px] px-4 py-3">
+                            return <tr key={record.risk_code} data-testid={`risk-summary-row-${record.risk_code}`} aria-current={compatibleRisk?.risk_code === record.risk_code ? true : undefined} className={`${colors.row} ${highest ? `outline outline-2 -outline-offset-2 ${colors.outline}` : ''}`}>
+                              <td className={`max-w-[260px] border-l-4 px-4 py-3 ${colors.edge}`}>
                                 <button className="text-left" data-testid={`select-summary-risk-${record.risk_code}`} onClick={() => onSelect(record.risk_code)}>
                                   <span className="block font-[Space_Mono] text-[10px] text-primary">{record.risk_code}</span>
                                   <span className="mt-1 block font-semibold leading-5 hover:text-primary">{record.risk_title}</span>
+                                  {highest && <span className={`mt-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${colors.badge}`}>Highest exposure</span>}
                                 </button>
                               </td>
                               <td className="px-4 py-3"><span className="font-semibold">{factorName(record.i_rate, options.impact_factors)}</span></td>

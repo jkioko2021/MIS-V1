@@ -33,6 +33,12 @@ Keep inherent and residual bands distinct, and retain separate ranges even when 
 
 **How to apply:** Classify the rounded score using risk type and inclusive bounds, not a level-name key. Do not silently assign a band to a historical score outside the calibrated ranges.
 
+The Update Register risk summary must order risks by highest saved residual exposure first and highlight exposure levels with color.
+
+**Why:** The user explicitly selected this ordering to match the legacy summary, then repeated that the highest risk should appear at the top and be highlighted with color.
+
+**How to apply:** Sort scores numerically, keep missing exposures last, show textual level labels alongside severity colors, and do not recompute or alter saved assessments just to order the rows.
+
 Objective codes are department-scoped and can legitimately repeat across departments.
 
 **Why:** The supplied objective master reuses codes for different objective names in different departments.
