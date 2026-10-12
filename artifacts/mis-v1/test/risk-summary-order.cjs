@@ -22,5 +22,15 @@ const before = JSON.stringify(input);
 const ordered = exportsObject.orderRiskSummary(input);
 assert.equal(ordered.map(item => item.risk_code).join(','), 'R-high,R-2,R-10,R-small,R-zero,R-blank,R-invalid,R-missing,R-null');
 assert.equal(JSON.stringify(input), before, 'Query cache order and saved values must not be mutated');
+assert.equal(ordered.map(item => item.risk_ranking).join(','), '1,2,2,4,5,,,,');
+assert(ordered.every((record, index) => record !== input.find(item => item.risk_code === record.risk_code)), 'Computed rankings must not mutate cached record objects');
+const tied = exportsObject.orderRiskSummary([
+  { risk_code: 'B', r_risk_exposure: '40.0' },
+  { risk_code: 'A', r_risk_exposure: '40.00' },
+  { risk_code: 'C', r_risk_exposure: '20' },
+]);
+assert.equal(tied.map(item => `${item.risk_code}:${item.risk_ranking}`).join(','), 'A:1,B:1,C:3');
+assert.equal(exportsObject.orderRiskSummary([{ risk_code: 'zero', r_risk_exposure: '0' }])[0].risk_ranking, 1);
+assert.equal(exportsObject.orderRiskSummary([{ risk_code: 'missing' }])[0].risk_ranking, null);
 assert.equal(exportsObject.orderRiskSummary([]).length, 0);
-console.log('PASS: descending numeric residual order, deterministic risk-code ties, missing/invalid values last, saved values and input order preserved.');
+console.log('PASS: highest residual exposure ranked first, equal-score competition ranks, deterministic ties, invalid exposures unranked, zero valid and cache data preserved.');

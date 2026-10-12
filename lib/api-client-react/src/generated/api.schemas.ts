@@ -311,6 +311,17 @@ export interface RiskAssignmentInput {
   owner_username: string;
 }
 
+/**
+ * Closed only when at least one root cause exists and every root cause action is Closed; otherwise Open. Independent of register workflow.
+ */
+export type RiskRecordRiskStatus = typeof RiskRecordRiskStatus[keyof typeof RiskRecordRiskStatus];
+
+
+export const RiskRecordRiskStatus = {
+  Open: 'Open',
+  Closed: 'Closed',
+} as const;
+
 export interface RiskRecord {
   risk_code: string;
   depart_code: string;
@@ -347,6 +358,12 @@ export interface RiskRecord {
   desired_contr_effe?: string | null;
   assessment_updated?: boolean;
   completed_action_count?: number;
+  root_cause_count?: number;
+  behind_schedule_count?: number;
+  /** Closed only when at least one root cause exists and every root cause action is Closed; otherwise Open. Independent of register workflow. */
+  risk_status?: RiskRecordRiskStatus;
+  /** True when any root cause has action status Behind schedule; does not change exposure scores. */
+  at_risk?: boolean;
   is_active?: boolean;
   updated_at: string;
   workflow_status: string;
@@ -819,6 +836,7 @@ export type ListRiskRegisterRecordsView = typeof ListRiskRegisterRecordsView[key
 export const ListRiskRegisterRecordsView = {
   all: 'all',
   open: 'open',
+  pending_assessment: 'pending_assessment',
   submitted: 'submitted',
   reviewed: 'reviewed',
   signed: 'signed',

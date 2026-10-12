@@ -3,7 +3,7 @@ import { ClipboardCheck, ClipboardList, FilePlus2 } from 'lucide-react';
 import type { RiskActionStatus, RiskControlEffectiveness, RiskImpactFactor, RiskLikelihoodFactor, RiskExposureBand, RiskAssessmentInput, RiskCauseInput, RiskLookup, RiskRecord, RiskRootCause, RiskOptionsResponseData } from '@workspace/api-client-react';
 import { useCreateRisk } from './use-risk-register';
 import RiskRootCauseTable from './risk-root-cause-table';
-import { buttonClass, dateLabel, EmptyState, Exposure, Field, fieldClass, secondaryButton, SkeletonRows, StatusPill, text } from './risk-ui';
+import { buttonClass, dateLabel, EmptyState, Exposure, Field, fieldClass, secondaryButton, SkeletonRows, StatusPill, RiskStatusPill, text } from './risk-ui';
 
 function CalibratedExposure({ label, value, riskType, bands }: { label: string; value: string; riskType: 'I' | 'R'; bands: RiskExposureBand[] }) {
   const score = Number.parseFloat(value);
@@ -208,7 +208,7 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
   };
   return <section className="min-w-0 space-y-4">
     <div className="rounded-2xl border border-border bg-card p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-[Space_Mono] text-[10px] text-muted-foreground">{risk.risk_code} · {risk.depart_name ?? risk.depart_code}</div><h3 className="mt-1 font-[Manrope] text-xl font-bold">{risk.risk_title}</h3></div><StatusPill status={risk.workflow_status} /></div>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-[Space_Mono] text-[10px] text-muted-foreground">{risk.risk_code} · {risk.depart_name ?? risk.depart_code}</div><h3 className="mt-1 font-[Manrope] text-xl font-bold">{risk.risk_title}</h3></div><div className="space-y-2"><div><p className="mb-1 text-[10px] text-muted-foreground">Risk status</p><RiskStatusPill risk={risk} /></div><div><p className="mb-1 text-[10px] text-muted-foreground">Register workflow</p><StatusPill status={risk.workflow_status} /></div></div></div>
       {risk.workflow_status.toLowerCase().includes('submit') && <p className="mt-4 rounded-lg bg-secondary/70 p-3 text-xs text-foreground">Mapped owners and management can correct assessments and mitigations while the register is submitted. Editability follows the server-provided can_edit permission.</p>}
       {risk.can_edit === false && <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">This record is not editable in its current workflow state. Existing assessments and root causes remain visible.</p>}
     </div>
@@ -262,8 +262,8 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
          {formError && <p role="alert" className="mt-3 text-xs font-medium text-destructive">{formError}</p>}
          {rootSaved && <p role="status" className="mt-3 rounded-lg bg-primary/10 p-3 text-xs text-primary">Root cause and action plan saved successfully. You can add another cause or continue to risk exposures.</p>}
          <div className="mt-4 flex flex-wrap justify-between gap-3">
-           <button type="button" className={secondaryButton} disabled={roots.length === 0} onClick={() => selectTab('exposures')}>Continue to Risk exposures</button>
            <button className={secondaryButton} disabled={!allowed || mutating || actionStatuses.length === 0} type="submit"><ClipboardList className="h-4 w-4" />{rootId ? 'Update root cause' : 'Save new root cause'}</button>
+           <button type="button" className={secondaryButton} disabled={roots.length === 0} onClick={() => selectTab('exposures')}>Continue to Risk exposures</button>
          </div>
         </form>
        </section>

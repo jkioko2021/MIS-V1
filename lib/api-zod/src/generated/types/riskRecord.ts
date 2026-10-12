@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { RiskRecordRiskStatus } from './riskRecordRiskStatus';
 
 export interface RiskRecord {
   risk_code: string;
@@ -42,6 +43,12 @@ export interface RiskRecord {
   desired_contr_effe?: string | null;
   assessment_updated?: boolean;
   completed_action_count?: number;
+  root_cause_count?: number;
+  behind_schedule_count?: number;
+  /** Closed only when at least one root cause exists and every root cause action is Closed; otherwise Open. Independent of register workflow. */
+  risk_status?: RiskRecordRiskStatus;
+  /** True when any root cause has action status Behind schedule; does not change exposure scores. */
+  at_risk?: boolean;
   is_active?: boolean;
   updated_at: Date;
   workflow_status: string;

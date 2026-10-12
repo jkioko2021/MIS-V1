@@ -66,7 +66,7 @@ export function useRiskOptions(username: string) {
   return useGetRiskRegisterOptions({ query: { ...finiteQuery, enabled: Boolean(username), queryKey: key } });
 }
 
-export function useRiskRecords(username: string, params: { access?: 'view' | 'update' | 'review'; depart_code?: string; period_id?: number; view?: 'all' | 'open' | 'submitted' | 'reviewed' | 'signed' | 'closed'; search?: string }, enabled = true) {
+export function useRiskRecords(username: string, params: NonNullable<Parameters<typeof useListRiskRegisterRecords>[0]>, enabled = true) {
   const key = identityKey(username, getListRiskRegisterRecordsQueryKey(params));
   return useListRiskRegisterRecords(params, { query: { ...finiteQuery, enabled, queryKey: key } });
 }

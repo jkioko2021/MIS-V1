@@ -49,7 +49,13 @@ export function StatusPill({ status }: { status?: string }) {
   const palette = normalized.includes('behind') || normalized.includes('return') ? 'bg-rose-100 text-rose-800'
     : normalized.includes('sign') || normalized.includes('closed') || normalized.includes('review') ? 'bg-emerald-100 text-emerald-800'
       : normalized.includes('submit') ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700';
-  return <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${palette}`}>{status || 'Not started'}</span>;
+  return <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${palette}`}>{status || 'Not started'}{normalized === 'behind schedule' ? ' · At risk' : ''}</span>;
+}
+export function RiskStatusPill({ risk }: { risk: { risk_status?: string; at_risk?: boolean; behind_schedule_count?: number } }) {
+  return <span className="inline-flex flex-wrap items-center gap-1.5" aria-label={`Risk status: ${risk.risk_status ?? 'Open'}${risk.at_risk ? ', At risk' : ''}`}>
+    <StatusPill status={risk.risk_status ?? 'Open'} />
+    {risk.at_risk && <span className="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-bold text-rose-800" title={`${risk.behind_schedule_count ?? 1} root cause(s) behind schedule`}>At risk</span>}
+  </span>;
 }
 export function ErrorNotice({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return <div role="alert" className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">

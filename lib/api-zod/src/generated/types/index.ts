@@ -79,6 +79,7 @@ export * from './riskReadinessResponseData';
 export * from './riskRecord';
 export * from './riskRecordInput';
 export * from './riskRecordResponse';
+export * from './riskRecordRiskStatus';
 export * from './riskRecordsResponse';
 export * from './riskRecordsResponseTotals';
 export * from './riskReference';

@@ -25,7 +25,7 @@ export default function RiskSummaryCauses({ username, riskCode, staff }: {
                   <div><dt className="font-semibold">Mitigation / action</dt><dd className="whitespace-pre-wrap break-words text-muted-foreground">{cause.mitigations || 'Not recorded'}</dd></div>
                   <div><dt className="font-semibold">Action owner</dt><dd>{staff.find(person => person.username === cause.action_owner)?.employee_name || cause.action_owner || 'Not assigned'}</dd></div>
                   <div><dt className="font-semibold">Due date</dt><dd>{cause.due_date ? dateLabel(cause.due_date) : 'Not recorded'}</dd></div>
-                  <div><dt className="font-semibold">Status</dt><dd>{cause.action_status}</dd></div>
+                  <div><dt className="font-semibold">Status</dt><dd className={cause.action_status === 'Behind schedule' ? 'font-semibold text-rose-800' : ''}>{cause.action_status}{cause.action_status === 'Behind schedule' && <span className="ml-2 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold">At risk</span>}</dd></div>
                 </dl>
               </article>)}
     </div>}

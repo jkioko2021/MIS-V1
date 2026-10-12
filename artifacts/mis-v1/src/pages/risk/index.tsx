@@ -99,7 +99,7 @@ function RiskRegisterWorkspace() {
     ...(department ? { depart_code: department } : {}),
     ...(period ? { period_id: Number(period) } : {}),
     ...(search ? { search } : {}),
-    ...(activePage === 'closed' ? { view: 'closed' as const } : activePage === 'review' ? { view: 'submitted' as const } : activePage === 'update' ? { view: 'open' as const } : undefined),
+    ...(activePage === 'closed' ? { view: 'closed' as const } : activePage === 'review' ? { view: 'submitted' as const } : activePage === 'update' ? { view: 'pending_assessment' as const } : undefined),
   }), [access, department, period, search, activePage]);
   const recordsQuery = useRiskRecords(username, params, dataEnabled);
   const records = (envelopeData<RiskRecord[]>(recordsQuery.data) ?? []).filter(item => pageCodes === null || pageCodes.includes(item.depart_code));
@@ -131,6 +131,7 @@ function RiskRegisterWorkspace() {
   const selectAssessment = (code: string) => {
     setSelectedRiskCode(code);
     setDrawerOpen(false);
+    window.requestAnimationFrame(() => document.getElementById('risk-assessment-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
   const viewDetails = (code: string) => {
     setSelectedRiskCode(code);
@@ -148,8 +149,10 @@ function RiskRegisterWorkspace() {
       onSave={async (data, code) => {
         try {
           const response = await updateRisk.mutateAsync({ riskCode: code, data });
-          announce(response, 'Assessment saved.');
-          return envelopeError(response) || undefined;
+          const error = envelopeError(response);
+          announce(response, activePage === 'update' ? 'Assessment saved and summary updated. Use Revise assessment in the Risk Summary to make further changes.' : 'Assessment saved.');
+          if (!error && activePage === 'update') setSelectedRiskCode(current => current === code ? '' : current);
+          return error || undefined;
         } catch (error) {
           const message = queryError(error);
           setMutationError(message);
@@ -280,10 +283,10 @@ function RiskRegisterWorkspace() {
         {activePage === 'update' && <section className="space-y-6">
           <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.45fr)]">
             <div className="min-w-0">
-              <div className="mb-3 flex items-center gap-3"><span className="grid h-8 w-8 place-items-center rounded-lg bg-secondary font-[Space_Mono] text-xs font-bold text-primary">01</span><div><h3 className="font-[Manrope] text-base font-bold">Choose a risk</h3><p className="text-xs text-muted-foreground">Search this permitted assessment queue.</p></div></div>
+              <div className="mb-3 flex items-center gap-3"><span className="grid h-8 w-8 place-items-center rounded-lg bg-secondary font-[Space_Mono] text-xs font-bold text-primary">01</span><div><h3 className="font-[Manrope] text-base font-bold">Choose a risk</h3><p className="text-xs text-muted-foreground">Only risks awaiting assessment appear here. Revise saved assessments from the Risk Summary below.</p></div></div>
               <RecordsTable records={records} totalRecords={activeCount} loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={selectAssessment} search={search} setSearch={setSearch} title="Assessment queue" compact assessmentList exposureBands={options.exposure_bands ?? []} />
             </div>
-            <div className="min-w-0">
+            <div id="risk-assessment-editor" className="min-w-0 scroll-mt-5">
               <div className="mb-3 flex items-center gap-3"><span className="grid h-8 w-8 place-items-center rounded-lg bg-secondary font-[Space_Mono] text-xs font-bold text-primary">02</span><div><h3 className="font-[Manrope] text-base font-bold">Assess and mitigate</h3><p className="text-xs text-muted-foreground">Update factors, controls, actions and root causes.</p></div></div>
               {assessmentEditor}
             </div>

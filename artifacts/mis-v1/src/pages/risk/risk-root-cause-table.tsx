@@ -21,7 +21,7 @@ export default function RiskRootCauseTable({ roots, staff, selectedRootId, mutat
       <table className="w-full min-w-[900px] text-left text-xs">
         <caption className="sr-only">Saved root causes and action plans</caption>
         <thead className="bg-muted/60"><tr>{['Select', 'Root cause', 'Current controls', 'Mitigations', 'Due date', 'Action owner', 'Action status'].map(label => <th key={label} className="px-3 py-3 font-semibold">{label}</th>)}</tr></thead>
-        <tbody className="divide-y divide-border">{roots.map(root => <tr key={root.root_id} data-testid={`saved-root-${root.root_id}`} className={String(root.root_id) === selectedRootId ? 'bg-primary/5' : ''}>
+        <tbody className="divide-y divide-border">{roots.map(root => <tr key={root.root_id} data-testid={`saved-root-${root.root_id}`} className={root.action_status === 'Behind schedule' ? 'bg-rose-50' : String(root.root_id) === selectedRootId ? 'bg-primary/5' : ''}>
           <td className="px-3 py-3 align-top">{selectButton(root)}</td>
           <td className="max-w-64 whitespace-pre-wrap break-words px-3 py-3 align-top">{root.root_cause}</td>
           <td className="max-w-64 whitespace-pre-wrap break-words px-3 py-3 align-top">{root.current_contr || 'Not recorded'}</td>
@@ -32,7 +32,7 @@ export default function RiskRootCauseTable({ roots, staff, selectedRootId, mutat
         </tr>)}</tbody>
       </table>
     </div>
-    <div className="space-y-3 md:hidden">{roots.map(root => <article key={root.root_id} className={`rounded-lg border p-3 text-xs ${String(root.root_id) === selectedRootId ? 'border-primary bg-primary/5' : 'border-border'}`}>
+    <div className="space-y-3 md:hidden">{roots.map(root => <article key={root.root_id} className={`rounded-lg border p-3 text-xs ${root.action_status === 'Behind schedule' ? 'border-rose-300 bg-rose-50' : String(root.root_id) === selectedRootId ? 'border-primary bg-primary/5' : 'border-border'}`}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><span className="font-semibold">Root cause & action plan</span>{selectButton(root)}</div>
       <dl className="space-y-3">
         <div><dt className="font-semibold">Root cause</dt><dd className="mt-1 whitespace-pre-wrap break-words">{root.root_cause}</dd></div>

@@ -33,23 +33,29 @@ Keep inherent and residual bands distinct, and retain separate ranges even when 
 
 **How to apply:** Classify the rounded score using risk type and inclusive bounds, not a level-name key. Do not silently assign a band to a historical score outside the calibrated ranges.
 
-The Update Register risk summary must order risks by highest saved residual exposure first and highlight exposure levels with color.
+The Update Register risk summary must compute and display rankings from saved residual exposure, highest first with rank 1, and highlight exposure levels with color.
 
-**Why:** The user explicitly selected this ordering to match the legacy summary, then repeated that the highest risk should appear at the top and be highlighted with color.
+**Why:** The user explicitly selected residual-exposure ordering, repeated that the highest risk should appear at the top and be highlighted with color, then requested computed summary rankings.
 
-**How to apply:** Sort scores numerically, keep missing exposures last, show textual level labels alongside severity colors, and do not recompute or alter saved assessments just to order the rows.
+**How to apply:** Rank numerically within the selected department/reporting-period summary. Equal exposures share competition ranks (1, 1, 3); risk codes break display ties only. Keep missing/invalid exposures last and unranked, show textual level labels alongside severity colors, and do not recompute or alter saved assessments just to rank the rows.
 
-The Update Register summary shows only successfully saved assessments for the current department and reporting period. Users must be able to view every saved root cause per risk; review submission still covers all active risks in that cycle.
+The Update Register summary shows only successfully saved assessments for the current department and reporting period. Saved risks leave the assessment queue and can be revised through the summary, without deleting the prior assessment. Users must be able to view every saved root cause per risk; review submission still covers all active risks in that cycle.
 
-**Why:** The user explicitly requested risks to appear after Save Assessment, root-cause visibility per risk, and submission only once all risks are assessed.
+**Why:** The user explicitly requested saved risks to move from the assessment queue to the summary, an option to revise from there, root-cause visibility per risk, and submission only once all risks are assessed.
 
-**How to apply:** Do not restrict readiness checks to the visible assessed subset or to the chooser search results. Returned/reopened assessments must be saved again before appearing; no existing root causes or history should be deleted.
+**How to apply:** Filter pending assessments before database result limits; remove a selected risk only after a successful save and retain the summary cycle when clearing the editor. Do not reset the saved-completion flag merely to open a revision. Do not restrict readiness checks to the visible assessed subset or to the chooser search results. Returned/reopened assessments must be saved again before appearing; no existing root causes or history should be deleted.
 
 Hide Root ID and risk code in the Root causes & action plans section.
 
 **Why:** The user explicitly asked to hide both identifiers.
 
 **How to apply:** Keep the identifiers internally for selection and updates; hide them in desktop columns, mobile cards and root-editor headings. This does not change risk-code visibility elsewhere in the register.
+
+Overall risk status follows root-cause action statuses: Closed only when at least one cause exists and all causes are Closed; otherwise Open. Behind schedule causes and their parent risk are flagged At risk.
+
+**Why:** The user explicitly requested root-action-driven closure and behind-schedule flags. No-root risks must not be treated as completed merely because there are no unfinished actions.
+
+**How to apply:** Derive the current status from all saved root causes, and refresh it after action updates. Keep it separate from department review/signoff/period closure; reopening an action reopens the risk without resetting register workflow, assessment completion or calibrated exposure scores.
 
 Assessment entry follows three tabs: Risk Details first (title, department objective, category, description and consequences), then Root causes & action plans, then Risk exposures. Users save a root cause before completing the assessment. Current controls belongs on the root-cause form, not under exposures.
 

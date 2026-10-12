@@ -250,7 +250,7 @@ paths:
         - { name: access, in: query, schema: { type: string, enum: [view, update, review] }, description: Department role scope for the requested workspace }
         - { name: depart_code, in: query, schema: { type: string } }
         - { name: period_id, in: query, schema: { type: integer } }
-        - { name: view, in: query, schema: { type: string, enum: [all, open, submitted, reviewed, signed, closed] } }
+        - { name: view, in: query, schema: { type: string, enum: [all, open, pending_assessment, submitted, reviewed, signed, closed] } }
         - { name: search, in: query, schema: { type: string } }
       responses:
         "200":
@@ -715,6 +715,10 @@ components:
         desired_contr_effe: { type: [string, "null"] }
         assessment_updated: { type: boolean }
         completed_action_count: { type: integer }
+        root_cause_count: { type: integer }
+        behind_schedule_count: { type: integer }
+        risk_status: { type: string, enum: [Open, Closed], description: "Closed only when at least one root cause exists and every root cause action is Closed; otherwise Open. Independent of register workflow." }
+        at_risk: { type: boolean, description: "True when any root cause has action status Behind schedule; does not change exposure scores." }
         is_active: { type: boolean }
         updated_at: { type: string, format: date-time }
         workflow_status: { type: string }

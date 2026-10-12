@@ -162,6 +162,7 @@ async function main() {
   assert.equal(field('Root cause').props.value, 'Existing cause');
   assert.equal(field('Current controls').type, 'textarea');
   let rootForm = () => find(node => node.type === 'form' && flattenText(node).includes('Root causes & action plans'));
+  assert.deepEqual(flatten(rootForm()).filter(node => node.type === 'button' && ['Update root cause', 'Continue to Risk exposures'].includes(flattenText(node))).map(flattenText), ['Update root cause', 'Continue to Risk exposures'], 'Save/update appears before Continue');
   await rootForm().props.onSubmit({ preventDefault() {} });
   assert.equal(payload.root_id, 11);
   find(node => node.type === 'RiskRootCauseTable').props.onSelect(props.roots[0]);

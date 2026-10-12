@@ -12,6 +12,7 @@ export type ListRiskRegisterRecordsView = typeof ListRiskRegisterRecordsView[key
 export const ListRiskRegisterRecordsView = {
   all: 'all',
   open: 'open',
+  pending_assessment: 'pending_assessment',
   submitted: 'submitted',
   reviewed: 'reviewed',
   signed: 'signed',

@@ -18,6 +18,8 @@ async function cleanup(){
   const client=await pool.connect();
   try{
     await client.query("BEGIN");
+    const notificationTable=await client.query("SELECT to_regclass('risk.review_notifications') AS name");
+    if(notificationTable.rows[0]?.name) await client.query("DELETE FROM risk.review_notifications WHERE depart_code=ANY($1::text[])",[f.departments]);
     await client.query("DELETE FROM risk.register_history WHERE depart_code=ANY($1::text[]) OR period_id=ANY($2::int[])",[f.departments,f.periods]);
     await client.query("DELETE FROM risk.root_causes WHERE risk_code IN(SELECT risk_code FROM risk.risk_master WHERE depart_code=ANY($1::text[]))",[f.departments]);
     await client.query("DELETE FROM risk.master_summary WHERE depart_code=ANY($1::text[])",[f.departments]);
@@ -104,16 +106,46 @@ try{
     const wf=action=>({depart_code:f.department,period_id:f.period,action,comments:`Synthetic ${action} note`});
     assert.equal((await api("/workflow","champion","POST",wf("SUBMIT"))).status,409);
     const detail=await ok(`/records/${risk.risk_code}`,"champion","GET");
+    assert.equal(detail.risk.risk_status,"Open","Risks without root causes stay Open");
+    assert.equal(detail.risk.at_risk,false);
+    const pendingUrl=`/records?access=update&view=pending_assessment&depart_code=${f.department}&period_id=${f.period}`;
+    assert((await ok(pendingUrl,"champion","GET")).some(row=>row.risk_code===risk.risk_code));
     const assessment={...input,i_rate:4,l_rate:5,control_effectiveness:.3333,
       current_contr:"Current mitigation controls",desired_contr_effe:"Strengthen controls",
       expected_updated_at:detail.risk.updated_at,comments:"Synthetic assessment retained note"};
     const assessed=await ok(`/records/${risk.risk_code}`,"champion","PUT",assessment);
     assert.equal(Number(assessed.r_risk_exposure),13.33);
+    assert(!(await ok(pendingUrl,"champion","GET")).some(row=>row.risk_code===risk.risk_code),"Saved risks leave the assessment queue");
+    assert((await ok(`/records?access=update&depart_code=${f.department}&period_id=${f.period}`,"champion","GET")).some(row=>row.risk_code===risk.risk_code),"Saved risks remain available to the summary");
     assert.equal((await api(`/records/${risk.risk_code}`,"champion","PUT",assessment)).status,409);
-    await ok(`/records/${risk.risk_code}/root-causes`,"champion","POST",{
+    const originalRoot=await ok(`/records/${risk.risk_code}/root-causes`,"champion","POST",{
       root_cause:"Process dependency",current_contr:"Existing operational control",mitigations:"Strengthen review checks",
       due_date:`${year}-03-01`,action_owner:f.accounts.champion.username,action_status:activeActionStatus,
       expected_updated_at:assessed.updated_at});
+    // Exercise aggregate status without changing shared action-status catalogs.
+    const extraRoot=await pool.query(`INSERT INTO risk.root_causes(risk_code,root_cause,action_status)
+      VALUES($1,'Synthetic aggregate-status check','Closed') RETURNING root_id`,[risk.risk_code]);
+    for(const [actionStatus,expectedStatus,flagged] of [
+      ["Planned","Open",false],["In progress","Open",false],
+      ["Behind schedule","Open",true],["Closed","Closed",false],
+    ]){
+      await pool.query("UPDATE risk.root_causes SET action_status=$2 WHERE root_id=$1",[originalRoot.root_id,actionStatus]);
+      const snapshot=(await ok(`/records/${risk.risk_code}`,"champion","GET")).risk;
+      assert.equal(snapshot.risk_status,expectedStatus,actionStatus);
+      assert.equal(snapshot.at_risk,flagged,actionStatus);
+      assert.equal(snapshot.root_cause_count,2);
+      assert.equal(snapshot.completed_action_count,actionStatus==="Closed"?2:1);
+      assert.equal(snapshot.behind_schedule_count,flagged?1:0);
+      assert.equal(snapshot.workflow_status,"OPEN","Root closure does not close the review workflow");
+      assert.equal(snapshot.can_edit,true);
+      assert.equal(Number(snapshot.r_risk_exposure),13.33,"Action flags do not change exposure scores");
+      const closedRows=await ok(`/records?access=update&view=closed&depart_code=${f.department}&period_id=${f.period}`,"champion","GET");
+      assert.equal(closedRows.some(row=>row.risk_code===risk.risk_code),expectedStatus==="Closed","Partial root closure must not mark a risk closed");
+      const allRows=await ok(`/records?access=update&depart_code=${f.department}&period_id=${f.period}`,"champion","GET");
+      assert.equal(allRows.find(row=>row.risk_code===risk.risk_code).risk_status,expectedStatus);
+    }
+    await pool.query("DELETE FROM risk.root_causes WHERE root_id=$1",[extraRoot.rows[0].root_id]);
+    await pool.query("UPDATE risk.root_causes SET action_status=$2 WHERE root_id=$1",[originalRoot.root_id,activeActionStatus]);
     await ok("/workflow","champion","POST",wf("SUBMIT"));
     assert.equal((await api("/workflow","champion","POST",wf("SIGN_OFF"))).status,403);
     const ownerDetail=await ok(`/records/${risk.risk_code}`,"owner","GET");
@@ -212,6 +244,7 @@ try{
     await checkTotals("owner",{...selected,search:bulkPrefix+"A620"},1,0,[f.department]);
     await checkTotals("owner",{...selected,search:"no-such-risk"},0,0,[]);
     await checkTotals("champion",{...selected,view:"open"},621,600,[f.department]);
+    await checkTotals("champion",{...selected,access:"update",view:"pending_assessment"},21,0,[f.department]);
     await pool.query(`INSERT INTO risk.department_summary(depart_code,period_from,period_to,submitted)
       SELECT $1,period_from,period_to,TRUE FROM risk.periods WHERE period_id=$2
       ON CONFLICT(depart_code,period_from,period_to) DO UPDATE SET submitted=TRUE`,

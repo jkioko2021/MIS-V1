@@ -18,13 +18,15 @@ const filters = z.object({
   access: z.enum(["view","update","review"]).optional().default("view"),
   depart_code: z.string().max(50).optional().default(""),
   period_id: z.coerce.number().int().nonnegative().optional().default(0),
-  view: z.enum(["all","open","submitted","reviewed","signed","closed"]).optional().default("all"),
+  view: z.enum(["all","open","pending_assessment","submitted","reviewed","signed","closed"]).optional().default("all"),
   search: z.string().max(150).optional().default(""),
 });
 const selectRecords = (extraColumns = "") => `SELECT ${extraColumns} r.*,r.period_from::text,r.period_to::text,p.period_id,
   to_char(r.updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at,
-  (SELECT count(*)::integer FROM risk.root_causes done WHERE done.risk_code=r.risk_code
-    AND done.action_status='Closed') AS completed_action_count,
+  actions.root_cause_count,actions.completed_action_count,actions.behind_schedule_count,
+  CASE WHEN actions.root_cause_count>0 AND actions.completed_action_count=actions.root_cause_count
+    THEN 'Closed' ELSE 'Open' END AS risk_status,
+  (actions.behind_schedule_count>0) AS at_risk,
   d.depart_name,c.category_name,COALESCE(s.submitted,FALSE) AS submitted,
   COALESCE(s.reviewed,FALSE) AS reviewed,COALESCE(s.sign_off,FALSE) AS sign_off,
   (COALESCE(s.closed,FALSE) OR p.status='CLOSED') AS closed
@@ -32,7 +34,13 @@ const selectRecords = (extraColumns = "") => `SELECT ${extraColumns} r.*,r.perio
   JOIN risk.periods p ON p.period_from=r.period_from AND p.period_to=r.period_to
   LEFT JOIN risk.categories c ON c.category_code=r.risk_category
   LEFT JOIN risk.department_summary s ON s.depart_code=r.depart_code
-    AND s.period_from=r.period_from AND s.period_to=r.period_to`;
+    AND s.period_from=r.period_from AND s.period_to=r.period_to
+  LEFT JOIN LATERAL (
+    SELECT count(*)::integer AS root_cause_count,
+      count(*) FILTER (WHERE action_status='Closed')::integer AS completed_action_count,
+      count(*) FILTER (WHERE action_status='Behind schedule')::integer AS behind_schedule_count
+    FROM risk.root_causes WHERE risk_code=r.risk_code
+  ) actions ON TRUE`;
 function presentRecord(r: Record<string,unknown>, a: RiskActor) {
   const status = workflowState(r);
   return {...r,workflow_status:status,can_edit: status === "OPEN"
@@ -101,9 +109,10 @@ router.get("/risk-register/records", async (req,res) => {
       AND (r.risk_title ILIKE $5 OR r.risk_code ILIKE $5)
       AND ($6::text='all'
         OR $6='closed' AND (COALESCE(s.closed,FALSE) OR p.status='CLOSED'
-          OR EXISTS(SELECT 1 FROM risk.root_causes done WHERE done.risk_code=r.risk_code AND done.action_status='Closed'))
+          OR actions.root_cause_count>0 AND actions.completed_action_count=actions.root_cause_count)
         OR p.status='OPEN' AND NOT COALESCE(s.closed,FALSE) AND (
           $6='open' AND NOT COALESCE(s.submitted,FALSE)
+          OR $6='pending_assessment' AND NOT COALESCE(s.submitted,FALSE) AND NOT COALESCE(r.assessment_updated,FALSE)
           OR $6='submitted' AND COALESCE(s.submitted,FALSE) AND NOT COALESCE(s.reviewed,FALSE)
           OR $6='reviewed' AND COALESCE(s.reviewed,FALSE) AND NOT COALESCE(s.sign_off,FALSE)
           OR $6='signed' AND COALESCE(s.sign_off,FALSE)))
