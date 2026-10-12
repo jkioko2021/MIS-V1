@@ -1,306 +1,268 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { misApi } from '@/lib/mis-api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, CheckCircle2, XCircle, Clock, AlertTriangle } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'wouter';
+import { useAuth } from '@/lib/auth-context';
+import {
+  AlertCircle, Archive, ArrowUpRight, BadgeCheck, CalendarDays, Check, ClipboardCheck,
+  FilePlus2, History, LockKeyhole, RefreshCw, Shield, UsersRound, Workflow, X,
+} from 'lucide-react';
+import type { RiskHistoryEvent, RiskOptionsResponseData, RiskRecord, RiskRootCause, RiskDepartmentSummary } from '@workspace/api-client-react';
+import {
+  useAssignRiskTeam, useCloseRiskPeriod, useCreateRisk, useOpenRiskPeriod, useRiskHistory,
+  useRiskOptions, useRiskRecord, useRiskRecords, useRiskSummary, useRiskWorkflow,
+  useSaveRiskCause, useUpdateRisk,
+} from './use-risk-register';
+import { AssessmentPanel, NewRiskForm } from './risk-forms';
+import { RecordsTable, RiskDrawer } from './risk-details';
+import {
+  HistoryTable, OpenPeriods, ReportingPeriodClose, SummaryTable, TeamMapping, WorkflowPanel,
+} from './risk-workflow';
+import {
+  dateLabel, EmptyState, envelopeData, envelopeError, ErrorNotice, Field, fieldClass,
+  queryError, SkeletonRows, StatusPill,
+} from './risk-ui';
 
-type Risk = Record<string, unknown>;
-type DeptSummary = Record<string, unknown>;
-
-const HEAT: Record<string, { bg: string; text: string; label: string }> = {
-  critical:   { bg: 'bg-red-500',     text: 'text-white', label: 'Critical' },
-  high:       { bg: 'bg-orange-400',  text: 'text-white', label: 'High' },
-  medium:     { bg: 'bg-yellow-400',  text: 'text-gray-900', label: 'Medium' },
-  'low-medium':{ bg: 'bg-yellow-200', text: 'text-gray-900', label: 'Low-Med' },
-  low:        { bg: 'bg-green-300',   text: 'text-gray-900', label: 'Low' },
-};
-
-function RiskBadge({ level }: { level: string }) {
-  const h = HEAT[level] ?? { bg: 'bg-gray-200', text: 'text-gray-700', label: level };
-  return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${h.bg} ${h.text}`}>
-      {h.label}
-    </span>
-  );
-}
-
-function WorkflowBadge({ done }: { done: boolean }) {
-  return done
-    ? <CheckCircle2 className="w-4 h-4 text-green-500" />
-    : <XCircle className="w-4 h-4 text-muted-foreground" />;
-}
-
-function RiskDetail({ riskCode, onClose }: { riskCode: string; onClose: () => void }) {
-  const { data, isLoading } = useQuery({
-    queryKey: ['risk-detail', riskCode],
-    queryFn: () => misApi.riskDetail(riskCode),
-  });
-
-  const risk = data?.data as Risk & { root_causes?: Risk[] };
-
-  return (
-    <Sheet open onOpenChange={v => !v && onClose()}>
-      <SheetContent className="w-[520px] sm:max-w-[520px]">
-        <SheetHeader className="pb-4">
-          <SheetTitle className="font-mono text-sm">{riskCode}</SheetTitle>
-          {risk && <p className="text-base font-semibold">{String(risk.risk_title)}</p>}
-        </SheetHeader>
-
-        {isLoading ? (
-          <div className="space-y-3">{Array.from({length:6}).map((_,i) => <Skeleton key={i} className="h-8" />)}</div>
-        ) : risk ? (
-          <Tabs defaultValue="details">
-            <TabsList className="w-full">
-              <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
-              <TabsTrigger value="scoring" className="flex-1">Scoring</TabsTrigger>
-              <TabsTrigger value="causes" className="flex-1">Root Causes ({(risk.root_causes ?? []).length})</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="details" className="mt-4">
-              <ScrollArea className="h-[calc(100vh-220px)]">
-                <div className="space-y-4 pr-4 text-sm">
-                  {([
-                    ['Department',   risk.depart_name],
-                    ['Category',     risk.category_name],
-                    ['Period',       `${risk.period_from} → ${risk.period_to}`],
-                    ['Description',  risk.risk_description],
-                    ['Consequence',  risk.risk_consequence],
-                    ['Current Controls', risk.current_contr],
-                    ['Desired Controls', risk.desired_contr_effe],
-                    ['Entered By',   risk.entered_by],
-                  ] as [string, unknown][]).map(([label, val]) => val != null && val !== '' && (
-                    <div key={label}>
-                      <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
-                      <p className="font-medium">{String(val)}</p>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </TabsContent>
-
-            <TabsContent value="scoring" className="mt-4">
-              <div className="space-y-4 text-sm">
-                <div className="grid grid-cols-2 gap-3">
-                  {([
-                    ['Impact', risk.risk_impact, risk.i_rate],
-                    ['Likelihood', risk.risk_likelihood, risk.l_rate],
-                    ['Inherent Exposure', null, risk.i_risk_exposure],
-                    ['Inherent Rate', null, risk.i_risk_rate],
-                    ['Control Effectiveness', null, `${risk.perceived_contr_eff}%`],
-                    ['Residual Rate', null, risk.r_risk_rate],
-                    ['Residual Exposure', null, risk.r_risk_exposure],
-                  ] as [string, unknown, unknown][]).map(([label, text, rate]) => (
-                    <div key={label} className="border rounded-lg p-3">
-                      <p className="text-xs text-muted-foreground">{label}</p>
-                      {text != null && <p className="font-medium">{String(text)}</p>}
-                      {rate != null && (
-                        <p className="text-2xl font-bold text-primary">{String(rate)}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="text-muted-foreground text-xs">Overall level:</span>
-                  <RiskBadge level={String(risk.risk_level ?? '')} />
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="causes" className="mt-4">
-              <ScrollArea className="h-[calc(100vh-220px)]">
-                {(risk.root_causes ?? []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No root causes recorded.</p>
-                ) : (
-                  <div className="space-y-4 pr-4">
-                    {(risk.root_causes ?? []).map((rc, i) => (
-                      <div key={i} className="border rounded-lg p-3 text-sm space-y-2">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium">{String(rc.root_cause)}</p>
-                          <Badge variant={
-                            rc.action_status === 'Closed' ? 'default' :
-                            rc.action_status === 'Behind schedule' ? 'destructive' : 'secondary'
-                          }>
-                            {String(rc.action_status)}
-                          </Badge>
-                        </div>
-                        {Boolean(rc.mitigations) && <p className="text-xs text-muted-foreground"><strong>Mitigation:</strong> {String(rc.mitigations)}</p>}
-                        {Boolean(rc.action_owner) && <p className="text-xs"><strong>Owner:</strong> {String(rc.action_owner)}</p>}
-                        {Boolean(rc.due_date) && <p className="text-xs text-muted-foreground"><strong>Due:</strong> {String(rc.due_date)}</p>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-            </TabsContent>
-          </Tabs>
-        ) : null}
-      </SheetContent>
-    </Sheet>
-  );
-}
+type PageKey = 'dashboard' | 'new' | 'update' | 'review' | 'summary' | 'status' | 'open' | 'close' | 'closed' | 'history' | 'champions';
+const PAGES: Array<{ key: PageKey; title: string; short: string; icon: typeof Shield }> = [
+  { key: 'new', title: 'Add New Risk', short: 'Add New Risk', icon: FilePlus2 },
+  { key: 'update', title: 'Update Register', short: 'Update Register', icon: ClipboardCheck },
+  { key: 'review', title: 'Risk Register Review', short: 'Risk Register Review', icon: Workflow },
+  { key: 'summary', title: 'Risk Register Signoff', short: 'Risk Register Signoff', icon: BadgeCheck },
+  { key: 'close', title: 'Risk Register Close', short: 'Risk Register Close', icon: LockKeyhole },
+  { key: 'open', title: 'Open Register', short: 'Open Register', icon: CalendarDays },
+  { key: 'status', title: 'Risk Register Status', short: 'Risk Register Status', icon: ClipboardCheck },
+  { key: 'history', title: 'Risk Register view', short: 'Risk Register view', icon: History },
+  { key: 'dashboard', title: 'Risk Dashboard', short: 'Risk Dashboard', icon: Shield },
+  { key: 'champions', title: 'Map Risk Champions', short: 'Map Risk Champions', icon: UsersRound },
+  { key: 'closed', title: 'Closed Archives', short: 'Closed Archives', icon: Archive },
+];
+const navLabels: Record<string, PageKey> = Object.fromEntries(PAGES.map(item => [item.key, item.key]));
 
 export default function RiskRegisterPage() {
-  const [selectedRisk, setSelectedRisk] = useState<string | null>(null);
-  const [deptFilter, setDeptFilter] = useState<string>('All');
+  const [location, setLocation] = useLocation();
+  const { user } = useAuth();
+  const username = user?.username ?? '';
+  const routeKey = location.split('/')[2] ?? 'dashboard';
+  const activePage: PageKey = navLabels[routeKey] ?? 'dashboard';
+  const optionsQuery = useRiskOptions(username);
+  const options = envelopeData<RiskOptionsResponseData>(optionsQuery.data);
+  const actor = options?.actor;
+  const departments = options?.departments ?? [];
+  const periods = options?.periods ?? [];
+  const [department, setDepartment] = useState('');
+  const [period, setPeriod] = useState('');
+  const [search, setSearch] = useState('');
+  const [selectedRiskCode, setSelectedRiskCode] = useState('');
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [mutationError, setMutationError] = useState('');
+  const [comments, setComments] = useState('');
+  useEffect(() => {
+    setSelectedRiskCode('');
+    setDrawerOpen(false);
+    setComments('');
+  }, [activePage, department, period, username]);
 
-  const { data: dashData, isLoading: dashLoading } = useQuery({
-    queryKey: ['risk-dashboard'],
-    queryFn: misApi.riskDashboard,
-  });
+  const initializedFor = useRef('');
+  useEffect(() => {
+    if (!options || actor?.username !== username) return;
+    if (initializedFor.current !== username) {
+      initializedFor.current = username;
+      const suggested = actor?.can_manage ? departments[0]?.depart_code : (actor?.champion_departments[0] ?? actor?.owner_departments[0]);
+      setDepartment(suggested ?? '');
+      const active = periods.find(item => String(item.status ?? '').toLowerCase() === 'open');
+      setPeriod(active?.period_id ? String(active.period_id) : '');
+      setSearch('');
+    } else {
+      // Empty values intentionally mean "All", not "pick a default again".
+      if (department && !departments.some(item => item.depart_code === department)) setDepartment('');
+      if (period && !periods.some(item => String(item.period_id) === period)) setPeriod('');
+    }
+  }, [options, actor, departments, periods, username, department, period]);
 
-  const params: Record<string,string> = {};
-  if (deptFilter !== 'All') params.depart_code = deptFilter;
+  const params = useMemo(() => ({
+    ...(department ? { depart_code: department } : {}),
+    ...(period ? { period_id: Number(period) } : {}),
+    ...(search ? { search } : {}),
+    ...(activePage === 'closed' ? { view: 'closed' as const } : activePage === 'review' ? { view: 'submitted' as const } : undefined),
+  }), [department, period, search, activePage]);
+  const recordsQuery = useRiskRecords(username, params);
+  const records = envelopeData<RiskRecord[]>(recordsQuery.data) ?? [];
+  const summaryQuery = useRiskSummary(username, { ...(department ? { depart_code: department } : {}), ...(period ? { period_id: Number(period) } : {}) });
+  const summaries = envelopeData<RiskDepartmentSummary[]>(summaryQuery.data) ?? [];
+  const allDepartmentPeriodSummaryQuery = useRiskSummary(username, period ? { period_id: Number(period) } : {});
+  const allDepartmentPeriodSummaries = envelopeData<RiskDepartmentSummary[]>(allDepartmentPeriodSummaryQuery.data) ?? [];
+  const allDepartmentPeriodSummaryFailure = allDepartmentPeriodSummaryQuery.data ? envelopeError(allDepartmentPeriodSummaryQuery.data) ?? '' : '';
+  const historyQuery = useRiskHistory(username, { ...(department ? { depart_code: department } : {}), ...(period ? { period_id: Number(period) } : {}) });
+  const history = envelopeData<RiskHistoryEvent[]>(historyQuery.data) ?? [];
+  const detailQuery = useRiskRecord(username, selectedRiskCode);
+  const detail = envelopeData<{ risk: RiskRecord; root_causes: RiskRootCause[]; history: RiskHistoryEvent[] }>(detailQuery.data);
+  const recordsFailure = recordsQuery.data ? envelopeError(recordsQuery.data) ?? '' : '';
+  const summaryFailure = summaryQuery.data ? envelopeError(summaryQuery.data) ?? '' : '';
+  const historyFailure = historyQuery.data ? envelopeError(historyQuery.data) ?? '' : '';
+  const detailFailure = detailQuery.data ? envelopeError(detailQuery.data) ?? '' : '';
+  const createRisk = useCreateRisk();
+  const updateRisk = useUpdateRisk();
+  const saveCause = useSaveRiskCause();
+  const workflow = useRiskWorkflow();
+  const openPeriod = useOpenRiskPeriod();
+  const closePeriod = useCloseRiskPeriod();
+  const assignTeam = useAssignRiskTeam();
+  const mutating = createRisk.isPending || updateRisk.isPending || saveCause.isPending || workflow.isPending || openPeriod.isPending || closePeriod.isPending || assignTeam.isPending;
+  const manage = Boolean(actor?.can_manage);
+  const selectAssessment = (code: string) => {
+    setSelectedRiskCode(code);
+    setDrawerOpen(false);
+  };
+  const viewDetails = (code: string) => {
+    setSelectedRiskCode(code);
+    setDrawerOpen(true);
+  };
+  const assessmentEditor = detailFailure || detailQuery.isError
+    ? <ErrorNotice message={detailFailure || queryError(detailQuery.error)} onRetry={() => detailQuery.refetch()} />
+    : <AssessmentPanel risk={detail?.risk} roots={detail?.root_causes ?? []} staff={options?.staff ?? []}
+      objectives={options?.objectives ?? []} categories={options?.categories ?? []}
+      loading={Boolean(selectedRiskCode) && detailQuery.isLoading} mutating={mutating}
+      onSave={(data, code) => updateRisk.mutate({ riskCode: code, data }, {
+        onSuccess: response => announce(response, 'Assessment saved.'), onError: error => setMutationError(queryError(error)),
+      })}
+      onCause={(data, code) => saveCause.mutate({ riskCode: code, data }, {
+        onSuccess: response => announce(response, 'Root cause and action saved.'), onError: error => setMutationError(queryError(error)),
+      })} />;
 
-  const { data: risksData, isLoading: risksLoading } = useQuery({
-    queryKey: ['risk-risks', deptFilter],
-    queryFn: () => misApi.riskRisks(params),
-  });
+  const setPage = (page: PageKey) => setLocation(page === 'dashboard' ? '/risk' : `/risk/${page}`);
+  const announce = (response: unknown, success: string) => {
+    const error = envelopeError(response);
+    setMutationError(error ?? '');
+    setNotice(error ? '' : success);
+    if (!error) setComments('');
+  };
+  const chooseAction = (action: 'SUBMIT' | 'REVIEW' | 'RETURN' | 'SIGN_OFF' | 'CLOSE' | 'REOPEN' | 'PROCESS', row?: RiskDepartmentSummary, confirm = false) => {
+    const depart_code = row?.depart_code ?? department;
+    const period_id = row?.period_id ?? Number(period);
+    if (confirm && !window.confirm(`${action === 'REOPEN' ? 'Reopen' : 'Close'} this register? ${action === 'REOPEN' ? 'Assessment completion will reset for every risk; existing scores and root causes remain and all prior notes stay in history.' : 'The event will be retained in history.'}`)) return;
+    workflow.mutate({ data: { depart_code, period_id, action, comments: comments.trim() } }, {
+      onSuccess: response => announce(response, action === 'RETURN' || action === 'REOPEN'
+        ? `${action.replace('_', ' ')} recorded. All department risks require reassessment; saved scores, root causes and prior history remain.`
+        : `${action.replace('_', ' ')} recorded.`),
+      onError: error => setMutationError(queryError(error)),
+    });
+  };
 
-  const depts = dashData?.data?.byDept as DeptSummary[] ?? [];
-  const risks = risksData?.data as Risk[] ?? [];
-  const overdue = dashData?.data?.overdue as Risk[] ?? [];
-  const hm = dashData?.data?.heatmap;
+  const title = PAGES.find(item => item.key === activePage)?.title ?? 'Risk dashboard';
+  const openRecords = records.filter(item => item.is_active !== false);
+  const assessedCount = openRecords.filter(item => item.assessment_updated).length;
+  const overdueCount = summaries.reduce((total, item) => total + (item.overdue_actions ?? 0), 0);
+  const optionsFailure = optionsQuery.data && !envelopeData(optionsQuery.data) ? envelopeError(optionsQuery.data) : '';
+  const activePeriod = periods.find(item => String(item.period_id) === period);
+  const noScope = !optionsQuery.isLoading && !optionsQuery.isError && (!actor || (!manage && !(actor.champion_departments.length || actor.owner_departments.length)));
 
-  return (
-    <div className="p-6 space-y-6 max-w-screen-2xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Shield className="w-6 h-6" /> Risk Register
-        </h1>
-        <p className="text-sm text-muted-foreground">Active period: July – December 2026</p>
+  return <div className="min-h-[100dvh] bg-background">
+    <div className="mx-auto max-w-[1500px] px-4 py-5 sm:px-7 lg:px-9">
+      <div className="mb-7 flex flex-col justify-between gap-5 border-b border-border/80 pb-6 lg:flex-row lg:items-end">
+        <div>
+          <div className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.19em] text-primary"><Shield className="h-4 w-4" /> Enterprise risk · MIS</div>
+          <h1 className="font-[Manrope] text-3xl font-extrabold tracking-tight sm:text-[2.55rem]">Risk register</h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">One accountable record of exposure, action ownership and every decision made along the way.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs"><span className="text-muted-foreground">Signed in as </span><strong>{username || 'Staff'}</strong></div>
+          {manage && <span className="rounded-lg bg-accent px-3 py-2 text-xs font-bold text-accent-foreground">Management</span>}
+          {activePeriod && <span className="rounded-lg border border-border bg-card px-3 py-2 text-xs"><span className="text-muted-foreground">Period </span>{dateLabel(activePeriod.period_from)} – {dateLabel(activePeriod.period_to)}</span>}
+        </div>
       </div>
 
-      {/* Heat map summary */}
-      {hm && (
-        <div className="grid grid-cols-5 gap-2">
-          {[
-            { label: 'Critical', key: 'critical' as const, bg: 'bg-red-500 text-white' },
-            { label: 'High', key: 'high' as const, bg: 'bg-orange-400 text-white' },
-            { label: 'Medium', key: 'medium' as const, bg: 'bg-yellow-400 text-gray-900' },
-            { label: 'Low-Med', key: 'low_medium' as const, bg: 'bg-yellow-200 text-gray-900' },
-            { label: 'Low', key: 'low' as const, bg: 'bg-green-300 text-gray-900' },
-          ].map(({ label, key, bg }) => (
-            <div key={key} className={`rounded-lg p-4 text-center ${bg}`}>
-              <p className="text-3xl font-bold">{Number(hm[key])}</p>
-              <p className="text-xs font-medium mt-1">{label}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* Department workflow status */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Department Workflow</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {dashLoading ? (
-              Array.from({length:4}).map((_,i) => <Skeleton key={i} className="h-10" />)
-            ) : depts.map(d => (
-              <div
-                key={String(d.depart_code)}
-                className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
-                  deptFilter === String(d.depart_code) ? 'bg-primary/10 border-primary' : 'hover:bg-muted/50'
-                }`}
-                onClick={() => setDeptFilter(
-                  deptFilter === String(d.depart_code) ? 'All' : String(d.depart_code)
-                )}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate">{String(d.depart_name)}</p>
-                  <p className="text-xs text-muted-foreground">{String(d.total_risks ?? 0)} risks · avg {String(d.avg_exposure ?? '—')}</p>
-                </div>
-                <div className="flex gap-1 shrink-0" title="Submitted → Reviewed → Signed Off">
-                  <WorkflowBadge done={Boolean(d.submitted)} />
-                  <WorkflowBadge done={Boolean(d.reviewed)} />
-                  <WorkflowBadge done={Boolean(d.sign_off)} />
-                </div>
-              </div>
-            ))}
-            {depts.length === 0 && !dashLoading && (
-              <p className="text-xs text-muted-foreground">No departments found.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Risk list */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-sm">
-              {deptFilter === 'All' ? 'All Risks' : `${deptFilter} Risks`} ({risks.length})
-            </h2>
-            {deptFilter !== 'All' && (
-              <button className="text-xs text-primary" onClick={() => setDeptFilter('All')}>
-                Clear filter
-              </button>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            {risksLoading ? (
-              Array.from({length:5}).map((_,i) => <Skeleton key={i} className="h-16" />)
-            ) : risks.map(r => (
-              <div
-                key={String(r.risk_code)}
-                onClick={() => setSelectedRisk(String(r.risk_code))}
-                className="border rounded-lg p-3 cursor-pointer hover:bg-muted/40 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-mono text-xs text-muted-foreground">{String(r.risk_code)}</span>
-                      <RiskBadge level={String(r.risk_level)} />
-                    </div>
-                    <p className="font-medium text-sm truncate">{String(r.risk_title)}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {String(r.depart_name)} · {String(r.category_name)} · {String(r.root_cause_count)} root cause(s)
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-xl font-bold">{String(r.r_risk_exposure ?? '—')}</p>
-                    <p className="text-xs text-muted-foreground">R-Exposure</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {risks.length === 0 && !risksLoading && (
-              <p className="text-sm text-muted-foreground p-4">No risks found.</p>
-            )}
-          </div>
-        </div>
+      <div className="mb-6 flex gap-1 overflow-x-auto border-b border-border pb-1">
+        {PAGES.map(({ key, short, icon: Icon }) => <button key={key} onClick={() => setPage(key)} data-testid={`tab-risk-${key}`}
+          className={`inline-flex shrink-0 items-center gap-2 rounded-t-lg px-3 py-2.5 text-xs font-semibold transition ${activePage === key ? 'border-b-2 border-primary bg-primary/5 text-primary' : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'}`}>
+          <Icon className="h-3.5 w-3.5" />{short}</button>)}
       </div>
 
-      {/* Overdue actions */}
-      {overdue.length > 0 && (
-        <Card className="border-orange-200">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2 text-orange-600">
-              <AlertTriangle className="w-4 h-4" /> Behind-Schedule Actions ({overdue.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {overdue.map((o, i) => (
-                <div key={i} className="flex items-center gap-3 text-sm border-b last:border-0 pb-2 last:pb-0">
-                  <span className="font-mono text-xs text-muted-foreground shrink-0">{String(o.risk_code)}</span>
-                  <span className="flex-1 truncate">{String(o.root_cause)}</span>
-                  <span className="text-xs text-muted-foreground shrink-0">{String(o.action_owner)}</span>
-                  <span className="text-xs text-red-600 font-medium shrink-0">Due: {String(o.due_date).split('T')[0]}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {optionsQuery.isLoading && <div className="space-y-4"><div className="h-24 animate-pulse rounded-2xl bg-muted" /><SkeletonRows /></div>}
+      {optionsQuery.isError && <ErrorNotice message={queryError(optionsQuery.error)} onRetry={() => optionsQuery.refetch()} />}
+      {optionsFailure && <ErrorNotice message={optionsFailure} onRetry={() => optionsQuery.refetch()} />}
+      {!optionsQuery.isLoading && !optionsQuery.isError && !optionsFailure && noScope && <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><div><strong>Department access is not mapped.</strong><p className="mt-1">Contact your MIS administrator to set up your champion or owner department mapping.</p></div>
+      </div>}
+      {notice && <div role="status" className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"><Check className="h-4 w-4" />{notice}<button aria-label="Dismiss notice" className="ml-auto" onClick={() => setNotice('')}><X className="h-4 w-4" /></button></div>}
+      {mutationError && <div className="mb-4"><ErrorNotice message={mutationError} /></div>}
 
-      {selectedRisk && <RiskDetail riskCode={selectedRisk} onClose={() => setSelectedRisk(null)} />}
+      {!optionsQuery.isLoading && !optionsQuery.isError && options && <main className="space-y-6">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div><div className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Risk office / {PAGES.find(item => item.key === activePage)?.short}</div><h2 className="mt-1 font-[Manrope] text-2xl font-bold">{title}</h2></div>
+          <div className="grid grid-cols-2 gap-2 sm:flex">
+            <Field label="Department"><select aria-label="Filter by department" data-testid="select-risk-department" className={`${fieldClass} min-w-44`} value={department} onChange={event => setDepartment(event.target.value)}>
+              <option value="">All mapped departments</option>{departments.map((item, index) => <option key={item.depart_code ?? index} value={item.depart_code ?? ''}>{item.depart_name ?? item.depart_code}</option>)}
+            </select></Field>
+            <Field label="Reporting period"><select aria-label="Filter by period" data-testid="select-risk-period" className={`${fieldClass} min-w-44`} value={period} onChange={event => setPeriod(event.target.value)}>
+              <option value="">Latest / all periods</option>{periods.map((item, index) => <option key={item.period_id ?? index} value={String(item.period_id ?? '')}>{dateLabel(item.period_from)} – {dateLabel(item.period_to)} · {item.status ?? '—'}</option>)}
+            </select></Field>
+          </div>
+        </div>
+
+        {activePage === 'dashboard' && <section className="space-y-5">
+          <div className="grid gap-4 md:grid-cols-[1.6fr_1fr]">
+            <div className="relative overflow-hidden rounded-2xl bg-[#16483f] p-6 text-[#f5f0e5] sm:p-8">
+              <div className="absolute -right-12 -top-16 h-64 w-64 rounded-full border border-white/10" /><div className="absolute -right-2 -top-7 h-44 w-44 rounded-full border border-white/10" />
+              <div className="relative max-w-xl"><p className="text-[11px] font-bold uppercase tracking-[.18em] text-[#c8b779]">Department accountability</p>
+                <h3 className="mt-4 font-[Manrope] text-3xl font-bold leading-tight sm:text-4xl">See the risk.<br />See who owns the next move.</h3>
+                <p className="mt-3 max-w-lg text-sm leading-6 text-white/70">Assessment, review and sign-off stay connected to the record—not scattered across inboxes and spreadsheet copies.</p>
+                <button className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#e8d6a2] px-4 py-2.5 text-sm font-bold text-[#193c35] hover:bg-[#f0e4c2]" onClick={() => setPage('new')}><FilePlus2 className="h-4 w-4" /> Register a risk <ArrowUpRight className="h-4 w-4" /></button>
+              </div>
+              <div className="relative mt-8 grid max-w-lg grid-cols-3 border-t border-white/15 pt-5">
+                <div><strong className="block font-[Space_Mono] text-2xl">{openRecords.length}</strong><span className="text-xs text-white/65">Active risks</span></div>
+                <div><strong className="block font-[Space_Mono] text-2xl">{assessedCount}</strong><span className="text-xs text-white/65">Assessed</span></div>
+                <div><strong className="block font-[Space_Mono] text-2xl">{overdueCount}</strong><span className="text-xs text-white/65">Behind schedule</span></div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border bg-card p-5">
+              <div className="mb-4 flex items-center justify-between"><div><div className="text-[10px] font-bold uppercase tracking-[.16em] text-muted-foreground">Workflow pulse</div><h3 className="mt-1 font-[Manrope] text-lg font-bold">Department reviews</h3></div><Workflow className="h-5 w-5 text-primary" /></div>
+              {summaryQuery.isLoading ? <SkeletonRows /> : summaryQuery.isError || summaryFailure ? <ErrorNotice message={summaryFailure || queryError(summaryQuery.error)} onRetry={() => summaryQuery.refetch()} /> : summaries.length ? <div className="space-y-1">
+                 {summaries.slice(0, 5).map(row => <div key={`${row.depart_code}:${row.period_id}`} className="flex items-center gap-3 border-t border-border/70 py-3 first:border-0">
+                  <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{row.depart_name}</div><div className="text-xs text-muted-foreground">{row.total_risks} risks · {row.assessed_risks ?? 0} assessed</div></div>
+                  <StatusPill status={row.workflow_status} />
+                </div>)}</div> : <EmptyState title="No department summaries yet" description="Summaries appear when risk data is available for this period." />}
+            </div>
+          </div>
+           <RecordsTable records={records} loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={viewDetails} search={search} setSearch={setSearch} title="Risk register" />
+        </section>}
+
+        {activePage === 'new' && <NewRiskForm options={options} activeDepartment={department} period={period} mutation={createRisk} mutating={mutating} onSubmit={response => announce(response, 'Risk registered.')} onError={error => setMutationError(queryError(error))} />}
+
+        {activePage === 'update' && <section className="grid gap-5 xl:grid-cols-[0.9fr_1.4fr]">
+           <RecordsTable records={records} loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={selectAssessment} search={search} setSearch={setSearch} title="Choose a risk to assess" compact />
+           {assessmentEditor}
+        </section>}
+
+        {activePage === 'review' && <section className="space-y-5">
+          <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">Owner review is a recorded decision. Add a comment before approving or returning a department register; comments remain attached to its history.</div>
+           <RecordsTable records={records} loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={selectAssessment} search={search} setSearch={setSearch} title="Submitted risks" />
+           {selectedRiskCode && assessmentEditor}
+          <WorkflowPanel summaries={summaries} departments={departments} assignments={options.assignments} period={period} actor={actor} manage={manage} comments={comments} setComments={setComments} mutating={workflow.isPending} onAction={(action, row) => chooseAction(action, row)} />
+        </section>}
+
+        {activePage === 'summary' && <section className="space-y-5"><SummaryTable rows={summaries} loading={summaryQuery.isLoading} error={summaryFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')} retry={() => summaryQuery.refetch()} /><WorkflowPanel summaries={summaries} departments={departments} assignments={options.assignments} period={period} actor={actor} manage={manage} comments={comments} setComments={setComments} mutating={workflow.isPending} onAction={(action, row) => chooseAction(action, row)} /></section>}
+
+        {activePage === 'status' && <SummaryTable rows={summaries} loading={summaryQuery.isLoading} error={summaryFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')} retry={() => summaryQuery.refetch()} title="Department workflow status" />}
+
+        {activePage === 'open' && <section className="space-y-5"><OpenPeriods options={options} manage={manage} mutating={openPeriod.isPending} onOpen={data => openPeriod.mutate({ data }, { onSuccess: response => announce(response, 'Reporting period opened.'), onError: error => setMutationError(queryError(error)) })} />
+          <WorkflowPanel summaries={summaries} departments={departments} assignments={options.assignments} period={period} actor={actor} manage={manage} comments={comments} setComments={setComments} mutating={workflow.isPending} openView onAction={(action, row) => chooseAction(action, row, action === 'REOPEN')} />
+        </section>}
+
+        {activePage === 'close' && <section className="space-y-5">
+          <WorkflowPanel summaries={summaries} departments={departments} assignments={options.assignments} period={period} actor={actor} manage={manage} comments={comments} setComments={setComments} mutating={workflow.isPending} closeView onAction={(action, row) => chooseAction(action, row, action === 'CLOSE')} />
+          <ReportingPeriodClose periods={periods} summaries={allDepartmentPeriodSummaries} summaryLoading={allDepartmentPeriodSummaryQuery.isLoading} summaryError={allDepartmentPeriodSummaryFailure || (allDepartmentPeriodSummaryQuery.isError ? queryError(allDepartmentPeriodSummaryQuery.error) : '')} selectedPeriod={period} setSelectedPeriod={setPeriod} comments={comments} setComments={setComments} manage={manage} mutating={closePeriod.isPending} onClose={(periodId, closeComment) => {
+            if (!window.confirm('Close this reporting period? It will be retained as an archive and cannot be edited as open.')) return;
+            closePeriod.mutate({ periodId, data: { comments: closeComment } }, { onSuccess: response => announce(response, 'Reporting period closed.'), onError: error => setMutationError(queryError(error)) });
+          }} />
+        </section>}
+
+         {activePage === 'closed' && <RecordsTable records={records} closedView loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={viewDetails} search={search} setSearch={setSearch} title="Closed action & archive records" />}
+        {activePage === 'history' && <HistoryTable events={history} loading={historyQuery.isLoading} error={historyFailure || (historyQuery.isError ? queryError(historyQuery.error) : '')} retry={() => historyQuery.refetch()} />}
+        {activePage === 'champions' && <TeamMapping options={options} manage={manage} mutating={assignTeam.isPending} onAssign={data => assignTeam.mutate({ data }, { onSuccess: response => announce(response, 'Department team mapping saved.'), onError: error => setMutationError(queryError(error)) })} />}
+      </main>}
+
+       {drawerOpen && selectedRiskCode && <RiskDrawer riskCode={selectedRiskCode} risk={detail?.risk} roots={detail?.root_causes ?? []} events={detail?.history ?? []} loading={detailQuery.isLoading} error={detailFailure || (detailQuery.isError ? queryError(detailQuery.error) : '')} onClose={() => setDrawerOpen(false)} />}
+      {mutating && <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold shadow-lg"><RefreshCw className="h-3.5 w-3.5 animate-spin text-primary" />Saving risk register changes</div>}
     </div>
-  );
+  </div>;
 }

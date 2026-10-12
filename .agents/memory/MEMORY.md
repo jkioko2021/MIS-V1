@@ -37,3 +37,5 @@
 - [Git provider authentication](git-provider-auth.md) — Git CLI uses the source-control provider; healthy connection metadata does not prove push credentials work.
 - [Dependency security upgrades](dependency-security-upgrades.md) — Preserve module compatibility when narrowing audit overrides; legacy declarations need usage checks before framework upgrades.
 - [Local development](local-development.md) — Windows/WSL setup must isolate local mail/storage, preserve OTP, and require a complete database baseline.
+- [Enterprise risk compatibility](risk-register-compatibility.md) — Do not infer calibrated factors from historical effectiveness codes or unpopulated catalogs.
+- [OpenAPI generator compatibility](openapi-generator-compatibility.md) — Match generated Zod syntax to the target library; auto-detection can pick the wrong major.

@@ -31,8 +31,9 @@ import {
   Redirect,
 } from 'wouter';
 import {
-  Home, FileText, Shield, Database, Bell, Banknote,
+  Home, FileText, Shield, Database, Bell, Banknote, ClipboardCheck, FilePlus2,
   ChevronRight, LogOut, User, Users, Settings, SlidersHorizontal, Menu, X,
+  Workflow, BadgeCheck, CalendarDays, LockKeyhole, Archive, History, UsersRound,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -84,7 +85,22 @@ const NAV_SECTIONS: Array<{
           { href: '/business/status', label: 'Business Status', icon: FileText },
         ],
       },
-      { href: '/risk',      label: 'Risk Register',     icon: Shield },
+      {
+        href: '/risk', label: 'Risk Register', icon: Shield,
+        children: [
+          { href: '/risk/new', label: 'Add New Risk', icon: FilePlus2 },
+          { href: '/risk/update', label: 'Update Register', icon: ClipboardCheck },
+          { href: '/risk/review', label: 'Risk Register Review', icon: Workflow },
+          { href: '/risk/summary', label: 'Risk Register Signoff', icon: BadgeCheck },
+          { href: '/risk/close', label: 'Risk Register Close', icon: LockKeyhole },
+          { href: '/risk/open', label: 'Open Register', icon: CalendarDays },
+          { href: '/risk/status', label: 'Risk Register Status', icon: ClipboardCheck },
+          { href: '/risk/history', label: 'Risk Register view', icon: History },
+          { href: '/risk', label: 'Risk Dashboard', icon: Shield },
+          { href: '/risk/champions', label: 'Map Risk Champions', icon: UsersRound },
+          { href: '/risk/closed', label: 'Closed Archives', icon: Archive },
+        ],
+      },
       { href: '/discovery', label: 'DB Discovery',      icon: Database },
       { href: '/notifications', label: 'Notifications', icon: Bell },
     ],
@@ -204,7 +220,8 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
                       <div className="ml-5 border-l border-border/70 pl-2">
                         {visibleChildren.map(child => {
                           const childActive = location === child.href
-                            || (child.href !== '/business' && location.startsWith(`${child.href}/`));
+                            || (child.href !== '/business' && child.href !== '/risk' && location.startsWith(`${child.href}/`))
+                            || (child.href === '/risk' && location === '/risk');
                           const ChildIcon = child.icon;
                           return (
                             <Link
@@ -384,6 +401,7 @@ function ProtectedRouter() {
             {() => <BusinessTrackingPage />}
           </Route>
           <Route path="/risk"             component={RiskRegisterPage} />
+          <Route path="/risk/:view"       component={RiskRegisterPage} />
           <Route path="/medical-underwriting">
             {() => <Redirect to="/business/medical-review" />}
           </Route>

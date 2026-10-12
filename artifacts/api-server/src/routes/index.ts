@@ -13,8 +13,10 @@ import pricingReviewRouter from "./pricing-review";
 import recordFilingRouter from "./record-filing";
 import giRouter from "./gi";
 import businessStatusRouter from "./business-status";
+import riskRegisterRouter from "./risk-register";
 
 const router: IRouter = Router();
+router.use(riskRegisterRouter);
 
 router.use(healthRouter);
 router.use(authRouter);

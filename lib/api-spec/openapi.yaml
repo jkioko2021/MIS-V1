@@ -11,6 +11,164 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /risk-register/options:
+    get:
+      operationId: getRiskRegisterOptions
+      responses:
+        "200":
+          description: Scoped risk workspace options
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskOptionsResponse" }
+  /risk-register/records:
+    get:
+      operationId: listRiskRegisterRecords
+      parameters:
+        - { name: depart_code, in: query, schema: { type: string } }
+        - { name: period_id, in: query, schema: { type: integer } }
+        - { name: view, in: query, schema: { type: string, enum: [all, open, submitted, reviewed, signed, closed] } }
+        - { name: search, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Scoped risks
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskRecordsResponse" }
+    post:
+      operationId: createRiskRegisterRecord
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RiskRecordInput" }
+      responses:
+        "201":
+          description: Created risk
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskRecordResponse" }
+  /risk-register/records/{riskCode}:
+    parameters:
+      - { name: riskCode, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getRiskRegisterRecord
+      responses:
+        "200":
+          description: Risk, mitigation actions, and append-only history
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskDetailResponse" }
+    put:
+      operationId: updateRiskRegisterRecord
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RiskAssessmentInput" }
+      responses:
+        "200":
+          description: Saved assessment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskRecordResponse" }
+  /risk-register/records/{riskCode}/root-causes:
+    parameters:
+      - { name: riskCode, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: saveRiskRegisterRootCause
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RiskCauseInput" }
+      responses:
+        "200":
+          description: Saved mitigation action
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskMutationResponse" }
+  /risk-register/workflow:
+    post:
+      operationId: decideRiskRegisterWorkflow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RiskWorkflowInput" }
+      responses:
+        "200":
+          description: Department register decision
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskMutationResponse" }
+  /risk-register/summary:
+    get:
+      operationId: getRiskRegisterSummary
+      parameters:
+        - { name: period_id, in: query, schema: { type: integer } }
+        - { name: depart_code, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Department register summaries
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskSummaryResponse" }
+  /risk-register/history:
+    get:
+      operationId: getRiskRegisterHistory
+      parameters:
+        - { name: period_id, in: query, schema: { type: integer } }
+        - { name: depart_code, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Scoped historical register events
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskHistoryResponse" }
+  /risk-register/periods:
+    post:
+      operationId: openRiskRegisterPeriod
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RiskPeriodInput" }
+      responses:
+        "201":
+          description: Reporting period opened
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskMutationResponse" }
+  /risk-register/periods/{periodId}/close:
+    parameters:
+      - { name: periodId, in: path, required: true, schema: { type: integer } }
+    post:
+      operationId: closeRiskRegisterPeriod
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RiskCommentInput" }
+      responses:
+        "200":
+          description: Signed-off reporting period closed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskMutationResponse" }
+  /risk-register/assignments:
+    post:
+      operationId: assignRiskRegisterTeam
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RiskAssignmentInput" }
+      responses:
+        "200":
+          description: Champion and owner assignment saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskMutationResponse" }
   /healthz:
     get:
       operationId: healthCheck
@@ -26,6 +184,223 @@ paths:
                 $ref: "#/components/schemas/HealthStatus"
 components:
   schemas:
+    RiskRecordInput:
+      type: object
+      required: [depart_code, period_id, objective_code, risk_title, risk_description, risk_category, risk_consequence]
+      properties:
+        depart_code: { type: string }
+        period_id: { type: integer }
+        objective_code: { type: string }
+        risk_title: { type: string }
+        risk_description: { type: string }
+        risk_category: { type: string }
+        risk_consequence: { type: string }
+    RiskAssessmentInput:
+      allOf:
+        - { $ref: "#/components/schemas/RiskRecordInput" }
+        - type: object
+          required: [i_rate, l_rate, control_effectiveness, expected_updated_at, comments]
+          properties:
+            i_rate: { type: number, exclusiveMinimum: 0, maximum: 100 }
+            l_rate: { type: number, exclusiveMinimum: 0, maximum: 100 }
+            control_effectiveness: { type: number, minimum: 0, maximum: 1 }
+            current_contr: { type: string }
+            desired_contr_effe: { type: string }
+            expected_updated_at: { type: string, format: date-time }
+            comments: { type: string }
+    RiskCauseInput:
+      type: object
+      required: [root_cause, mitigations, due_date, action_owner, action_status, expected_updated_at]
+      properties:
+        root_id: { type: integer }
+        root_cause: { type: string }
+        current_contr: { type: string }
+        mitigations: { type: string }
+        due_date: { type: string, format: date }
+        action_owner: { type: string }
+        action_status: { type: string, enum: [Open, Behind schedule, Closed] }
+        expected_updated_at: { type: string, format: date-time }
+    RiskWorkflowInput:
+      type: object
+      required: [depart_code, period_id, action, comments]
+      properties:
+        depart_code: { type: string }
+        period_id: { type: integer }
+        action: { type: string, enum: [SUBMIT, REVIEW, RETURN, SIGN_OFF, CLOSE, REOPEN, PROCESS] }
+        comments: { type: string }
+    RiskPeriodInput:
+      type: object
+      required: [period_from, period_to]
+      properties:
+        period_from: { type: string, format: date }
+        period_to: { type: string, format: date }
+        source_period_id: { type: integer }
+    RiskCommentInput:
+      type: object
+      required: [comments]
+      properties:
+        comments: { type: string }
+    RiskAssignmentInput:
+      type: object
+      required: [depart_code, champion_username, owner_username]
+      properties:
+        depart_code: { type: string }
+        champion_username: { type: string }
+        owner_username: { type: string }
+    RiskRecord:
+      type: object
+      required: [risk_code, depart_code, period_id, risk_title, updated_at, workflow_status]
+      properties:
+        risk_code: { type: string }
+        depart_code: { type: string }
+        depart_name: { type: string }
+        period_id: { type: integer }
+        period_from: { type: string }
+        period_to: { type: string }
+        objective_code: { type: [string, "null"] }
+        risk_title: { type: string }
+        risk_description: { type: [string, "null"] }
+        risk_category: { type: [string, "null"] }
+        category_name: { type: [string, "null"] }
+        risk_consequence: { type: [string, "null"] }
+        i_rate: { type: [string, "null"] }
+        l_rate: { type: [string, "null"] }
+        perceived_rate: { type: [string, "null"] }
+        perceived_contr_eff: { type: [string, "null"] }
+        i_risk_exposure: { type: [string, "null"] }
+        r_risk_exposure: { type: [string, "null"] }
+        current_contr: { type: [string, "null"] }
+        desired_contr_effe: { type: [string, "null"] }
+        assessment_updated: { type: boolean }
+        completed_action_count: { type: integer }
+        is_active: { type: boolean }
+        updated_at: { type: string, format: date-time }
+        workflow_status: { type: string }
+        can_edit: { type: boolean }
+    RiskRootCause:
+      type: object
+      required: [root_id, root_cause, action_status]
+      properties:
+        root_id: { type: integer }
+        root_cause: { type: string }
+        current_contr: { type: [string, "null"] }
+        mitigations: { type: [string, "null"] }
+        due_date: { type: [string, "null"] }
+        action_owner: { type: [string, "null"] }
+        action_status: { type: string }
+    RiskHistoryEvent:
+      type: object
+      required: [history_id, depart_code, action, actor, comments, created_at]
+      properties:
+        history_id: { type: string }
+        risk_code: { type: [string, "null"] }
+        depart_code: { type: [string, "null"] }
+        period_id: { type: [integer, "null"] }
+        action: { type: string }
+        actor: { type: string }
+        comments: { type: string }
+        snapshot: { type: object, additionalProperties: true }
+        created_at: { type: string, format: date-time }
+    RiskLookup:
+      type: object
+      additionalProperties: true
+      properties:
+        depart_code: { type: string }
+        depart_name: { type: string }
+        obj_code: { type: string }
+        obj_name: { type: string }
+        category_code: { type: string }
+        category_name: { type: string }
+        username: { type: string }
+        employee_name: { type: string }
+        champion_username: { type: [string, "null"] }
+        owner_username: { type: [string, "null"] }
+        period_id: { type: integer }
+        period_from: { type: string }
+        period_to: { type: string }
+        status: { type: string }
+    RiskOptionsResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok: { type: boolean }
+        data:
+          type: object
+          required: [actor, departments, categories, objectives, periods, staff, assignments]
+          properties:
+            actor:
+              type: object
+              required: [username, can_manage, champion_departments, owner_departments]
+              properties:
+                username: { type: string }
+                can_manage: { type: boolean }
+                champion_departments: { type: array, items: { type: string } }
+                owner_departments: { type: array, items: { type: string } }
+            departments: { type: array, items: { $ref: "#/components/schemas/RiskLookup" } }
+            categories: { type: array, items: { $ref: "#/components/schemas/RiskLookup" } }
+            objectives: { type: array, items: { $ref: "#/components/schemas/RiskLookup" } }
+            periods: { type: array, items: { $ref: "#/components/schemas/RiskLookup" } }
+            staff: { type: array, items: { $ref: "#/components/schemas/RiskLookup" } }
+            assignments: { type: array, items: { $ref: "#/components/schemas/RiskLookup" } }
+    RiskRecordsResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok: { type: boolean }
+        data: { type: array, items: { $ref: "#/components/schemas/RiskRecord" } }
+    RiskRecordResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok: { type: boolean }
+        data: { $ref: "#/components/schemas/RiskRecord" }
+    RiskDetailResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok: { type: boolean }
+        data:
+          type: object
+          required: [risk, root_causes, history]
+          properties:
+            risk: { $ref: "#/components/schemas/RiskRecord" }
+            root_causes: { type: array, items: { $ref: "#/components/schemas/RiskRootCause" } }
+            history: { type: array, items: { $ref: "#/components/schemas/RiskHistoryEvent" } }
+    RiskDepartmentSummary:
+      type: object
+      additionalProperties: true
+      required: [depart_code, depart_name, total_risks, workflow_status]
+      properties:
+        depart_code: { type: string }
+        depart_name: { type: string }
+        total_risks: { type: integer }
+        assessed_risks: { type: integer }
+        avg_exposure: { type: [string, "null"] }
+        max_exposure: { type: [string, "null"] }
+        open_actions: { type: integer }
+        overdue_actions: { type: integer }
+        workflow_status: { type: string }
+        period_id: { type: integer }
+        period_from: { type: string, format: date }
+        period_to: { type: string, format: date }
+    RiskSummaryResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok: { type: boolean }
+        data: { type: array, items: { $ref: "#/components/schemas/RiskDepartmentSummary" } }
+    RiskHistoryResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok: { type: boolean }
+        data: { type: array, items: { $ref: "#/components/schemas/RiskHistoryEvent" } }
+    RiskMutationResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
+        data: { type: object, additionalProperties: true }
     HealthStatus:
       type: object
       properties:

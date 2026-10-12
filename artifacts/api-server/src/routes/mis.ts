@@ -5,8 +5,18 @@ import { requireAuth } from "../lib/auth-middleware";
 import { requireAllocatedFileReadAccess, requireBpoAllocatedAccess, requireBpoQueueAccess, requireBusinessFileAccess, requireBusinessTrackingAccess, setBpoReviewAccess } from "../lib/business-permissions";
 import { logger } from "../lib/logger";
 import { getAllocatedRefundLedger } from "../lib/refund-ledger";
+import { requireRiskActor, privateRiskResponses, canManage } from "../lib/risk-register";
 
 const router = Router();
+// Legacy unscoped endpoints are retained only for risk administrators.
+// Departmental staff use the scoped /risk-register endpoints.
+router.use("/mis/risk", privateRiskResponses, requireAuth, requireRiskActor, (_req,res,next) => {
+  if (!canManage(res.locals.riskActor)) {
+    res.status(403).json({ok:false,error:"Use the department-scoped Risk Register."});
+    return;
+  }
+  next();
+});
 
 // ─── PRODUCTION MONTH ────────────────────────────────────────────────────────
 router.get("/mis/production-month", async (_req, res) => {
