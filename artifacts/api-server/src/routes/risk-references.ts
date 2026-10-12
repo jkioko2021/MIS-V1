@@ -2,9 +2,12 @@ import { Router } from "express";
 import { z } from "zod";
 import { query, txQuery, withTransaction } from "../lib/postgres";
 import { history, RiskError, riskFailure, type RiskActor } from "../lib/risk-register";
+import { calibratedReferencesRouter } from "./risk-calibrated-references";
 
 // Mounted beneath risk-administration's management-only middleware.
 export const riskReferencesRouter = Router();
+// The parent administration router applies the same management-only gate to all catalogs.
+riskReferencesRouter.use(calibratedReferencesRouter);
 const catalogs = {
   "action-statuses": { table: "action_statuses", key: "status_code", label: "status_name", maxCode: 20, maxLabel: 50 },
   categories: { table: "categories", key: "category_code", label: "category_name", maxCode: 20, maxLabel: 100 },

@@ -490,7 +490,7 @@ components:
   schemas:
     RiskReferenceCatalog:
       type: string
-      enum: [action-statuses, categories, control-effectiveness, objectives]
+      enum: [action-statuses, categories, control-effectiveness, objectives, exposure, impact, likelihood, reasons]
     RiskReference:
       type: object
       required: [code, label, description, rating, depart_code, is_active]
@@ -501,6 +501,10 @@ components:
         rating: { type: ["number", "null"] }
         depart_code: { type: ["string", "null"] }
         is_active: { type: boolean }
+        risk_type: { type: ["string", "null"], enum: [I, R, null] }
+        minimum: { type: ["number", "null"] }
+        maximum: { type: ["number", "null"] }
+        rate_label: { type: ["string", "null"] }
     RiskReferenceResponse:
       type: object
       required: [ok, data]
@@ -514,16 +518,24 @@ components:
         code: { type: string, minLength: 1, maxLength: 50 }
         label: { type: string, minLength: 1, maxLength: 1000 }
         description: { type: ["string", "null"], maxLength: 5000 }
-        rating: { type: number, minimum: 0, maximum: 1, description: Required fractional rating for control-effectiveness }
+        rating: { type: number, minimum: 0, maximum: 100, description: Fraction for control-effectiveness and likelihood; impact factor up to 100 for impact }
         depart_code: { type: string, description: Required active department for objectives }
+        risk_type: { type: string, enum: [I, R] }
+        minimum: { type: number, minimum: 0, maximum: 100 }
+        maximum: { type: number, minimum: 0, maximum: 100 }
+        rate_label: { type: string, minLength: 1, maxLength: 50 }
     RiskReferenceUpdateInput:
       type: object
       required: [label, is_active]
       properties:
         label: { type: string, minLength: 1, maxLength: 1000 }
         description: { type: ["string", "null"], maxLength: 5000 }
-        rating: { type: number, minimum: 0, maximum: 1 }
+        rating: { type: number, minimum: 0, maximum: 100 }
         is_active: { type: boolean }
+        risk_type: { type: string, enum: [I, R] }
+        minimum: { type: number, minimum: 0, maximum: 100 }
+        maximum: { type: number, minimum: 0, maximum: 100 }
+        rate_label: { type: string, minLength: 1, maxLength: 50 }
         depart_code: { type: string, description: Required for objectives; selects the immutable department/code pair, never moves an objective }
         expected:
           $ref: "#/components/schemas/RiskReference"

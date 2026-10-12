@@ -110,7 +110,7 @@ try{
     assert.equal((await api(`/records/${risk.risk_code}`,"champion","PUT",assessment)).status,409);
     await ok(`/records/${risk.risk_code}/root-causes`,"champion","POST",{
       root_cause:"Process dependency",current_contr:"Existing operational control",mitigations:"Strengthen review checks",
-      due_date:`${year}-03-01`,action_owner:f.accounts.champion.username,action_status:"Open",
+      due_date:`${year}-03-01`,action_owner:f.accounts.champion.username,action_status:"Planned",
       expected_updated_at:assessed.updated_at});
     await ok("/workflow","champion","POST",wf("SUBMIT"));
     assert.equal((await api("/workflow","champion","POST",wf("SIGN_OFF"))).status,403);

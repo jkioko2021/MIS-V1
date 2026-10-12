@@ -32,3 +32,9 @@ Risk administration must provide add/modify pages for RISK_CATEGORY, RISK_CONTRO
 **Why:** The user explicitly requested all eight lists under Risk administration.
 
 **How to apply:** Check coverage of each named list rather than treating a generic reference-list page as complete. Retain the existing Risk Management/administrator access boundary and historical reference compatibility.
+
+Do not show a Closed Archives navigation list; keep closed-register records accessible through their existing history.
+
+**Why:** The user asked to remove the archived list, not to delete closed risks or their notes.
+
+**How to apply:** Remove the archive menu and tab without deleting records or removing the register-close workflow.

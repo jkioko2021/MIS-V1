@@ -16,12 +16,16 @@ const inputClass = 'w-full rounded-xl border border-[#c8d5d3] bg-[#fffefa] px-3.
 const primaryButton = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#155e59] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#104c48] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#155e59] disabled:pointer-events-none disabled:opacity-45';
 const secondaryButton = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#cad8d5] bg-[#fffefa] px-3.5 py-2 text-sm font-semibold text-[#28514e] transition hover:bg-[#eef4f1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#155e59] disabled:pointer-events-none disabled:opacity-50';
 
-type Config = { title: string; singular: string; eyebrow: string; intro: string; codeMax: number; codePattern: RegExp; codeHint: string; labelMax: number; labelName: string; description: 'none' | 'optional' | 'required'; descriptionName: string; rating: boolean; department: boolean; labelIsCode: boolean; labelLockedOnEdit: boolean };
+type Config = { title: string; singular: string; eyebrow: string; intro: string; codeMax: number; codePattern: RegExp; codeHint: string; labelMax: number; labelName: string; description: 'none' | 'optional' | 'required'; descriptionName: string; rating: boolean; department: boolean; labelIsCode: boolean; labelLockedOnEdit: boolean; kind?: 'impact' | 'likelihood' | 'reason' | 'exposure' };
 export const referenceConfigs: Record<RiskReferenceCatalog, Config> = {
   'action-statuses': { title: 'Action statuses', singular: 'action status', eyebrow: 'Mitigation workflow', intro: 'Statuses available to mitigation actions. Historical actions store status names, so labels are fixed once created.', codeMax: 20, codePattern: /^[A-Za-z0-9_-]+$/, codeHint: 'Up to 20 letters, numbers, hyphens or underscores.', labelMax: 50, labelName: 'Status name', description: 'optional', descriptionName: 'Description', rating: false, department: false, labelIsCode: false, labelLockedOnEdit: true },
   categories: { title: 'Risk categories', singular: 'category', eyebrow: 'Classification', intro: 'Categories used to classify each risk on the register.', codeMax: 20, codePattern: /^[A-Za-z0-9_-]+$/, codeHint: 'Up to 20 letters, numbers, hyphens or underscores.', labelMax: 100, labelName: 'Category name', description: 'none', descriptionName: '', rating: false, department: false, labelIsCode: false, labelLockedOnEdit: false },
   'control-effectiveness': { title: 'Control effectiveness', singular: 'effectiveness factor', eyebrow: 'Residual scoring', intro: 'Qualitative factors and the fractional rating applied to inherent exposure.', codeMax: 50, codePattern: /^[A-Za-z0-9 _-]+$/, codeHint: 'Up to 50 characters; spaces allowed, e.g. Very Good. The factor name is its identity.', labelMax: 50, labelName: 'Factor', description: 'required', descriptionName: 'Qualitative criteria', rating: true, department: false, labelIsCode: true, labelLockedOnEdit: true },
   objectives: { title: 'Objectives', singular: 'objective', eyebrow: 'Departmental objectives', intro: 'Objectives risks are linked to. Identity is department plus code; the same code can exist in several departments.', codeMax: 20, codePattern: /^[A-Za-z0-9_-]+$/, codeHint: 'Up to 20 letters, numbers, hyphens or underscores.', labelMax: 300, labelName: 'Objective', description: 'none', descriptionName: '', rating: false, department: true, labelIsCode: false, labelLockedOnEdit: false },
+  impact: { title: 'Impact factors', singular: 'impact factor', eyebrow: 'Inherent scoring', intro: 'Maintain impact labels and factors used by risk assessments. Existing saved assessments are never recalculated.', codeMax: 20, codePattern: /^[A-Za-z0-9_-]+$/, codeHint: 'Up to 20 letters, numbers, hyphens or underscores.', labelMax: 50, labelName: 'Impact label', description: 'none', descriptionName: '', rating: true, department: false, labelIsCode: false, labelLockedOnEdit: false, kind: 'impact' },
+  likelihood: { title: 'Likelihood factors', singular: 'likelihood factor', eyebrow: 'Inherent scoring', intro: 'Maintain likelihood labels, fractional ratings and qualitative criteria for future assessments.', codeMax: 20, codePattern: /^[A-Za-z0-9_-]+$/, codeHint: 'Up to 20 letters, numbers, hyphens or underscores.', labelMax: 50, labelName: 'Likelihood label', description: 'required', descriptionName: 'Qualitative criteria', rating: true, department: false, labelIsCode: false, labelLockedOnEdit: false, kind: 'likelihood' },
+  reasons: { title: 'Risk reasons', singular: 'reason', eyebrow: 'Client rating options', intro: 'Stable reason codes with editable labels. Updates refresh related AML, client-rating and business option lists.', codeMax: 3, codePattern: /^[A-Za-z0-9_-]+$/, codeHint: 'Up to 3 letters, numbers, hyphens or underscores.', labelMax: 100, labelName: 'Reason label', description: 'none', descriptionName: '', rating: false, department: false, labelIsCode: false, labelLockedOnEdit: false, kind: 'reason' },
+  exposure: { title: 'Exposure bands', singular: 'exposure band', eyebrow: 'Exposure thresholds', intro: 'Define risk-type ranges and treatment language used for future scoring. Bands of the same type cannot overlap.', codeMax: 30, codePattern: /^[IR]:\d{1,3}\.\d{2}$/, codeHint: 'Generated from risk type and minimum, for example I:41.00.', labelMax: 20, labelName: 'Level', description: 'required', descriptionName: 'Treatment', rating: false, department: false, labelIsCode: false, labelLockedOnEdit: false, kind: 'exposure' },
 };
 
 function messageOf(error: unknown, fallback: string) {
@@ -59,6 +63,10 @@ export default function RiskReferences({ catalog, username }: { catalog: RiskRef
   const [description, setDescription] = useState('');
   const [rating, setRating] = useState('');
   const [dept, setDept] = useState('');
+  const [riskType, setRiskType] = useState<'I' | 'R'>('I');
+  const [minimum, setMinimum] = useState('');
+  const [maximum, setMaximum] = useState('');
+  const [rateLabel, setRateLabel] = useState('');
   const [formError, setFormError] = useState('');
   const [success, setSuccess] = useState('');
   const [confirming, setConfirming] = useState<RiskReference | null>(null);
@@ -68,27 +76,44 @@ export default function RiskReferences({ catalog, username }: { catalog: RiskRef
   const saving = createRef.isPending || (updateRef.isPending && !confirming);
 
   const visible = useMemo(() => (rows ?? []).filter(row => (filter === 'all' || (filter === 'active' ? row.is_active : !row.is_active))
-    && (!search.trim() || `${row.code} ${row.label} ${row.description ?? ''} ${row.depart_code ?? ''}`.toLowerCase().includes(search.trim().toLowerCase()))), [rows, filter, search]);
+    && (!search.trim() || `${row.code} ${row.label} ${row.description ?? ''} ${row.depart_code ?? ''} ${row.risk_type ?? ''} ${row.minimum ?? ''} ${row.maximum ?? ''} ${row.rate_label ?? ''}`.toLowerCase().includes(search.trim().toLowerCase()))), [rows, filter, search]);
   const activeCount = (rows ?? []).filter(r => r.is_active).length;
 
   async function invalidate() {
-    await queryClient.invalidateQueries({ predicate: query => query.queryKey.some(part => typeof part === 'string' && (part.startsWith('/api/risk-administration') || part.startsWith('/api/risk-register') || part === 'risk-register')) });
+    await queryClient.invalidateQueries({ predicate: query => query.queryKey.some(part => typeof part === 'string' && (
+      part.startsWith('/api/risk-administration') || part.startsWith('/api/risk-register') || part === 'risk-register'
+      || (catalog === 'reasons' && (
+        part.startsWith('/api/aml') || part.startsWith('/api/client-ratings') || part.startsWith('/api/business')
+        || part === 'aml-risk-reason-source' || part === 'business-status-options'
+      ))
+    )) });
   }
-  function reset() { setEditing(null); setCode(''); setLabel(''); setDescription(''); setRating(''); setDept(''); setFormError(''); }
+  function reset() { setEditing(null); setCode(''); setLabel(''); setDescription(''); setRating(''); setDept(''); setRiskType('I'); setMinimum(''); setMaximum(''); setRateLabel(''); setFormError(''); }
   function startEdit(row: RiskReference) {
     setEditing(row); setCode(row.code); setLabel(row.label); setDescription(row.description ?? ''); setRating(row.rating === null ? '' : String(row.rating)); setDept(row.depart_code ?? '');
+    setRiskType(row.risk_type === 'R' ? 'R' : 'I'); setMinimum(row.minimum == null ? '' : Number(row.minimum).toFixed(2)); setMaximum(row.maximum == null ? '' : Number(row.maximum).toFixed(2)); setRateLabel(row.rate_label ?? '');
     setFormError(''); setSuccess(''); setConfirming(null);
     document.getElementById('reference-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
   function validate(): string {
-    const c = editing ? editing.code : code.trim();
+    const c = config.kind === 'exposure' && !editing && minimum.trim() ? `${riskType}:${Number(minimum).toFixed(2)}` : (editing ? editing.code : code.trim());
     if (!editing && (!c || c.length > config.codeMax || !config.codePattern.test(c))) return `Code: ${config.codeHint}`;
     const l = config.labelIsCode ? c : label.trim();
     if (!l || l.length > config.labelMax) return `${config.labelName} must be 1-${config.labelMax} characters.`;
     if (config.description === 'required' && !description.trim()) return `${config.descriptionName} is required.`;
     if (description.length > 5000) return `${config.descriptionName} must be 5000 characters or fewer.`;
     if (config.rating) {
-      if (!/^(0(\.\d{1,6})?|1(\.0{1,6})?|\.\d{1,6})$/.test(rating.trim())) return 'Rating must be a fraction from 0 to 1 with at most 6 decimal places.';
+      if (config.kind === 'likelihood' && Number(rating) <= 0) return 'Likelihood rating must be greater than zero.';
+      const pattern = config.kind === 'impact' ? /^\d{1,3}(\.\d{1,2})?$/ : /^(0?(\.\d{1,6})?|1(\.0{1,6})?)$/;
+      const value = Number(rating.trim());
+      if (!pattern.test(rating.trim()) || value <= 0 || value > (config.kind === 'impact' ? 100 : 1)) return config.kind === 'impact' ? 'Rating must be greater than 0 and no more than 100, with up to 2 decimal places.' : 'Rating must be greater than 0 and no more than 1, with up to 6 decimal places.';
+    }
+    if (config.kind === 'impact' && (!rateLabel.trim() || rateLabel.trim().length > 50)) return 'Rate label must be 1–50 characters.';
+    if (config.kind === 'exposure') {
+      const decimal = /^\d{1,3}(\.\d{1,2})?$/;
+      if (!decimal.test(minimum.trim()) || !decimal.test(maximum.trim())) return 'Minimum and maximum must be numbers from 0 to 100 with up to 2 decimal places.';
+      const min = Number(minimum), max = Number(maximum);
+      if (min < 0 || max > 100 || max < min) return 'Maximum must be greater than or equal to minimum, and both must be from 0 to 100.';
     }
     if (config.department && !editing && !dept) return 'Select an active department.';
     return '';
@@ -98,7 +123,7 @@ export default function RiskReferences({ catalog, username }: { catalog: RiskRef
     setFormError(''); setSuccess('');
     const problem = validate();
     if (problem) { setFormError(problem); return; }
-    const desc = config.description === 'none' ? undefined : (description.trim() || null);
+    const desc = config.description === 'none' ? undefined : description.trim();
     const rate = config.rating ? Number(rating.trim()) : undefined;
     try {
       if (editing) {
@@ -108,16 +133,20 @@ export default function RiskReferences({ catalog, username }: { catalog: RiskRef
           expected: editing,
           ...(desc !== undefined ? { description: desc } : {}),
           ...(rate !== undefined ? { rating: rate } : {}),
+          ...(config.kind === 'impact' ? { rate_label: rateLabel.trim() } : {}),
+          ...(config.kind === 'exposure' ? { risk_type: editing.risk_type ?? riskType, minimum: editing.minimum ?? Number(minimum), maximum: Number(maximum) } : {}),
           ...(config.department ? { depart_code: editing.depart_code ?? '' } : {}),
         } });
         const failure = payloadError(response); if (failure) throw new Error(failure);
         setSuccess(`${editing.code} was updated. Its code and status are unchanged.`);
       } else {
-        const c = code.trim();
+        const c = config.kind === 'exposure' ? `${riskType}:${Number(minimum).toFixed(2)}` : code.trim();
         const response = await createRef.mutateAsync({ catalog, data: {
           code: c, label: config.labelIsCode ? c : label.trim(),
           ...(desc ? { description: desc } : {}),
           ...(rate !== undefined ? { rating: rate } : {}),
+          ...(config.kind === 'impact' ? { rate_label: rateLabel.trim() } : {}),
+          ...(config.kind === 'exposure' ? { risk_type: riskType, minimum: Number(minimum), maximum: Number(maximum) } : {}),
           ...(config.department ? { depart_code: dept } : {}),
         } });
         const failure = payloadError(response); if (failure) throw new Error(failure);
@@ -136,6 +165,8 @@ export default function RiskReferences({ catalog, username }: { catalog: RiskRef
         label: row.label, is_active: !row.is_active, expected: row,
         ...(config.description !== 'none' ? { description: row.description } : {}),
         ...(config.rating && row.rating !== null ? { rating: row.rating } : {}),
+         ...(config.kind === 'impact' ? { rate_label: row.rate_label ?? '' } : {}),
+         ...(config.kind === 'exposure' ? { risk_type: row.risk_type ?? 'I', minimum: row.minimum ?? 0, maximum: row.maximum ?? 0 } : {}),
         ...(config.department ? { depart_code: row.depart_code ?? '' } : {}),
       } });
       const failure = payloadError(response); if (failure) throw new Error(failure);
@@ -154,7 +185,16 @@ export default function RiskReferences({ catalog, username }: { catalog: RiskRef
     <form id="reference-form" onSubmit={submit} className="h-fit rounded-3xl border border-[#d8e3df] bg-[#fffefa] p-5 shadow-[0_10px_36px_-30px_rgba(16,66,60,.5)] sm:p-7 xl:sticky xl:top-6">
       <div className="flex items-start gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#dcebe6] text-[#155e59]"><ListChecks className="h-5 w-5" /></div><div><p className="text-[10px] font-bold uppercase tracking-[.16em] text-[#708a83]">{config.eyebrow}</p><h2 className="mt-1 font-[Manrope] text-xl font-extrabold">{editing ? `Edit ${config.singular}` : `Add ${config.singular}`}</h2><p className="mt-1 text-xs leading-5 text-[#718780]">{editing ? 'Codes are permanent. Status is changed only from the list with Retire or Reactivate.' : config.intro}</p></div></div>
       <div className="mt-6 space-y-4">
-        {config.department && <Field label="Department" hint={editing ? 'Department and code together identify this objective and cannot change.' : 'Only active departments can receive new objectives.'}>
+         {config.kind === 'exposure' && <>
+           <Field label="Risk type" hint={editing ? 'Risk type and minimum cannot be changed after creation.' : 'Choose inherent or residual. The stable code is generated from this and the minimum.'}>
+             <select className={inputClass} value={riskType} disabled={Boolean(editing)} onChange={e => { setRiskType(e.target.value as 'I' | 'R'); setSuccess(''); }}><option value="I">Inherent (I)</option><option value="R">Residual (R)</option></select>
+           </Field>
+           <Field label="Minimum" hint={editing ? 'Immutable after creation.' : '0–100, up to 2 decimal places.'}><input className={inputClass} inputMode="decimal" value={minimum} readOnly={Boolean(editing)} disabled={Boolean(editing)} onChange={e => { setMinimum(e.target.value); setSuccess(''); }} required /></Field>
+           {!editing && <div className="rounded-lg bg-[#eef4f1] px-3 py-2 font-mono text-xs text-[#45645c]">Generated code · {minimum && /^\d{1,3}(\.\d{1,2})?$/.test(minimum) ? `${riskType}:${Number(minimum).toFixed(2)}` : 'enter a minimum'}</div>}
+           {editing && <Field label="Stable code"><input className={`${inputClass} font-mono`} readOnly disabled value={code} /></Field>}
+           <Field label="Maximum" hint="Must be at least the minimum; active ranges cannot overlap within the same risk type."><input className={inputClass} inputMode="decimal" value={maximum} onChange={e => { setMaximum(e.target.value); setSuccess(''); }} required /></Field>
+         </>}
+         {config.department && <Field label="Department" hint={editing ? 'Department and code together identify this objective and cannot change.' : 'Only active departments can receive new objectives.'}>
           {editing ? <input data-testid="input-reference-department" className={inputClass} readOnly value={`${deptName(editing.depart_code) ?? editing.depart_code ?? ''} · ${editing.depart_code ?? ''}${editingDeptRetired ? ' (inactive)' : ''}`} />
             : <select data-testid="input-reference-department" className={inputClass} value={dept} onChange={e => { setDept(e.target.value); setSuccess(''); }} disabled={departmentQuery.isLoading} required>
               <option value="">{departmentQuery.isLoading ? 'Loading departments…' : 'Select a department'}</option>
@@ -162,9 +202,9 @@ export default function RiskReferences({ catalog, username }: { catalog: RiskRef
             </select>}
           {deptError && <span className="mt-1.5 block text-[11px] font-normal text-[#854638]">{deptError} <button type="button" className="underline" onClick={() => departmentQuery.refetch()}>Retry</button></span>}
         </Field>}
-        <Field label={config.labelIsCode ? 'Factor name (code)' : 'Code'} hint={editing ? 'Codes remain stable after creation.' : config.codeHint}>
-          <input data-testid="input-reference-code" className={inputClass} value={code} maxLength={config.codeMax} readOnly={Boolean(editing)} onChange={e => { setCode(e.target.value); setSuccess(''); }} required />
-        </Field>
+         {config.kind !== 'exposure' && <Field label={config.labelIsCode ? 'Factor name (code)' : 'Code'} hint={editing ? 'Codes remain stable after creation.' : config.codeHint}>
+          <input data-testid="input-reference-code" className={inputClass} value={code} maxLength={config.codeMax} readOnly={Boolean(editing)} disabled={Boolean(editing)} onChange={e => { setCode(e.target.value); setSuccess(''); }} required />
+         </Field>}
         {!config.labelIsCode && <Field label={config.labelName} hint={editing && config.labelLockedOnEdit ? 'Locked: historical actions store this name, and Closed drives workflow.' : `Up to ${config.labelMax} characters.`}>
           {config.labelMax > 100 ? <textarea data-testid="input-reference-label" rows={3} className={inputClass} value={label} maxLength={config.labelMax} onChange={e => { setLabel(e.target.value); setSuccess(''); }} required />
             : <input data-testid="input-reference-label" className={inputClass} value={label} maxLength={config.labelMax} readOnly={Boolean(editing && config.labelLockedOnEdit)} onChange={e => { setLabel(e.target.value); setSuccess(''); }} required />}
@@ -172,9 +212,10 @@ export default function RiskReferences({ catalog, username }: { catalog: RiskRef
         {config.description !== 'none' && <Field label={`${config.descriptionName}${config.description === 'optional' ? ' (optional)' : ''}`} hint={`${description.length}/5000`}>
           <textarea data-testid="input-reference-description" rows={4} className={inputClass} value={description} maxLength={5000} onChange={e => { setDescription(e.target.value); setSuccess(''); }} required={config.description === 'required'} />
         </Field>}
-        {config.rating && <Field label="Rating" hint="Fraction from 0 to 1, up to 6 decimal places (e.g. 0.25).">
-          <input data-testid="input-reference-rating" inputMode="decimal" className={`${inputClass} font-mono`} value={rating} onChange={e => { setRating(e.target.value); setSuccess(''); }} placeholder="0.000000" required />
+         {config.rating && <Field label={config.kind === 'impact' ? 'Rating factor' : 'Rating'} hint={config.kind === 'impact' ? 'Greater than 0, up to 100 with 2 decimal places.' : 'Greater than 0 and up to 1, with 6 decimal places.'}>
+           <input data-testid="input-reference-rating" inputMode="decimal" className={`${inputClass} font-mono`} value={rating} onChange={e => { setRating(e.target.value); setSuccess(''); }} placeholder={config.kind === 'impact' ? '0.00' : '0.000000'} required />
         </Field>}
+         {config.kind === 'impact' && <Field label="Rate label" hint="Required; up to 50 characters."><input className={inputClass} maxLength={50} value={rateLabel} onChange={e => { setRateLabel(e.target.value); setSuccess(''); }} required /></Field>}
         {editing && <div className="rounded-xl bg-[#f2f7f4] px-3.5 py-3 text-xs text-[#526f69]">Current status: <strong>{editing.is_active ? 'Active' : 'Retired'}</strong>. Saving these details does not change status.</div>}
       </div>
       {formError && <Notice tone="error" message={formError} />}
@@ -213,6 +254,8 @@ export default function RiskReferences({ catalog, username }: { catalog: RiskRef
                         {config.department && <span className="rounded-md bg-[#eef0e6] px-2 py-1 text-[10px] font-semibold text-[#5f6a4c]">{deptName(row.depart_code) ? `${deptName(row.depart_code)} · ` : ''}{row.depart_code ?? 'No department'}</span>}
                         <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${row.is_active ? 'bg-[#e2efe8] text-[#34745f]' : 'bg-[#f0eee8] text-[#746b56]'}`}>{row.is_active ? 'Active' : 'Retired'}</span>
                         {config.rating && row.rating !== null && <span className="rounded-full bg-[#fbf1df] px-2.5 py-1 font-mono text-[10px] font-bold text-[#7a5a24]">x {row.rating}</span>}
+                         {config.kind === 'impact' && row.rate_label && <span className="rounded-full bg-[#fbf1df] px-2.5 py-1 text-[10px] font-bold text-[#7a5a24]">{row.rate_label}</span>}
+                         {config.kind === 'exposure' && <span className="rounded-full bg-[#fbf1df] px-2.5 py-1 font-mono text-[10px] font-bold text-[#7a5a24]">{row.risk_type ?? '—'} · {row.minimum?.toFixed(2) ?? '—'}–{row.maximum?.toFixed(2) ?? '—'}</span>}
                       </div>
                       {!config.labelIsCode && <strong className={`mt-2 block break-words text-sm ${row.is_active ? '' : 'text-[#6f7d77]'}`}>{row.label}</strong>}
                       {row.description && <p className="mt-1 line-clamp-3 whitespace-pre-line text-xs leading-5 text-[#6a807a]">{row.description}</p>}

@@ -4,8 +4,8 @@ import { useAuth } from '@/lib/auth-context';
 import ClientRatingsPage from './client-ratings';
 import { canAccessRiskPage, riskPageDepartments } from './risk-access';
 import {
-  AlertCircle, Archive, ArrowUpRight, BadgeCheck, CalendarDays, Check, ClipboardCheck,
-  FilePlus2, History, LockKeyhole, RefreshCw, Shield, UsersRound, Workflow, X,
+  AlertCircle, ArrowUpRight, BadgeCheck, CalendarDays, Check, ClipboardCheck,
+  FilePlus2, FileUp, History, LockKeyhole, RefreshCw, Shield, UsersRound, Workflow, X,
 } from 'lucide-react';
 import type { RiskHistoryEvent, RiskOptionsResponseData, RiskRecord, RiskRootCause, RiskDepartmentSummary } from '@workspace/api-client-react';
 import {
@@ -37,7 +37,6 @@ const PAGES: Array<{ key: PageKey; title: string; short: string; icon: typeof Sh
   { key: 'history', title: 'Risk Register view', short: 'Risk Register view', icon: History },
   { key: 'client-rating', title: 'Client Rating', short: 'Client Rating', icon: BadgeCheck },
   { key: 'dashboard', title: 'Risk Dashboard', short: 'Risk Dashboard', icon: Shield },
-  { key: 'closed', title: 'Closed Archives', short: 'Closed Archives', icon: Archive },
   { key: 'import', title: 'Legacy Risk Import', short: 'Legacy Import', icon: FileUp },
 ];
 const navLabels: Record<string, PageKey> = Object.fromEntries(PAGES.map(item => [item.key, item.key]));

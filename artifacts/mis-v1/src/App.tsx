@@ -36,7 +36,7 @@ import {
 import {
   Home, FileText, Shield, Database, Bell, Banknote, ClipboardCheck, FilePlus2,
   ChevronRight, LogOut, User, Users, Settings, SlidersHorizontal, Menu, X,
-  Workflow, BadgeCheck, CalendarDays, LockKeyhole, Archive, History, UsersRound, SearchCheck, Target, Tags, ListChecks, Gauge,
+  Workflow, BadgeCheck, CalendarDays, LockKeyhole, History, UsersRound, SearchCheck, Target, Tags, ListChecks, Gauge,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -102,7 +102,6 @@ const NAV_SECTIONS: Array<{
           { href: '/risk/history', label: 'Risk Register view', icon: History },
           { href: '/risk/client-rating', label: 'Client Rating', icon: SearchCheck },
           { href: '/risk', label: 'Risk Dashboard', icon: Shield },
-          { href: '/risk/closed', label: 'Closed Archives', icon: Archive },
         ],
       },
       {
@@ -114,6 +113,10 @@ const NAV_SECTIONS: Array<{
           { href: '/risk-administration/categories', label: 'Categories', icon: Tags },
           { href: '/risk-administration/action-statuses', label: 'Action statuses', icon: ListChecks },
           { href: '/risk-administration/control-effectiveness', label: 'Control effectiveness', icon: Gauge },
+          { href: '/risk-administration/exposure', label: 'Exposure bands', icon: Gauge },
+          { href: '/risk-administration/impact', label: 'Impact factors', icon: Gauge },
+          { href: '/risk-administration/likelihood', label: 'Likelihood factors', icon: Gauge },
+          { href: '/risk-administration/reasons', label: 'Reasons', icon: ListChecks },
         ],
       },
       { href: '/discovery', label: 'DB Discovery',      icon: Database },
@@ -423,9 +426,17 @@ function ProtectedRouter() {
           </Route>
           <Route path="/risk"             component={RiskRegisterPage} />
           <Route path="/risk/client-rating" component={RiskRegisterPage} />
+          <Route path="/risk/closed">{() => <Redirect to="/risk/history" />}</Route>
           <Route path="/risk/:view"       component={RiskRegisterPage} />
           <Route path="/risk-administration" component={RiskAdministrationPage} />
           <Route path="/risk-administration/:view" component={RiskAdministrationPage} />
+          <Route path="/control-effectiveness" component={RiskAdministrationPage} />
+          <Route path="/exposure" component={RiskAdministrationPage} />
+          <Route path="/impact" component={RiskAdministrationPage} />
+          <Route path="/likelihood" component={RiskAdministrationPage} />
+          <Route path="/objectives" component={RiskAdministrationPage} />
+          <Route path="/reasons" component={RiskAdministrationPage} />
+          <Route path="/action-statuses" component={RiskAdministrationPage} />
           <Route path="/medical-underwriting">
             {() => <Redirect to="/business/medical-review" />}
           </Route>

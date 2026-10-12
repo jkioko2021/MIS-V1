@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { RiskReferenceCreateInputRiskType } from './riskReferenceCreateInputRiskType';
 
 export interface RiskReferenceCreateInput {
   /**
@@ -23,11 +24,27 @@ export interface RiskReferenceCreateInput {
      */
   description?: string | null;
   /**
-     * Required fractional rating for control-effectiveness
+     * Fraction for control-effectiveness and likelihood; impact factor up to 100 for impact
      * @minimum 0
-     * @maximum 1
+     * @maximum 100
      */
   rating?: number;
   /** Required active department for objectives */
   depart_code?: string;
+  risk_type?: RiskReferenceCreateInputRiskType;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  minimum?: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  maximum?: number;
+  /**
+     * @minLength 1
+     * @maxLength 50
+     */
+  rate_label?: string;
 }

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { RiskReference } from './riskReference';
+import type { RiskReferenceUpdateInputRiskType } from './riskReferenceUpdateInputRiskType';
 
 export interface RiskReferenceUpdateInput {
   /**
@@ -20,10 +21,26 @@ export interface RiskReferenceUpdateInput {
   description?: string | null;
   /**
      * @minimum 0
-     * @maximum 1
+     * @maximum 100
      */
   rating?: number;
   is_active: boolean;
+  risk_type?: RiskReferenceUpdateInputRiskType;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  minimum?: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  maximum?: number;
+  /**
+     * @minLength 1
+     * @maxLength 50
+     */
+  rate_label?: string;
   /** Required for objectives; selects the immutable department/code pair */
   depart_code?: string;
   /** Last loaded reference; reject stale edits or status changes rather than overwriting another administrator */

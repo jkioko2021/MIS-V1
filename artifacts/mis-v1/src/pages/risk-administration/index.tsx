@@ -20,15 +20,19 @@ import {
 
 type TabKey = 'overview' | 'mappings' | 'departments' | RiskReferenceCatalog;
 
-const referenceKeys: RiskReferenceCatalog[] = ['action-statuses', 'categories', 'control-effectiveness', 'objectives'];
+const referenceKeys: RiskReferenceCatalog[] = ['action-statuses', 'categories', 'control-effectiveness', 'objectives', 'exposure', 'impact', 'likelihood', 'reasons'];
 const tabs: Array<{ key: TabKey; label: string; href: string }> = [
   { key: 'overview', label: 'Administration', href: '/risk-administration' },
   { key: 'mappings', label: 'Map Risk Officers & Owners', href: '/risk-administration/mappings' },
   { key: 'departments', label: 'Departments', href: '/risk-administration/departments' },
   { key: 'objectives', label: 'Objectives', href: '/risk-administration/objectives' },
   { key: 'categories', label: 'Categories', href: '/risk-administration/categories' },
-  { key: 'action-statuses', label: 'Action statuses', href: '/risk-administration/action-statuses' },
   { key: 'control-effectiveness', label: 'Control effectiveness', href: '/risk-administration/control-effectiveness' },
+  { key: 'exposure', label: 'Exposure bands', href: '/risk-administration/exposure' },
+  { key: 'impact', label: 'Impact factors', href: '/risk-administration/impact' },
+  { key: 'likelihood', label: 'Likelihood factors', href: '/risk-administration/likelihood' },
+  { key: 'reasons', label: 'Reasons', href: '/risk-administration/reasons' },
+  { key: 'action-statuses', label: 'Action statuses', href: '/risk-administration/action-statuses' },
 ];
 const inputClass = 'w-full rounded-xl border border-[#c8d5d3] bg-[#fffefa] px-3.5 py-3 text-sm text-[#183735] outline-none transition focus:border-[#14766f] focus:ring-4 focus:ring-[#14766f]/10 disabled:cursor-not-allowed disabled:opacity-60';
 const primaryButton = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#155e59] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#104c48] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#155e59] disabled:pointer-events-none disabled:opacity-45';
@@ -56,7 +60,20 @@ export default function RiskAdministrationPage() {
   const { user } = useAuth();
   const username = user?.username ?? '';
   const [location, setLocation] = useLocation();
-  const route: TabKey = tabs.find(tab => tab.key !== 'overview' && location.replace(/\/+$/, '') === tab.href)?.key ?? 'overview';
+  const normalizedLocation = location.replace(/\/+$/, '');
+  const legacyRoutes: Record<string, RiskReferenceCatalog> = {
+    '/objectives': 'objectives',
+    '/control-effectiveness': 'control-effectiveness',
+    '/action-statuses': 'action-statuses',
+    '/exposure': 'exposure',
+    '/impact': 'impact',
+    '/likelihood': 'likelihood',
+    '/reasons': 'reasons',
+    '/risk-administration/objectives': 'objectives',
+    '/risk-administration/control-effectiveness': 'control-effectiveness',
+    '/risk-administration/action-statuses': 'action-statuses',
+  };
+  const route: TabKey = tabs.find(tab => tab.key !== 'overview' && normalizedLocation === tab.href)?.key ?? legacyRoutes[normalizedLocation] ?? 'overview';
   const referenceRoute = (referenceKeys as string[]).includes(route) ? route as RiskReferenceCatalog : null;
   const optionsQuery = useRiskOptions(username);
   const optionsFailure = optionsQuery.isError ? messageOf(optionsQuery.error, 'Could not load risk administration access.') : payloadError(optionsQuery.data);

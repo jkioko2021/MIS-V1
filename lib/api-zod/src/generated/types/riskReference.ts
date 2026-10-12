@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { RiskReferenceRiskType } from './riskReferenceRiskType';
 
 export interface RiskReference {
   code: string;
@@ -16,4 +17,12 @@ export interface RiskReference {
   /** @nullable */
   depart_code: string | null;
   is_active: boolean;
+  /** @nullable */
+  risk_type?: RiskReferenceRiskType;
+  /** @nullable */
+  minimum?: number | null;
+  /** @nullable */
+  maximum?: number | null;
+  /** @nullable */
+  rate_label?: string | null;
 }

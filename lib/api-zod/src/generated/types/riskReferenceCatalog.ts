@@ -14,4 +14,8 @@ export const RiskReferenceCatalog = {
   categories: 'categories',
   'control-effectiveness': 'control-effectiveness',
   objectives: 'objectives',
+  exposure: 'exposure',
+  impact: 'impact',
+  likelihood: 'likelihood',
+  reasons: 'reasons',
 } as const;
