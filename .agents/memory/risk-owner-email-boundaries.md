@@ -31,6 +31,12 @@ committing their register for review when mail setup is incomplete.
 **How to apply:** Keep email warnings separate from assessment and owner eligibility
 gates. Readiness only asserts local setup presence, not verified provider sendability.
 
+Do not treat a rejected Resend domain-list request as proof that the email connection cannot send.
+
+**Why:** A send-only Resend key can return HTTP 401 for domain reads while remaining authorized to submit email. Sender-domain verification is a separate prerequisite.
+
+**How to apply:** Inspect the provider's error category before proposing reconnection or a key change. When authorized to test sending, distinguish a restricted domain-read permission from an unverified sender rejection; never claim delivery from configuration presence alone.
+
 Notify the assigned Risk Owner automatically when the department register is
 submitted for review, with a clear request to review it.
 
