@@ -7,6 +7,7 @@ import { randomBytes,randomUUID } from "node:crypto";
 import pg from "pg";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { verifyRankingStability } from "./risk-ranking-scenarios.mjs";
 
 if(process.env.NODE_ENV==="production") throw new Error("Development tests only.");
 const cleanupIndex=process.argv.indexOf("--cleanup");
@@ -148,11 +149,12 @@ try{
     const assessment={...input,i_rate:4,l_rate:5,control_effectiveness:.3333,
       current_contr:"Current mitigation controls",desired_contr_effe:"Strengthen controls",
       expected_updated_at:detail.risk.updated_at,comments:"Synthetic assessment retained note"};
-    const assessed=await ok(`/records/${risk.risk_code}`,"champion","PUT",assessment);
+    let assessed=await ok(`/records/${risk.risk_code}`,"champion","PUT",assessment);
     assert.equal(Number(assessed.r_risk_exposure),13.33);
     assert(!(await ok(pendingUrl,"champion","GET")).some(row=>row.risk_code===risk.risk_code),"Saved risks leave the assessment queue");
     assert((await ok(`/records?access=update&depart_code=${f.department}&period_id=${f.period}`,"champion","GET")).some(row=>row.risk_code===risk.risk_code),"Saved risks remain available to the summary");
     assert.equal((await api(`/records/${risk.risk_code}`,"champion","PUT",assessment)).status,409);
+    assessed=await verifyRankingStability({pool,ok,api,assessment,assessed,prefix:f.prefix,riskCode:risk.risk_code});
     const originalRoot=await ok(`/records/${risk.risk_code}/root-causes`,"champion","POST",{
       root_cause:"Process dependency",current_contr:"Existing operational control",mitigations:"Strengthen review checks",
       due_date:`${year}-03-01`,action_owner:f.accounts.champion.username,action_status:activeActionStatus,

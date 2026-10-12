@@ -84,6 +84,9 @@ export const recordInput = z.object({
   risk_consequence: z.string().trim().min(1).max(8000),
 });
 export const assessmentInput = recordInput.extend({
+  risk_impact: z.string().trim().min(1).max(50).nullable().optional(),
+  risk_likelihood: z.string().trim().min(1).max(50).nullable().optional(),
+  reassess_ranking: z.boolean().optional().default(false),
   i_rate: z.number().positive().max(100).refine(v=>Math.abs(v*100-Math.round(v*100))<1e-7,"Impact factor accepts up to two decimal places."),
   l_rate: z.number().positive().max(100).refine(v=>Math.abs(v*100-Math.round(v*100))<1e-7,"Likelihood factor accepts up to two decimal places."),
   control_effectiveness: z.number().min(0).max(1).refine(v=>Math.abs(v*1e6-Math.round(v*1e6))<1e-7,

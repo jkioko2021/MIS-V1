@@ -15,6 +15,10 @@ const rows = [
   { risk_code: 'SAVED', risk_title: 'Saved risk', assessment_updated: true, can_edit: true, is_active: true, i_rate: 'Major', l_rate: 'Possible', i_risk_exposure: '45', r_risk_exposure: '9' },
   { risk_code: 'PENDING', risk_title: 'Pending risk', assessment_updated: false, is_active: true, r_risk_exposure: '100' },
 ];
+rows[0].ranking_snapshot = {
+  impact:{code:'IMP_02',label:'Major',ordinal:4},
+  likelihood:{code:'LIK_03',label:'Possible',ordinal:3},
+};
 const react = {
   useState(initial) {
     const slot = cursor++;
@@ -96,12 +100,22 @@ rows.push(
   { risk_code: 'TIE', risk_title: 'Equal exposure', assessment_updated: true, is_active: true, i_rate: 'Major', l_rate: 'Possible', r_risk_exposure: '99' },
   { risk_code: 'INACTIVE', assessment_updated: true, is_active: false, r_risk_exposure: '99' },
 );
+for (const [code,impact,likelihood] of [['SAVED',4,3],['HIGH',4,5],['TIE',4,3]]) {
+  rows.find(row=>row.risk_code===code).ranking_snapshot = {
+    impact:{code:'saved-impact',label:'Saved impact',ordinal:impact},
+    likelihood:{code:'saved-likelihood',label:'Saved likelihood',ordinal:likelihood},
+  };
+}
 props.summaries[0].total_risks = 4;
 const rankedRows = flatten(render()).filter(node => node.props?.['data-testid']?.startsWith('risk-summary-row-'));
 assert.equal(rankedRows.map(node => `${node.props['data-testid']}:${node.props['data-risk-ranking']}`).join(','), 'risk-summary-row-HIGH:Critical,risk-summary-row-SAVED:High,risk-summary-row-TIE:High');
 assert.equal(text(flatten(render()).find(node => node.props?.['data-testid'] === 'risk-summary-rank-HIGH')), 'Critical');
 rows[0].i_rate = 'Catastrophic';
 rows[0].l_rate = 'Certain';
+rows[0].ranking_snapshot = {
+  impact:{code:'IMP_01',label:'Catastrophic',ordinal:5},
+  likelihood:{code:'LIK_01',label:'Certain',ordinal:5},
+};
 assert.equal(flatten(render()).filter(node => node.props?.['data-testid']?.startsWith('risk-summary-row-'))[0].props['data-testid'], 'risk-summary-row-SAVED', 'Revised saved exposures recompute order and rank');
 const ownerWarning = () => flatten(render()).find(node => node.props?.['data-testid'] === 'risk-summary-owner-warning');
 const submitButton = () => flatten(render()).find(node => node.props?.['data-testid'] === 'button-submit-risk-summary');

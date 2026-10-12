@@ -9,6 +9,7 @@ import {
 } from "../lib/risk-register";
 import { riskWorkflowRouter } from "./risk-workflow";
 import { riskImportRouter } from "./risk-import-routes";
+import { assessmentRanking } from "../lib/risk-ranking";
 
 const router = Router();
 router.use("/risk-register", privateRiskResponses, requireAuth, requireRiskActor);
@@ -172,17 +173,18 @@ router.put("/risk-register/records/:riskCode",async(req,res)=>{
       assertRecordEditable(s,a,input.depart_code); assertFresh(r.updated_at,input.expected_updated_at);
       await validateCatalogs(client,input,r);
       const score=calculateRisk(input.i_rate,input.l_rate,input.control_effectiveness);
+      const ranking=await assessmentRanking(client,r,input);
       const [updated]=await txQuery<Record<string,unknown>>(client,`UPDATE risk.risk_master SET
         objective_code=$2,risk_title=$3,risk_description=$4,risk_category=$5,risk_consequence=$6,
         i_rate=$7,l_rate=$8,i_risk_exposure=$9,i_risk_rate=$9,perceived_rate=$10,
-        risk_impact=COALESCE((SELECT impact_code FROM risk.impact_factors WHERE is_active AND rate_factor=$7 ORDER BY impact_code LIMIT 1),risk_impact),
-        risk_likelihood=COALESCE((SELECT likelihood_code FROM risk.likelihood_factors WHERE is_active AND rating=$8 ORDER BY likelihood_code LIMIT 1),risk_likelihood),
+        risk_impact=$15,risk_likelihood=$16,ranking_snapshot=$17::jsonb,
         perceived_contr_eff=$11,r_risk_exposure=$12,r_risk_rate=$12,current_contr=$13,
         desired_contr_effe=$14,assessment_updated=TRUE,updated_at=NOW() WHERE risk_code=$1
         RETURNING *,to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at`,
       [code,input.objective_code,input.risk_title,input.risk_description,input.risk_category,input.risk_consequence,
         input.i_rate,input.l_rate,score.inherent,input.control_effectiveness,input.control_effectiveness*100,
-        score.residual,input.current_contr,input.desired_contr_effe]);
+        score.residual,input.current_contr,input.desired_contr_effe,
+        ranking.impact?.code ?? r.risk_impact,ranking.likelihood?.code ?? r.risk_likelihood,JSON.stringify(ranking)]);
       await history(client,code,input.depart_code,p.period_id,"ASSESSED",a.username,input.comments,{before:r,after:updated});
       return {...updated,period_id:p.period_id,workflow_status:workflowState(s),can_edit:true};
     });

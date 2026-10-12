@@ -237,7 +237,7 @@ export interface RiskRecordInput {
   risk_consequence: string;
 }
 
-export type RiskAssessmentInput = RiskRecordInput & {
+export type RiskAssessmentInput = RiskRecordInput & ({
   /**
      * @maximum 100
      * @exclusiveMinimum 0
@@ -249,6 +249,20 @@ export type RiskAssessmentInput = RiskRecordInput & {
      */
   l_rate: number;
   /**
+     * Explicit approved impact identity when selecting or reassessing a factor.
+     * @maxLength 50
+     * @nullable
+     */
+  risk_impact?: string | null;
+  /**
+     * Explicit approved likelihood identity when selecting or reassessing a factor.
+     * @maxLength 50
+     * @nullable
+     */
+  risk_likelihood?: string | null;
+  /** Refresh both ranking snapshots from current approved factors even when numeric exposure factors are unchanged. Ordinary saves preserve snapshots. */
+  reassess_ranking?: boolean;
+  /**
      * @minimum 0
      * @maximum 1
      */
@@ -257,7 +271,7 @@ export type RiskAssessmentInput = RiskRecordInput & {
   desired_contr_effe?: string;
   expected_updated_at: string;
   comments: string;
-};
+});
 
 export interface RiskCauseInput {
   root_id?: number;
@@ -311,6 +325,22 @@ export interface RiskAssignmentInput {
   owner_username: string;
 }
 
+export interface RiskRankingFactorSnapshot {
+  code: string;
+  label: string;
+  /**
+     * @minimum 1
+     * @maximum 5
+     * @nullable
+     */
+  ordinal: number | null;
+}
+
+export interface RiskRankingSnapshot {
+  impact: RiskRankingFactorSnapshot | null;
+  likelihood: RiskRankingFactorSnapshot | null;
+}
+
 /**
  * Closed only when at least one root cause exists and every root cause action is Closed; otherwise Open. Independent of register workflow.
  */
@@ -344,6 +374,12 @@ export interface RiskRecord {
   i_rate?: string | null;
   /** @nullable */
   l_rate?: string | null;
+  /** @nullable */
+  risk_impact?: string | null;
+  /** @nullable */
+  risk_likelihood?: string | null;
+  /** Server-owned identities, labels and 1–5 ordinals captured at assessment. Null axes are unranked; never resolve them against the live catalogue. */
+  ranking_snapshot?: RiskRankingSnapshot | null;
   /** @nullable */
   perceived_rate?: string | null;
   /** @nullable */

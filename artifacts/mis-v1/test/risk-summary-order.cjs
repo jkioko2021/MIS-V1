@@ -13,6 +13,7 @@ const factors = {
   impact_factors: impacts.map((label, index) => ({ code: `IMP_0${index + 1}`, label, factor: [100, 70, 50, 30, 10][index] })),
   likelihood_factors: likelihoods.map((label, index) => ({ code: `LIK_0${index + 1}`, label, factor: [.9, .65, .4, .2, .1][index] })),
 };
+const snapshot = (i, l) => ({ impact: {code: `IMP_0${6-i}`, label: impacts[5-i], ordinal: i}, likelihood: {code: `LIK_0${6-l}`, label: likelihoods[5-l], ordinal: l} });
 const input = [
   { risk_code: 'R-10', i_rate: '70', l_rate: '.40', r_risk_exposure: '12.50' },
   { risk_code: 'R-null', i_rate: null, l_rate: null },
@@ -24,6 +25,9 @@ const input = [
   { risk_code: 'R-missing' },
   { risk_code: 'R-medium', i_rate: 'IMP_03', l_rate: 'LIK_03' },
 ];
+for (const [code, i, l] of [['R-10',4,3],['R-high',5,5],['R-low',1,1],['R-2',4,3],['R-medium',3,3]]) {
+  input.find(row => row.risk_code === code).ranking_snapshot = snapshot(i,l);
+}
 const before = JSON.stringify(input);
 const ordered = exportsObject.orderRiskSummary(input, factors);
 assert.equal(ordered.map(item => item.risk_code).join(','), 'R-high,R-2,R-10,R-medium,R-low,R-blank,R-invalid,R-missing,R-null');
@@ -32,7 +36,7 @@ assert.equal(ordered.map(item => item.risk_ranking).join(','), 'Critical,High,Hi
 assert.equal(ordered.map(item => item.risk_score).join(','), '25,12,12,9,1,,,,');
 assert(ordered.every(record => record !== input.find(item => item.risk_code === record.risk_code)));
 for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) {
-  const row = exportsObject.orderRiskSummary([{ risk_code: 'matrix', i_rate: String(factors.impact_factors[i].factor), l_rate: String(factors.likelihood_factors[j].factor) }], factors)[0];
+  const row = exportsObject.orderRiskSummary([{ risk_code: 'matrix', ranking_snapshot: snapshot(5-i,5-j), i_rate: String(factors.impact_factors[i].factor), l_rate: String(factors.likelihood_factors[j].factor) }], factors)[0];
   assert.equal(row.risk_score, (5-i)*(5-j), `${impacts[i]} × ${likelihoods[j]}`);
 }
 for (let score = 1; score <= 25; score++) assert.equal(exportsObject.rankingForScore(score), score >= 15 ? 'Critical' : score >= 10 ? 'High' : score >= 5 ? 'Medium' : 'Low');
@@ -40,4 +44,9 @@ for (const invalid of [0, 26, 1.5, Infinity, NaN]) assert.equal(exportsObject.ra
 const ambiguous = { ...factors, impact_factors: [...factors.impact_factors, { code: 'IMP_05', label: 'Insignificant', factor: 70 }] };
 assert.equal(exportsObject.orderRiskSummary([{ risk_code: 'ambiguous', i_rate: '70', l_rate: '.9' }], ambiguous)[0].risk_score, null);
 assert.equal(exportsObject.orderRiskSummary([], factors).length, 0);
+const changed = { impact_factors: [{code:'IMP_01',label:'Renamed',factor:1}], likelihood_factors: [] };
+assert.equal(JSON.stringify(exportsObject.orderRiskSummary(JSON.parse(before), changed)), JSON.stringify(ordered), 'Catalog renames, numeric changes and retirement cannot change saved order');
+for (const legacy of [{i_rate:'100',l_rate:'.9'}, {i_rate:'IMP_01',l_rate:'Certain'}, {ranking_snapshot:{impact:null,likelihood:{ordinal:5}}}, {ranking_snapshot:snapshot(6,5)}]) {
+  assert.equal(exportsObject.orderRiskSummary([{risk_code:'legacy',...legacy}],factors)[0].risk_score,null);
+}
 console.log('PASS: all 25 matrix combinations, exact ranking bands, score order/ties, historical/ambiguous ratings unranked, saved exposure data preserved.');

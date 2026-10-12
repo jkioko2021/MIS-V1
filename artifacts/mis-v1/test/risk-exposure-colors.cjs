@@ -25,6 +25,12 @@ const records = [
   { risk_code: 'UNKNOWN', r_risk_exposure: null, is_active: true, assessment_updated: true },
   { risk_code: 'UNASSESSED', r_risk_exposure: '100', is_active: true, assessment_updated: false },
 ];
+for (const [code,impact,likelihood] of [['LOW',1,1],['TOP',5,3],['TIE',5,3]]) {
+  records.find(row=>row.risk_code===code).ranking_snapshot = {
+    impact:{code:'saved-impact',label:impact===5?'Catastrophic':'Insignificant',ordinal:impact},
+    likelihood:{code:'saved-likelihood',label:likelihood===3?'Possible':'Rare',ordinal:likelihood},
+  };
+}
 vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, '../src/pages/risk/risk-assessment-summary.tsx'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText, {
   exports: summaryExports,
   require(name) {

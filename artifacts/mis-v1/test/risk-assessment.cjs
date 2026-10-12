@@ -139,6 +139,17 @@ async function main() {
   assert.equal(payload.i_rate, 70);
   assert.equal(payload.l_rate, 0.65);
   assert.equal(payload.control_effectiveness, 0.8);
+  assert.equal(payload.risk_impact, undefined, 'Ordinary saves do not reselect factors');
+  assert.equal(payload.risk_likelihood, undefined);
+  assert.equal(payload.reassess_ranking, false);
+  field('Impact factor').props.onChange({target:{value:'IMP_02'}});
+  field('Likelihood factor').props.onChange({target:{value:'LIK_02'}});
+  const refreshRanking = flatten(render()).find(node=>node.type==='input' && node.props.type==='checkbox');
+  refreshRanking.props.onChange({target:{checked:true}});
+  await assessmentForm().props.onSubmit({preventDefault(){}});
+  assert.equal(payload.risk_impact,'IMP_02');
+  assert.equal(payload.risk_likelihood,'LIK_02');
+  assert.equal(payload.reassess_ranking,true,'Explicit refresh travels to the server');
   assert.equal(payload.risk_title, 'Updated risk title', 'Save Assessment includes Risk Details edits');
   assert.equal(payload.risk_description, 'Updated description');
   assert.equal(payload.risk_consequence, 'Updated consequences');

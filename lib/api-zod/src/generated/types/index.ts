@@ -74,6 +74,8 @@ export * from './riskOptionsResponse';
 export * from './riskOptionsResponseData';
 export * from './riskOptionsResponseDataActor';
 export * from './riskPeriodInput';
+export * from './riskRankingFactorSnapshot';
+export * from './riskRankingSnapshot';
 export * from './riskReadinessResponse';
 export * from './riskReadinessResponseData';
 export * from './riskRecord';

@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { RiskRankingSnapshot } from './riskRankingSnapshot';
 import type { RiskRecordRiskStatus } from './riskRecordRiskStatus';
 
 export interface RiskRecord {
@@ -29,6 +30,12 @@ export interface RiskRecord {
   i_rate?: string | null;
   /** @nullable */
   l_rate?: string | null;
+  /** @nullable */
+  risk_impact?: string | null;
+  /** @nullable */
+  risk_likelihood?: string | null;
+  /** Server-owned identities, labels and 1–5 ordinals captured at assessment. Null axes are unranked; never resolve them against the live catalogue. */
+  ranking_snapshot?: RiskRankingSnapshot | null;
   /** @nullable */
   perceived_rate?: string | null;
   /** @nullable */

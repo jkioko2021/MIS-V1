@@ -247,6 +247,7 @@ CREATE TABLE risk.risk_master (
   risk_id serial PRIMARY KEY, risk_code varchar(20) NOT NULL UNIQUE, depart_code varchar(20) NOT NULL REFERENCES risk.departments,
   period_from date NOT NULL, period_to date NOT NULL, objective_code varchar(20), risk_title varchar(300) NOT NULL,
   risk_description text, risk_category varchar(20), risk_consequence text, risk_impact varchar(50),
+  ranking_snapshot jsonb,
   i_rate numeric, risk_likelihood varchar(50), l_rate numeric, i_risk_exposure numeric, i_risk_rate numeric,
   current_contr text, perceived_contr_eff numeric, perceived_rate numeric, desired_contr_effe text,
   r_risk_rate numeric, r_risk_exposure numeric, is_active boolean NOT NULL DEFAULT true,

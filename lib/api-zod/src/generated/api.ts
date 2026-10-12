@@ -506,6 +506,10 @@ export const ListRiskRegisterRecordsQueryParams = zod.object({
   "search": zod.coerce.string().optional()
 })
 
+export const listRiskRegisterRecordsResponseDataItemRankingSnapshotOneImpactOneOrdinalMax = 5;
+
+export const listRiskRegisterRecordsResponseDataItemRankingSnapshotOneLikelihoodOneOrdinalMax = 5;
+
 export const listRiskRegisterRecordsResponseTotalsActiveRisksMin = 0;
 
 export const listRiskRegisterRecordsResponseTotalsAssessedRisksMin = 0;
@@ -529,6 +533,20 @@ export const ListRiskRegisterRecordsResponse = zod.object({
   "risk_consequence": zod.string().nullish(),
   "i_rate": zod.string().nullish(),
   "l_rate": zod.string().nullish(),
+  "risk_impact": zod.string().nullish(),
+  "risk_likelihood": zod.string().nullish(),
+  "ranking_snapshot": zod.union([zod.object({
+  "impact": zod.union([zod.object({
+  "code": zod.string(),
+  "label": zod.string(),
+  "ordinal": zod.number().int().min(1).max(listRiskRegisterRecordsResponseDataItemRankingSnapshotOneImpactOneOrdinalMax).nullable()
+}),zod.null()]),
+  "likelihood": zod.union([zod.object({
+  "code": zod.string(),
+  "label": zod.string(),
+  "ordinal": zod.number().int().min(1).max(listRiskRegisterRecordsResponseDataItemRankingSnapshotOneLikelihoodOneOrdinalMax).nullable()
+}),zod.null()])
+}),zod.null()]).optional().describe('Server-owned identities, labels and 1–5 ordinals captured at assessment. Null axes are unranked; never resolve them against the live catalogue.'),
   "perceived_rate": zod.string().nullish(),
   "perceived_contr_eff": zod.string().nullish(),
   "i_risk_exposure": zod.string().nullish(),
@@ -563,6 +581,12 @@ export const CreateRiskRegisterRecordBody = zod.object({
   "risk_consequence": zod.string()
 })
 
+export const createRiskRegisterRecordResponseDataRankingSnapshotOneImpactOneOrdinalMax = 5;
+
+export const createRiskRegisterRecordResponseDataRankingSnapshotOneLikelihoodOneOrdinalMax = 5;
+
+
+
 export const CreateRiskRegisterRecordResponse = zod.object({
   "ok": zod.boolean(),
   "data": zod.object({
@@ -580,6 +604,20 @@ export const CreateRiskRegisterRecordResponse = zod.object({
   "risk_consequence": zod.string().nullish(),
   "i_rate": zod.string().nullish(),
   "l_rate": zod.string().nullish(),
+  "risk_impact": zod.string().nullish(),
+  "risk_likelihood": zod.string().nullish(),
+  "ranking_snapshot": zod.union([zod.object({
+  "impact": zod.union([zod.object({
+  "code": zod.string(),
+  "label": zod.string(),
+  "ordinal": zod.number().int().min(1).max(createRiskRegisterRecordResponseDataRankingSnapshotOneImpactOneOrdinalMax).nullable()
+}),zod.null()]),
+  "likelihood": zod.union([zod.object({
+  "code": zod.string(),
+  "label": zod.string(),
+  "ordinal": zod.number().int().min(1).max(createRiskRegisterRecordResponseDataRankingSnapshotOneLikelihoodOneOrdinalMax).nullable()
+}),zod.null()])
+}),zod.null()]).optional().describe('Server-owned identities, labels and 1–5 ordinals captured at assessment. Null axes are unranked; never resolve them against the live catalogue.'),
   "perceived_rate": zod.string().nullish(),
   "perceived_contr_eff": zod.string().nullish(),
   "i_risk_exposure": zod.string().nullish(),
@@ -604,6 +642,12 @@ export const GetRiskRegisterRecordParams = zod.object({
   "riskCode": zod.coerce.string()
 })
 
+export const getRiskRegisterRecordResponseDataRiskRankingSnapshotOneImpactOneOrdinalMax = 5;
+
+export const getRiskRegisterRecordResponseDataRiskRankingSnapshotOneLikelihoodOneOrdinalMax = 5;
+
+
+
 export const GetRiskRegisterRecordResponse = zod.object({
   "ok": zod.boolean(),
   "data": zod.object({
@@ -622,6 +666,20 @@ export const GetRiskRegisterRecordResponse = zod.object({
   "risk_consequence": zod.string().nullish(),
   "i_rate": zod.string().nullish(),
   "l_rate": zod.string().nullish(),
+  "risk_impact": zod.string().nullish(),
+  "risk_likelihood": zod.string().nullish(),
+  "ranking_snapshot": zod.union([zod.object({
+  "impact": zod.union([zod.object({
+  "code": zod.string(),
+  "label": zod.string(),
+  "ordinal": zod.number().int().min(1).max(getRiskRegisterRecordResponseDataRiskRankingSnapshotOneImpactOneOrdinalMax).nullable()
+}),zod.null()]),
+  "likelihood": zod.union([zod.object({
+  "code": zod.string(),
+  "label": zod.string(),
+  "ordinal": zod.number().int().min(1).max(getRiskRegisterRecordResponseDataRiskRankingSnapshotOneLikelihoodOneOrdinalMax).nullable()
+}),zod.null()])
+}),zod.null()]).optional().describe('Server-owned identities, labels and 1–5 ordinals captured at assessment. Null axes are unranked; never resolve them against the live catalogue.'),
   "perceived_rate": zod.string().nullish(),
   "perceived_contr_eff": zod.string().nullish(),
   "i_risk_exposure": zod.string().nullish(),
@@ -673,6 +731,11 @@ export const updateRiskRegisterRecordBodyTwoIRateMax = 100;
 export const updateRiskRegisterRecordBodyTwoLRateExclusiveMin = 0;
 export const updateRiskRegisterRecordBodyTwoLRateMax = 100;
 
+export const updateRiskRegisterRecordBodyTwoRiskImpactMax = 50;
+
+export const updateRiskRegisterRecordBodyTwoRiskLikelihoodMax = 50;
+
+export const updateRiskRegisterRecordBodyTwoReassessRankingDefault = false;
 export const updateRiskRegisterRecordBodyTwoControlEffectivenessMin = 0;
 export const updateRiskRegisterRecordBodyTwoControlEffectivenessMax = 1;
 
@@ -689,12 +752,21 @@ export const UpdateRiskRegisterRecordBody = zod.object({
 }).and(zod.object({
   "i_rate": zod.number().gt(updateRiskRegisterRecordBodyTwoIRateExclusiveMin).max(updateRiskRegisterRecordBodyTwoIRateMax),
   "l_rate": zod.number().gt(updateRiskRegisterRecordBodyTwoLRateExclusiveMin).max(updateRiskRegisterRecordBodyTwoLRateMax),
+  "risk_impact": zod.string().max(updateRiskRegisterRecordBodyTwoRiskImpactMax).nullish().describe('Explicit approved impact identity when selecting or reassessing a factor.'),
+  "risk_likelihood": zod.string().max(updateRiskRegisterRecordBodyTwoRiskLikelihoodMax).nullish().describe('Explicit approved likelihood identity when selecting or reassessing a factor.'),
+  "reassess_ranking": zod.boolean().default(updateRiskRegisterRecordBodyTwoReassessRankingDefault).describe('Refresh both ranking snapshots from current approved factors even when numeric exposure factors are unchanged. Ordinary saves preserve snapshots.'),
   "control_effectiveness": zod.number().min(updateRiskRegisterRecordBodyTwoControlEffectivenessMin).max(updateRiskRegisterRecordBodyTwoControlEffectivenessMax),
   "current_contr": zod.string().optional(),
   "desired_contr_effe": zod.string().optional(),
   "expected_updated_at": zod.coerce.date(),
   "comments": zod.string()
 }))
+
+export const updateRiskRegisterRecordResponseDataRankingSnapshotOneImpactOneOrdinalMax = 5;
+
+export const updateRiskRegisterRecordResponseDataRankingSnapshotOneLikelihoodOneOrdinalMax = 5;
+
+
 
 export const UpdateRiskRegisterRecordResponse = zod.object({
   "ok": zod.boolean(),
@@ -713,6 +785,20 @@ export const UpdateRiskRegisterRecordResponse = zod.object({
   "risk_consequence": zod.string().nullish(),
   "i_rate": zod.string().nullish(),
   "l_rate": zod.string().nullish(),
+  "risk_impact": zod.string().nullish(),
+  "risk_likelihood": zod.string().nullish(),
+  "ranking_snapshot": zod.union([zod.object({
+  "impact": zod.union([zod.object({
+  "code": zod.string(),
+  "label": zod.string(),
+  "ordinal": zod.number().int().min(1).max(updateRiskRegisterRecordResponseDataRankingSnapshotOneImpactOneOrdinalMax).nullable()
+}),zod.null()]),
+  "likelihood": zod.union([zod.object({
+  "code": zod.string(),
+  "label": zod.string(),
+  "ordinal": zod.number().int().min(1).max(updateRiskRegisterRecordResponseDataRankingSnapshotOneLikelihoodOneOrdinalMax).nullable()
+}),zod.null()])
+}),zod.null()]).optional().describe('Server-owned identities, labels and 1–5 ordinals captured at assessment. Null axes are unranked; never resolve them against the live catalogue.'),
   "perceived_rate": zod.string().nullish(),
   "perceived_contr_eff": zod.string().nullish(),
   "i_risk_exposure": zod.string().nullish(),

@@ -7,7 +7,7 @@
  */
 import type { RiskRecordInput } from './riskRecordInput';
 
-export type RiskAssessmentInput = RiskRecordInput & {
+export type RiskAssessmentInput = RiskRecordInput & ({
   /**
      * @maximum 100
      * @exclusiveMinimum 0
@@ -19,6 +19,20 @@ export type RiskAssessmentInput = RiskRecordInput & {
      */
   l_rate: number;
   /**
+     * Explicit approved impact identity when selecting or reassessing a factor.
+     * @maxLength 50
+     * @nullable
+     */
+  risk_impact?: string | null;
+  /**
+     * Explicit approved likelihood identity when selecting or reassessing a factor.
+     * @maxLength 50
+     * @nullable
+     */
+  risk_likelihood?: string | null;
+  /** Refresh both ranking snapshots from current approved factors even when numeric exposure factors are unchanged. Ordinary saves preserve snapshots. */
+  reassess_ranking?: boolean;
+  /**
      * @minimum 0
      * @maximum 1
      */
@@ -27,4 +41,4 @@ export type RiskAssessmentInput = RiskRecordInput & {
   desired_contr_effe?: string;
   expected_updated_at: Date;
   comments: string;
-};
+});

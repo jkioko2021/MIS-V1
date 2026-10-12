@@ -26,15 +26,9 @@ type Props = {
   retry: () => void;
 };
 
-function factorName(value: string | null | undefined, factors: Array<{ code: string; label: string; factor: number; rate?: string; criteria?: string }>) {
+function factorName(value: string | null | undefined, savedLabel: string | null | undefined) {
   if (value == null || value === '') return 'Not assessed';
-  const normalized = String(value).trim().toLowerCase();
-  const found = factors.find(item =>
-    [item.code, item.label, String(item.factor), item.rate, item.criteria]
-      .some(candidate => candidate != null && String(candidate).trim().toLowerCase() === normalized)
-      || (normalized !== '' && Number.isFinite(Number(value)) && Number(item.factor) === Number(value)),
-  );
-  return found?.label ?? 'Historical rating';
+  return savedLabel ?? 'Historical rating';
 }
 
 function exposureBand(value: string | null | undefined, type: 'I' | 'R', options: RiskOptionsResponseData) {
@@ -91,8 +85,8 @@ export default function RiskAssessmentSummary({
     [returnedRecords],
   );
   const assessedRecords = useMemo(
-    () => orderRiskSummary(activeRecords.filter(record => record.assessment_updated === true), options),
-    [activeRecords, options.impact_factors, options.likelihood_factors],
+    () => orderRiskSummary(activeRecords.filter(record => record.assessment_updated === true)),
+    [activeRecords],
   );
   const recordsError = activeRecordsQuery.data ? envelopeError(activeRecordsQuery.data) ?? '' : '';
   const recordsFailed = activeRecordsQuery.isError || Boolean(recordsError);
@@ -191,8 +185,8 @@ export default function RiskAssessmentSummary({
                                   {record.can_edit ? 'Revise assessment' : 'View assessment'}
                                 </button>
                               </td>
-                              <td className="px-4 py-3"><span className="font-semibold">{factorName(record.i_rate, options.impact_factors)}</span></td>
-                              <td className="px-4 py-3"><span className="font-semibold">{factorName(record.l_rate, options.likelihood_factors)}</span></td>
+                              <td className="px-4 py-3"><span className="font-semibold">{factorName(record.i_rate, record.ranking_snapshot?.impact?.label)}</span></td>
+                              <td className="px-4 py-3"><span className="font-semibold">{factorName(record.l_rate, record.ranking_snapshot?.likelihood?.label)}</span></td>
                               <td className="px-4 py-3"><ScopeExposure score={inherent.score} band={inherent.band} /></td>
                               <td className="px-4 py-3"><span className="font-semibold">{control?.eff_factor ?? (record.perceived_contr_eff != null ? 'Historical rating' : 'Not assessed')}</span><span className="mt-1 block text-[10px] text-muted-foreground">{control?.qual_criteria ?? 'Retained as recorded'}</span></td>
                               <td className="px-4 py-3"><ScopeExposure score={residual.score} band={residual.band} /></td>

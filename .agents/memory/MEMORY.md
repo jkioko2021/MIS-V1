@@ -41,6 +41,7 @@
 - [Dependency security upgrades](dependency-security-upgrades.md) — Preserve module compatibility when narrowing audit overrides; legacy declarations need usage checks before framework upgrades.
 - [Local development](local-development.md) — Windows/WSL setup must isolate local mail/storage, preserve OTP, and require a complete database baseline.
 - [Enterprise risk compatibility](risk-register-compatibility.md) — Do not infer calibrated factors from historical effectiveness codes or unpopulated catalogs.
+- [Saved risk ranking stability](risk-ranking-stability.md) — Reference maintenance must not recompute historical ranks; only explicit reassessment refreshes their basis.
 - [Department risk access](risk-department-access.md) — Champions update their departments; owners review theirs and may own multiple departments.
 - [Risk Owner email boundaries](risk-owner-email-boundaries.md) — Cancel stale recipient notices rather than redirect retries; distinguish provider acceptance from inbox delivery.
 - [OpenAPI generator compatibility](openapi-generator-compatibility.md) — Match generated Zod syntax to the target library; auto-detection can pick the wrong major.

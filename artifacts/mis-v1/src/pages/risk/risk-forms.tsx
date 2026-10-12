@@ -82,6 +82,9 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
   const [category, setCategory] = useState('');
   const [impact, setImpact] = useState('');
   const [likelihood, setLikelihood] = useState('');
+  const [impactCode, setImpactCode] = useState<string | undefined>();
+  const [likelihoodCode, setLikelihoodCode] = useState<string | undefined>();
+  const [reassessRanking, setReassessRanking] = useState(false);
   const [effectiveness, setEffectiveness] = useState('');
   const [desiredControls, setDesiredControls] = useState('');
   const [comment, setComment] = useState('');
@@ -103,6 +106,7 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
     if (!risk || (rootDirty && lastAssessmentRisk.current === risk.risk_code)) return;
     lastAssessmentRisk.current = risk.risk_code;
     setImpact(risk.i_rate ?? ''); setLikelihood(risk.l_rate ?? '');
+    setImpactCode(undefined); setLikelihoodCode(undefined); setReassessRanking(false);
     const historicalPercent = risk.perceived_contr_eff == null ? Number.NaN : Number.parseFloat(risk.perceived_contr_eff);
     // This column stores a percentage, including valid values below 1%.
     // Do not infer fractional units from its magnitude.
@@ -150,7 +154,7 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
     setAssessmentError('');
     const code = risk.risk_code;
     try {
-      const error = await onSave({ depart_code: risk.depart_code, period_id: risk.period_id, objective_code: objective, risk_title: riskTitle.trim(), risk_description: description.trim(), risk_category: category, risk_consequence: consequence.trim(), i_rate: i, l_rate: l, control_effectiveness: eff / 100, current_contr: risk.current_contr ?? '', desired_contr_effe: desiredControls, expected_updated_at: risk.updated_at, comments: comment.trim() }, code);
+      const error = await onSave({ depart_code: risk.depart_code, period_id: risk.period_id, objective_code: objective, risk_title: riskTitle.trim(), risk_description: description.trim(), risk_category: category, risk_consequence: consequence.trim(), i_rate: i, l_rate: l, risk_impact: impactCode, risk_likelihood: likelihoodCode, reassess_ranking: reassessRanking, control_effectiveness: eff / 100, current_contr: risk.current_contr ?? '', desired_contr_effe: desiredControls, expected_updated_at: risk.updated_at, comments: comment.trim() }, code);
       if (lastAssessmentRisk.current !== code) return;
       if (error) setAssessmentError(error);
       else setAssessmentSaved(true);
@@ -276,17 +280,21 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
           <legend className="px-2 font-[Manrope] text-base font-bold">Inherent Risk Exposures</legend>
           <p className="text-xs text-muted-foreground">Risk exposure before controls. Choose the impact and likelihood.</p>
          <Field label="Impact factor">
-           <select className={fieldClass} aria-label="Approved impact factor" value={impact.trim() ? impactFactors.find(item => item.factor === Number(impact))?.code ?? 'historical' : ''} onChange={event => { if (event.target.value !== 'historical') setImpact(String(impactFactors.find(item => item.code === event.target.value)?.factor ?? '')); }} disabled={!allowed} required>
+           <select className={fieldClass} aria-label="Approved impact factor" value={impactCode ?? (impact.trim() ? 'historical' : '')} onChange={event => { if (event.target.value === 'historical') { setImpactCode(undefined); setImpact(risk.i_rate ?? ''); } else { setImpactCode(event.target.value || undefined); setImpact(String(impactFactors.find(item => item.code === event.target.value)?.factor ?? '')); } }} disabled={!allowed} required>
              <option value="">Choose impact</option>{impactFactors.map(item => <option key={item.code} value={item.code}>{item.label}</option>)}
-             {impact.trim() && !impactFactors.some(item => item.factor === Number(impact)) && <option value="historical">Historical impact (retained)</option>}
+             {impact.trim() && <option value="historical">{risk.ranking_snapshot?.impact?.label ?? 'Historical impact'} (saved, retained)</option>}
           </select>
         </Field>
-         <Field label="Likelihood factor" hint={likelihoodFactors.find(item => item.factor === Number(likelihood))?.criteria ?? 'Choose an approved likelihood. Existing historical ratings are retained.'}>
-           <select className={fieldClass} aria-label="Approved likelihood factor" value={likelihood.trim() ? likelihoodFactors.find(item => item.factor === Number(likelihood))?.code ?? 'historical' : ''} onChange={event => { if (event.target.value !== 'historical') setLikelihood(String(likelihoodFactors.find(item => item.code === event.target.value)?.factor ?? '')); }} disabled={!allowed} required>
+         <Field label="Likelihood factor" hint={likelihoodFactors.find(item => item.code === likelihoodCode)?.criteria ?? 'Choose an approved likelihood. Existing historical ratings are retained.'}>
+           <select className={fieldClass} aria-label="Approved likelihood factor" value={likelihoodCode ?? (likelihood.trim() ? 'historical' : '')} onChange={event => { if (event.target.value === 'historical') { setLikelihoodCode(undefined); setLikelihood(risk.l_rate ?? ''); } else { setLikelihoodCode(event.target.value || undefined); setLikelihood(String(likelihoodFactors.find(item => item.code === event.target.value)?.factor ?? '')); } }} disabled={!allowed} required>
              <option value="">Choose likelihood</option>{likelihoodFactors.map(item => <option key={item.code} value={item.code}>{item.label}</option>)}
-             {likelihood.trim() && !likelihoodFactors.some(item => item.factor === Number(likelihood)) && <option value="historical">Historical likelihood (retained)</option>}
+             {likelihood.trim() && <option value="historical">{risk.ranking_snapshot?.likelihood?.label ?? 'Historical likelihood'} (saved, retained)</option>}
           </select>
         </Field>
+          <label className="flex items-start gap-2 text-xs">
+            <input type="checkbox" checked={reassessRanking} onChange={event => setReassessRanking(event.target.checked)} disabled={!allowed} />
+            <span>Refresh ranking from current approved factors on save. If a saved factor changed or was retired, select an active replacement above. Otherwise saved ranking weights are retained.</span>
+          </label>
           <CalibratedExposure label="Inherent exposure" value={impact && likelihood && Number.isFinite(inherent) && inherent > 0 ? inherent.toFixed(2) : text(risk.i_risk_exposure)} riskType="I" bands={exposureBands} />
         </fieldset>
         <fieldset className="min-w-0 space-y-4 rounded-xl border border-border p-4">
