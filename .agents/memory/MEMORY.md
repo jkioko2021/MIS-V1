@@ -1,5 +1,7 @@
 # Agent Memory Index
 
+- [Component-test transpilation](component-test-transpilation.md) — VM tests do not inherit the project's ECMAScript target; iterable downleveling can cause false failures.
+
 - [Updated legacy source](legacy-source-policy.md) — User-designated updated archive supersedes the old snapshot; see Legacy/README.md before legacy analysis.
 - [MIS Legacy Discovery](mis-legacy-discovery.md) — Historical findings from the older snapshot; revalidate against the user-designated updated archive.
 - [MIS Database Map](mis-database-map.md) — 7 confirmed databases (CRM, SALES, MISREPORTS, DATA_REPOSITORY_DB_CLAPI, AAR_RISK_DB, COMMISSION, Doc_Arc_DB); DB connectivity blocked

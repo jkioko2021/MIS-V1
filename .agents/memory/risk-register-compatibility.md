@@ -33,11 +33,11 @@ Keep inherent and residual bands distinct, and retain separate ranges even when 
 
 **How to apply:** Classify the rounded score using risk type and inclusive bounds, not a level-name key. Do not silently assign a band to a historical score outside the calibrated ranges.
 
-The Update Register risk summary must compute and display rankings from saved residual exposure, highest first with rank 1, and highlight exposure levels with color.
+The Update Register summary uses a separate impact × likelihood matrix score (1–25), highest first: 15–25 Critical, 10–14 High, 5–9 Medium, 1–4 Low. These labels replace positional ranks.
 
-**Why:** The user explicitly selected residual-exposure ordering, repeated that the highest risk should appear at the top and be highlighted with color, then requested computed summary rankings.
+**Why:** After requesting computed rankings, the user supplied these four bands and explicitly chose a new 1–25 impact × likelihood score rather than existing residual exposure.
 
-**How to apply:** Rank numerically within the selected department/reporting-period summary. Equal exposures share competition ranks (1, 1, 3); risk codes break display ties only. Keep missing/invalid exposures last and unranked, show textual level labels alongside severity colors, and do not recompute or alter saved assessments just to rank the rows.
+**How to apply:** Use Catastrophic/Major/Moderate/Minor/Insignificant and Certain/Likely/Possible/Unlikely/Rare as 5/4/3/2/1 respectively. Multiply the ordinals from saved factor choices; do not multiply existing calibrated values such as 70 and 0.65 for this matrix. Keep inherent/residual exposure formulas and root-action status independent. Sort saved active risks within the current cycle by matrix score descending, then risk code for ties. Unknown or ambiguous historical factors stay unranked, not guessed or assigned Low. Highlight the highest score and show severity colors and ranking labels.
 
 The Update Register summary shows only successfully saved assessments for the current department and reporting period. Saved risks leave the assessment queue and can be revised through the summary, without deleting the prior assessment. Users must be able to view every saved root cause per risk; review submission still covers all active risks in that cycle.
 

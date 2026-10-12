@@ -7,5 +7,6 @@ const palettes = {
 const neutral = { row: 'bg-muted/20', badge: 'bg-muted text-muted-foreground', edge: 'border-l-border', outline: 'outline-border' };
 
 export function riskExposureColors(level: string) {
-  return palettes[level.trim().toLowerCase() as keyof typeof palettes] ?? neutral;
+  const key = level.trim().toLowerCase();
+  return palettes[(key === 'critical' ? 'extreme' : key === 'medium' ? 'moderate' : key) as keyof typeof palettes] ?? neutral;
 }

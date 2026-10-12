@@ -7,7 +7,7 @@ const source = fs.readFileSync(path.join(__dirname, '../src/pages/risk/risk-expo
 const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
 const exportsObject = {};
 vm.runInNewContext(output, { exports: exportsObject });
-for (const [level, color] of [['Extreme', 'rose'], ['High', 'orange'], ['Moderate', 'amber'], ['Low', 'emerald']]) {
+for (const [level, color] of [['Extreme', 'rose'], ['Critical', 'rose'], ['High', 'orange'], ['Moderate', 'amber'], ['Medium', 'amber'], ['Low', 'emerald']]) {
   const palette = exportsObject.riskExposureColors(level);
   for (const style of ['row', 'badge', 'edge', 'outline']) assert(palette[style].includes(color), `${level} ${style}`);
 }
@@ -19,9 +19,9 @@ vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, '../s
 const summaryExports = {};
 const jsx = (type, props) => ({ type, props });
 const records = [
-  { risk_code: 'LOW', r_risk_exposure: '2.00', i_risk_exposure: '10.00', is_active: true, assessment_updated: true },
+  { risk_code: 'LOW', i_rate: 'Insignificant', l_rate: 'Rare', r_risk_exposure: '2.00', i_risk_exposure: '10.00', is_active: true, assessment_updated: true },
   { risk_code: 'TOP', r_risk_exposure: '40.00', i_risk_exposure: '70.00', i_rate: '100.000000', l_rate: '0.400000', is_active: true, assessment_updated: true },
-  { risk_code: 'TIE', r_risk_exposure: '40.00', i_risk_exposure: '70.00', is_active: true, assessment_updated: true },
+  { risk_code: 'TIE', i_rate: 'Catastrophic', l_rate: 'Possible', r_risk_exposure: '40.00', i_risk_exposure: '70.00', is_active: true, assessment_updated: true },
   { risk_code: 'UNKNOWN', r_risk_exposure: null, is_active: true, assessment_updated: true },
   { risk_code: 'UNASSESSED', r_risk_exposure: '100', is_active: true, assessment_updated: false },
 ];
@@ -56,7 +56,7 @@ const rows = nodes(tree).filter(node => node.type === 'tr' && node.props['data-t
 assert.equal(rows.map(row => row.props['data-testid']).join(','), 'risk-summary-row-TIE,risk-summary-row-TOP,risk-summary-row-LOW,risk-summary-row-UNKNOWN');
 for (const row of rows.slice(0, 2)) {
   assert(row.props.className.includes('outline-rose-400'));
-  assert(nodes(row).some(node => node.props?.children === 'Highest exposure'));
+  assert(nodes(row).some(node => node.props?.children === 'Highest risk score'));
 }
 assert(rows[2].props.className.includes('bg-emerald'));
 assert(!rows[2].props.className.includes('outline'));
@@ -66,4 +66,4 @@ assert(JSON.stringify(rows).includes('Possible'), 'Saved decimal formatting must
 assert(nodes(tree).some(node => node.props?.['data-testid'] === 'risk-summary-progress' && JSON.stringify(node.props.children).includes('5')));
 assert.equal(nodes(tree).filter(node => node.type === 'RiskSummaryCauses').length, 4);
 assert(nodes(tree).find(node => node.props?.['data-testid'] === 'button-submit-risk-summary').props.disabled);
-console.log('PASS: risk bands have distinct row, badge, edge and highest-exposure outline colors; unclassified scores remain neutral.');
+console.log('PASS: matrix ranking and exposure palettes retained; highest matrix scores outlined, unsupported ratings neutral, scores sorted and saved summary/readiness intact.');

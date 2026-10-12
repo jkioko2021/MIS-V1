@@ -11,7 +11,7 @@ let effects = [];
 let selected;
 let requestedScope;
 const rows = [
-  { risk_code: 'SAVED', risk_title: 'Saved risk', assessment_updated: true, can_edit: true, is_active: true, i_risk_exposure: '45', r_risk_exposure: '9' },
+  { risk_code: 'SAVED', risk_title: 'Saved risk', assessment_updated: true, can_edit: true, is_active: true, i_rate: 'Major', l_rate: 'Possible', i_risk_exposure: '45', r_risk_exposure: '9' },
   { risk_code: 'PENDING', risk_title: 'Pending risk', assessment_updated: false, is_active: true, r_risk_exposure: '100' },
 ];
 const react = {
@@ -79,7 +79,8 @@ assert.equal(text(revise()), 'Revise assessment');
 revise().props.onClick();
 assert.equal(selected, 'SAVED', 'Revision reopens the exact saved risk');
 assert(!flatten(render()).some(node => node.props?.['data-testid'] === 'risk-summary-row-PENDING'), 'Only saved assessments appear in summary');
-assert.equal(text(flatten(render()).find(node => node.props?.['data-testid'] === 'risk-summary-rank-SAVED')), '1', 'Unassessed higher exposures must not affect saved-summary ranks');
+assert.equal(text(flatten(render()).find(node => node.props?.['data-testid'] === 'risk-summary-rank-SAVED')), 'High', 'Ranking labels replace position numbers');
+assert.equal(text(flatten(render()).find(node => node.props?.['data-testid'] === 'risk-summary-score-SAVED')), '12/ 25');
 props.selectedRisk = undefined;
 assert(revise(), 'Clearing the editor after save retains the summary');
 assert.equal(requestedScope.depart_code, 'D');
@@ -90,14 +91,15 @@ props.mutating = false;
 rows[0].can_edit = false;
 assert.equal(text(revise()), 'View assessment', 'Read-only users are not offered revision');
 rows.push(
-  { risk_code: 'HIGH', risk_title: 'Highest saved risk', assessment_updated: true, is_active: true, r_risk_exposure: '40' },
-  { risk_code: 'TIE', risk_title: 'Equal exposure', assessment_updated: true, is_active: true, r_risk_exposure: '9.00' },
+  { risk_code: 'HIGH', risk_title: 'Highest saved risk', assessment_updated: true, is_active: true, i_rate: 'Major', l_rate: 'Certain', r_risk_exposure: '1' },
+  { risk_code: 'TIE', risk_title: 'Equal exposure', assessment_updated: true, is_active: true, i_rate: 'Major', l_rate: 'Possible', r_risk_exposure: '99' },
   { risk_code: 'INACTIVE', assessment_updated: true, is_active: false, r_risk_exposure: '99' },
 );
 props.summaries[0].total_risks = 4;
 const rankedRows = flatten(render()).filter(node => node.props?.['data-testid']?.startsWith('risk-summary-row-'));
-assert.equal(rankedRows.map(node => `${node.props['data-testid']}:${node.props['data-risk-ranking']}`).join(','), 'risk-summary-row-HIGH:1,risk-summary-row-SAVED:2,risk-summary-row-TIE:2');
-assert.equal(text(flatten(render()).find(node => node.props?.['data-testid'] === 'risk-summary-rank-HIGH')), '1');
-rows[0].r_risk_exposure = '50';
+assert.equal(rankedRows.map(node => `${node.props['data-testid']}:${node.props['data-risk-ranking']}`).join(','), 'risk-summary-row-HIGH:Critical,risk-summary-row-SAVED:High,risk-summary-row-TIE:High');
+assert.equal(text(flatten(render()).find(node => node.props?.['data-testid'] === 'risk-summary-rank-HIGH')), 'Critical');
+rows[0].i_rate = 'Catastrophic';
+rows[0].l_rate = 'Certain';
 assert.equal(flatten(render()).filter(node => node.props?.['data-testid']?.startsWith('risk-summary-row-'))[0].props['data-testid'], 'risk-summary-row-SAVED', 'Revised saved exposures recompute order and rank');
 console.log('PASS: displayed ranks and saved-only ordering recompute after revisions, pending/inactive risks excluded, revision and cycle/permission guards retained.');
