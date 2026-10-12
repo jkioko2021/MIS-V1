@@ -76,7 +76,7 @@ export default function RiskReferences({ catalog, username }: { catalog: RiskRef
   const saving = createRef.isPending || (updateRef.isPending && !confirming);
 
   const visible = useMemo(() => (rows ?? []).filter(row => (filter === 'all' || (filter === 'active' ? row.is_active : !row.is_active))
-    && (!search.trim() || `${row.code} ${row.label} ${row.description ?? ''} ${row.depart_code ?? ''} ${row.risk_type ?? ''} ${row.minimum ?? ''} ${row.maximum ?? ''} ${row.rate_label ?? ''}`.toLowerCase().includes(search.trim().toLowerCase()))), [rows, filter, search]);
+    && (!search.trim() || `${row.code} ${row.label} ${row.description ?? ''} ${row.depart_code ?? ''} ${departments.find(department => department.depart_code === row.depart_code)?.depart_name ?? ''} ${row.risk_type ?? ''} ${row.minimum ?? ''} ${row.maximum ?? ''} ${row.rate_label ?? ''}`.toLowerCase().includes(search.trim().toLowerCase()))), [rows, filter, search, departments]);
   const activeCount = (rows ?? []).filter(r => r.is_active).length;
 
   async function invalidate() {
@@ -235,7 +235,7 @@ export default function RiskReferences({ catalog, username }: { catalog: RiskRef
       </div>
       {rows && rows.length > 0 && <div className="flex flex-wrap items-center gap-2 border-b border-[#e9efeb] px-5 py-3 sm:px-7">
         <div className="flex rounded-xl bg-[#eef4f1] p-1">{(['all', 'active', 'retired'] as const).map(f => <button key={f} data-testid={`filter-reference-${f}`} onClick={() => setFilter(f)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition ${filter === f ? 'bg-[#fffefa] text-[#155e59] shadow-sm' : 'text-[#5e7772]'}`}>{f}</button>)}</div>
-        <label className="relative min-w-[12rem] flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#83988f]" /><input data-testid="input-reference-search" className={`${inputClass} py-2 pl-9`} placeholder="Search code or label" value={search} onChange={e => setSearch(e.target.value)} /></label>
+        <label className="relative min-w-[12rem] flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#83988f]" /><input data-testid="input-reference-search" className={`${inputClass} py-2 pl-9`} aria-label={config.department ? 'Search objectives by code, label or department' : 'Search code or label'} placeholder={config.department ? 'Search code, label or department' : 'Search code or label'} value={search} onChange={e => setSearch(e.target.value)} /></label>
       </div>}
       {statusError && <div className="px-5 sm:px-7"><Notice tone="error" message={statusError} /></div>}
       {listQuery.isLoading ? <div className="space-y-3 p-5">{[0, 1, 2, 3].map(r => <div key={r} className="h-[72px] animate-pulse rounded-xl bg-[#edf3ef]" />)}</div>
