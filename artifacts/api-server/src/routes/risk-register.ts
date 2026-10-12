@@ -58,7 +58,7 @@ router.get("/risk-register/options", async (req,res) => {
     }
     const [departments,categories,objectives,periods,staff,assignments,action_statuses,control_effectiveness,impact_factors,likelihood_factors,exposure_bands] = await Promise.all([
       query(`SELECT depart_code,depart_name FROM risk.departments
-        WHERE is_active AND ($1::boolean OR depart_code=ANY($2::text[])) ORDER BY depart_name`,params),
+        WHERE is_active AND ($1::boolean OR depart_code=ANY($2::text[])) ORDER BY depart_code`,params),
       query("SELECT category_code,category_name FROM risk.categories WHERE is_active ORDER BY category_name"),
       query(`SELECT obj_code,obj_name,depart_code FROM risk.objectives WHERE is_active
         AND ($1::boolean OR depart_code=ANY($2::text[])) ORDER BY obj_name`,params),

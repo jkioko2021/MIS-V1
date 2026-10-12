@@ -20,3 +20,15 @@ Older departments outside the supplied department list are archived, not deleted
 **Why:** The user explicitly chose archiving when informed that older departments had linked risks and objectives.
 
 **How to apply:** Exclude archives from current department administration and active selection lists, while retaining historical joins, staff mappings and linked records. Keep inactive and archived distinct. Do not move or delete linked data as an implied part of catalogue cleanup.
+
+Current department lists must show each supplied department once, in department-code order, with its supplied status.
+
+**Why:** The user repeated that duplicate departments should be removed and the list maintained as supplied.
+
+**How to apply:** Keep current names unique irrespective of case or outer whitespace; historical archived aliases are exempt. A dashboard department card must not treat different reporting periods as different departments. Show its latest period explicitly when all periods are selected, while leaving period-specific status and history rows intact.
+
+Risk administration must provide add/modify pages for RISK_CATEGORY, RISK_CONTROL_EFFICIENCY, RISK_EXPOSURE, RISK_IMPACT, RISK_LIKELYHOOD, RISK_OBJECTIVES, RISK_REASON and ACTION_STATUS.
+
+**Why:** The user explicitly requested all eight lists under Risk administration.
+
+**How to apply:** Check coverage of each named list rather than treating a generic reference-list page as complete. Retain the existing Risk Management/administrator access boundary and historical reference compatibility.

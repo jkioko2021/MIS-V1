@@ -16,7 +16,7 @@ const name = z.string().trim().min(1, "Department name is required.").max(100);
 const code = z.string().trim().min(1).max(20).regex(/^[A-Za-z0-9_-]+$/, "Use letters, numbers, hyphens or underscores for the department code.");
 router.get("/risk-administration/departments", async (req, res) => {
   try {
-    const data = await query("SELECT depart_code,depart_name,is_active FROM risk.departments WHERE NOT is_archived ORDER BY depart_name,depart_code");
+    const data = await query("SELECT depart_code,depart_name,is_active FROM risk.departments WHERE NOT is_archived ORDER BY depart_code");
     res.json({ ok: true, data });
   } catch (err) { riskFailure(req, res, err); }
 });

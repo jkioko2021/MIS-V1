@@ -80,12 +80,18 @@ try {
     assert.equal((await api(root, null)).status, 401);
     await ok(root, "admin", "POST", { depart_code: f.departments[0], depart_name: "Synthetic administration A" }, 201);
     await ok(root, "manager", "POST", { depart_code: f.departments[1], depart_name: "Synthetic administration B" }, 201);
+    assert.equal((await api(root, "admin", "POST", {
+      depart_code: `${f.prefix}C`, depart_name: "  SYNTHETIC ADMINISTRATION A  ",
+    })).status, 409);
     assert.equal((await api(root, "admin", "POST", { depart_code: f.departments[0].toLowerCase(), depart_name: "Duplicate" })).status, 409);
     assert.equal((await api(root, "manager", "POST", { depart_code: "X".repeat(21), depart_name: "Invalid" })).status, 400);
     assert.equal((await api(`${root}/${f.departments[0]}`, "manager", "PATCH", { depart_name: " " })).status, 400);
     assert.equal((await api(`${root}/${f.departments[0]}`, "admin", "PATCH", { depart_name: "Illegal code edit", depart_code: "NEW" })).status, 400);
     const edited = await ok(`${root}/${f.departments[0]}`, "manager", "PATCH", { depart_name: "Synthetic administration A renamed" });
     assert.equal(edited.depart_code, f.departments[0]); assert.equal(edited.is_active, true);
+    assert.equal((await api(`${root}/${f.departments[1]}`, "manager", "PATCH", {
+      depart_name: "  synthetic administration a renamed  ",
+    })).status, 409);
     for (const depart_code of f.departments) await ok("/risk-register/assignments", "manager", "POST", {
       depart_code, champion_username: f.accounts.champion.username, owner_username: f.accounts.owner.username,
     });

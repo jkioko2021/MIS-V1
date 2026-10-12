@@ -61,6 +61,10 @@ export function assertDepartment(a: RiskActor, code: string, mode: "view" | "edi
 export function riskFailure(req: Request, res: Response, err: unknown) {
   if (err instanceof RiskError) res.status(err.status).json({ ok: false, error: err.message });
   else if (err instanceof z.ZodError) res.status(400).json({ ok: false, error: err.issues[0]?.message ?? "Invalid risk input." });
+  else if (typeof err === "object" && err !== null && "code" in err && err.code === "23505"
+    && "constraint" in err && err.constraint === "risk_current_department_name_unique") {
+    res.status(409).json({ ok: false, error: "A current department with this name already exists. Use the existing department." });
+  }
   else {
     req.log.error({ err }, "Risk register request failed");
     res.status(500).json({ ok: false, error: "Unable to process the risk register request." });

@@ -14,6 +14,7 @@ import {
   useSaveRiskCause, useUpdateRisk,
 } from './use-risk-register';
 import { AssessmentPanel, NewRiskForm } from './risk-forms';
+import { latestDepartmentReviews } from './department-reviews';
 import { RecordsTable, RiskDrawer } from './risk-details';
 import {
   HistoryTable, OpenPeriods, ReportingPeriodClose, SummaryTable, TeamMapping, WorkflowPanel,
@@ -235,8 +236,8 @@ function RiskRegisterWorkspace() {
             <div className="rounded-2xl border border-border bg-card p-5">
               <div className="mb-4 flex items-center justify-between"><div><div className="text-[10px] font-bold uppercase tracking-[.16em] text-muted-foreground">Workflow pulse</div><h3 className="mt-1 font-[Manrope] text-lg font-bold">Department reviews</h3></div><Workflow className="h-5 w-5 text-primary" /></div>
               {summaryQuery.isLoading ? <SkeletonRows /> : summaryQuery.isError || summaryFailure ? <ErrorNotice message={summaryFailure || queryError(summaryQuery.error)} onRetry={() => summaryQuery.refetch()} /> : summaries.length ? <div className="space-y-1">
-                 {summaries.slice(0, 5).map(row => <div key={`${row.depart_code}:${row.period_id}`} className="flex items-center gap-3 border-t border-border/70 py-3 first:border-0">
-                  <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{row.depart_name}</div><div className="text-xs text-muted-foreground">{row.total_risks} risks · {row.assessed_risks ?? 0} assessed</div></div>
+                  {latestDepartmentReviews(summaries).slice(0, 5).map(row => <div key={row.depart_code} className="flex items-center gap-3 border-t border-border/70 py-3 first:border-0">
+                   <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{row.depart_name}</div><div className="text-xs text-muted-foreground">{row.total_risks} risks · {row.assessed_risks ?? 0} assessed</div>{!period && <div className="mt-1 text-[10px] text-muted-foreground">Latest period: {dateLabel(row.period_from)} – {dateLabel(row.period_to)}</div>}</div>
                   <StatusPill status={row.workflow_status} />
                 </div>)}</div> : <EmptyState title="No department summaries yet" description="Summaries appear when risk data is available for this period." />}
             </div>

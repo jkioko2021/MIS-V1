@@ -268,7 +268,7 @@ function Overview({ options, navigate }: { options: RiskOptionsResponseData; nav
 }
 
 function MappingRoster({ options, assignments, departments, onEdit }: { options: RiskOptionsResponseData; assignments: RiskLookup[]; departments: RiskLookup[]; onEdit: (code: string) => void }) {
-  const sorted = useMemo(() => [...departments].sort((a, b) => (a.depart_name ?? '').localeCompare(b.depart_name ?? '')), [departments]);
+  const sorted = useMemo(() => [...departments].sort((a, b) => (a.depart_code ?? '').localeCompare(b.depart_code ?? '')), [departments]);
   return <section className="overflow-hidden rounded-3xl border border-[#d8e3df] bg-[#fffefa]">
     <div className="border-b border-[#e1e9e5] px-5 py-5 sm:px-7"><p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#708a83]">Current responsibility</p><h2 className="mt-1 font-[Manrope] text-xl font-extrabold">Department mapping</h2><p className="mt-1 text-xs leading-5 text-[#718780]">Use Edit on a department to load its current officer and owner into the form.</p></div>
     {sorted.length ? <div className="divide-y divide-[#e6ece8]">{sorted.map(department => {
