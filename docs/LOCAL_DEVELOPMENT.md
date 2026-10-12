@@ -178,7 +178,7 @@ This adds session-revocation security and requires a fresh login for old session
 It does not reset account passwords or approvals. Other missing tables require
 a complete baseline; do not guess by applying the whole migration directory.
 
-`local:check` confirms connectivity, core tables, and the configured OTP username.
+`local:check` confirms connectivity, core tables, document metadata columns, and the configured OTP username.
 It is not a full business-data or permission audit. Restored account passwords,
 approval/lock status, profile permissions, and password expiry still apply. There
 is no bundled default password or automatic administrator reset.
@@ -186,7 +186,9 @@ is no bundled default password or automatic administrator reset.
 ### Baseline verification and maintenance
 
 The local bootstrap has an explicit ordered manifest in
-`scripts/src/local-database.mjs`: `local-baseline/001_schema.sql`, the canonical
+`scripts/src/local-database.mjs`: `local-baseline/001_schema.sql`, the additive
+document metadata migrations `0011_add_allocation_document_transaction_metadata.sql`
+and `0036_aml_originating_system.sql`, the canonical
 `0034_persistent_auth_sessions.sql` security migration, then
 `local-baseline/002_reference_data.sql`. It never scans/replays the numbered
 migration directory. The partial Drizzle models remain partial and are **not**
@@ -219,10 +221,16 @@ sanitizer for backups and is never applied during server startup or deployment.
 ## 4. Build and run
 
 When updating an existing local database for originating-system capture on AML
-classifications, apply `lib/db/migrations/0036_aml_originating_system.sql` to that
-local database before running the updated API. It adds nullable document metadata
+classifications, run `pnpm local:db:metadata`, then `pnpm local:check` before
+running the updated API. The guarded repair applies only the two additive document
+metadata migrations listed above, in one transaction. It adds nullable document metadata
 and approved-value validation; it does not backfill or change original ratings,
 proof-upload requirements, or handoff flags.
+
+Replit development post-merge setup applies the same targeted manifest after
+the partial ORM sync. It fails rather than hiding a missing CRM baseline.
+This is not a general historical migration runner and is never run by API
+startup or production deployment builds.
 
 ```bash
 pnpm local:build

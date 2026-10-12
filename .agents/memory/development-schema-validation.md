@@ -29,3 +29,16 @@ Check included standalone SQL migrations explicitly rather than assuming the
 post-merge schema sync executed them.
 Do not change the production schema or skip missing-table failures to make the
 development check pass.
+
+Keep additive standalone metadata repairs in an explicit development-only
+manifest shared by local bootstrap and post-merge setup; never replay the whole
+historical migration directory to repair one missing column.
+
+**Why:** The partial ORM schema does not cover every raw-SQL workflow contract,
+and historical migrations may rewrite business data. Nullable historical
+metadata must stay missing rather than being inferred from other fields.
+
+**How to apply:** Confirm the failing query's intended contract, apply only its
+canonical additive migrations transactionally, and check clean local schema
+readiness as well as authenticated responses. Do not add runtime or production
+migration hooks.

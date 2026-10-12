@@ -5,6 +5,7 @@ import { mkdir, readFile, readdir, writeFile, chmod } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { checkDocumentMetadata } from "./document-metadata.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const envFile = path.join(root, ".env.local");
@@ -70,6 +71,7 @@ async function checkDatabase(env) {
     const found = new Set(result.rows.map(row => row.table_name));
     const missing = required.filter(table => !found.has(table));
     if (missing.length) throw new Error(`Database setup incomplete. Missing tables: ${missing.join(", ")}. Use the clean baseline on an empty database or restore an approved complete backup; see docs/LOCAL_DEVELOPMENT.md.`);
+    await checkDocumentMetadata(client);
     const user = await client.query(
       "SELECT 1 FROM crm.employees WHERE lower(username)=lower($1) AND NOT is_deleted LIMIT 1",
       [env.MIS_LOGIN_OTP_USERNAME || "admin"]);
@@ -105,13 +107,16 @@ async function main() {
     console.info("Local email capture and disk storage are enabled. Replit services will not be contacted.");
     return;
   }
-  if (command === "db-init" || command === "db-admin") {
+  if (command === "db-init" || command === "db-admin" || command === "db-metadata") {
     if (process.argv.length !== 3) throw new Error("Database commands take no arguments; never pass passwords on the command line.");
-    const { bootstrapDatabase, provisionAdmin, promptAdminPassword } = await import("./local-database.mjs");
+    const { bootstrapDatabase, provisionAdmin, promptAdminPassword, repairLocalDocumentMetadata } = await import("./local-database.mjs");
     if (command === "db-init") {
       await bootstrapDatabase(env);
       console.info("Clean local baseline and synthetic reference catalogs created. No employee or business records were copied.");
       console.info("Run pnpm local:db:admin to explicitly provision your test administrator.");
+    } else if (command === "db-metadata") {
+      await repairLocalDocumentMetadata(env);
+      console.info("Local document metadata ready. Existing notes and historical values were not changed.");
     } else {
       await provisionAdmin(env, await promptAdminPassword());
       console.info("Synthetic administrator created. OTP, password expiry and session security remain enabled.");

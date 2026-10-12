@@ -150,6 +150,7 @@ try {
     assert.equal((await api("?search_by=unrecognized")).status, 400);
     assert.equal((await api(search, "manager")).status, 200);
     const options = await api("/options");
+    assert.equal(options.status, 200, options.body?.error);
     assert(options.body.data.reasons.includes(f.reason));
     assert.equal(options.body.data.system_captured, true);
     const report = await api(`/report${search}`);
@@ -160,6 +161,22 @@ try {
     assert(report.text.includes(`"'@${f.prefix}`)); // Excel formula neutralization.
     const filtered = await api(`/report${search}&rating=High`);
     assert.equal(filtered.text.trim().split("\r\n").length, 8);
+    if (process.argv.includes("--metadata-only")) {
+      // Saved, explicit values coexist with unavailable historical metadata.
+      for (const [i, system] of [[0, "eOx"], [1, "AIMS"]]) {
+        await pool.query("UPDATE crm.business_uploads SET originating_system=$1 WHERE policy_code=$2",
+          [system, `${f.prefix}_POLICY_${i}`]);
+        const saved = await api(`?search_by=policy&search=${f.prefix}_POLICY_${i}`);
+        assert.equal(saved.status, 200);
+        assert.equal(saved.body.data.records[0].system, system);
+        assert.equal(saved.body.data.records[0].reason, f.reason);
+      }
+      const historical = await api(`?search_by=policy&search=${f.prefix}_POLICY_22`);
+      assert.equal(historical.body.data.records[0].system, null);
+      assert.equal(historical.body.data.records[0].reason, f.reason);
+      assert.equal((await api("/options", "manager")).status, 200);
+      console.log("Client Rating metadata checks passed: authenticated options, saved eOx/AIMS, missing historical values, unchanged reasons, list/report authorization.");
+    } else {
     // Exercise the real private-storage upload and allocation capture, then
     // verify the same saved value in the read-only page data and private CSV.
     const fileNo = f.files[0];
@@ -226,6 +243,7 @@ try {
     f.expectedPolicy = expectedPolicy;
     await save();
     console.log("Client Rating checks passed: approved-system capture via real private uploads; proof-only uploads unchanged; original metadata retained; assigned-user permissions; list/CSV parity; private report authorization; filters and formula protection.");
+    }
   }
 } finally {
   if (f && !process.argv.includes("--keep") && !process.argv.includes("--cleanup")) await cleanup();

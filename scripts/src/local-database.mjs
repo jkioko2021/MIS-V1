@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
+import { applyDocumentMetadata, checkDocumentMetadata } from "./document-metadata.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const require = createRequire(path.join(root, "artifacts/api-server/package.json"));
@@ -56,11 +57,20 @@ export async function bootstrapDatabase(env) {
         AND c.relkind IN ('r','p','v','m','S','f') LIMIT 1`);
     if (occupied.rowCount) throw new LocalSetupError("Bootstrap refused: database is not empty. Create a separate empty local database; nothing was changed.");
     await client.query(await readFile(path.join(root, "lib/db/migrations/local-baseline/001_schema.sql"), "utf8"));
+    await applyDocumentMetadata(client);
+    await checkDocumentMetadata(client);
     // Reuse the canonical security migration, excluding its outer transaction:
     // the baseline, triggers and reference seed commit/roll back together.
     const sessions = await readFile(path.join(root, "lib/db/migrations/0034_persistent_auth_sessions.sql"), "utf8");
     await client.query(sessions.replace(/^BEGIN;\s*$/m, "").replace(/^COMMIT;\s*$/m, ""));
     await client.query(await readFile(path.join(root, "lib/db/migrations/local-baseline/002_reference_data.sql"), "utf8"));
+  });
+}
+
+export async function repairLocalDocumentMetadata(env) {
+  return transaction(env, async client => {
+    await applyDocumentMetadata(client);
+    await checkDocumentMetadata(client);
   });
 }
 

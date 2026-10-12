@@ -13,6 +13,7 @@ const fixture = await mkdtemp(path.join(os.tmpdir(), "mis-local-launcher-"));
 await mkdir(path.join(fixture, "scripts/src"), { recursive: true });
 const script = path.join(fixture, "scripts/src/local-dev.mjs");
 await copyFile(path.join(project, "scripts/src/local-dev.mjs"), script);
+await copyFile(path.join(project, "scripts/src/document-metadata.mjs"), path.join(fixture, "scripts/src/document-metadata.mjs"));
 await copyFile(path.join(project, ".env.local.example"), path.join(fixture, ".env.local.example"));
 const env = { PATH: process.env.PATH, HOME: fixture };
 test.after(() => rm(fixture, { recursive: true, force: true }));
@@ -42,4 +43,11 @@ test("launcher rejects remote database even when loaded from its local config", 
   const content = await readFile(filename, "utf8");
   await writeFile(filename, content.replace(/^DATABASE_URL=.*$/m, "DATABASE_URL=postgresql://remote.example/mis"));
   await assert.rejects(exec(process.execPath, [script, "mail"], { env }), /not a remote database/);
+});
+
+test("post-merge document repair refuses production before connecting", async () => {
+  const repair = path.join(project, "scripts/src/development-document-metadata.mjs");
+  for (const guard of [{ NODE_ENV: "production" }, { REPLIT_DEPLOYMENT: "1" }]) {
+    await assert.rejects(exec(process.execPath, [repair], { env: { ...env, ...guard } }), /development only/);
+  }
 });

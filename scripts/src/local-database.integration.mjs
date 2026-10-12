@@ -11,6 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { bootstrapDatabase, provisionAdmin, assertLocalDatabase, validateAdminPassword } from "./local-database.mjs";
+import { checkDocumentMetadata } from "./document-metadata.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const require = createRequire(path.join(root,"artifacts/api-server/package.json"));
@@ -70,10 +71,19 @@ try {
   await assert.rejects(bootstrapDatabase(env),/not empty/);
   await db.query("DROP TABLE public.preexisting");
   await bootstrapDatabase(env);
+  await checkDocumentMetadata(db);
+  const metadataColumn = (await db.query(`SELECT is_nullable,column_default FROM information_schema.columns
+    WHERE table_schema='crm' AND table_name='business_uploads' AND column_name='originating_system'`)).rows[0];
+  assert.deepEqual(metadataColumn, { is_nullable: "YES", column_default: null });
+  assert.equal((await db.query(`SELECT COUNT(*)::int AS n FROM pg_constraint
+    WHERE conrelid='crm.business_uploads'::regclass AND conname='business_uploads_originating_system_check'`)).rows[0].n, 1);
   for (const table of ["employees","business_tracking","business_work_items","business_uploads","auth_sessions","login_otp_challenges"]) {
     assert.equal(Number((await db.query(`SELECT count(*) FROM crm.${table}`)).rows[0].count),0,`${table} starts empty`);
   }
   await assert.rejects(bootstrapDatabase(env),/not empty/);
+  if (process.argv.includes("--schema-only")) {
+    console.info("PASS: clean local baseline contains nullable document metadata and approved-system constraint; rollback and refusal safety preserved.");
+  } else {
   const password = `Local!${randomBytes(18).toString("hex")}9`;
   await provisionAdmin(env,password);
   const original = (await db.query("SELECT * FROM crm.employees WHERE username='admin'")).rows[0];
@@ -220,6 +230,7 @@ try {
   const access = (await db.query("SELECT page_url FROM crm.menu_access WHERE profile_id=3 AND can_access")).rows.map(r=>r.page_url);
   assert.ok(access.includes("/business") && !access.includes("/admin/users"));
   console.info("PASS: staff first-login password expiry/change and operational role boundaries");
+  }
 } finally {
   if (api && api.exitCode===null) {
     api.kill("SIGTERM");
