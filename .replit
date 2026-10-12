@@ -29,6 +29,7 @@ MSSQL_PORT = "22741"
 MIS_LOGIN_OTP_EMAIL = "mwaniki56@gmail.com"
 MIS_LOGIN_OTP_FROM = "MIS Login <onboarding@resend.dev>"
 MIS_LOGIN_OTP_USERNAME = "admin"
+MIS_EMAIL_FROM = "get default"
 
 [nix]
 channel = "stable-25_05"
