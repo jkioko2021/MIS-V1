@@ -145,9 +145,17 @@ function RiskRegisterWorkspace() {
       impactFactors={options?.impact_factors ?? []} likelihoodFactors={options?.likelihood_factors ?? []}
       exposureBands={options?.exposure_bands ?? []}
       loading={Boolean(selectedRiskCode) && detailQuery.isLoading} mutating={mutating}
-      onSave={(data, code) => updateRisk.mutate({ riskCode: code, data }, {
-        onSuccess: response => announce(response, 'Assessment saved.'), onError: error => setMutationError(queryError(error)),
-      })}
+      onSave={async (data, code) => {
+        try {
+          const response = await updateRisk.mutateAsync({ riskCode: code, data });
+          announce(response, 'Assessment saved.');
+          return envelopeError(response) || undefined;
+        } catch (error) {
+          const message = queryError(error);
+          setMutationError(message);
+          return message;
+        }
+      }}
       onCause={async (data, code) => {
         try {
           const response = await saveCause.mutateAsync({ riskCode: code, data });

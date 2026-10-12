@@ -72,7 +72,7 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
   controlRatings: RiskControlEffectiveness[];
   impactFactors: RiskImpactFactor[]; likelihoodFactors: RiskLikelihoodFactor[]; exposureBands: RiskExposureBand[];
   loading: boolean; mutating: boolean;
-  onSave: (data: RiskAssessmentInput, code: string) => void;
+  onSave: (data: RiskAssessmentInput, code: string) => Promise<string | undefined> | void;
    onCause: (data: RiskCauseInput, code: string) => Promise<boolean>;
 }) {
   const [riskTitle, setRiskTitle] = useState('');
@@ -94,6 +94,8 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
   const [status, setStatus] = useState<RiskCauseInput['action_status']>('');
   const [rootId, setRootId] = useState('');
   const [formError, setFormError] = useState('');
+  const [assessmentError, setAssessmentError] = useState('');
+  const [assessmentSaved, setAssessmentSaved] = useState(false);
   const [rootDirty, setRootDirty] = useState(false);
   const lastAssessmentRisk = useRef('');
   useEffect(() => {
@@ -111,7 +113,7 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
     setConsequence(risk?.risk_consequence ?? ''); setObjective(risk?.objective_code ?? '');
     setCategory(risk?.risk_category ?? '');
     setRootId(''); setCause(''); setRootControls(''); setMitigations(''); setDueDate(''); setOwner('');
-    setStatus(''); setComment(''); setFormError(''); setRootDirty(false);
+    setStatus(''); setComment(''); setFormError(''); setAssessmentError(''); setAssessmentSaved(false); setRootDirty(false);
   }, [risk?.risk_code]);
   const inherent = Number(impact) * Number(likelihood);
   const residual = inherent * (1 - Number(effectiveness || 0) / 100);
@@ -119,17 +121,33 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
   if (!risk) return <EmptyState title="Select a risk to continue" description="Choose a record from the list to complete its assessment, edit controls or add a root cause." />;
   const allowed = risk.can_edit === true;
   const selectedControl = effectiveness.trim() ? controlRatings.find(item => Math.abs(item.rating * 100 - Number(effectiveness)) < 1e-7) : undefined;
-  const saveAssessment = (event: FormEvent) => {
+  const saveAssessment = async (event: FormEvent) => {
     event.preventDefault();
+    if (!allowed || mutating) return;
+    setAssessmentSaved(false);
     const i = Number(impact); const l = Number(likelihood); const eff = Number(effectiveness);
-    if (!(i > 0 && i <= 100 && l > 0 && l <= 100 && eff >= 0 && eff <= 100) || !comment.trim()) {
-      setFormError('Enter impact and likelihood above 0 and no greater than 100, effectiveness from 0–100%, and a required comment.'); return;
+    if (!impact.trim() || !likelihood.trim() || !effectiveness.trim() || !(i > 0 && i <= 100 && l > 0 && l <= 100 && eff >= 0 && eff <= 100)) {
+      setAssessmentError('Select valid impact, likelihood and perceived control effectiveness before saving.'); return;
+    }
+    if (!comment.trim()) {
+      setAssessmentError('Enter an assessment comment before saving.'); return;
     }
     if (!objective || !category || !riskTitle.trim() || !description.trim() || !consequence.trim()) {
-      setFormError('Complete the risk title, objective, category, description and consequence before assessing.'); return;
+      setAssessmentError('Complete the risk title, objective, category, description and consequence before saving.'); return;
     }
-    setFormError('');
-    onSave({ depart_code: risk.depart_code, period_id: risk.period_id, objective_code: objective, risk_title: riskTitle.trim(), risk_description: description.trim(), risk_category: category, risk_consequence: consequence.trim(), i_rate: i, l_rate: l, control_effectiveness: eff / 100, current_contr: currentControls, desired_contr_effe: desiredControls, expected_updated_at: risk.updated_at, comments: comment.trim() }, risk.risk_code);
+    if (comment.trim().length > 4000) {
+      setAssessmentError('Assessment comments must contain no more than 4,000 characters.'); return;
+    }
+    setAssessmentError('');
+    const code = risk.risk_code;
+    try {
+      const error = await onSave({ depart_code: risk.depart_code, period_id: risk.period_id, objective_code: objective, risk_title: riskTitle.trim(), risk_description: description.trim(), risk_category: category, risk_consequence: consequence.trim(), i_rate: i, l_rate: l, control_effectiveness: eff / 100, current_contr: currentControls, desired_contr_effe: desiredControls, expected_updated_at: risk.updated_at, comments: comment.trim() }, code);
+      if (lastAssessmentRisk.current !== code) return;
+      if (error) setAssessmentError(error);
+      else setAssessmentSaved(true);
+    } catch {
+      if (lastAssessmentRisk.current === code) setAssessmentError('The assessment could not be saved. Your entries are retained; please try again.');
+    }
   };
    const startNewRoot = () => {
      setRootId(''); setCause(''); setRootControls(''); setMitigations('');
@@ -157,7 +175,7 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
       {risk.workflow_status.toLowerCase().includes('submit') && <p className="mt-4 rounded-lg bg-secondary/70 p-3 text-xs text-foreground">Mapped owners and management can correct assessments and mitigations while the register is submitted. Editability follows the server-provided can_edit permission.</p>}
       {risk.can_edit === false && <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">This record is not editable in its current workflow state. Existing assessments and root causes remain visible.</p>}
     </div>
-    <form onSubmit={saveAssessment} className="rounded-2xl border border-border bg-card p-5">
+    <form onSubmit={saveAssessment} noValidate onChange={() => setAssessmentSaved(false)} className="rounded-2xl border border-border bg-card p-5">
       <h3 className="font-[Manrope] text-lg font-bold">Assessment & controls</h3><p className="mb-4 mt-1 text-xs text-muted-foreground">Exposure is recalculated as impact × likelihood. Residual exposure applies the new control fraction to inherent exposure.</p>
       <div className="mb-5 grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2"><Field label="Risk title"><input className={fieldClass} value={riskTitle} onChange={event => setRiskTitle(event.target.value)} maxLength={150} disabled={!allowed} required /></Field></div>
@@ -219,8 +237,10 @@ export function AssessmentPanel({ risk, roots, staff, objectives, categories, ac
       </div>
       <div className="mt-4 grid gap-4">
         <Field label="Current controls"><textarea className={`${fieldClass} min-h-16`} value={currentControls} onChange={event => setCurrentControls(event.target.value)} disabled={!allowed} /></Field>
-        <Field label="Assessment comment (required)"><textarea className={`${fieldClass} min-h-16`} value={comment} onChange={event => setComment(event.target.value)} disabled={!allowed} required placeholder="Explain the basis for this assessment or what changed." /></Field>
+        <Field label="Assessment comment (required)"><textarea className={`${fieldClass} min-h-16`} value={comment} onChange={event => setComment(event.target.value)} maxLength={4000} disabled={!allowed} required placeholder="Explain the basis for this assessment or what changed." /></Field>
       </div>
+      {assessmentError && <p role="alert" className="mt-4 rounded-lg bg-destructive/10 p-3 text-xs text-destructive">{assessmentError}</p>}
+      {assessmentSaved && <p role="status" className="mt-4 rounded-lg bg-primary/10 p-3 text-xs text-primary">Assessment saved successfully.</p>}
       {formError && <p role="alert" className="mt-3 text-xs font-medium text-destructive">{formError}</p>}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-muted-foreground">Last updated {dateLabel(risk.updated_at)}</span><button className={buttonClass} disabled={!allowed || mutating} type="submit"><ClipboardCheck className="h-4 w-4" />Save assessment</button></div>
     </form>

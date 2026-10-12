@@ -88,6 +88,11 @@ function fillRoot() {
 }
 async function main() {
   const nodes = flatten(render());
+  const assessmentForm = () => flatten(render()).filter(node => node.type === 'form')[0];
+  assert.equal(assessmentForm().props.noValidate, true, 'Required-field errors are handled visibly in the assessment form');
+  await assessmentForm().props.onSubmit({ preventDefault() {} });
+  assert.equal(payload, undefined, 'Blank comments must not submit an assessment');
+  assert(flattenText(assessmentForm()).includes('Enter an assessment comment before saving.'));
   assert.equal(nodes.filter(node => node.type === 'input' && node.props.type === 'number').length, 0);
   for (const label of ['Major', 'Likely', 'Good']) assert(nodes.some(node => node.type === 'option' && node.props.children === label));
   const sections = nodes.filter(node => node.type === 'fieldset');
@@ -99,13 +104,13 @@ async function main() {
   assert.equal(flatten(sections[1]).filter(node => node.type === 'select').length, 2);
   assert.equal(field('Desired control effectiveness').type, 'select');
   field('Assessment comment (required)').props.onChange({ target: { value: 'Testing' } });
-  find(node => node.type === 'form').props.onSubmit({ preventDefault() {} });
+  await find(node => node.type === 'form').props.onSubmit({ preventDefault() {} });
   assert.equal(payload.i_rate, 70);
   assert.equal(payload.l_rate, 0.65);
   assert.equal(payload.control_effectiveness, 0.8);
   assert.equal(payload.desired_contr_effe, 'Original desired-control notes');
   field('Desired control effectiveness').props.onChange({ target: { value: 'Good' } });
-  find(node => node.type === 'form').props.onSubmit({ preventDefault() {} });
+  await find(node => node.type === 'form').props.onSubmit({ preventDefault() {} });
   assert.equal(payload.desired_contr_effe, 'Good');
   assert.equal(payload.control_effectiveness, 0.8);
   find(node => node.type === 'RiskRootCauseTable').props.onSelect(props.roots[0]);
@@ -131,10 +136,22 @@ async function main() {
   assert.equal(field('Impact factor').props.value, 'historical');
   assert.equal(field('Likelihood factor').props.value, 'historical');
   assert.equal(field('Perceived control effectiveness').props.value, 'historical');
-  find(node => node.type === 'form').props.onSubmit({ preventDefault() {} });
+  await find(node => node.type === 'form').props.onSubmit({ preventDefault() {} });
   assert.equal(payload.i_rate, 42);
   assert.equal(payload.l_rate, 0.3);
   assert.equal(payload.control_effectiveness, 0.17);
+  props.onSave = async () => 'This record has changed. Reload before saving.';
+  await assessmentForm().props.onSubmit({ preventDefault() {} });
+  assert(flattenText(assessmentForm()).includes('This record has changed. Reload before saving.'));
+  assert(!flattenText(assessmentForm()).includes('Assessment saved successfully.'));
+  assert.equal(field('Assessment comment (required)').props.value, 'Testing', 'API failures preserve entered comments');
+  props.onSave = async () => { throw new Error('Network failure'); };
+  await assessmentForm().props.onSubmit({ preventDefault() {} });
+  assert(flattenText(assessmentForm()).includes('Your entries are retained'));
+  props.onSave = async data => { payload = data; };
+  await assessmentForm().props.onSubmit({ preventDefault() {} });
+  assert(flattenText(assessmentForm()).includes('Assessment saved successfully.'));
+  assert(!flattenText(assessmentForm()).includes('Your entries are retained'));
   console.log('PASS: separate inherent/residual sections and label-only dropdowns preserve calculations and historical desired-control notes; root causes support edit/add, failed-save retention and successful reset.');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

@@ -33,6 +33,7 @@
 - [Record Filing rules](record-filing-rules.md) — DPU receives receipted or Allocation-Closed files; legacy policy-stage flags are not modern prerequisites.
 - [GI workflow rules](gi-workflow-rules.md) — Nonmedical forward goes to GI; assigned GI staff return to Register or forward Cashier; preserve NONMEDICAL team compatibility.
 - [Workspace preview diagnostics](workspace-preview-diagnostics.md) — A healthy MIS preview does not prove the containing Replit Build view works; distinguish workspace, pane and menus.
+- [Preview port reconciliation](preview-port-reconciliation.md) — After merge restarts, a failed workflow can coexist with an orphaned Vite listener; verify ownership before stopping it.
 - [Business Status visibility](business-status-visibility.md) — Trackers can monitor handoffs without bypassing private-file ownership; scope options/counts and identity-specific caches.
 - [Git provider authentication](git-provider-auth.md) — Git CLI uses the source-control provider; healthy connection metadata does not prove push credentials work.
 - [Dependency security upgrades](dependency-security-upgrades.md) — Preserve module compatibility when narrowing audit overrides; legacy declarations need usage checks before framework upgrades.
