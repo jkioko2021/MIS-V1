@@ -116,9 +116,13 @@ try {
   const saved = `/records?access=update&view=open&${scope}`;
   const readiness = () => request(`/readiness/${department}/${period.period_id}`);
   const detail = code => request(`/records/${code}`);
-  const workflow = (action, label, status = 200) => request("/workflow", label, "POST", {
-    depart_code: department, period_id: period.period_id, action, comments: `Synthetic ${action} note`,
-  }, status);
+  const workflow = async (action, label, status = 200) => {
+    const preview = action === "REOPEN" ? await request(`/workflow/reopen-scope?${scope}`, label) : null;
+    return request("/workflow", label, "POST", {
+      depart_code: department, period_id: period.period_id, action, comments: `Synthetic ${action} note`,
+      ...(preview ? { confirmation_token: preview.confirmation_token } : {}),
+    }, status);
+  };
   async function assess(code) {
     const { risk } = await detail(code);
     return request(`/records/${code}`, "champion", "PUT", {
@@ -186,13 +190,59 @@ try {
   await checkReset("REOPEN", "admin");
   await workflow("REVIEW", "owner");
   await workflow("SIGN_OFF", "admin");
+  const untouched = [`${prefix}D2`, `${prefix}D3`];
+  for (const d of untouched) {
+    await client.query("INSERT INTO risk.departments(depart_code,depart_name) VALUES($1,$1)", [d]);
+    await client.query(`INSERT INTO risk.risk_master
+      (risk_code,depart_code,period_from,period_to,objective_code,risk_category,risk_title,risk_description,
+       risk_consequence,entered_by,is_active,assessment_updated,i_rate,l_rate,perceived_rate,
+       perceived_contr_eff,i_risk_exposure,i_risk_rate,r_risk_exposure,r_risk_rate,ranking_snapshot,current_contr)
+      SELECT $1,$2,period_from,period_to,objective_code,risk_category,risk_title,risk_description,
+       risk_consequence,entered_by,is_active,assessment_updated,i_rate,l_rate,perceived_rate,
+       perceived_contr_eff,i_risk_exposure,i_risk_rate,r_risk_exposure,r_risk_rate,ranking_snapshot,current_contr
+      FROM risk.risk_master WHERE risk_code=$3`, [`${d}R`, d, codes[1]]);
+    await client.query(`INSERT INTO risk.root_causes(risk_code,root_cause,mitigations,action_status)
+      VALUES($1,'Retained cause','Retained mitigation','Closed')`, [`${d}R`]);
+    await client.query(`INSERT INTO risk.department_summary
+      (depart_code,period_from,period_to,submitted,reviewed,sign_off,signed_off_by)
+      VALUES($1,$2,$3,TRUE,TRUE,TRUE,$4)`,
+    [d,period.period_from,period.period_to,`${prefix}admin`]);
+  }
   await request(`/periods/${period.period_id}/close`, "admin", "POST", { comments: "Synthetic period closure" });
-  await checkReset("REOPEN", "admin"); // Reopening a closed period must work too.
+  async function retainedDepartments() {
+    const result = {};
+    for (const [name, sql] of Object.entries({
+      summaries: "SELECT * FROM risk.department_summary WHERE depart_code=ANY($1) ORDER BY depart_code",
+      risks: "SELECT * FROM risk.risk_master WHERE depart_code=ANY($1) ORDER BY risk_code",
+      roots: "SELECT c.* FROM risk.root_causes c JOIN risk.risk_master r USING(risk_code) WHERE r.depart_code=ANY($1) ORDER BY c.root_id",
+      history: "SELECT * FROM risk.register_history WHERE depart_code=ANY($1) ORDER BY history_id",
+    })) result[name] = (await client.query(sql,[untouched])).rows;
+    return result;
+  }
+  const retained = await retainedDepartments();
+  await request(`/workflow/reopen-scope?${scope}`, "champion", "GET", undefined, 403);
+  const preview = await request(`/workflow/reopen-scope?${scope}`, "admin");
+  assert.equal(preview.period_status,"CLOSED");
+  assert.equal(preview.departments.length,3);
+  assert.deepEqual(preview.departments.filter(d=>d.affected).map(d=>d.depart_code),[department]);
+  const reopenInput = {depart_code:department,period_id:period.period_id,action:"REOPEN",comments:"Scope confirmation"};
+  await request("/workflow","admin","POST",reopenInput,409);
+  await client.query("UPDATE risk.department_summary SET updated_at=updated_at+interval '1 second' WHERE depart_code=$1",[department]);
+  await request("/workflow","admin","POST",{...reopenInput,confirmation_token:preview.confirmation_token},409);
+  assert.equal((await client.query("SELECT status FROM risk.periods WHERE period_id=$1",[period.period_id])).rows[0].status,"CLOSED");
+  await checkReset("REOPEN", "admin");
+  assert.equal((await client.query("SELECT status FROM risk.periods WHERE period_id=$1",[period.period_id])).rows[0].status,"OPEN");
+  assert.deepEqual(await retainedDepartments(),retained,"Untouched departments keep assessments, roots, closure details and history");
+  await request(`/periods/${period.period_id}/close`,"admin","POST",{comments:"Premature close"},409);
+  await workflow("REVIEW","owner"); await workflow("SIGN_OFF","admin");
+  await request(`/periods/${period.period_id}/close`,"admin","POST",{comments:"Close after reassessment"});
+  assert.equal((await client.query("SELECT status FROM risk.periods WHERE period_id=$1",[period.period_id])).rows[0].status,"CLOSED");
+  assert.deepEqual(await retainedDepartments(),retained,"Reclosing the period must not rewrite previously closed departments");
   const { rows: notifications } = await client.query(
     "SELECT email_status FROM risk.review_notifications WHERE depart_code=$1", [department]);
   assert(notifications.length > 0);
   assert(notifications.every(n => n.email_status === "NO_RECIPIENT"), "No real email destination");
-  console.log("PASS: mixed open/closed roots, return from submitted/reviewed, department/period reopen, queue/summary/readiness agreement, explicit resubmission, access isolation and retained history; all fixtures rolled back and no emails sent.");
+  console.log("PASS: mixed open/closed roots, return/reopen reassessment, three-department period scope, stale/missing confirmation rejected, untouched assessments/closure/history retained through reclosure, access isolation; all fixtures rolled back and no emails sent.");
 } finally {
   if (server) await new Promise(resolve => server.close(resolve));
   await client.query("ROLLBACK");

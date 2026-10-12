@@ -311,6 +311,25 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RiskMutationResponse" }
+  /risk-register/workflow/reopen-scope:
+    get:
+      operationId: getRiskRegisterReopenScope
+      tags: [RiskRegister]
+      parameters:
+        - { name: depart_code, in: query, required: true, schema: { type: string } }
+        - { name: period_id, in: query, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Current selected-department reopening scope; management only.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    $ref: "#/components/schemas/RiskReopenScope"
   /risk-register/workflow:
     post:
       operationId: decideRiskRegisterWorkflow
@@ -676,6 +695,28 @@ components:
         period_id: { type: integer }
         action: { type: string, enum: [SUBMIT, REVIEW, RETURN, SIGN_OFF, CLOSE, REOPEN, PROCESS] }
         comments: { type: string }
+        confirmation_token: { type: string, description: Required for REOPEN; obtained from the current reopening scope. }
+    RiskReopenScope:
+      type: object
+      required: [period_id, period_from, period_to, period_status, depart_code, confirmation_token, departments]
+      properties:
+        period_id: { type: integer }
+        period_from: { type: string }
+        period_to: { type: string }
+        period_status: { type: string }
+        depart_code: { type: string }
+        confirmation_token: { type: string }
+        departments:
+          type: array
+          items:
+            type: object
+            required: [depart_code, depart_name, total_risks, workflow_status, affected]
+            properties:
+              depart_code: { type: string }
+              depart_name: { type: string }
+              total_risks: { type: integer }
+              workflow_status: { type: string }
+              affected: { type: boolean }
     RiskPeriodInput:
       type: object
       required: [period_from, period_to]

@@ -26,6 +26,7 @@ import {
 import RiskImportPanel from './risk-import';
 import RiskAssessmentSummary from './risk-assessment-summary';
 import RiskReviewDialog from './risk-review-dialog';
+import RiskReopenDialog from './risk-reopen-dialog';
 import { riskDepartmentSelection } from './department-filter';
 
 type PageKey = 'dashboard' | 'new' | 'update' | 'review' | 'summary' | 'status' | 'open' | 'close' | 'closed' | 'history' | 'client-rating' | 'champions' | 'import';
@@ -75,6 +76,7 @@ function RiskRegisterWorkspace() {
   const [notice, setNotice] = useState('');
   const [mutationError, setMutationError] = useState('');
   const [comments, setComments] = useState('');
+  const [reopening, setReopening] = useState<RiskDepartmentSummary | null>(null);
   useEffect(() => {
     setSelectedRiskCode('');
     setDrawerOpen(false);
@@ -189,12 +191,17 @@ function RiskRegisterWorkspace() {
     setNotice(error ? '' : success);
     if (!error) setComments('');
   };
-  const chooseAction = (action: 'SUBMIT' | 'REVIEW' | 'RETURN' | 'SIGN_OFF' | 'CLOSE' | 'REOPEN' | 'PROCESS', row?: RiskDepartmentSummary, confirm = false) => {
+  const chooseAction = (action: 'SUBMIT' | 'REVIEW' | 'RETURN' | 'SIGN_OFF' | 'CLOSE' | 'REOPEN' | 'PROCESS', row?: RiskDepartmentSummary, confirm = false, token?: string) => {
     const depart_code = row?.depart_code ?? department;
     const period_id = row?.period_id ?? Number(period);
-    if (confirm && !window.confirm(`${action === 'REOPEN' ? 'Reopen' : 'Close'} this register? ${action === 'REOPEN' ? 'Assessment completion will reset for every risk; existing scores and root causes remain and all prior notes stay in history.' : 'The event will be retained in history.'}`)) return;
-    workflow.mutate({ data: { depart_code, period_id, action, comments: comments.trim() } }, {
+    if (action === 'REOPEN' && !token) {
+      if (row) { setMutationError(''); setReopening(row); }
+      return;
+    }
+    if (confirm && action === 'CLOSE' && !window.confirm('Close this register? The event will be retained in history.')) return;
+    workflow.mutate({ data: { depart_code, period_id, action, comments: comments.trim(), ...(token ? { confirmation_token: token } : {}) } }, {
       onSuccess: response => {
+        if (action === 'REOPEN' && !envelopeError(response)) setReopening(null);
         if (['REVIEW', 'RETURN'].includes(action) && !envelopeError(response)) {
           setReviewOpen(false);
           setSelectedRiskCode('');
@@ -203,7 +210,9 @@ function RiskRegisterWorkspace() {
           setSelectedRiskCode('');
           setDrawerOpen(false);
         }
-        announce(response, action === 'RETURN' || action === 'REOPEN'
+        announce(response, action === 'REOPEN'
+        ? 'Selected department reopened and the shared reporting period is OPEN. Only this department requires reassessment; other departments remain unchanged. Saved scores, closed actions and history are retained.'
+        : action === 'RETURN'
         ? `${action.replace('_', ' ')} recorded. All department risks require reassessment; saved scores, root causes and prior history remain.`
         : action === 'SUBMIT' ? `Department register forwarded for Risk Owner review. ${
           (envelopeData<{ notification?: { email_status?: string } }>(response)?.notification?.email_status === 'WAITING_CONFIGURATION')
@@ -370,6 +379,10 @@ function RiskRegisterWorkspace() {
            setReviewOpen(false);
            setSelectedRiskCode('');
          }}>{assessmentEditor}</RiskReviewDialog>}
+      {reopening && manage && <RiskReopenDialog key={`${username}:${reopening.depart_code}:${reopening.period_id}`} username={username}
+        departCode={reopening.depart_code} periodId={reopening.period_id ?? Number(period)} comments={comments}
+        mutating={workflow.isPending} error={mutationError} onClose={() => { setReopening(null); setMutationError(''); }}
+        onConfirm={token => chooseAction('REOPEN', reopening, false, token)} />}
       {mutating && <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold shadow-lg"><RefreshCw className="h-3.5 w-3.5 animate-spin text-primary" />Saving risk register changes</div>}
     </div>
   </div>;

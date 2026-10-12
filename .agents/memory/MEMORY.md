@@ -43,6 +43,7 @@
 - [Enterprise risk compatibility](risk-register-compatibility.md) — Do not infer calibrated factors from historical effectiveness codes or unpopulated catalogs.
 - [Saved risk ranking stability](risk-ranking-stability.md) — Reference maintenance must not recompute historical ranks; only explicit reassessment refreshes their basis.
 - [Closed-action reassessment](risk-reassessment-policy.md) — Return/reopen requires explicit reassessment of every active risk; closed root actions remain closed.
+- [Shared-period reopening](risk-period-reopening.md) — Opening the shared period resets only the selected department; confirm the scope and preserve other departments.
 - [Department risk access](risk-department-access.md) — Champions update their departments; owners review theirs and may own multiple departments.
 - [Risk Owner email boundaries](risk-owner-email-boundaries.md) — Cancel stale recipient notices rather than redirect retries; distinguish provider acceptance from inbox delivery.
 - [OpenAPI generator compatibility](openapi-generator-compatibility.md) — Match generated Zod syntax to the target library; auto-detection can pick the wrong major.

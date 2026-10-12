@@ -211,7 +211,8 @@ try{
     const closed=await ok(`/records/${risk.risk_code}`,"champion","GET");
     assert.equal(closed.risk.workflow_status,"CLOSED");assert.equal(closed.risk.can_edit,false);
     assert.equal((await api(`/records/${risk.risk_code}`,"admin","PUT",{...assessment,expected_updated_at:closed.risk.updated_at})).status,409);
-    await ok("/workflow","admin","POST",wf("REOPEN"));
+    const reopenScope=await ok(`/workflow/reopen-scope?depart_code=${f.departments[0]}&period_id=${f.period}`,"admin","GET");
+    await ok("/workflow","admin","POST",{...wf("REOPEN"),confirmation_token:reopenScope.confirmation_token});
     await ok("/assignments","admin","POST",{depart_code:f.departments[1],
       champion_username:f.accounts.unrelated.username,owner_username:f.accounts.owner.username});
     // Stale legacy champion rows must not override an explicit department map.

@@ -12,4 +12,6 @@ export interface RiskWorkflowInput {
   period_id: number;
   action: RiskWorkflowInputAction;
   comments: string;
+  /** Required for REOPEN; obtained from the current reopening scope. */
+  confirmation_token?: string;
 }

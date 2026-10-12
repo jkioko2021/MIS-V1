@@ -2,12 +2,22 @@ import { Router } from "express";
 import { z } from "zod";
 import { txQuery, withTransaction } from "../lib/postgres";
 import { activeDepartmentOwner, queueRiskReviewNotification } from "../lib/risk-notifications";
+import { reopenScope } from "../lib/risk-reopen-scope";
 import {
   RiskError, type RiskActor, riskFailure, assertDepartment, canManage, cycleInput,
   workflowState, period, cycle, history, calculateRisk,
 } from "../lib/risk-register";
 
 export const riskWorkflowRouter=Router();
+riskWorkflowRouter.get("/risk-register/workflow/reopen-scope",async(req,res)=>{
+  try {
+    const input=z.object({depart_code:z.string().trim().min(1).max(50),period_id:z.coerce.number().int().positive()}).parse(req.query);
+    const a=res.locals.riskActor as RiskActor;
+    assertDepartment(a,input.depart_code,"manage");
+    const data=await withTransaction(async client=>reopenScope(client,await period(client,input.period_id,true),input.depart_code));
+    res.json({ok:true,data});
+  }catch(err){riskFailure(req,res,err);}
+});
 riskWorkflowRouter.post("/risk-register/workflow",async(req,res)=>{
   try {
     const input=cycleInput.parse(req.body),a=res.locals.riskActor as RiskActor;
@@ -17,6 +27,9 @@ riskWorkflowRouter.post("/risk-register/workflow",async(req,res)=>{
       const [department]=await txQuery<{depart_code:string;depart_name:string}>(client,"SELECT depart_code,depart_name FROM risk.departments WHERE depart_code=$1 AND is_active",[input.depart_code]);
       if(!department) throw new RiskError(404,"Active risk department was not found.");
       const p=await period(client,input.period_id,input.action==="REOPEN");
+      const scope=input.action==="REOPEN" ? await reopenScope(client,p,input.depart_code) : undefined;
+      if(scope && input.confirmation_token!==scope.confirmation_token)
+        throw new RiskError(409,"Review the current reopening scope and confirm again. The period or department registers may have changed.");
       const s=await cycle(client,input.depart_code,p),state=workflowState(s);
       const risks=await txQuery<Record<string,unknown>>(client,`SELECT r.*,
         EXISTS(SELECT 1 FROM risk.root_causes c WHERE c.risk_code=r.risk_code) AS has_cause
@@ -74,7 +87,7 @@ riskWorkflowRouter.post("/risk-register/workflow",async(req,res)=>{
       }
       const after=await cycle(client,input.depart_code,p);
       await history(client,null,input.depart_code,p.period_id,input.action,a.username,input.comments,
-        {before:s,after,risks,root_causes:await txQuery(client,`SELECT c.* FROM risk.root_causes c JOIN risk.risk_master r
+        {before:s,after,risks,...(scope ? {reopening_scope:scope} : {}),root_causes:await txQuery(client,`SELECT c.* FROM risk.root_causes c JOIN risk.risk_master r
           ON r.risk_code=c.risk_code WHERE r.depart_code=$1 AND r.period_from=$2 AND r.period_to=$3`,
         [input.depart_code,p.period_from,p.period_to])});
       const notification=owner ? await queueRiskReviewNotification(client,{
@@ -105,6 +118,8 @@ riskWorkflowRouter.post("/risk-register/periods/:periodId/close",async(req,res)=
       }
       for(const d of departments){
         const s=await cycle(client,d.depart_code,p);
+        // A previously closed department is untouched, including its closure attribution.
+        if(s.closed) continue;
         const snapshot=await txQuery(client,`SELECT r.*,
           (SELECT jsonb_agg(c) FROM risk.root_causes c WHERE c.risk_code=r.risk_code) AS root_causes
           FROM risk.risk_master r WHERE depart_code=$1 AND period_from=$2 AND period_to=$3`,

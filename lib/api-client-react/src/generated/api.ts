@@ -25,6 +25,8 @@ import type {
   GetClientRatingOptions200,
   GetClientRatingsReportParams,
   GetRiskRegisterHistoryParams,
+  GetRiskRegisterReopenScope200,
+  GetRiskRegisterReopenScopeParams,
   GetRiskRegisterSummaryParams,
   HealthStatus,
   ListAllocatedDocumentUploads200,
@@ -1350,6 +1352,84 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getSaveRiskRegisterRootCauseMutationOptions(options));
     }
+
+export const getGetRiskRegisterReopenScopeUrl = (params: GetRiskRegisterReopenScopeParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/risk-register/workflow/reopen-scope?${stringifiedParams}` : `/api/risk-register/workflow/reopen-scope`
+}
+
+export const getRiskRegisterReopenScope = async (params: GetRiskRegisterReopenScopeParams, options?: Parameters<typeof customFetch>[1]): Promise<GetRiskRegisterReopenScope200> => {
+
+  return customFetch<GetRiskRegisterReopenScope200>(getGetRiskRegisterReopenScopeUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRiskRegisterReopenScopeQueryKey = (params?: GetRiskRegisterReopenScopeParams,) => {
+    return [
+    `/api/risk-register/workflow/reopen-scope`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetRiskRegisterReopenScopeQueryOptions = <TData = Awaited<ReturnType<typeof getRiskRegisterReopenScope>>, TError = ErrorType<unknown>>(params: GetRiskRegisterReopenScopeParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRiskRegisterReopenScope>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRiskRegisterReopenScopeQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRiskRegisterReopenScope>>> = ({ signal }) => getRiskRegisterReopenScope(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRiskRegisterReopenScope>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRiskRegisterReopenScopeQueryResult = NonNullable<Awaited<ReturnType<typeof getRiskRegisterReopenScope>>>
+export type GetRiskRegisterReopenScopeQueryError = ErrorType<unknown>
+
+
+
+export function useGetRiskRegisterReopenScope<TData = Awaited<ReturnType<typeof getRiskRegisterReopenScope>>, TError = ErrorType<unknown>>(
+ params: GetRiskRegisterReopenScopeParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRiskRegisterReopenScope>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRiskRegisterReopenScopeQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getDecideRiskRegisterWorkflowUrl = () => {
 

@@ -326,6 +326,26 @@ export interface RiskWorkflowInput {
   period_id: number;
   action: RiskWorkflowInputAction;
   comments: string;
+  /** Required for REOPEN; obtained from the current reopening scope. */
+  confirmation_token?: string;
+}
+
+export type RiskReopenScopeDepartmentsItem = {
+  depart_code: string;
+  depart_name: string;
+  total_risks: number;
+  workflow_status: string;
+  affected: boolean;
+};
+
+export interface RiskReopenScope {
+  period_id: number;
+  period_from: string;
+  period_to: string;
+  period_status: string;
+  depart_code: string;
+  confirmation_token: string;
+  departments: RiskReopenScopeDepartmentsItem[];
 }
 
 export interface RiskPeriodInput {
@@ -915,6 +935,16 @@ export const ListRiskRegisterRecordsView = {
   signed: 'signed',
   closed: 'closed',
 } as const;
+
+export type GetRiskRegisterReopenScopeParams = {
+depart_code: string;
+period_id: number;
+};
+
+export type GetRiskRegisterReopenScope200 = {
+  ok: boolean;
+  data: RiskReopenScope;
+};
 
 export type GetRiskRegisterSummaryParams = {
 /**

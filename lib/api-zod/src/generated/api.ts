@@ -877,11 +877,37 @@ export const SaveRiskRegisterRootCauseResponse = zod.object({
 })
 
 
+export const GetRiskRegisterReopenScopeQueryParams = zod.object({
+  "depart_code": zod.coerce.string(),
+  "period_id": zod.coerce.number().int()
+})
+
+export const GetRiskRegisterReopenScopeResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.object({
+  "period_id": zod.number().int(),
+  "period_from": zod.string(),
+  "period_to": zod.string(),
+  "period_status": zod.string(),
+  "depart_code": zod.string(),
+  "confirmation_token": zod.string(),
+  "departments": zod.array(zod.object({
+  "depart_code": zod.string(),
+  "depart_name": zod.string(),
+  "total_risks": zod.number().int(),
+  "workflow_status": zod.string(),
+  "affected": zod.boolean()
+}))
+})
+})
+
+
 export const DecideRiskRegisterWorkflowBody = zod.object({
   "depart_code": zod.string(),
   "period_id": zod.number().int(),
   "action": zod.enum(['SUBMIT', 'REVIEW', 'RETURN', 'SIGN_OFF', 'CLOSE', 'REOPEN', 'PROCESS']),
-  "comments": zod.string()
+  "comments": zod.string(),
+  "confirmation_token": zod.string().optional().describe('Required for REOPEN; obtained from the current reopening scope.')
 })
 
 export const DecideRiskRegisterWorkflowResponse = zod.object({
