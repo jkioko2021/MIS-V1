@@ -1,6 +1,7 @@
 # Agent Memory Index
 
 - [Component-test transpilation](component-test-transpilation.md) — VM tests do not inherit the project's ECMAScript target; iterable downleveling can cause false failures.
+- [Shared library declarations](shared-library-declarations.md) — After merges, rebuild compiled declarations when generated API source exists but artifact checks report missing exports.
 
 - [Updated legacy source](legacy-source-policy.md) — User-designated updated archive supersedes the old snapshot; see Legacy/README.md before legacy analysis.
 - [MIS Legacy Discovery](mis-legacy-discovery.md) — Historical findings from the older snapshot; revalidate against the user-designated updated archive.

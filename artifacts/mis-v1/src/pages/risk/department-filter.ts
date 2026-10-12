@@ -5,6 +5,6 @@ export function riskDepartmentSelection(
   departments: readonly { depart_code?: string }[],
 ): string {
   // Imported assessments span departments and periods; retain the Update queue's all-scope default.
-  if (choice === undefined) return page === 'dashboard' || page === 'update' ? '' : departments[0]?.depart_code ?? '';
+  if (choice === undefined) return page === 'dashboard' || page === 'update' || page === 'summary' ? '' : departments[0]?.depart_code ?? '';
   return choice && !departments.some(item => item.depart_code === choice) ? '' : choice;
 }

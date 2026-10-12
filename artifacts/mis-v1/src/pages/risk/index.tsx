@@ -76,12 +76,14 @@ function RiskRegisterWorkspace() {
   const [notice, setNotice] = useState('');
   const [mutationError, setMutationError] = useState('');
   const [comments, setComments] = useState('');
+  const [signoffSelection, setSignoffSelection] = useState('');
   const [reopening, setReopening] = useState<RiskDepartmentSummary | null>(null);
   useEffect(() => {
     setSelectedRiskCode('');
     setDrawerOpen(false);
     setReviewOpen(false);
     setComments('');
+    setSignoffSelection('');
   }, [activePage, department, period, username]);
 
   const initializedFor = useRef('');
@@ -114,7 +116,11 @@ function RiskRegisterWorkspace() {
   const summaries = (envelopeData<RiskDepartmentSummary[]>(summaryQuery.data) ?? []).filter(item =>
     (pageCodes === null || pageCodes.includes(item.depart_code))
     && (activePage !== 'update' || item.workflow_status === 'OPEN')
-    && (activePage !== 'review' || item.workflow_status === 'SUBMITTED'));
+    && (activePage !== 'review' || item.workflow_status === 'SUBMITTED')
+    && (activePage !== 'summary' || ['REVIEWED', 'SIGNED_OFF'].includes(item.workflow_status ?? '')));
+  const signoffRow = activePage === 'summary'
+    ? summaries.find(row => `${row.depart_code}:${row.period_id}` === signoffSelection)
+    : undefined;
   const allDepartmentPeriodSummaryQuery = useRiskSummary(username, period ? { period_id: Number(period) } : {}, dataEnabled && activePage === 'close');
   const allDepartmentPeriodSummaries = envelopeData<RiskDepartmentSummary[]>(allDepartmentPeriodSummaryQuery.data) ?? [];
   const allDepartmentPeriodSummaryFailure = allDepartmentPeriodSummaryQuery.data ? envelopeError(allDepartmentPeriodSummaryQuery.data) ?? '' : '';
@@ -220,6 +226,7 @@ function RiskRegisterWorkspace() {
             : (envelopeData<{ notification?: { email_status?: string } }>(response)?.notification?.email_status === 'NO_RECIPIENT')
               ? 'Owner email is not sent: their email address is missing or invalid.'
               : 'Owner email is queued; delivery status is shown in Department Summary.'}`
+          : action === 'REVIEW' ? 'Department register reviewed and forwarded to Risk Register Signoff. Select the department under Department exposure & sign-off to display its summary.'
           : `${action.replace('_', ' ')} recorded.`);
       },
       onError: error => setMutationError(queryError(error)),
@@ -351,7 +358,30 @@ function RiskRegisterWorkspace() {
           <WorkflowPanel summaries={summaries} departments={departments} assignments={options.assignments} period={period} actor={actor} manage={manage} comments={comments} setComments={setComments} mutating={workflow.isPending} onAction={(action, row) => chooseAction(action, row)} />
         </section>}
 
-        {activePage === 'summary' && <section className="space-y-5"><SummaryTable rows={summaries} loading={summaryQuery.isLoading} error={summaryFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')} retry={() => summaryQuery.refetch()} /><WorkflowPanel summaries={summaries} departments={departments} assignments={options.assignments} period={period} actor={actor} manage={manage} comments={comments} setComments={setComments} mutating={workflow.isPending} onAction={(action, row) => chooseAction(action, row)} /></section>}
+        {activePage === 'summary' && <section className="space-y-5">
+          <SummaryTable rows={summaries} loading={summaryQuery.isLoading || summaryQuery.isFetching}
+            error={summaryFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')}
+            retry={() => summaryQuery.refetch()} selectedKey={signoffSelection}
+            onSelect={row => {
+              setSignoffSelection(`${row.depart_code}:${row.period_id}`);
+              setSelectedRiskCode('');
+              setDrawerOpen(false);
+              setComments('');
+            }} />
+          {signoffRow ? <>
+            <RiskAssessmentSummary key={`${signoffRow.depart_code}:${signoffRow.period_id}`} mode="signoff"
+              summaries={[signoffRow]} options={options} department={signoffRow.depart_code}
+              period={String(signoffRow.period_id)} comments={comments} setComments={setComments}
+              mutating={mutating} onSubmit={() => {}} onSelect={viewDetails}
+              loading={summaryQuery.isLoading || summaryQuery.isFetching}
+              error={summaryFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')}
+              retry={() => summaryQuery.refetch()} />
+            <WorkflowPanel summaries={[signoffRow]} departments={departments} assignments={options.assignments}
+              period={String(signoffRow.period_id)} actor={actor} manage={manage} comments={comments}
+              setComments={setComments} mutating={workflow.isPending} onAction={(action, row) => chooseAction(action, row)} />
+          </> : <EmptyState title="Select a department for sign-off"
+            description="Click a department under Department exposure & sign-off to view its reviewed risk summary. Only reviewed or signed-off registers appear on this page." />}
+        </section>}
 
         {activePage === 'status' && <SummaryTable rows={summaries} loading={summaryQuery.isLoading} error={summaryFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')} retry={() => summaryQuery.refetch()} title="Department workflow status" />}
 

@@ -15,6 +15,12 @@ Risk Register Review should present the risk summary as its main risk list. Clic
 
 **How to apply:** Keep this presentation specific to Review; preserve the champion's existing Update Register workflow and the owner's department-scoped access. A popup must show the selected risk's saved information without deleting notes or history.
 
+Recording Review forwards the department register to Signoff. On Signoff, selecting a department under Department exposure & sign-off displays that department and reporting period's reviewed risk summary.
+
+**Why:** The user explicitly requested this review-to-signoff handoff and department-based summary selection.
+
+**How to apply:** Keep unreviewed registers out of the sign-off queue. Show saved scores and root causes without reassessing them; preserve management-only sign-off authorization and keep decisions scoped to the selected department and period.
+
 Risk administration is restricted to Risk Management and administrators, not automatically to department champions or owners. It covers officer/owner mapping and adding/modifying departments.
 
 **Why:** The user explicitly chose this access scope.
