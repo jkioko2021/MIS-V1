@@ -3,6 +3,17 @@ name: Medical underwriting legacy boundaries
 description: Interpretation constraints when reproducing the legacy medical review workflow.
 ---
 
+## Medical HPC scope
+
+The Medical HPC lookup gap is excluded from corrective work. Leave the current
+HPC registration behavior unchanged.
+
+**Why:** The user explicitly instructed: "ignore this Medical HPC gap."
+
+**How to apply:** Do not propose or implement disease/source lookup changes as a
+follow-up to the legacy comparison unless the user requests them later. This does
+not change the separate Record Filing scope or medical review routing rules.
+
 Do not claim exact legacy handoff parity without the SQL definition of `sp_Business_MEDUW_Action`. The imported WebForms source reveals action codes and procedure parameters, but not the procedure's routing internals.
 
 **Why:** The user asked for a similar medical-underwriter review page. The older snapshot did not establish the procedure's routing internals. The updated archive supplies its definition, so that historical absence must no longer be assumed. HPC lookup table definitions likewise do not establish populated catalog values.
