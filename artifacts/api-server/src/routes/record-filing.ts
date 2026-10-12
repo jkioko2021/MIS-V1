@@ -4,7 +4,7 @@ import { z } from "zod";
 import { requireAuth } from "../lib/auth-middleware";
 import { query, queryOne, txQuery, withTransaction } from "../lib/postgres";
 import { filingFile, filingPending, FilingError, filingFailure } from "../lib/record-filing";
-import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { ObjectStorageService, ObjectNotFoundError } from "../lib/document-storage";
 import { safeUploadFilename } from "./business";
 
 const router = Router();

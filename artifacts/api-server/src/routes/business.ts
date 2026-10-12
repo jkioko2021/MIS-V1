@@ -6,7 +6,7 @@ import { requireAuth } from "../lib/auth-middleware";
 import { requireAllocatedFileReadAccess, requireBpoAllocatedAccess, requireBpoForwardAccess, requireBpoReviewAccess, requireBusinessDeleteAccess, requireBusinessFileAccess, requireBusinessTrackingAccess } from "../lib/business-permissions";
 import { isAllocationDocument, isExcludedAllocationDocument } from "../lib/allocation-documents";
 import { logger } from "../lib/logger";
-import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage";
+import { ObjectNotFoundError, ObjectStorageService } from "../lib/document-storage";
 import { queueCorporatePricing } from "../lib/pricing-review";
 import { giActor, recordGiDecision } from "../lib/gi-workflow";
 

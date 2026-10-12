@@ -35,3 +35,4 @@
 - [Business Status visibility](business-status-visibility.md) — Trackers can monitor handoffs without bypassing private-file ownership; scope options/counts and identity-specific caches.
 - [Git provider authentication](git-provider-auth.md) — Git CLI uses the source-control provider; healthy connection metadata does not prove push credentials work.
 - [Dependency security upgrades](dependency-security-upgrades.md) — Preserve module compatibility when narrowing audit overrides; legacy declarations need usage checks before framework upgrades.
+- [Local development](local-development.md) — Windows/WSL setup must isolate local mail/storage, preserve OTP, and require a complete database baseline.

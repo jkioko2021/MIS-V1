@@ -1,0 +1,22 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "MIS: attach to local API",
+      "type": "node",
+      "request": "attach",
+      "address": "127.0.0.1",
+      "port": 9229,
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/artifacts/api-server/dist/**/*.mjs"],
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "MIS: debug frontend",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/artifacts/mis-v1"
+    }
+  ]
+}

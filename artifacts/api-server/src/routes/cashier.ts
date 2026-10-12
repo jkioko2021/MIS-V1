@@ -4,7 +4,7 @@ import { z } from "zod";
 import { requireAuth } from "../lib/auth-middleware";
 import { query, queryOne, txQuery, withTransaction } from "../lib/postgres";
 import { MedicalError, medicalFailure } from "../lib/medical-underwriting";
-import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { ObjectStorageService, ObjectNotFoundError } from "../lib/document-storage";
 import { safeUploadFilename, uploadDocumentValidation } from "./business";
 import { cashierFile, cashierJoin as join, cashierOwner as owner, cashierPending, membershipRecipient, receiptExists, receiptRequirement } from "../lib/cashier-review";
 

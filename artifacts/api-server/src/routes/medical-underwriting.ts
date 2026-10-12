@@ -3,7 +3,7 @@ import { Readable } from "stream";
 import { z } from "zod";
 import { requireAuth } from "../lib/auth-middleware";
 import { query, txQuery, withTransaction } from "../lib/postgres";
-import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { ObjectStorageService, ObjectNotFoundError } from "../lib/document-storage";
 import { MedicalError, medicalFile, medicalFailure, requireMedicalAccess, assertReviewable, medJoin, medPending, medOwner } from "../lib/medical-underwriting";
 import { safeUploadFilename, uploadDocumentValidation } from "./business";
 import { queueMedicalNotification } from "../lib/business-notifications";

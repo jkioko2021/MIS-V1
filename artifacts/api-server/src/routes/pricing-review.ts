@@ -6,7 +6,7 @@ import { query, queryOne, txQuery, withTransaction } from "../lib/postgres";
 import { MedicalError } from "../lib/medical-underwriting";
 import { logger } from "../lib/logger";
 import { pricingFile, pricingJoin, pricingPending, ratesMatrixRequirement, requirePricingAccess } from "../lib/pricing-review";
-import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { ObjectStorageService, ObjectNotFoundError } from "../lib/document-storage";
 import { safeUploadFilename, uploadDocumentValidation } from "./business";
 
 const router = Router();

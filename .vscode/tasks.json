@@ -1,0 +1,11 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "MIS: initialize local configuration", "type": "shell", "command": "pnpm local:init", "problemMatcher": [] },
+    { "label": "MIS: check local database", "type": "shell", "command": "pnpm local:check", "problemMatcher": [] },
+    { "label": "MIS: compile", "type": "shell", "command": "pnpm local:build", "group": "build", "problemMatcher": [] },
+    { "label": "MIS: run locally", "type": "shell", "command": "pnpm local:dev", "problemMatcher": [] },
+    { "label": "MIS: run with API debugger", "type": "shell", "command": "pnpm local:debug", "problemMatcher": [] },
+    { "label": "MIS: read local email", "type": "shell", "command": "pnpm local:mail", "problemMatcher": [] }
+  ]
+}

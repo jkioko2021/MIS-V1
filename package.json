@@ -3,6 +3,12 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
+    "local:init": "node scripts/src/local-dev.mjs init",
+    "local:check": "node scripts/src/local-dev.mjs check",
+    "local:build": "node scripts/src/local-dev.mjs build",
+    "local:dev": "node scripts/src/local-dev.mjs dev",
+    "local:debug": "node scripts/src/local-dev.mjs debug",
+    "local:mail": "node scripts/src/local-dev.mjs mail",
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",

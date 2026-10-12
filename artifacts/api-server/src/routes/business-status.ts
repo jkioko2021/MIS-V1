@@ -3,7 +3,7 @@ import { Readable } from "node:stream";
 import { query, queryOne } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
 import { logger } from "../lib/logger";
-import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage";
+import { ObjectNotFoundError, ObjectStorageService } from "../lib/document-storage";
 import { safeUploadFilename } from "./business";
 import {
   requireStatusAccess, STATUS_SCOPE_SQL, STATUS_RECORD_SQL, statusScopeParams,

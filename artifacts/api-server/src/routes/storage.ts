@@ -6,7 +6,8 @@ import { requireAuth } from '../lib/auth-middleware';
 import {
   ObjectNotFoundError,
   ObjectStorageService,
-} from '../lib/objectStorage';
+} from '../lib/document-storage';
+import { isLocalRuntime } from '../lib/local-runtime';
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -49,7 +50,11 @@ router.post(
     try {
       const { name, size, contentType } = parsed.data;
 
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      if (isLocalRuntime() && (!Number.isSafeInteger(size) || size <= 0 || size > 25 * 1024 * 1024)) {
+        res.status(400).json({ error: 'Local uploads must contain between 1 byte and 25 MiB.' });
+        return;
+      }
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL(req.user?.username, size, contentType);
       const objectPath =
         objectStorageService.normalizeObjectEntityPath(uploadURL);
 
@@ -112,6 +117,10 @@ router.get(
  * Serve private object entities — requires authentication.
  */
 router.get('/storage/objects/*path', requireAuth, async (req: Request, res: Response) => {
+  if (isLocalRuntime()) {
+    res.status(403).json({ error: 'Use the business document download endpoint so file access is checked.' });
+    return;
+  }
   try {
     const raw = req.params.path;
     const wildcardPath = Array.isArray(raw) ? raw.join('/') : raw;

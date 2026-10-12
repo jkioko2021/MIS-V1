@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "HgaFOBAZj4q71FzoRTd_R"
+uri = "file://generated-artifacts/MIS-V1-local-development.zip"
+type = "unspecified"
+title = "MIS-V1 — Windows/WSL local-development package"
+description = "Current MIS source, Visual Studio Code tasks/debugging, local environment template, private email/document adapters, and setup guide. No database backup or live credentials included."
+logical_id = "d36bfd8e-cfc5-4f3b-86aa-43d348f8ea48"
+content_hash = "sha256:f7ac67a22ae9ad1054a7959d024574382f626841dd2cee9b28567bb5469d873b"
+size = 540771
+mtime_ms = 1791781195329
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:1d891ef0-d2dd-41b3-b4a9-0f70c8efb7ff/d36bfd8e-cfc5-4f3b-86aa-43d348f8ea48/05f17d10-f5f2-475a-8c1a-16603d703793"
+storage_version_token = "1791781200242545"
+content_type = "application/octet-stream"

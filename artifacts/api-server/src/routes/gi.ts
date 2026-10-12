@@ -4,7 +4,7 @@ import { query, queryOne, txQuery, withTransaction } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
 import { requireGiAccess, GI_ALLOCATE_SQL, GI_STAFF_SQL, ACTIVE_STAFF_SQL, recordGiDecision } from "../lib/gi-workflow";
 import { logger } from "../lib/logger";
-import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { ObjectStorageService, ObjectNotFoundError } from "../lib/document-storage";
 import { safeUploadFilename } from "./business";
 
 const router = Router();

@@ -2,6 +2,8 @@ import type { PoolClient } from "pg";
 import { ReplitConnectors } from "@replit/connectors-sdk";
 import { txQuery, withTransaction } from "./postgres";
 import { logger } from "./logger";
+import { isLocalRuntime } from "./local-runtime";
+import { captureLocalEmail } from "./local-mail";
 
 export type OutboundEmail = { from: string; to: string; subject: string; text: string; idempotencyKey: string };
 export type EmailSender = (email: OutboundEmail) => Promise<void>;
@@ -24,6 +26,10 @@ export async function queueMedicalNotification(
 }
 
 export const sendResendEmail: EmailSender = async email => {
+  if (isLocalRuntime()) {
+    await captureLocalEmail(email);
+    return;
+  }
   const connectors = new ReplitConnectors();
   const response = await fetch(`${connectors.getProxyUrl()}/emails`, {
     method: "POST",
