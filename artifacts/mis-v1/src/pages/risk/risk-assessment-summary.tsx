@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ArrowRight, CheckCircle2, ClipboardList, Send, ShieldAlert } from 'lucide-react';
 import type { RiskDepartmentSummary, RiskOptionsResponseData, RiskRecord } from '@workspace/api-client-react';
 import { useRiskRecords } from './use-risk-register';
-import { RiskSubmissionGate } from './risk-workflow';
+import { useSubmissionReadiness } from './risk-workflow';
 import { orderRiskSummary } from './risk-summary-order';
 import { riskExposureColors } from './risk-exposure-colors';
 import RiskSummaryCauses from './risk-summary-causes';
@@ -58,7 +58,6 @@ export default function RiskAssessmentSummary({
 }: Props) {
   const [chosenDepartment, setChosenDepartment] = useState('');
   const [chosenPeriod, setChosenPeriod] = useState('');
-  const [readiness, setReadiness] = useState<{ key: string; ready: boolean; label: string }>({ key: '', ready: false, label: '' });
 
   const departments = useMemo(() => [...new Map(summaries.map(row => [row.depart_code, row])).values()], [summaries]);
   const compatibleRisk = selectedRisk
@@ -96,12 +95,11 @@ export default function RiskAssessmentSummary({
   const recipient = options.staff.find(person => person.username === ownerUsername);
   const recipientName = recipient?.employee_name || ownerUsername;
   const activeOwner = Boolean(ownerUsername && recipient);
-  const gateCurrent = Boolean(scopeKey && readiness.key === scopeKey);
-  const gateReady = gateCurrent && readiness.ready;
-
-  useEffect(() => {
-    setReadiness({ key: '', ready: false, label: '' });
-  }, [scopeKey]);
+  const readiness = useSubmissionReadiness({
+    username: options.actor.username, departCode: row?.depart_code ?? '', periodId: Number(row?.period_id ?? 0),
+    ownerAssigned: activeOwner, enabled: Boolean(isOpen && isChampion && !loading && !error),
+  });
+  const gateReady = readiness.ready;
 
   const blockedReason = loading ? 'Loading the department summary…'
     : error ? 'The department summary could not be verified. Retry before submitting.'
@@ -110,18 +108,13 @@ export default function RiskAssessmentSummary({
           : !isChampion ? 'Only management or a champion mapped to this department can submit its register.'
             : !isOpen ? `This register is ${row.workflow_status || 'not open'}; only an open register can be submitted.`
               : !activeOwner ? 'No active Risk Owner is mapped to this department. Contact management to assign one.'
-                : recordsFailed ? recordsError || 'The active risk list could not be verified. Retry before submitting.'
-                  : activeRecordsQuery.isLoading || activeRecordsQuery.isFetching || !returnedRecords ? 'Checking every active risk and its root causes…'
-                    : listShort ? `The active risk list is incomplete: ${activeRecords.length} returned of ${row.total_risks} expected. Retry the register query.`
-                      : assessedRecords.length !== activeRecords.length ? `Save assessments for all active risks before submitting: ${assessedRecords.length} of ${row.total_risks} assessed.`
-                      : !gateCurrent || !gateReady ? readiness.label || 'Checking assessment and root-cause readiness…'
+                : !gateReady ? readiness.label || 'Checking assessment and root-cause readiness…'
                         : !comments.trim() ? 'Add a decision comment before sending this register for review.'
                             : mutating ? 'A risk register action is being saved. Wait for it to finish before submitting again.'
                               : '';
 
   const canSubmit = Boolean(row && !loading && !error && isChampion && isOpen && activeOwner
-    && activeRecords.length > 0 && assessedRecords.length === activeRecords.length
-    && !activeRecordsQuery.isLoading && !activeRecordsQuery.isFetching && !recordsFailed && !listShort && gateReady && comments.trim() && !mutating);
+    && gateReady && comments.trim() && !mutating);
 
   return <section className="overflow-hidden rounded-2xl border border-border bg-card" data-testid="risk-assessment-summary">
     <div className="flex flex-col justify-between gap-4 border-b border-border bg-muted/30 p-5 sm:flex-row sm:items-end sm:px-6">
@@ -153,12 +146,12 @@ export default function RiskAssessmentSummary({
           : <div className="p-5 sm:p-6">
             <div className="mb-4 flex flex-col gap-3 border-l-2 border-primary pl-4 sm:flex-row sm:items-center sm:justify-between">
               <div><div className="text-sm font-bold">{row.depart_name}</div><div className="mt-1 font-[Space_Mono] text-[10px] text-muted-foreground">{row.depart_code} · Period {row.period_id} · {dateLabel(row.period_from)} – {dateLabel(row.period_to)}</div></div>
-              <div className="flex flex-wrap items-center gap-2 text-xs"><span className="rounded-md bg-secondary px-2.5 py-1.5 font-semibold text-primary">{row.total_risks} active risks expected</span><span data-testid="risk-summary-progress" className="rounded-md border border-border px-2.5 py-1.5">{assessedRecords.length} of {row.total_risks} assessed</span></div>
+               <div className="flex flex-wrap items-center gap-2 text-xs"><span className="rounded-md bg-secondary px-2.5 py-1.5 font-semibold text-primary">{row.total_risks} active risks expected</span><span data-testid="risk-summary-progress" className="rounded-md border border-border px-2.5 py-1.5">{readiness.complete ? readiness.data?.assessed_risks : row.assessed_risks ?? 0} of {readiness.complete ? readiness.data?.total_active_risks : row.total_risks} assessed</span></div>
             </div>
 
             {activeRecordsQuery.isLoading ? <div className="py-4"><SkeletonRows /></div>
               : recordsFailed ? <ErrorNotice message={recordsError || 'Could not load the complete risk list.'} onRetry={() => activeRecordsQuery.refetch()} />
-                : listShort ? <div className="mb-4"><ErrorNotice message={`The register returned ${activeRecords.length} active risks, but the department summary expects ${row.total_risks}. Submission is blocked until the complete cycle is returned.`} onRetry={() => activeRecordsQuery.refetch()} /></div>
+                 : listShort ? <div className="mb-4"><ErrorNotice message={`This preview returned ${activeRecords.length} of ${row.total_risks} active risks. Submission readiness is checked separately across the complete register.`} onRetry={() => activeRecordsQuery.refetch()} /></div>
                   : assessedRecords.length === 0 ? <div className="py-4"><EmptyState title="No current assessments saved" description="Choose a risk above and click Save Assessment. Successfully saved assessments will appear here; unfinished risks remain in the assessment list." /></div>
                     : <div className="overflow-x-auto rounded-xl border border-border">
                       <table className="w-full min-w-[1120px] text-left text-sm">
@@ -208,16 +201,7 @@ export default function RiskAssessmentSummary({
                   {canSubmit ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <ArrowRight className="mt-0.5 h-4 w-4 shrink-0" />}
                   <span>{canSubmit ? `Ready to forward this register to ${recipientName}.` : blockedReason}</span>
                 </div>
-                {scopeKey && row && <RiskSubmissionGate
-                  key={scopeKey}
-                  username={options.actor.username}
-                  departCode={row.depart_code}
-                  periodId={Number(row.period_id)}
-                  ownerAssigned={activeOwner}
-                  enabled={isOpen && isChampion && activeOwner && !loading && !error && !activeRecordsQuery.isLoading && !activeRecordsQuery.isFetching && !recordsFailed && !listShort}
-                  expectedRiskCount={row.total_risks}
-                  onReady={(ready, label) => setReadiness(previous => previous.key === scopeKey && previous.ready === ready && previous.label === label ? previous : { key: scopeKey, ready, label })}
-                />}
+                 {(readiness.failed || (!readiness.waiting && !readiness.complete)) && <button className="mt-2 text-xs font-bold underline" onClick={() => readiness.query.refetch()}>Retry readiness check</button>}
               </div>
               <button type="button" data-testid="button-submit-risk-summary" disabled={!canSubmit} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-bold text-primary-foreground transition hover:brightness-95 disabled:pointer-events-none disabled:opacity-45" onClick={() => row && canSubmit && onSubmit(row)}>
                 <Send className="h-4 w-4" />Submit for review

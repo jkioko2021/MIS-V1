@@ -490,6 +490,22 @@ export interface RiskOptionsResponse {
   data: RiskOptionsResponseData;
 }
 
+export type RiskReadinessResponseData = {
+  depart_code: string;
+  period_id: number;
+  /** @minimum 0 */
+  total_active_risks: number;
+  /** @minimum 0 */
+  assessed_risks: number;
+  /** @minimum 0 */
+  risks_missing_root_causes: number;
+};
+
+export interface RiskReadinessResponse {
+  ok: boolean;
+  data: RiskReadinessResponseData;
+}
+
 /**
  * Counts across the full authorized filtered scope, before the 500-record display limit.
  */

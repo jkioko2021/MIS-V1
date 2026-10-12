@@ -59,5 +59,5 @@ test("page choices and account state are isolated; query caches retain actor key
   assert.match(workspace, /<RiskRegisterWorkspace key=\{user\?\.username \?\? ''\}/);
   assert.match(workspace, /savedOptions\?\.actor\?\.username === username/);
   assert.match(hooks, /\[\.\.\.key, 'actor', username\]/);
-  assert.equal((hooks.match(/const key = identityKey\(username,/g) ?? []).length, 5);
+  assert.equal((hooks.match(/const key = identityKey\(username,/g) ?? []).length, 6);
 });

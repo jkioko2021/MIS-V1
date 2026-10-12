@@ -1,9 +1,10 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import {
   getGetRiskRegisterHistoryQueryKey,
   getGetRiskRegisterOptionsQueryKey,
   getGetRiskRegisterRecordQueryKey,
   getGetRiskRegisterSummaryQueryKey,
+  getGetRiskRegisterReadinessQueryKey,
   getListRiskRegisterRecordsQueryKey,
   useAssignRiskRegisterTeam,
   useCloseRiskRegisterPeriod,
@@ -13,6 +14,7 @@ import {
   useGetRiskRegisterOptions,
   useGetRiskRegisterRecord,
   useGetRiskRegisterSummary,
+  useGetRiskRegisterReadiness,
   useListRiskRegisterRecords,
   useOpenRiskRegisterPeriod,
   useSaveRiskRegisterRootCause,
@@ -26,6 +28,19 @@ function useRiskMutationOptions() {
   const client = useQueryClient();
   return {
     mutation: {
+      mutationKey: ['risk-register-write'],
+      onMutate: async () => {
+        await client.cancelQueries({
+          predicate: query => query.queryKey.some(part => typeof part === 'string' && part.startsWith('/api/risk-register/readiness/')),
+        });
+        await client.invalidateQueries({
+          predicate: query => query.queryKey.some(part => typeof part === 'string' && part.startsWith('/api/risk-register/readiness/')),
+          refetchType: 'none',
+        });
+      },
+      onSettled: () => client.invalidateQueries({
+        predicate: query => query.queryKey.some(part => typeof part === 'string' && part.startsWith('/api/risk-register/readiness/')),
+      }),
       onSuccess: () => client.invalidateQueries({
         predicate: query => query.queryKey.some(part =>
           typeof part === 'string' && (part.startsWith('/api/risk-register') || part === 'risk-register'),
@@ -33,6 +48,17 @@ function useRiskMutationOptions() {
       }),
     },
   };
+}
+
+export function useRiskReadiness(username: string, departCode: string, periodId: number, enabled = true) {
+  const mutating = useIsMutating({ mutationKey: ['risk-register-write'] }) > 0;
+  const key = identityKey(username, getGetRiskRegisterReadinessQueryKey(departCode, periodId));
+  const query = useGetRiskRegisterReadiness(departCode, periodId, { query: {
+    enabled: enabled && Boolean(username && departCode && periodId) && !mutating,
+    queryKey: key, staleTime: 10_000, gcTime: 0, refetchInterval: 10_000,
+    refetchOnMount: 'always', refetchOnWindowFocus: 'always',
+  } });
+  return { ...query, mutating };
 }
 
 export function useRiskOptions(username: string) {

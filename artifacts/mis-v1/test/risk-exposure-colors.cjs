@@ -35,7 +35,8 @@ vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, '../s
     if (name === './risk-summary-causes') return { default: 'RiskSummaryCauses' };
     if (name === './use-risk-register') return { useRiskRecords: () => ({ data: { ok: true, data: records } }) };
     if (name === './risk-ui') return { dateLabel: value => value, envelopeData: value => value?.data, envelopeError: () => undefined, Field: 'Field' };
-    if (name === './risk-workflow' || name === 'lucide-react') return {};
+    if (name === './risk-workflow') return { useSubmissionReadiness: () => ({ ready: false, label: 'Checking readiness', query: {}, waiting: true }) };
+    if (name === 'lucide-react') return {};
     throw new Error(`Unexpected import: ${name}`);
   },
 });

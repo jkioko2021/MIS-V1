@@ -230,6 +230,19 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RiskOptionsResponse" }
+  /risk-register/readiness/{departCode}/{periodId}:
+    get:
+      operationId: getRiskRegisterReadiness
+      description: Submission readiness for one authorized department and reporting period, across all active risks without pagination.
+      parameters:
+        - { name: departCode, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 50 } }
+        - { name: periodId, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: Complete register readiness counts
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskReadinessResponse" }
   /risk-register/records:
     get:
       operationId: listRiskRegisterRecords
@@ -826,6 +839,20 @@ components:
             impact_factors: { type: array, items: { $ref: "#/components/schemas/RiskImpactFactor" } }
             likelihood_factors: { type: array, items: { $ref: "#/components/schemas/RiskLikelihoodFactor" } }
             exposure_bands: { type: array, items: { $ref: "#/components/schemas/RiskExposureBand" } }
+    RiskReadinessResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok: { type: boolean }
+        data:
+          type: object
+          required: [depart_code, period_id, total_active_risks, assessed_risks, risks_missing_root_causes]
+          properties:
+            depart_code: { type: string }
+            period_id: { type: integer }
+            total_active_risks: { type: integer, minimum: 0 }
+            assessed_risks: { type: integer, minimum: 0 }
+            risks_missing_root_causes: { type: integer, minimum: 0 }
     RiskRecordsResponse:
       type: object
       required: [ok, data, totals]

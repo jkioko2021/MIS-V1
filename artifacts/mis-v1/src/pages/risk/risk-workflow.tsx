@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { CalendarDays, ChevronDown, Clock3, History, LockKeyhole, UsersRound } from 'lucide-react';
-import type { RiskHistoryEvent, RiskLookup, RiskOptionsResponseData, RiskRecord, RiskRootCause, RiskDepartmentSummary } from '@workspace/api-client-react';
-import { useRiskRecord, useRiskRecords } from './use-risk-register';
+import type { RiskHistoryEvent, RiskLookup, RiskOptionsResponseData, RiskReadinessResponse, RiskDepartmentSummary } from '@workspace/api-client-react';
+import { useRiskReadiness } from './use-risk-register';
 import {
   buttonClass, dateLabel, EmptyState, envelopeData, envelopeError, ErrorNotice, Field, fieldClass,
   prettyKey, secondaryButton, SkeletonRows, Snapshot, StatusPill,
@@ -13,7 +13,6 @@ export function WorkflowPanel({ summaries, departments, assignments, period, act
   summaries: RiskDepartmentSummary[]; departments: RiskLookup[]; assignments: RiskLookup[]; period: string; actor?: RiskOptionsResponseData['actor']; manage: boolean;
   comments: string; setComments: (value: string) => void; mutating: boolean; onAction: (action: WorkflowAction, row?: RiskDepartmentSummary) => void; closeView?: boolean; openView?: boolean;
 }) {
-  const [submissionReadiness, setSubmissionReadiness] = useState<Record<string, { ready: boolean; label: string }>>({});
   const canReview = (row: RiskDepartmentSummary) => manage || Boolean(actor?.owner_departments.includes(row.depart_code));
   return <section className="rounded-2xl border border-border bg-card p-5">
     <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-[Manrope] text-lg font-bold">Department workflow</h3><p className="mt-1 text-xs text-muted-foreground">Actions are recorded with the signed-in MIS identity and retained in event history.</p></div><span className="rounded-md bg-secondary px-2 py-1 font-[Space_Mono] text-[10px] text-primary">PERIOD {period || 'NOT SELECTED'}</span></div>
@@ -26,9 +25,12 @@ export function WorkflowPanel({ summaries, departments, assignments, period, act
         const reviewed = /review/i.test(row.workflow_status);
         const signed = /sign/i.test(row.workflow_status);
         const closed = /closed/i.test(row.workflow_status);
-        const readinessKey = `${row.depart_code}:${row.period_id ?? period}`;
-        const read = submissionReadiness[readinessKey] ?? { ready: false, label: 'Checking active risks and root causes…' };
+        const readinessKey = `${actor?.username}:${row.depart_code}:${row.period_id ?? period}`;
         const ownerAssigned = assignments.some(item => item.depart_code === row.depart_code && Boolean(item.owner_username));
+        return <RiskSubmissionGate key={readinessKey} username={actor?.username ?? ''} departCode={row.depart_code}
+          periodId={row.period_id ?? Number(period)} ownerAssigned={ownerAssigned}
+          enabled={!closeView && !openView && !submitted && !reviewed && !signed && !closed}>
+          {read => {
         const canSubmit = (manage || Boolean(actor?.champion_departments.includes(row.depart_code))) && ownerAssigned && read.ready;
         const disableCommon = !period || !comments.trim() || mutating || !row.depart_code || !row.period_id;
         const actions: Array<{ id: WorkflowAction; label: string; show: boolean; allowed: boolean; reason: string }> = openView ? [
@@ -44,64 +46,59 @@ export function WorkflowPanel({ summaries, departments, assignments, period, act
           { id: 'PROCESS', label: 'Process rankings', show: reviewed || signed, allowed: manage && Number(row.assessed_risks ?? 0) > 0, reason: 'Management only; rankings can be recomputed after assessment.' },
           { id: 'REOPEN', label: 'Reopen', show: closed, allowed: manage, reason: 'Management only. History is preserved.' },
         ];
-        return <div key={readinessKey} className="py-4">
-          {!closeView && !openView && <RiskSubmissionGate username={actor?.username ?? ''} departCode={row.depart_code} periodId={row.period_id ?? Number(period)} ownerAssigned={ownerAssigned} expectedRiskCount={row.total_risks} enabled={!submitted && !reviewed && !signed && !closed} onReady={(ready, label) => setSubmissionReadiness(previous => ({ ...previous, [readinessKey]: { ready, label } }))} />}
+        return <div className="py-4">
           <div className="flex flex-col gap-3 pt-2 lg:flex-row lg:items-center">
             <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{row.depart_name}</div><div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground"><span>{row.total_risks} risks</span><span>{row.assessed_risks ?? 0} assessed</span><span>{row.open_actions ?? 0} open actions</span><span>{row.overdue_actions ?? 0} overdue</span></div></div>
             <StatusPill status={row.workflow_status} />
             <div className="flex flex-wrap gap-1.5">{actions.filter(item => item.show).map(item => <button key={item.id} title={item.reason} disabled={!item.allowed || disableCommon || !row.period_id} className={item.id === 'RETURN' || item.id === 'REOPEN' ? secondaryButton : buttonClass} onClick={() => onAction(item.id, row)}>{item.label}</button>)}</div>
           </div>
         </div>;
+          }}
+        </RiskSubmissionGate>;
       })}
     </div>}
     <p className="mt-3 text-[11px] text-muted-foreground">{departments.length} mapped department{departments.length === 1 ? '' : 's'} · disabled actions require their role, register state, period and a comment.</p>
   </section>;
 }
 
-type RiskReadinessState = 'loading' | 'ready' | 'missing' | 'error';
-export function RiskSubmissionGate({ username, departCode, periodId, ownerAssigned, enabled, onReady, expectedRiskCount }: {
-  username: string; departCode: string; periodId: number; ownerAssigned: boolean; enabled: boolean; onReady: (ready: boolean, label: string) => void;
-  expectedRiskCount?: number;
-}) {
-  const listQuery = useRiskRecords(username, { access: 'update', depart_code: departCode, period_id: periodId, view: 'open' }, enabled && ownerAssigned && Boolean(periodId));
-  const records = envelopeData<RiskRecord[]>(listQuery.data);
-  const activeRecords = (records ?? []).filter(record => record.is_active !== false);
-  const [statuses, setStatuses] = useState<Record<string, RiskReadinessState>>({});
-  const onReadyRef = useMemo(() => ({ current: onReady }), []);
-  onReadyRef.current = onReady;
-  const listError = listQuery.data ? envelopeError(listQuery.data) : undefined;
-  const listFailed = listQuery.isError || Boolean(listError);
-  const detailFailed = activeRecords.some(record => statuses[record.risk_code] === 'error');
-  const waiting = enabled && ownerAssigned && (listQuery.isLoading || listQuery.isFetching || !records || activeRecords.some(record => !statuses[record.risk_code] || statuses[record.risk_code] === 'loading'));
-  const completeList = expectedRiskCount === undefined || activeRecords.length === expectedRiskCount;
-  const ready = enabled && ownerAssigned && !waiting && !listFailed && completeList && activeRecords.length > 0 && activeRecords.every(record => record.assessment_updated && statuses[record.risk_code] === 'ready');
-  const label = !ownerAssigned ? 'No active owner is mapped for this department. Contact management to assign an owner before submitting.'
-    : listFailed ? 'Could not verify assessment and root-cause readiness. Retry the register query.'
-    : detailFailed ? 'Could not verify one or more risk details. Reload the register before submitting.'
-      : waiting ? 'Checking active risks and root causes…'
-        : !completeList ? 'The complete register could not be loaded. Reload before submitting; every active risk must be checked.'
-        : activeRecords.length === 0 ? 'No active risks are available to submit.'
-          : ready ? 'All active risks are assessed and have a root cause.'
-            : 'Complete every active assessment and add at least one root cause before submitting.';
-  useEffect(() => { onReadyRef.current(ready, label); }, [ready, label]);
-  if (!enabled) return null;
-  return <div className={`flex flex-wrap items-center gap-2 rounded-md px-3 py-2 text-[11px] ${ready ? 'bg-emerald-50 text-emerald-900' : listFailed ? 'bg-rose-50 text-rose-900' : 'bg-amber-50 text-amber-900'}`} data-testid={`submit-readiness-${departCode}`}>
-    <span className={`h-1.5 w-1.5 rounded-full ${ready ? 'bg-emerald-600' : listFailed ? 'bg-rose-600' : 'bg-amber-600'}`} />{label}
-    {listFailed && <button className="font-bold underline" onClick={() => listQuery.refetch()}>Retry</button>}
-    {activeRecords.map(record => <RiskReadinessCheck key={record.risk_code} username={username} riskCode={record.risk_code} onStatus={(code, state) => setStatuses(previous => previous[code] === state ? previous : { ...previous, [code]: state })} />)}
-  </div>;
+type SubmissionScope = {
+  username: string; departCode: string; periodId: number; ownerAssigned: boolean; enabled: boolean;
+};
+
+export function useSubmissionReadiness({ username, departCode, periodId, ownerAssigned, enabled }: SubmissionScope) {
+  const query = useRiskReadiness(username, departCode, periodId, enabled && ownerAssigned);
+  return submissionReadiness(query, { username, departCode, periodId, ownerAssigned, enabled });
 }
 
-function RiskReadinessCheck({ username, riskCode, onStatus }: { username: string; riskCode: string; onStatus: (code: string, state: RiskReadinessState) => void }) {
-  const query = useRiskRecord(username, riskCode);
-  const detail = envelopeData<{ risk: RiskRecord; root_causes: RiskRootCause[] }>(query.data);
-  const failure = query.data ? envelopeError(query.data) : undefined;
-  const status: RiskReadinessState = query.isLoading || query.isFetching ? 'loading' : query.isError || failure || !detail ? 'error'
-    : detail.risk.assessment_updated && detail.root_causes.length > 0 ? 'ready' : 'missing';
-  const callback = useMemo(() => ({ current: onStatus }), []);
-  callback.current = onStatus;
-  useEffect(() => { callback.current(riskCode, status); }, [riskCode, status]);
-  return null;
+export function submissionReadiness(query: ReturnType<typeof useRiskReadiness>, { username, departCode, periodId, ownerAssigned, enabled }: SubmissionScope) {
+  const data = envelopeData<RiskReadinessResponse['data']>(query.data);
+  const failed = query.isError || Boolean(query.data && envelopeError(query.data));
+  const complete = data?.depart_code === departCode && data.period_id === periodId &&
+    [data.total_active_risks, data.assessed_risks, data.risks_missing_root_causes].every(n => Number.isSafeInteger(n) && n >= 0) &&
+    data.assessed_risks <= data.total_active_risks && data.risks_missing_root_causes <= data.total_active_risks;
+  const waiting = query.isLoading || query.isFetching || query.isStale || query.isPlaceholderData || query.mutating || !data;
+  const ready = Boolean(username && enabled && ownerAssigned && query.isSuccess && query.data?.ok === true &&
+    !waiting && !failed && complete && data && data.total_active_risks > 0 &&
+    data.assessed_risks === data.total_active_risks && data.risks_missing_root_causes === 0);
+  const label = !ownerAssigned ? 'No active owner is mapped for this department. Contact management to assign an owner before submitting.'
+    : failed ? 'Could not verify assessment and root-cause readiness. Retry the readiness query.'
+      : waiting ? 'Checking active risks and root causes…'
+        : !complete ? 'The complete register could not be verified. Retry before submitting.'
+        : data?.total_active_risks === 0 ? 'No active risks are available to submit.'
+          : ready ? 'All active risks are assessed and have a root cause.'
+            : 'Complete every active assessment and add at least one root cause before submitting.';
+  return { ready, label, query, failed, waiting, complete, data };
+}
+
+export function RiskSubmissionGate({ children, ...scope }: SubmissionScope & {
+  children?: (readiness: { ready: boolean; label: string }) => ReactNode;
+}) {
+  const { ready, label, query, failed, waiting, complete } = useSubmissionReadiness(scope);
+  const { enabled, departCode } = scope;
+  return <>{enabled && <div className={`flex flex-wrap items-center gap-2 rounded-md px-3 py-2 text-[11px] ${ready ? 'bg-emerald-50 text-emerald-900' : failed ? 'bg-rose-50 text-rose-900' : 'bg-amber-50 text-amber-900'}`} data-testid={`submit-readiness-${departCode}`}>
+    <span className={`h-1.5 w-1.5 rounded-full ${ready ? 'bg-emerald-600' : failed ? 'bg-rose-600' : 'bg-amber-600'}`} />{label}
+    {(failed || (!waiting && !complete)) && <button className="font-bold underline" onClick={() => query.refetch()}>Retry</button>}
+  </div>}{children?.({ ready, label })}</>;
 }
 
 export function SummaryTable({ rows, loading, error, retry, title = 'Department exposure & sign-off' }: { rows: RiskDepartmentSummary[]; loading: boolean; error: string; retry: () => void; title?: string }) {

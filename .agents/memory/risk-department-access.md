@@ -38,3 +38,9 @@ Do not show a Closed Archives navigation list; keep closed-register records acce
 **Why:** The user asked to remove the archived list, not to delete closed risks or their notes.
 
 **How to apply:** Remove the archive menu and tab without deleting records or removing the register-close workflow.
+
+Submission-readiness performance and risk-list pagination are separate scopes.
+
+**Why:** The user explicitly requested readiness across the whole database result without including the separately proposed pagination work.
+
+**How to apply:** Do not expand a readiness-performance request into risk-list pagination unless the user explicitly includes it.

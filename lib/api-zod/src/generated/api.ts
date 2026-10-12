@@ -465,6 +465,39 @@ export const GetRiskRegisterOptionsResponse = zod.object({
 })
 
 
+/**
+ * Submission readiness for one authorized department and reporting period, across all active risks without pagination.
+ */
+export const getRiskRegisterReadinessPathDepartCodeMax = 50;
+
+
+
+
+export const GetRiskRegisterReadinessParams = zod.object({
+  "departCode": zod.coerce.string().min(1).max(getRiskRegisterReadinessPathDepartCodeMax),
+  "periodId": zod.coerce.number().int().min(1)
+})
+
+export const getRiskRegisterReadinessResponseDataTotalActiveRisksMin = 0;
+
+export const getRiskRegisterReadinessResponseDataAssessedRisksMin = 0;
+
+export const getRiskRegisterReadinessResponseDataRisksMissingRootCausesMin = 0;
+
+
+
+export const GetRiskRegisterReadinessResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.object({
+  "depart_code": zod.string(),
+  "period_id": zod.number().int(),
+  "total_active_risks": zod.number().int().min(getRiskRegisterReadinessResponseDataTotalActiveRisksMin),
+  "assessed_risks": zod.number().int().min(getRiskRegisterReadinessResponseDataAssessedRisksMin),
+  "risks_missing_root_causes": zod.number().int().min(getRiskRegisterReadinessResponseDataRisksMissingRootCausesMin)
+})
+})
+
+
 export const ListRiskRegisterRecordsQueryParams = zod.object({
   "access": zod.enum(['view', 'update', 'review']).optional().describe('Department role scope for the requested workspace'),
   "depart_code": zod.coerce.string().optional(),

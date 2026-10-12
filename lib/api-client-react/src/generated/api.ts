@@ -52,6 +52,7 @@ import type {
   RiskMutationResponse,
   RiskOptionsResponse,
   RiskPeriodInput,
+  RiskReadinessResponse,
   RiskRecordInput,
   RiskRecordResponse,
   RiskRecordsResponse,
@@ -913,6 +914,85 @@ export function useGetRiskRegisterOptions<TData = Awaited<ReturnType<typeof getR
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetRiskRegisterOptionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetRiskRegisterReadinessUrl = (departCode: string,
+    periodId: number,) => {
+
+
+
+
+  return `/api/risk-register/readiness/${departCode}/${periodId}`
+}
+
+/**
+ * Submission readiness for one authorized department and reporting period, across all active risks without pagination.
+ */
+export const getRiskRegisterReadiness = async (departCode: string,
+    periodId: number, options?: Parameters<typeof customFetch>[1]): Promise<RiskReadinessResponse> => {
+
+  return customFetch<RiskReadinessResponse>(getGetRiskRegisterReadinessUrl(departCode,periodId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRiskRegisterReadinessQueryKey = (departCode: string,
+    periodId: number,) => {
+    return [
+    `/api/risk-register/readiness/${departCode}/${periodId}`
+    ] as const;
+    }
+
+
+export const getGetRiskRegisterReadinessQueryOptions = <TData = Awaited<ReturnType<typeof getRiskRegisterReadiness>>, TError = ErrorType<unknown>>(departCode: string,
+    periodId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRiskRegisterReadiness>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRiskRegisterReadinessQueryKey(departCode,periodId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRiskRegisterReadiness>>> = ({ signal }) => getRiskRegisterReadiness(departCode,periodId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: departCode !== null && departCode !== undefined && periodId !== null && periodId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRiskRegisterReadiness>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRiskRegisterReadinessQueryResult = NonNullable<Awaited<ReturnType<typeof getRiskRegisterReadiness>>>
+export type GetRiskRegisterReadinessQueryError = ErrorType<unknown>
+
+
+
+export function useGetRiskRegisterReadiness<TData = Awaited<ReturnType<typeof getRiskRegisterReadiness>>, TError = ErrorType<unknown>>(
+ departCode: string,
+    periodId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRiskRegisterReadiness>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRiskRegisterReadinessQueryOptions(departCode,periodId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
