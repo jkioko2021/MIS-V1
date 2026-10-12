@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { txQuery, withTransaction } from "../lib/postgres";
+import { activeDepartmentOwner, queueRiskReviewNotification } from "../lib/risk-notifications";
 import {
   RiskError, type RiskActor, riskFailure, assertDepartment, canManage, cycleInput,
   workflowState, period, cycle, history, calculateRisk,
@@ -13,7 +14,7 @@ riskWorkflowRouter.post("/risk-register/workflow",async(req,res)=>{
     const mode=input.action==="SUBMIT" ? "edit" : ["REVIEW","RETURN"].includes(input.action) ? "review" : "manage";
     assertDepartment(a,input.depart_code,mode);
     const data=await withTransaction(async client=>{
-      const [department]=await txQuery(client,"SELECT depart_code FROM risk.departments WHERE depart_code=$1 AND is_active",[input.depart_code]);
+      const [department]=await txQuery<{depart_code:string;depart_name:string}>(client,"SELECT depart_code,depart_name FROM risk.departments WHERE depart_code=$1 AND is_active",[input.depart_code]);
       if(!department) throw new RiskError(404,"Active risk department was not found.");
       const p=await period(client,input.period_id,input.action==="REOPEN");
       const s=await cycle(client,input.depart_code,p),state=workflowState(s);
@@ -23,13 +24,8 @@ riskWorkflowRouter.post("/risk-register/workflow",async(req,res)=>{
         ORDER BY risk_code FOR UPDATE OF r`,[input.depart_code,p.period_from,p.period_to]);
       if(!risks.length) throw new RiskError(409,"Register at least one active risk before processing the department.");
       if(input.action==="SUBMIT" && state!=="OPEN") throw new RiskError(409,"Only an open register can be submitted.");
-      if(input.action==="SUBMIT"){
-        const owner=await txQuery(client,`SELECT e.username FROM risk.department_assignments a
-          JOIN crm.employees e ON e.username=a.owner_username JOIN crm.profiles p ON p.profile_id=e.profile_id
-          WHERE a.depart_code=$1 AND e.activated AND e.approved AND NOT e.employee_locked AND NOT e.is_deleted AND p.is_active`,
-        [input.depart_code]);
-        if(!owner.length) throw new RiskError(409,"Map an active department owner before submitting for review.");
-      }
+      const owner=input.action==="SUBMIT" ? await activeDepartmentOwner(client,input.depart_code) : undefined;
+      if(input.action==="SUBMIT" && !owner) throw new RiskError(409,"Map an active department owner before submitting for review.");
       if(input.action==="REVIEW" && state!=="SUBMITTED") throw new RiskError(409,"The register must be submitted before review.");
       if(input.action==="RETURN" && !["SUBMITTED","REVIEWED"].includes(state)) throw new RiskError(409,"Only submitted or reviewed registers can be returned.");
       if(input.action==="SIGN_OFF" && state!=="REVIEWED") throw new RiskError(409,"The department owner must review before sign-off.");
@@ -79,7 +75,12 @@ riskWorkflowRouter.post("/risk-register/workflow",async(req,res)=>{
         {before:s,after,risks,root_causes:await txQuery(client,`SELECT c.* FROM risk.root_causes c JOIN risk.risk_master r
           ON r.risk_code=c.risk_code WHERE r.depart_code=$1 AND r.period_from=$2 AND r.period_to=$3`,
         [input.depart_code,p.period_from,p.period_to])});
-      return {workflow_status:workflowState(after)};
+      const notification=owner ? await queueRiskReviewNotification(client,{
+        summaryId:after.summary_id,department:input.depart_code,
+        departmentName:department.depart_name,periodId:p.period_id,periodFrom:p.period_from,periodTo:p.period_to,
+        submittedBy:a.username,owner,
+      }) : undefined;
+      return {workflow_status:workflowState(after),...(notification ? {notification} : {})};
     });
     res.json({ok:true,data});
   }catch(err){riskFailure(req,res,err);}

@@ -181,7 +181,12 @@ function RiskRegisterWorkspace() {
     workflow.mutate({ data: { depart_code, period_id, action, comments: comments.trim() } }, {
       onSuccess: response => announce(response, action === 'RETURN' || action === 'REOPEN'
         ? `${action.replace('_', ' ')} recorded. All department risks require reassessment; saved scores, root causes and prior history remain.`
-        : action === 'SUBMIT' ? 'Department register forwarded for Risk Owner review.'
+        : action === 'SUBMIT' ? `Department register forwarded for Risk Owner review. ${
+          (envelopeData<{ notification?: { email_status?: string } }>(response)?.notification?.email_status === 'WAITING_CONFIGURATION')
+            ? 'Owner email is not sent: configure a verified email sender.'
+            : (envelopeData<{ notification?: { email_status?: string } }>(response)?.notification?.email_status === 'NO_RECIPIENT')
+              ? 'Owner email is not sent: their email address is missing or invalid.'
+              : 'Owner email is queued; delivery status is shown in Department Summary.'}`
           : `${action.replace('_', ' ')} recorded.`),
       onError: error => setMutationError(queryError(error)),
     });

@@ -550,6 +550,10 @@ export interface RiskDepartmentSummary {
   max_exposure?: string | null;
   open_actions?: number;
   overdue_actions?: number;
+  /** @nullable */
+  review_email_status?: string | null;
+  /** @nullable */
+  review_email_error?: string | null;
   workflow_status: string;
   period_id?: number;
   period_from?: string;

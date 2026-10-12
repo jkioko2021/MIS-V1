@@ -897,6 +897,8 @@ components:
         max_exposure: { type: [string, "null"] }
         open_actions: { type: integer }
         overdue_actions: { type: integer }
+        review_email_status: { type: [string, "null"] }
+        review_email_error: { type: [string, "null"] }
         workflow_status: { type: string }
         period_id: { type: integer }
         period_from: { type: string, format: date }

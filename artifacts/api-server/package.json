@@ -9,6 +9,7 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "test": "node --test test/*.test.mjs",
     "test:auth-concurrency": "node test/auth-concurrency.integration.mjs",
+    "test:risk-notifications": "node test/risk-notifications.integration.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

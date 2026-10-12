@@ -104,7 +104,27 @@ export function RiskSubmissionGate({ children, ...scope }: SubmissionScope & {
 export function SummaryTable({ rows, loading, error, retry, title = 'Department exposure & sign-off' }: { rows: RiskDepartmentSummary[]; loading: boolean; error: string; retry: () => void; title?: string }) {
   return <section className="overflow-hidden rounded-2xl border border-border bg-card"><div className="border-b border-border p-5"><p className="text-[10px] font-bold uppercase tracking-[.16em] text-primary">Read-only MIS status</p><h3 className="mt-1 font-[Manrope] text-xl font-bold">{title}</h3></div>
     {loading ? <div className="p-4"><SkeletonRows /></div> : error ? <div className="p-4"><ErrorNotice message={error} onRetry={retry} /></div> : rows.length ? <div className="overflow-x-auto"><table className="w-full min-w-[800px] text-left text-sm"><thead className="bg-muted/60 text-[10px] uppercase tracking-wider text-muted-foreground"><tr>{['Department', 'Period', 'Exposure · avg / max', 'Assessed', 'Open actions', 'Overdue', 'Workflow'].map(label => <th key={label} className="px-4 py-3 font-bold">{label}</th>)}</tr></thead><tbody className="divide-y divide-border">{rows.map(row => <tr key={`${row.depart_code}:${row.period_id}`} data-testid={`summary-department-${row.depart_code}-${row.period_id}`}><td className="px-4 py-4"><strong>{row.depart_name}</strong><div className="font-[Space_Mono] text-[10px] text-muted-foreground">{row.depart_code}</div></td><td className="px-4 py-4 text-xs">{dateLabel(row.period_from)} – {dateLabel(row.period_to)}</td><td className="px-4 py-4 font-[Space_Mono] text-xs">{row.avg_exposure ?? '—'} <span className="text-muted-foreground">/</span> {row.max_exposure ?? '—'}</td><td className="px-4 py-4">{row.assessed_risks ?? 0} <span className="text-muted-foreground">/ {row.total_risks}</span></td><td className="px-4 py-4">{row.open_actions ?? 0}</td><td className="px-4 py-4">{row.overdue_actions ?? 0}</td><td className="px-4 py-4"><StatusPill status={row.workflow_status} /></td></tr>)}</tbody></table></div> : <div className="p-4"><EmptyState title="No summaries available" description="The selected period has no department summary data." /></div>}
+    {!loading && !error && rows.some(row => row.review_email_status) && <div className="border-t border-border p-4 text-xs" aria-label="Risk Owner email delivery">
+      <h4 className="mb-2 font-semibold">Risk Owner email delivery</h4>
+      {rows.filter(row => row.review_email_status).map(row => <div key={`${row.depart_code}:${row.period_id}`} className="mb-2">
+        <strong>{row.depart_name}</strong> · {dateLabel(row.period_from)} – {dateLabel(row.period_to)}: {reviewEmailLabel(row.review_email_status)}
+        {row.review_email_error && <p className="mt-1 text-muted-foreground">{row.review_email_error}</p>}
+      </div>)}
+      <p className="text-muted-foreground">Email delivery is separate from the saved register submission.</p>
+    </div>}
   </section>;
+}
+
+function reviewEmailLabel(status: string | null | undefined) {
+  return ({
+    PENDING: 'Email queued.',
+    WAITING_CONFIGURATION: 'Not sent: verified email sender is not configured.',
+    NO_RECIPIENT: 'Not sent: owner email address is missing or invalid.',
+    SENT: 'Email accepted by the provider.',
+    RETRY: 'Email delivery failed; an automatic retry is scheduled.',
+    FAILED: 'Email delivery failed after five attempts.',
+    CANCELLED: 'Not sent: owner authorization or review availability changed.',
+  } as Record<string, string>)[status ?? ''] ?? 'Delivery status unavailable.';
 }
 
 export function OpenPeriods({ options, manage, mutating, onOpen }: { options: RiskOptionsResponseData; manage: boolean; mutating: boolean; onOpen: (data: { period_from: string; period_to: string; source_period_id?: number }) => void }) {

@@ -772,6 +772,8 @@ export const GetRiskRegisterSummaryResponse = zod.object({
   "max_exposure": zod.string().nullish(),
   "open_actions": zod.number().int().optional(),
   "overdue_actions": zod.number().int().optional(),
+  "review_email_status": zod.string().nullish(),
+  "review_email_error": zod.string().nullish(),
   "workflow_status": zod.string(),
   "period_id": zod.number().int().optional(),
   "period_from": zod.coerce.date().optional(),

@@ -245,6 +245,10 @@ router.get("/risk-register/summary",async(req,res)=>{
       round(avg(r.r_risk_exposure),2) AS avg_exposure,max(r.r_risk_exposure) AS max_exposure,
       COALESCE(sum(actions.open_actions),0)::integer AS open_actions,
       COALESCE(sum(actions.overdue_actions),0)::integer AS overdue_actions,
+      (SELECT n.email_status FROM risk.review_notifications n WHERE n.summary_id=s.summary_id
+        AND n.submitted_at=s.submitted_at) AS review_email_status,
+      (SELECT n.email_error FROM risk.review_notifications n WHERE n.summary_id=s.summary_id
+        AND n.submitted_at=s.submitted_at) AS review_email_error,
       COALESCE(s.submitted,FALSE) AS submitted,COALESCE(s.reviewed,FALSE) AS reviewed,
       COALESCE(s.sign_off,FALSE) AS sign_off,(COALESCE(s.closed,FALSE) OR p.status='CLOSED') AS closed
       FROM risk.departments d CROSS JOIN risk.periods p
