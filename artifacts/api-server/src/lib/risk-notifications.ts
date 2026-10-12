@@ -1,7 +1,8 @@
 import type { PoolClient } from "pg";
 import { txQuery, withTransaction } from "./postgres";
-import { sendResendEmail, type EmailSender } from "./business-notifications";
+import { configuredEmailSender, sendResendEmail, type EmailSender } from "./business-notifications";
 import { logger } from "./logger";
+import { riskReviewLink } from "./risk-review-link";
 
 const validEmail = (email: unknown): email is string =>
   typeof email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -11,7 +12,7 @@ export function riskReviewEmailReadiness(owner: { email: string | null } | undef
   return {
     active_owner_available: Boolean(owner),
     owner_email_usable: Boolean(owner && validEmail(owner.email)),
-    sender_configured: Boolean(process.env.MIS_EMAIL_FROM?.trim()),
+    sender_configured: Boolean(configuredEmailSender()),
   };
 }
 
@@ -32,11 +33,11 @@ export async function queueRiskReviewNotification(client: PoolClient, input: {
   periodId: number; periodFrom: string; periodTo: string; submittedBy: string;
   owner: { username: string; email: string | null };
 }) {
+  const link = riskReviewLink(input.department, input.periodId);
   const readiness = riskReviewEmailReadiness(input.owner);
   const status = !readiness.owner_email_usable ? "NO_RECIPIENT"
-    : readiness.sender_configured ? "PENDING" : "WAITING_CONFIGURATION";
+    : readiness.sender_configured && link ? "PENDING" : "WAITING_CONFIGURATION";
   // No risk snapshots, import identifiers, comments, or other departments enter the email.
-  // Navigation instructions do not need a deployment URL and never bypass sign-in.
   const title = `Action required: Review ${input.departmentName} risk register`;
   const message = `Hello ${input.owner.username},
 
@@ -47,6 +48,7 @@ Reporting period: ${input.periodFrom} to ${input.periodTo}
 Submitted by: ${input.submittedBy}
 
 Please review the risk details, root causes, action plans and saved risk assessments.
+${link ? `\nOpen the submitted register (sign-in required):\n${link}\n` : ""}
 
 To complete your review:
 1. Sign in to MIS.
@@ -66,9 +68,10 @@ MIS Risk Management`;
 }
 
 export async function dispatchRiskReviewEmails(send: EmailSender = sendResendEmail, from = process.env.MIS_EMAIL_FROM?.trim()) {
+  from = configuredEmailSender(from);
   return withTransaction(async client => {
     const rows = await txQuery<{
-      notification_id: number; summary_id: number; submitted_at: string; depart_code: string;
+      notification_id: number; summary_id: number; submitted_at: string; depart_code: string; period_id: number;
       recipient_username: string; title: string; message: string; email_attempts: number;
     }>(client, `SELECT *,submitted_at::text FROM risk.review_notifications
       WHERE email_status IN ('PENDING','WAITING_CONFIGURATION','NO_RECIPIENT','RETRY')
@@ -87,13 +90,21 @@ export async function dispatchRiskReviewEmails(send: EmailSender = sendResendEma
           WHERE notification_id=$1`, [row.notification_id]);
         continue;
       }
-      if (!validEmail(owner.email) || !from) {
+      const link = riskReviewLink(row.depart_code, row.period_id);
+      if (!validEmail(owner.email) || !from || !link) {
         const status = !validEmail(owner.email) ? "NO_RECIPIENT" : "WAITING_CONFIGURATION";
         await txQuery(client, `UPDATE risk.review_notifications SET email_status=$2,
           email_error=$3,next_attempt_at=NOW()+INTERVAL '5 minutes' WHERE notification_id=$1`,
           [row.notification_id,status,status === "NO_RECIPIENT"
-            ? "Owner email address is missing or invalid." : "Configure a verified MIS_EMAIL_FROM sender."]);
+            ? "Owner email address is missing or invalid." : "Configure a verified MIS_EMAIL_FROM sender and a valid HTTPS MIS_PUBLIC_APP_URL for the published frontend."]);
         continue;
+      }
+      // Upgrade unsent plain-instruction notices after URL configuration. Persist
+      // the body before sending so retries keep the same idempotent content.
+      if (!row.message.includes("Open the submitted register (sign-in required):")) {
+        row.message += `\n\nOpen the submitted register (sign-in required):\n${link}`;
+        await txQuery(client, `UPDATE risk.review_notifications SET message=$2 WHERE notification_id=$1`,
+          [row.notification_id, row.message]);
       }
       try {
         await send({ from, to: owner.email.trim(), subject: row.title, text: row.message,

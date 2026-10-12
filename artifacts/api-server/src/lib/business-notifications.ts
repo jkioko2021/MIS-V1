@@ -10,13 +10,22 @@ export type EmailSender = (email: OutboundEmail) => Promise<void>;
 const validEmail = (value: unknown): value is string =>
   typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 
+// Accept a mailbox or "Display name <mailbox>"; a nonempty placeholder is not
+// sending configuration. Domain verification still belongs to the provider.
+export function configuredEmailSender(value = process.env.MIS_EMAIL_FROM): string | undefined {
+  if (!value || /[\r\n]/.test(value)) return undefined;
+  const sender = value.trim();
+  const match = sender.match(/^(?:[^<>]+<([^<>\s]+)>|([^<>\s]+))$/);
+  return match && validEmail(match[1] ?? match[2]) ? sender : undefined;
+}
+
 export async function queueMedicalNotification(
   client: PoolClient, fileNo: string, reviewId: number, tracker: string, action: "RI" | "D", comments: string,
 ) {
   const [employee] = await txQuery<{ email: string | null }>(client,
     `SELECT email FROM crm.employees WHERE username=$1 AND NOT is_deleted`, [tracker]);
   const emailStatus = !validEmail(employee?.email) ? "NO_RECIPIENT"
-    : process.env.MIS_EMAIL_FROM?.trim() ? "PENDING" : "WAITING_CONFIGURATION";
+    : configuredEmailSender() ? "PENDING" : "WAITING_CONFIGURATION";
   const title = action === "RI" ? "Medical review: returned incomplete" : "Medical review: declined";
   const message = `File ${fileNo} was ${action === "RI" ? "returned to your Register Queue for correction" : "declined by Medical Underwriting"}. Review notes: ${comments}`;
   await txQuery(client, `INSERT INTO crm.business_notifications
@@ -47,6 +56,7 @@ export const sendResendEmail: EmailSender = async email => {
 // The review and notification commit together. Delivery runs after commit,
 // independently of the staff request, and failures remain visible/retryable.
 export async function dispatchMedicalEmails(send: EmailSender = sendResendEmail, from = process.env.MIS_EMAIL_FROM?.trim()) {
+  from = configuredEmailSender(from);
   if (!from) return 0;
   return withTransaction(async client => {
     const rows = await txQuery<{
@@ -84,7 +94,7 @@ export async function dispatchMedicalEmails(send: EmailSender = sendResendEmail,
 export function startMedicalEmailWorker() {
   let busy = false;
   const tick = async () => {
-    if (busy || !process.env.MIS_EMAIL_FROM?.trim()) return;
+    if (busy || !configuredEmailSender()) return;
     busy = true;
     try { await dispatchMedicalEmails(); }
     catch (err) { logger.error({ err }, "Medical notification outbox unavailable"); }

@@ -205,6 +205,14 @@ try{
     assert.equal(Number(processed.risk.r_risk_exposure),13.33);
     await ok("/workflow","champion","POST",wf("SUBMIT"));
     await ok("/workflow","owner","POST",wf("REVIEW"));
+    const reviewedSummary = await ok(`/summary?depart_code=${f.department}&period_id=${f.period}`,"admin","GET");
+    assert.equal(reviewedSummary[0].workflow_status,"REVIEWED","Review forwards the register to sign-off without signing it off");
+    const reviewedRisk = await ok(`/records/${risk.risk_code}`,"owner","GET");
+    assert.equal(reviewedRisk.risk.workflow_status,"REVIEWED");
+    const signoffRecords = await ok(`/records?access=view&view=reviewed&depart_code=${f.department}&period_id=${f.period}`,"owner","GET");
+    assert(signoffRecords.some(row=>row.risk_code===risk.risk_code),"The department's reviewed risks are available to the Signoff summary");
+    assert(signoffRecords.every(row=>row.depart_code===f.department && row.period_id===f.period && row.workflow_status==="REVIEWED"),
+      "Signoff summary records stay within the selected department, reporting period and reviewed state");
     await ok("/workflow","admin","POST",wf("SIGN_OFF"));
     assert.equal((await api(`/periods/${f.period}/close`,"admin","POST",{comments:"Must reject unsigned department"})).status,409);
     await ok("/workflow","admin","POST",wf("CLOSE"));

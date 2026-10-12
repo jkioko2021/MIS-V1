@@ -3624,6 +3624,15 @@ The objective remains:
 
 ---
 
+## Risk Owner email links
+
+`MIS_PUBLIC_APP_URL` must be the verified published MIS frontend URL, including
+its base path (currently `/`). Obtain it from publishing metadata, not a workspace
+development domain. A missing or invalid HTTPS URL leaves owner emails waiting
+for configuration; it never prevents the register submission from being saved.
+Links contain only department and reporting-period identifiers, require normal
+sign-in, and use current server permissions and workflow status.
+
 ## User preferences
 
 **Agent operating mode — Minimize Usage Context**

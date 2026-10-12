@@ -40,12 +40,3 @@ immediate reminder while the register was still unsubmitted.
 **How to apply:** Identify the department, reporting period and submitter, explain
 where to review in MIS, and state how to record Review or Return with comments.
 Do not send a premature message claiming an unsubmitted register is available.
-
-Do not treat refusal to list Resend domains as proof that sending is unavailable.
-
-**Why:** A send-only credential can refuse domain inspection while still allowing
-email sending. Permission to inspect configuration is distinct from sendability.
-
-**How to apply:** Request a verified sender address through the environment
-settings flow when needed; do not replace or reconnect the sending integration
-merely to inspect domains. Confirm actual sends separately.

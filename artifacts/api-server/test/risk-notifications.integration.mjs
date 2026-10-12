@@ -19,8 +19,10 @@ const prefix = `nt${Date.now().toString(36)}`;
 const codes = [`${prefix}a`, `${prefix}b`, `${prefix}c`];
 const owner = `${prefix}_owner`, other = `${prefix}_other`, champion = `${prefix}_champ`;
 const oldFrom = process.env.MIS_EMAIL_FROM;
+const oldPublicUrl = process.env.MIS_PUBLIC_APP_URL;
 let server;
 try {
+  process.env.MIS_PUBLIC_APP_URL = "https://mis.example.test/mis/";
   await client.query("BEGIN");
   globalThis.__riskNotificationTest = { client, codes };
   await build({
@@ -143,6 +145,7 @@ try {
   assert.equal((await client.query("SELECT count(*)::int AS n FROM risk.department_summary WHERE depart_code=ANY($1::text[]) AND submitted", [codes])).rows[0].n, 2,
     "Email setup problems do not roll back submissions");
   process.env.MIS_EMAIL_FROM = "MIS Test <sender@example.test>";
+  process.env.MIS_PUBLIC_APP_URL = "https://mis.example.test/mis/";
   assert.equal((await readiness()).sender_configured, true);
   assert.equal((await readiness()).owner_email_usable, true, "Repaired configuration is reflected on refresh");
   for (const code of codes.slice(2)) {
@@ -167,6 +170,12 @@ try {
     assert.ok(sent[i].text.includes("2190-01-01 to 2190-03-31"));
     assert.ok(sent[i].text.includes(champion));
     assert.ok(sent[i].text.includes("/risk/review"));
+    const link = new URL(sent[i].text.match(/https:\/\/[^\s]+/)[0]);
+    assert.equal(link.origin, "https://mis.example.test");
+    assert.equal(link.pathname, "/mis/risk/review");
+    assert.deepEqual([...link.searchParams.keys()], ["depart_code", "period_id"]);
+    assert.equal(link.searchParams.get("depart_code"), codes[i]);
+    assert.equal(link.searchParams.get("period_id"), String(period));
     assert.ok(!sent[i].text.includes("Private"));
   }
   assert.equal(await lib.dispatchRiskReviewEmails(async email => sent.push(email)), 0);
@@ -179,8 +188,21 @@ try {
   assert.deepEqual(summary.data.map(row => row.depart_code).sort(), codes.slice(0, 2).sort());
   assert.ok(summary.data.every(row => row.review_email_status === "SENT"));
   assert.equal((await submit(codes[2], "REVIEW")).status, 403);
+  const linkedRead = async code => fetch(`${base}/risk-register/summary?access=review&depart_code=${code}&period_id=${period}`);
+  assert.deepEqual((await (await linkedRead(codes[1])).json()).data.map(row => row.depart_code), [codes[1]],
+    "email scope selects the second of a multi-department owner's departments");
+  assert.equal((await linkedRead(codes[2])).status, 403, "tampered department is forbidden");
+  await client.query("UPDATE risk.department_assignments SET owner_username=$1 WHERE depart_code=$2", [other,codes[1]]);
+  assert.equal((await linkedRead(codes[1])).status, 403, "stale links recheck current assignments");
+  await client.query("UPDATE risk.department_assignments SET owner_username=$1 WHERE depart_code=$2", [owner,codes[1]]);
   assert.equal((await notifications()).length, 3);
   assert.equal((await submit(codes[0], "RETURN")).status, 200);
+  assert.equal((await (await linkedRead(codes[0])).json()).data[0].workflow_status, "OPEN", "Return restores the open register");
+  assert.equal((await submit(codes[0], "REVIEW")).status, 409, "a returned register cannot be reviewed through an old link");
+  await client.query("UPDATE risk.department_summary SET closed=TRUE WHERE depart_code=$1", [codes[1]]);
+  assert.equal((await (await linkedRead(codes[1])).json()).data[0].workflow_status, "CLOSED");
+  assert.equal((await submit(codes[1], "REVIEW")).status, 409, "a closed register cannot be reviewed through an old link");
+  await client.query("UPDATE risk.department_summary SET closed=FALSE WHERE depart_code=$1", [codes[1]]);
   actorId = employees[champion];
   assert.equal((await submit(codes[0])).status, 409, "reassessment is still required");
   await client.query("UPDATE risk.risk_master SET assessment_updated=TRUE WHERE depart_code=$1", [codes[0]]);
@@ -230,6 +252,21 @@ try {
   delete process.env.MIS_EMAIL_FROM;
   await lib.dispatchRiskReviewEmails(async () => assert.fail("Sender is not configured"));
   assert.equal((await notifications()).at(-1).email_status, "WAITING_CONFIGURATION");
+  process.env.MIS_EMAIL_FROM = "MIS Test <sender@example.test>";
+  delete process.env.MIS_PUBLIC_APP_URL;
+  await client.query(`UPDATE risk.review_notifications SET next_attempt_at=NOW()
+    WHERE notification_id=(SELECT max(notification_id) FROM risk.review_notifications WHERE depart_code=$1)`, [codes[0]]);
+  await lib.dispatchRiskReviewEmails(async () => assert.fail("Published URL is not configured"));
+  assert.equal((await notifications()).at(-1).email_status, "WAITING_CONFIGURATION");
+  process.env.MIS_PUBLIC_APP_URL = "https://mis.example.test/mis/";
+  process.env.MIS_EMAIL_FROM = "get default";
+  await client.query(`UPDATE risk.review_notifications SET next_attempt_at=NOW()
+    WHERE notification_id=(SELECT max(notification_id) FROM risk.review_notifications WHERE depart_code=$1)`, [codes[0]]);
+  const attemptsBeforeInvalidSender = (await notifications()).at(-1).email_attempts;
+  await lib.dispatchRiskReviewEmails(async () => assert.fail("Invalid sender must never call the provider"));
+  assert.equal((await notifications()).at(-1).email_status, "WAITING_CONFIGURATION");
+  assert.equal((await notifications()).at(-1).email_attempts, attemptsBeforeInvalidSender);
+  delete process.env.MIS_EMAIL_FROM;
   await client.query("UPDATE crm.employees SET email=NULL WHERE username=$1", [owner]);
   await client.query(`UPDATE risk.review_notifications SET next_attempt_at=NOW()
     WHERE notification_id=(SELECT max(notification_id) FROM risk.review_notifications WHERE depart_code=$1)`, [codes[0]]);
@@ -252,6 +289,32 @@ try {
     WHERE notification_id=(SELECT max(notification_id) FROM risk.review_notifications WHERE depart_code=$1)`, [codes[1]]);
   await lib.dispatchRiskReviewEmails(async () => assert.fail("Register no longer awaiting review"));
   assert.equal((await notifications()).at(-1).email_status, "CANCELLED");
+  // A notice queued while the published URL is missing gets a durable link
+  // when configuration is restored, without losing the saved submission.
+  actorId = employees[champion];
+  await client.query("UPDATE risk.risk_master SET assessment_updated=TRUE WHERE depart_code=$1", [codes[1]]);
+  await client.query(`UPDATE risk.review_notifications SET submitted_at=submitted_at-INTERVAL '2 seconds'
+    WHERE depart_code=$1`, [codes[1]]);
+  process.env.MIS_EMAIL_FROM = "get default";
+  assert.equal((await submit(codes[1])).body.data.notification.email_status, "WAITING_CONFIGURATION");
+  await lib.dispatchRiskReviewEmails(async () => assert.fail("Placeholder sender must not be used"));
+  assert.equal((await notifications()).at(-1).email_attempts, 0);
+  // Represent another returned-and-resubmitted event for the URL-only failure.
+  actorId = employees[owner];
+  assert.equal((await submit(codes[1], "RETURN")).status, 200);
+  actorId = employees[champion];
+  await client.query("UPDATE risk.risk_master SET assessment_updated=TRUE WHERE depart_code=$1", [codes[1]]);
+  await client.query(`UPDATE risk.review_notifications SET submitted_at=submitted_at-INTERVAL '3 seconds'
+    WHERE depart_code=$1`, [codes[1]]);
+  process.env.MIS_EMAIL_FROM = "MIS Test <sender@example.test>";
+  delete process.env.MIS_PUBLIC_APP_URL;
+  assert.equal((await submit(codes[1])).body.data.notification.email_status, "WAITING_CONFIGURATION");
+  assert.ok(!(await notifications()).at(-1).message.includes("https://"));
+  process.env.MIS_PUBLIC_APP_URL = "https://mis.example.test/mis/";
+  const configuredEmails = [];
+  assert.equal(await lib.dispatchRiskReviewEmails(async email => configuredEmails.push(email)), 1);
+  assert.ok(configuredEmails[0].text.includes(`depart_code=${codes[1]}&period_id=${period}`));
+  assert.equal((await notifications()).at(-1).message, configuredEmails[0].text);
   console.log("PASS: scoped recipients, route authorization, duplicate/rejected submissions, retry exhaustion, durable status and configuration failures.");
 } finally {
   if (server) await new Promise(resolve => server.close(resolve));
@@ -261,5 +324,7 @@ try {
   delete globalThis.__riskNotificationTest;
   if (oldFrom === undefined) delete process.env.MIS_EMAIL_FROM;
   else process.env.MIS_EMAIL_FROM = oldFrom;
+  if (oldPublicUrl === undefined) delete process.env.MIS_PUBLIC_APP_URL;
+  else process.env.MIS_PUBLIC_APP_URL = oldPublicUrl;
   await rm(dir, { recursive: true, force: true });
 }

@@ -396,6 +396,8 @@ function ProtectedRouter() {
     );
   }
 
+  // Render sign-in in place: retain the base-aware path and scope query through
+  // credentials, OTP and password renewal. No untrusted return URL is followed.
   if (!user || passwordExpired) return <LoginPage />;
 
   return (

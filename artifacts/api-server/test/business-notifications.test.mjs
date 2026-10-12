@@ -52,6 +52,22 @@ test('successful outbox delivery records sent only after provider success, with 
   assert(fixture.calls.some(call => call.sql.includes("email_status='SENT'")));
   assert(!fixture.calls.some(call => call.sql.includes("email_status='RETRY'")));
 });
+test('invalid sender configuration never uses the provider or consumes attempts', async () => {
+  const fixture = state([row()]);
+  for (const sender of ['get default', 'MIS <invalid>', 'mis@example.test\nBcc:other@example.test']) {
+    assert.equal(await dispatchMedicalEmails(() => assert.fail('Invalid sender'), sender), 0);
+  }
+  assert.equal(fixture.calls.length, 0);
+  const previous = process.env.MIS_EMAIL_FROM;
+  process.env.MIS_EMAIL_FROM = 'get default';
+  try {
+    assert.deepEqual(await queueMedicalNotification({}, 'TEST-FILE', 9, 'tracker', 'RI', 'Missing form'),
+      { email_status: 'WAITING_CONFIGURATION' });
+  } finally {
+    if (previous === undefined) delete process.env.MIS_EMAIL_FROM;
+    else process.env.MIS_EMAIL_FROM = previous;
+  }
+});
 test('failed delivery remains retryable and is never marked sent', async () => {
   const fixture = state([row()]);
   assert.equal(await dispatchMedicalEmails(async () => { throw new Error('Provider unavailable'); }, 'mis@example.test'), 0);

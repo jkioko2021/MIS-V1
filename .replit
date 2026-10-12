@@ -18,3 +18,6 @@ expertMode = true
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[userenv.shared]
+MIS_PUBLIC_APP_URL = "https://mis-v-1.replit.app/"

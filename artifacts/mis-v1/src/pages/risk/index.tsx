@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Redirect, useLocation } from 'wouter';
+import { Redirect, useLocation, useSearch } from 'wouter';
 import { useAuth } from '@/lib/auth-context';
 import ClientRatingsPage from './client-ratings';
 import { canAccessRiskPage, riskPageDepartments } from './risk-access';
@@ -28,6 +28,7 @@ import RiskAssessmentSummary from './risk-assessment-summary';
 import RiskReviewDialog from './risk-review-dialog';
 import RiskReopenDialog from './risk-reopen-dialog';
 import { riskDepartmentSelection } from './department-filter';
+import { parseReviewLink, reviewScopeError, reviewAvailability } from './review-link';
 
 type PageKey = 'dashboard' | 'new' | 'update' | 'review' | 'summary' | 'status' | 'open' | 'close' | 'closed' | 'history' | 'client-rating' | 'champions' | 'import';
 const PAGES: Array<{ key: PageKey; title: string; short: string; icon: typeof Shield }> = [
@@ -51,23 +52,39 @@ function RiskRegisterWorkspace() {
   const username = user?.username ?? '';
   const routeKey = location.split('/')[2] ?? 'dashboard';
   const activePage: PageKey = navLabels[routeKey] ?? 'dashboard';
-  const optionsQuery = useRiskOptions(username);
+  const searchString = useSearch();
+  const reviewLink = activePage === 'review' ? parseReviewLink(searchString) : null;
+  const linkedScope = reviewLink && reviewLink !== 'invalid' ? reviewLink : null;
+  const optionsQuery = useRiskOptions(username, Boolean(reviewLink));
   const savedOptions = envelopeData<RiskOptionsResponseData>(optionsQuery.data);
   const options = !optionsQuery.isError && savedOptions?.actor?.username === username ? savedOptions : undefined;
   const actor = options?.actor;
   const [departmentChoices, setDepartmentChoices] = useState<Partial<Record<PageKey, string>>>({});
   const pageCodes = riskPageDepartments(actor, activePage);
   const departments = (options?.departments ?? []).filter(item => pageCodes === null || pageCodes.includes(item.depart_code ?? ''));
-  const department = riskDepartmentSelection(activePage, departmentChoices[activePage], departments);
-  const setDepartment = (value: string) => setDepartmentChoices(choices => ({ ...choices, [activePage]: value }));
+  const selectedDepartment = riskDepartmentSelection(activePage, departmentChoices[activePage], departments);
+  const department = linkedScope?.department ?? selectedDepartment;
+  const clearReviewLink = () => {
+    if (reviewLink) setLocation('/risk/review');
+  };
+  const setDepartment = (value: string) => {
+    if (linkedScope) setViewPeriod(linkedScope.period);
+    setDepartmentChoices(choices => ({ ...choices, [activePage]: value }));
+    clearReviewLink();
+  };
   const pageAllowed = canAccessRiskPage(actor, activePage);
-  const dataEnabled = Boolean(options && pageAllowed && (!department || departments.some(item => item.depart_code === department)));
   const access = activePage === 'update' ? 'update' as const : activePage === 'review' ? 'review' as const : 'view' as const;
   const periods = options?.periods ?? [];
   const [viewPeriod, setViewPeriod] = useState('');
   const [updatePeriod, setUpdatePeriod] = useState('');
-  const period = activePage === 'update' ? updatePeriod : viewPeriod;
-  const setPeriod = activePage === 'update' ? setUpdatePeriod : setViewPeriod;
+  const period = linkedScope?.period ?? (activePage === 'update' ? updatePeriod : viewPeriod);
+  const setPeriod = (value: string) => {
+    if (linkedScope) setDepartmentChoices(choices => ({ ...choices, review: linkedScope.department }));
+    (activePage === 'update' ? setUpdatePeriod : setViewPeriod)(value);
+    clearReviewLink();
+  };
+  const linkError = options ? reviewScopeError(reviewLink, departments, periods) : '';
+  const dataEnabled = Boolean(options && pageAllowed && !linkError && (!department || departments.some(item => item.depart_code === department)));
   const [search, setSearch] = useState('');
   const [selectedRiskCode, setSelectedRiskCode] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -76,14 +93,13 @@ function RiskRegisterWorkspace() {
   const [notice, setNotice] = useState('');
   const [mutationError, setMutationError] = useState('');
   const [comments, setComments] = useState('');
-  const [signoffSelection, setSignoffSelection] = useState('');
   const [reopening, setReopening] = useState<RiskDepartmentSummary | null>(null);
+  const [signoffSelection, setSignoffSelection] = useState<{ department: string; period: string } | null>(null);
   useEffect(() => {
     setSelectedRiskCode('');
     setDrawerOpen(false);
     setReviewOpen(false);
     setComments('');
-    setSignoffSelection('');
   }, [activePage, department, period, username]);
 
   const initializedFor = useRef('');
@@ -97,10 +113,12 @@ function RiskRegisterWorkspace() {
     } else {
       // Empty values intentionally mean "All", not "pick a default again".
       const choice = departmentChoices[activePage];
-      if (choice && !departments.some(item => item.depart_code === choice)) setDepartment('');
-      if (period && !periods.some(item => String(item.period_id) === period)) setPeriod('');
+      if (!reviewLink) {
+        if (choice && !departments.some(item => item.depart_code === choice)) setDepartment('');
+        if (period && !periods.some(item => String(item.period_id) === period)) setPeriod('');
+      }
     }
-  }, [options, actor, departments, periods, username, activePage, departmentChoices, period]);
+  }, [options, actor, departments, periods, username, activePage, departmentChoices, period, searchString]);
 
   const params = useMemo(() => ({
     access,
@@ -109,18 +127,33 @@ function RiskRegisterWorkspace() {
     ...(search ? { search } : {}),
     ...(activePage === 'closed' ? { view: 'closed' as const } : activePage === 'review' ? { view: 'submitted' as const } : activePage === 'update' ? { view: 'pending_assessment' as const } : undefined),
   }), [access, department, period, search, activePage]);
-  const recordsQuery = useRiskRecords(username, params, dataEnabled);
+  const recordsQuery = useRiskRecords(username, params, dataEnabled, Boolean(reviewLink));
   const records = (envelopeData<RiskRecord[]>(recordsQuery.data) ?? []).filter(item =>
     (pageCodes === null || pageCodes.includes(item.depart_code)));
-  const summaryQuery = useRiskSummary(username, { access, ...(department ? { depart_code: department } : {}), ...(period ? { period_id: Number(period) } : {}) }, dataEnabled);
+  const summaryQuery = useRiskSummary(username, { access, ...(department ? { depart_code: department } : {}), ...(period ? { period_id: Number(period) } : {}) }, dataEnabled, Boolean(reviewLink));
+  useEffect(() => {
+    // The workspace stays mounted during in-app navigation. Recheck an incoming
+    // scope even if its query keys already exist in this session.
+    if (!reviewLink) return;
+    void optionsQuery.refetch();
+    if (dataEnabled) {
+      void recordsQuery.refetch();
+      void summaryQuery.refetch();
+    }
+  }, [username, activePage, searchString, dataEnabled]);
   const summaries = (envelopeData<RiskDepartmentSummary[]>(summaryQuery.data) ?? []).filter(item =>
     (pageCodes === null || pageCodes.includes(item.depart_code))
     && (activePage !== 'update' || item.workflow_status === 'OPEN')
     && (activePage !== 'review' || item.workflow_status === 'SUBMITTED')
     && (activePage !== 'summary' || ['REVIEWED', 'SIGNED_OFF'].includes(item.workflow_status ?? '')));
-  const signoffRow = activePage === 'summary'
-    ? summaries.find(row => `${row.depart_code}:${row.period_id}` === signoffSelection)
-    : undefined;
+  const signoffSummary = summaries.find(item => item.depart_code === signoffSelection?.department
+    && String(item.period_id) === signoffSelection?.period);
+  const selectSignoffSummary = (row: RiskDepartmentSummary) => {
+    setSignoffSelection({ department: row.depart_code, period: String(row.period_id) });
+    setSelectedRiskCode('');
+    setDrawerOpen(false);
+    setComments('');
+  };
   const allDepartmentPeriodSummaryQuery = useRiskSummary(username, period ? { period_id: Number(period) } : {}, dataEnabled && activePage === 'close');
   const allDepartmentPeriodSummaries = envelopeData<RiskDepartmentSummary[]>(allDepartmentPeriodSummaryQuery.data) ?? [];
   const allDepartmentPeriodSummaryFailure = allDepartmentPeriodSummaryQuery.data ? envelopeError(allDepartmentPeriodSummaryQuery.data) ?? '' : '';
@@ -131,6 +164,13 @@ function RiskRegisterWorkspace() {
   const detail = pageAllowed && savedDetail && (pageCodes === null || pageCodes.includes(savedDetail.risk.depart_code)) ? savedDetail : undefined;
   const recordsFailure = recordsQuery.data ? envelopeError(recordsQuery.data) ?? '' : '';
   const summaryFailure = summaryQuery.data ? envelopeError(summaryQuery.data) ?? '' : '';
+  const linkedSummary = (envelopeData<RiskDepartmentSummary[]>(summaryQuery.data) ?? [])
+    .find(item => item.depart_code === linkedScope?.department && String(item.period_id) === linkedScope?.period);
+  const linkReadError = linkedScope && dataEnabled
+    ? summaryFailure || recordsFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')
+      || (recordsQuery.isError ? queryError(recordsQuery.error) : '') : '';
+  const linkAvailability = linkedScope && dataEnabled && !summaryQuery.isFetching && !summaryQuery.isError && !summaryFailure
+    ? reviewAvailability(linkedSummary?.workflow_status) : '';
   const historyFailure = historyQuery.data ? envelopeError(historyQuery.data) ?? '' : '';
   const detailFailure = detailQuery.data ? envelopeError(detailQuery.data) ?? '' : '';
   const createRisk = useCreateRisk();
@@ -216,6 +256,14 @@ function RiskRegisterWorkspace() {
           setSelectedRiskCode('');
           setDrawerOpen(false);
         }
+        if (action === 'REVIEW' && !envelopeError(response)) {
+          setSignoffSelection({ department: depart_code, period: String(period_id) });
+          setDepartmentChoices(choices => ({ ...choices, summary: '' }));
+          setViewPeriod(String(period_id));
+          setDrawerOpen(false);
+          setSearch('');
+          setLocation('/risk/summary');
+        }
         announce(response, action === 'REOPEN'
         ? 'Selected department reopened and the shared reporting period is OPEN. Only this department requires reassessment; other departments remain unchanged. Saved scores, closed actions and history are retained.'
         : action === 'RETURN'
@@ -226,7 +274,7 @@ function RiskRegisterWorkspace() {
             : (envelopeData<{ notification?: { email_status?: string } }>(response)?.notification?.email_status === 'NO_RECIPIENT')
               ? 'Owner email is not sent: their email address is missing or invalid.'
               : 'Owner email is queued; delivery status is shown in Department Summary.'}`
-          : action === 'REVIEW' ? 'Department register reviewed and forwarded to Risk Register Signoff. Select the department under Department exposure & sign-off to display its summary.'
+          : action === 'REVIEW' ? 'Register reviewed and forwarded to Risk Register Signoff.'
           : `${action.replace('_', ' ')} recorded.`);
       },
       onError: error => setMutationError(queryError(error)),
@@ -266,6 +314,11 @@ function RiskRegisterWorkspace() {
       {optionsQuery.isLoading && <div className="space-y-4"><div className="h-24 animate-pulse rounded-2xl bg-muted" /><SkeletonRows /></div>}
       {optionsQuery.isError && <ErrorNotice message={queryError(optionsQuery.error)} onRetry={() => optionsQuery.refetch()} />}
       {optionsFailure && <ErrorNotice message={optionsFailure} onRetry={() => optionsQuery.refetch()} />}
+      {linkError && <div role="alert" className="mb-6 rounded-xl border border-border p-4 text-sm">{linkError}</div>}
+      {linkReadError && <ErrorNotice message={linkReadError} onRetry={() => {
+        void optionsQuery.refetch(); void recordsQuery.refetch(); void summaryQuery.refetch();
+      }} />}
+      {linkAvailability && <div role="status" className="mb-6 rounded-xl border border-border p-4 text-sm">{linkAvailability}</div>}
       {options && !pageAllowed && <div role="alert" className="mb-6 rounded-xl border border-border p-4 text-sm">
         <strong>Access denied.</strong> {activePage === 'import' ? 'Legacy import is available to risk management only.' : activePage === 'update' ? 'Update Register is available to mapped department champions.' : 'Risk Register Review is available to mapped department risk owners.'}
       </div>}
@@ -275,7 +328,9 @@ function RiskRegisterWorkspace() {
       {notice && <div role="status" className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"><Check className="h-4 w-4" />{notice}<button aria-label="Dismiss notice" className="ml-auto" onClick={() => setNotice('')}><X className="h-4 w-4" /></button></div>}
       {mutationError && <div className="mb-4"><ErrorNotice message={mutationError} /></div>}
 
-      {!optionsQuery.isLoading && !optionsQuery.isError && options && pageAllowed && <main className="space-y-6">
+      {reviewLink && (optionsQuery.isFetching || summaryQuery.isFetching || recordsQuery.isFetching) && <p role="status" className="mb-4 text-sm">Checking current register access and status…</p>}
+      {!optionsQuery.isLoading && !optionsQuery.isError && options && pageAllowed && !linkError && !linkReadError
+        && !(reviewLink && (optionsQuery.isFetching || summaryQuery.isFetching || recordsQuery.isFetching)) && <main className="space-y-6">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div><div className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Risk office / {PAGES.find(item => item.key === activePage)?.short}</div><h2 className="mt-1 font-[Manrope] text-2xl font-bold">{title}</h2></div>
           <div className="grid grid-cols-2 gap-2 sm:flex">
@@ -361,26 +416,22 @@ function RiskRegisterWorkspace() {
         {activePage === 'summary' && <section className="space-y-5">
           <SummaryTable rows={summaries} loading={summaryQuery.isLoading || summaryQuery.isFetching}
             error={summaryFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')}
-            retry={() => summaryQuery.refetch()} selectedKey={signoffSelection}
-            onSelect={row => {
-              setSignoffSelection(`${row.depart_code}:${row.period_id}`);
-              setSelectedRiskCode('');
-              setDrawerOpen(false);
-              setComments('');
-            }} />
-          {signoffRow ? <>
-            <RiskAssessmentSummary key={`${signoffRow.depart_code}:${signoffRow.period_id}`} mode="signoff"
-              summaries={[signoffRow]} options={options} department={signoffRow.depart_code}
-              period={String(signoffRow.period_id)} comments={comments} setComments={setComments}
-              mutating={mutating} onSubmit={() => {}} onSelect={viewDetails}
+            retry={() => summaryQuery.refetch()} onSelect={selectSignoffSummary}
+            selectedDepartment={signoffSummary?.depart_code} selectedPeriod={signoffSummary?.period_id} />
+          {signoffSummary ? <>
+            <RiskAssessmentSummary key={`${signoffSummary.depart_code}:${signoffSummary.period_id}`} mode="signoff" summaries={[signoffSummary]} options={options}
+              department={signoffSummary.depart_code} period={String(signoffSummary.period_id)}
+              comments={comments} setComments={setComments} mutating={mutating}
+              onSubmit={row => chooseAction('SIGN_OFF', row)} onSelect={viewDetails}
               loading={summaryQuery.isLoading || summaryQuery.isFetching}
               error={summaryFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')}
               retry={() => summaryQuery.refetch()} />
-            <WorkflowPanel summaries={[signoffRow]} departments={departments} assignments={options.assignments}
-              period={String(signoffRow.period_id)} actor={actor} manage={manage} comments={comments}
-              setComments={setComments} mutating={workflow.isPending} onAction={(action, row) => chooseAction(action, row)} />
-          </> : <EmptyState title="Select a department for sign-off"
-            description="Click a department under Department exposure & sign-off to view its reviewed risk summary. Only reviewed or signed-off registers appear on this page." />}
+            <WorkflowPanel summaries={[signoffSummary]} departments={departments} assignments={options.assignments}
+              period={String(signoffSummary.period_id)} actor={actor} manage={manage}
+              comments={comments} setComments={setComments} mutating={workflow.isPending}
+              onAction={(action, row) => chooseAction(action, row)} />
+          </> : <EmptyState title="Select a department register"
+            description="Select a department in Department exposure & sign-off to display its reviewed risk summary and decision actions. Only reviewed or signed-off registers appear here." />}
         </section>}
 
         {activePage === 'status' && <SummaryTable rows={summaries} loading={summaryQuery.isLoading} error={summaryFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')} retry={() => summaryQuery.refetch()} title="Department workflow status" />}
