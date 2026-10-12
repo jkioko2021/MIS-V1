@@ -102,7 +102,9 @@ function RiskRegisterWorkspace() {
     ...(activePage === 'closed' ? { view: 'closed' as const } : activePage === 'review' ? { view: 'submitted' as const } : activePage === 'update' ? { view: 'pending_assessment' as const } : undefined),
   }), [access, department, period, search, activePage]);
   const recordsQuery = useRiskRecords(username, params, dataEnabled);
-  const records = (envelopeData<RiskRecord[]>(recordsQuery.data) ?? []).filter(item => pageCodes === null || pageCodes.includes(item.depart_code));
+  const records = (envelopeData<RiskRecord[]>(recordsQuery.data) ?? []).filter(item =>
+    (pageCodes === null || pageCodes.includes(item.depart_code))
+    && (activePage !== 'update' || item.risk_status !== 'Closed'));
   const summaryQuery = useRiskSummary(username, { access, ...(department ? { depart_code: department } : {}), ...(period ? { period_id: Number(period) } : {}) }, dataEnabled);
   const summaries = (envelopeData<RiskDepartmentSummary[]>(summaryQuery.data) ?? []).filter(item =>
     (pageCodes === null || pageCodes.includes(item.depart_code))

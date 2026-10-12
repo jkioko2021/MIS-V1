@@ -10,6 +10,7 @@ const effectDeps = [];
 let effects = [];
 let selected;
 let requestedScope;
+const readiness = { ready: false, complete: true, waiting: false, query: { refetch() {} } };
 const rows = [
   { risk_code: 'SAVED', risk_title: 'Saved risk', assessment_updated: true, can_edit: true, is_active: true, i_rate: 'Major', l_rate: 'Possible', i_risk_exposure: '45', r_risk_exposure: '9' },
   { risk_code: 'PENDING', risk_title: 'Pending risk', assessment_updated: false, is_active: true, r_risk_exposure: '100' },
@@ -50,7 +51,7 @@ vm.runInNewContext(compiled, {
     if (name === 'lucide-react') return {};
     if (name === './risk-ui') return { Field: 'Field', EmptyState: 'EmptyState', SkeletonRows: 'SkeletonRows', envelopeData: response => response?.data, envelopeError: () => undefined, dateLabel: x => x, fieldClass: '' };
     if (name === './use-risk-register') return { useRiskRecords(username, params) { requestedScope = params; return { data: { data: rows } }; } };
-    if (name === './risk-workflow') return { useSubmissionReadiness: () => ({ ready: false, complete: true, waiting: false, query: { refetch() {} } }) };
+    if (name === './risk-workflow') return { useSubmissionReadiness: () => readiness };
     if (name === './risk-summary-order') return ordering;
     if (name === './risk-exposure-colors') return { riskExposureColors: () => ({}) };
     if (name === './risk-summary-causes') return { default: 'RiskSummaryCauses' };
@@ -102,4 +103,27 @@ assert.equal(text(flatten(render()).find(node => node.props?.['data-testid'] ===
 rows[0].i_rate = 'Catastrophic';
 rows[0].l_rate = 'Certain';
 assert.equal(flatten(render()).filter(node => node.props?.['data-testid']?.startsWith('risk-summary-row-'))[0].props['data-testid'], 'risk-summary-row-SAVED', 'Revised saved exposures recompute order and rank');
-console.log('PASS: displayed ranks and saved-only ordering recompute after revisions, pending/inactive risks excluded, revision and cycle/permission guards retained.');
+const ownerWarning = () => flatten(render()).find(node => node.props?.['data-testid'] === 'risk-summary-owner-warning');
+const submitButton = () => flatten(render()).find(node => node.props?.['data-testid'] === 'button-submit-risk-summary');
+props.comments = 'Ready for owner review';
+readiness.ready = true;
+assert(!ownerWarning(), 'An active mapped owner does not produce a warning');
+assert.equal(submitButton().props.disabled, false, 'An otherwise ready register remains submittable');
+props.options.assignments = [];
+assert.equal(ownerWarning().props.role, 'alert', 'Missing owner warning is accessible');
+assert(text(ownerWarning()).includes('Risk Owner missing'));
+assert(text(ownerWarning()).includes('No Risk Owner is mapped to Department.'));
+assert(text(ownerWarning()).includes('under Risk administration'));
+assert.equal(submitButton().props.disabled, true, 'Missing owner still blocks submission');
+readiness.ready = false;
+assert(ownerWarning(), 'The owner warning remains visible even when other readiness conditions fail');
+props.options.assignments = [{ depart_code: 'D', owner_username: 'owner' }];
+props.options.staff = [];
+assert(text(ownerWarning()).includes('Risk Owner unavailable'));
+assert(text(ownerWarning()).includes('not an active eligible MIS user'));
+assert.equal(submitButton().props.disabled, true, 'An inactive mapped owner cannot receive review');
+props.options.staff = [{ username: 'owner' }];
+readiness.ready = true;
+assert(!ownerWarning(), 'Warning disappears when an active owner is provided');
+assert.equal(submitButton().props.disabled, false);
+console.log('PASS: summary ranking/revision guards and accessible missing/inactive owner warning; active owners restore normal submission readiness.');

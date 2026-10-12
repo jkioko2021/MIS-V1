@@ -206,6 +206,15 @@ export default function RiskAssessmentSummary({
             <div className="mt-6 grid gap-5 border-t border-border pt-5 lg:grid-cols-[1fr_auto] lg:items-end">
               <div>
                 <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground"><ShieldAlert className="h-3.5 w-3.5" /> Submit for Risk Owner review</div>
+                {!activeOwner && <div role="alert" data-testid="risk-summary-owner-warning" className="mb-4 flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-3 text-rose-950">
+                  <ShieldAlert aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-bold">{ownerUsername ? 'Risk Owner unavailable' : 'Risk Owner missing'}</p>
+                    <p className="mt-1 text-xs leading-5">{ownerUsername
+                      ? `The mapped Risk Owner for ${row.depart_name} is not an active eligible MIS user.`
+                      : `No Risk Owner is mapped to ${row.depart_name}.`} Ask Risk Management or an administrator to assign an active Risk Owner under Risk administration before submitting for review.</p>
+                  </div>
+                </div>}
                 <Field label="Submission comment (required)">
                   <textarea data-testid="input-risk-summary-comment" className={`${fieldClass} mt-1 min-h-20 resize-y`} value={comments} onChange={event => setComments(event.target.value)} placeholder="Add a concise note for the Risk Owner." />
                 </Field>
