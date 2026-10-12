@@ -20,3 +20,9 @@ Global Client Rating reports use explicitly entered AML classifications. Departm
 **Why:** The updated legacy database confirms that client-rating records originate in AML risk capture, not department scoring. Client records have no reliable department ownership mapping, so reusing departmental access or exposure calculations would disclose unrelated customers or misstate classifications.
 
 **How to apply:** Keep captured rating/reason history, disclose unavailable historical/system data, and apply the same global customer permission gate to options, searches and exports. Do not broaden customer visibility merely because an account can maintain a departmental risk register.
+
+For legacy register imports, do not infer department signoff or global reporting-period closure from a closed mitigation action. Preserve reporting dates and supplied review flags separately from action status.
+
+**Why:** Legacy exports can contain completed actions and reviewed assessments without evidence that the department register was signed off or the global reporting period was closed. Inferring closure would change workflow permissions.
+
+**How to apply:** Retain the complete source in import history, including original labels and attribution. Import supplied row-level numeric factors without treating them as approved global rating catalogs. Historical usernames and owner codes do not grant access; department assignments remain explicit.
