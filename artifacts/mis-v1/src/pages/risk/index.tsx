@@ -74,19 +74,22 @@ function RiskRegisterWorkspace() {
   const initializedFor = useRef('');
   useEffect(() => {
     if (!options || actor?.username !== username) return;
-    if (initializedFor.current !== username) {
-      initializedFor.current = username;
+    const filterScope = `${username}:${activePage === 'update' ? 'update' : 'view'}`;
+    if (initializedFor.current !== filterScope) {
+      initializedFor.current = filterScope;
       const suggested = departments[0]?.depart_code;
-      setDepartment(suggested ?? '');
+      // Imported risks can span earlier reporting periods and multiple departments.
+      // The Update queue remains scoped to this actor by the API and pageCodes.
+      setDepartment(activePage === 'update' ? '' : suggested ?? '');
       const active = periods.find(item => String(item.status ?? '').toLowerCase() === 'open');
-      setPeriod(active?.period_id ? String(active.period_id) : '');
+      setPeriod(activePage === 'update' ? '' : active?.period_id ? String(active.period_id) : '');
       setSearch('');
     } else {
       // Empty values intentionally mean "All", not "pick a default again".
       if (department && !departments.some(item => item.depart_code === department)) setDepartment('');
       if (period && !periods.some(item => String(item.period_id) === period)) setPeriod('');
     }
-  }, [options, actor, departments, periods, username, department, period]);
+  }, [options, actor, departments, periods, username, department, period, activePage]);
 
   const params = useMemo(() => ({
     access,
