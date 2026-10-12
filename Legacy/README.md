@@ -12,14 +12,14 @@ SHA-256:
 
 - Use this archive for all subsequent legacy-page, code-behind, report, and
   database-script analysis.
-- `Legacy/CRM/` is the older extracted snapshot, retained for comparison. Do not
-  treat it as the current source or silently fall back to it.
+- The older extracted `Legacy/CRM/` snapshot was removed at the user's request.
+  Use the updated archive; do not silently fall back to an older reference.
 - Earlier discovery documents describe that older snapshot. Revalidate relevant
   findings against the updated archive before implementing changes.
 - List archive entries first. Some entries use Windows backslashes; normalize
   paths safely when inspecting or extracting.
-- Extract needed files into a separate temporary directory, not over
-  `Legacy/CRM/`, the modern application's source, or the workspace root.
+- Extract needed files into a separate temporary directory, not over the modern
+  application's source or the workspace root.
 - If the archive is unavailable in a clone or another workspace, obtain the
   designated upload before analyzing current legacy behavior.
 
@@ -38,5 +38,5 @@ running, importing, or converting database scripts requires a separate request.
 The archive remains in the workspace and is excluded from new Git additions and
 deployment packages because it is a large reference bundle and may contain
 sensitive data. Existing Git/checkpoint history is not rewritten.
-No legacy files, application behavior, or database contents were replaced when
-this reference was designated.
+Removing the older extracted snapshot does not change modern application behavior
+or database contents. The updated archive is preserved.

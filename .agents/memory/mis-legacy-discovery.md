@@ -5,7 +5,7 @@ description: Historical discovery of the older legacy snapshot; revalidate again
 
 # MIS Legacy Discovery — Key Facts
 
-These are historical findings from the older snapshot, not a current inventory.
+These are historical findings from the removed older snapshot, not a current inventory.
 The user has designated a newer archive as the authoritative source; consult
 `Legacy/README.md` and `legacy-source-policy.md` before relying on these findings.
 
@@ -14,7 +14,7 @@ The user has designated a newer archive as the authoritative source; consult
 ## Application
 - Name: MIS / eOxegen CRM — AAR Insurance Kenya
 - Production URL: https://misreports.aar-insurance.com/marvel/
-- Root: /Legacy/CRM (READ-ONLY)
+- Historical root: /Legacy/CRM (removed; use the updated archive identified in Legacy/README.md)
 - Framework: ASP.NET Web Forms, .NET 4.0, VB.NET
 - Entry: Login.aspx → MasterPage.master → 76 ASPX pages
 
