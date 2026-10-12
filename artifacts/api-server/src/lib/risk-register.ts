@@ -16,7 +16,8 @@ export async function riskActor(employeeId: string | number): Promise<RiskActor 
     e.profile_id IN (1,2) AS is_admin,
     ${RISK_MANAGEMENT_SQL} AS is_manager,
     ARRAY(SELECT DISTINCT depart_code FROM (
-      SELECT department AS depart_code FROM risk.champions WHERE username=e.username AND is_active
+      SELECT department AS depart_code FROM risk.champions c WHERE username=e.username AND is_active
+        AND NOT EXISTS (SELECT 1 FROM risk.department_assignments m WHERE m.depart_code=c.department)
       UNION SELECT depart_code FROM risk.department_assignments WHERE champion_username=e.username
     ) c) AS champion_departments,
     ARRAY(SELECT depart_code FROM risk.department_assignments WHERE owner_username=e.username) AS owner_departments
@@ -41,6 +42,15 @@ export function privateRiskResponses(_req: Request, res: Response, next: NextFun
 export function canManage(a: Pick<RiskActor, "is_admin" | "is_manager">) { return a.is_admin || a.is_manager; }
 export function canViewDepartment(a: RiskActor, code: string) {
   return canManage(a) || a.champion_departments.includes(code) || a.owner_departments.includes(code);
+}
+export function workspaceScope(a: RiskActor, access: "view" | "update" | "review" = "view"): [boolean, string[]] {
+  const codes = access === "update" ? a.champion_departments : access === "review" ? a.owner_departments
+    : [...a.champion_departments, ...a.owner_departments];
+  if (access !== "view" && !canManage(a) && !codes.length) {
+    throw new RiskError(403, access === "update" ? "Update Register requires a department champion assignment."
+      : "Risk Register Review requires a department owner assignment.");
+  }
+  return [canManage(a), [...new Set(codes)]];
 }
 export function assertDepartment(a: RiskActor, code: string, mode: "view" | "edit" | "review" | "manage" = "view") {
   const allowed = canManage(a) || mode === "edit" && a.champion_departments.includes(code)

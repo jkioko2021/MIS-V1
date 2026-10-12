@@ -105,6 +105,7 @@ paths:
     get:
       operationId: listRiskRegisterRecords
       parameters:
+        - { name: access, in: query, schema: { type: string, enum: [view, update, review] }, description: Department role scope for the requested workspace }
         - { name: depart_code, in: query, schema: { type: string } }
         - { name: period_id, in: query, schema: { type: integer } }
         - { name: view, in: query, schema: { type: string, enum: [all, open, submitted, reviewed, signed, closed] } }
@@ -186,6 +187,7 @@ paths:
     get:
       operationId: getRiskRegisterSummary
       parameters:
+        - { name: access, in: query, schema: { type: string, enum: [view, update, review] }, description: Department role scope for the requested workspace }
         - { name: period_id, in: query, schema: { type: integer } }
         - { name: depart_code, in: query, schema: { type: string } }
       responses:

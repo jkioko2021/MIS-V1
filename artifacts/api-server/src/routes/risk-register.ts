@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireAuth } from "../lib/auth-middleware";
 import { query, txQuery, withTransaction } from "../lib/postgres";
 import {
-  RiskError, type RiskActor, requireRiskActor, privateRiskResponses, riskFailure, assertDepartment, canManage,
+  RiskError, type RiskActor, requireRiskActor, privateRiskResponses, riskFailure, assertDepartment, canManage, workspaceScope,
   recordInput, assessmentInput, causeInput, calculateRisk, workflowState, period, cycle,
   assertEditable, assertRecordEditable, assertFresh, lockedRecord, history, calendarDate,
 } from "../lib/risk-register";
@@ -14,6 +14,7 @@ router.use("/risk-register", privateRiskResponses, requireAuth, requireRiskActor
 const actor = (res: Response) => res.locals.riskActor as RiskActor;
 const scope = (a: RiskActor) => [canManage(a), [...new Set([...a.champion_departments,...a.owner_departments])]];
 const filters = z.object({
+  access: z.enum(["view","update","review"]).optional().default("view"),
   depart_code: z.string().max(50).optional().default(""),
   period_id: z.coerce.number().int().nonnegative().optional().default(0),
   view: z.enum(["all","open","submitted","reviewed","signed","closed"]).optional().default("all"),
@@ -77,7 +78,8 @@ router.get("/risk-register/options", async (req,res) => {
 router.get("/risk-register/records", async (req,res) => {
   try {
     const f = filters.parse(req.query), a = actor(res);
-    if (f.depart_code) assertDepartment(a,f.depart_code);
+    const pageScope = workspaceScope(a, f.access);
+    if (f.depart_code) assertDepartment(a,f.depart_code, f.access === "update" ? "edit" : f.access === "review" ? "review" : "view");
     const rows = await query<Record<string,unknown>>(`${selectRecords}
       WHERE r.is_active AND ($1::boolean OR r.depart_code=ANY($2::text[]))
       AND ($3::text='' OR r.depart_code=$3) AND ($4::integer=0 OR p.period_id=$4)
@@ -91,7 +93,7 @@ router.get("/risk-register/records", async (req,res) => {
           OR $6='reviewed' AND COALESCE(s.reviewed,FALSE) AND NOT COALESCE(s.sign_off,FALSE)
           OR $6='signed' AND COALESCE(s.sign_off,FALSE)))
       ORDER BY r.period_from DESC,r.r_risk_exposure DESC NULLS LAST,r.risk_code LIMIT 500`,
-    [...scope(a),f.depart_code,f.period_id,`%${f.search}%`,f.view]);
+    [...pageScope,f.depart_code,f.period_id,`%${f.search}%`,f.view]);
     res.json({ok:true,data:rows.map(r=>presentRecord(r,a))});
   } catch (err) { riskFailure(req,res,err); }
 });
@@ -188,7 +190,8 @@ router.post("/risk-register/records/:riskCode/root-causes",async(req,res)=>{
 router.get("/risk-register/summary",async(req,res)=>{
   try {
     const f=filters.parse(req.query),a=actor(res);
-    if(f.depart_code) assertDepartment(a,f.depart_code);
+    const pageScope = workspaceScope(a, f.access);
+    if(f.depart_code) assertDepartment(a,f.depart_code, f.access === "update" ? "edit" : f.access === "review" ? "review" : "view");
     const rows=await query<Record<string,unknown>>(`SELECT d.depart_code,d.depart_name,p.period_id,
       p.period_from::text,p.period_to::text,
       count(r.risk_id)::integer AS total_risks,count(r.risk_id) FILTER(WHERE r.assessment_updated)::integer AS assessed_risks,
@@ -206,7 +209,7 @@ router.get("/risk-register/summary",async(req,res)=>{
       WHERE d.is_active AND ($1::boolean OR d.depart_code=ANY($2::text[]))
       AND ($3::integer=0 OR p.period_id=$3) AND ($4::text='' OR d.depart_code=$4)
       GROUP BY d.depart_code,d.depart_name,p.period_id,p.period_from,p.period_to,p.status,s.summary_id
-      ORDER BY p.period_from DESC,d.depart_name`,[...scope(a),f.period_id,f.depart_code]);
+      ORDER BY p.period_from DESC,d.depart_name`,[...pageScope,f.period_id,f.depart_code]);
     res.json({ok:true,data:rows.map(r=>({...r,workflow_status:workflowState(r)}))});
   }catch(err){riskFailure(req,res,err);}
 });

@@ -180,6 +180,7 @@ export const GetRiskRegisterOptionsResponse = zod.object({
 
 
 export const ListRiskRegisterRecordsQueryParams = zod.object({
+  "access": zod.enum(['view', 'update', 'review']).optional().describe('Department role scope for the requested workspace'),
   "depart_code": zod.coerce.string().optional(),
   "period_id": zod.coerce.number().int().optional(),
   "view": zod.enum(['all', 'open', 'submitted', 'reviewed', 'signed', 'closed']).optional(),
@@ -422,6 +423,7 @@ export const DecideRiskRegisterWorkflowResponse = zod.object({
 
 
 export const GetRiskRegisterSummaryQueryParams = zod.object({
+  "access": zod.enum(['view', 'update', 'review']).optional().describe('Department role scope for the requested workspace'),
   "period_id": zod.coerce.number().int().optional(),
   "depart_code": zod.coerce.string().optional()
 })

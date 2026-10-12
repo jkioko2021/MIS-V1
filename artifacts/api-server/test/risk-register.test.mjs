@@ -25,6 +25,18 @@ after(async()=>{await rm(dir,{recursive:true,force:true});});
 const champion={username:"test",is_admin:false,is_manager:false,champion_departments:["D-A"],owner_departments:[]};
 const owner={...champion,champion_departments:[],owner_departments:["D-A"]};
 const manager={...champion,is_manager:true};
+test("workspace links separate champion updates from multi-department owner reviews",()=>{
+  const multiOwner={...owner,owner_departments:["D-A","D-B"]};
+  assert.deepEqual(risk.workspaceScope(champion,"update"),[false,["D-A"]]);
+  assert.throws(()=>risk.workspaceScope(champion,"review"),/owner assignment/);
+  assert.throws(()=>risk.workspaceScope(multiOwner,"update"),/champion assignment/);
+  assert.deepEqual(risk.workspaceScope(multiOwner,"review"),[false,["D-A","D-B"]]);
+  assert.throws(()=>risk.assertDepartment(multiOwner,"D-C","review"),/permission/);
+  const both={...champion,owner_departments:["D-B","D-C"]};
+  assert.deepEqual(risk.workspaceScope(both,"update"),[false,["D-A"]]);
+  assert.deepEqual(risk.workspaceScope(both,"review"),[false,["D-B","D-C"]]);
+  assert.deepEqual(risk.workspaceScope(manager,"review"),[true,[]]);
+});
 
 test("legacy inherent and residual formula uses fractional control effectiveness",()=>{
   assert.deepEqual(risk.calculateRisk(4,5,.25),{inherent:20,residual:15});

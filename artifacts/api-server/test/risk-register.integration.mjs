@@ -135,13 +135,44 @@ try{
     assert.equal(closed.risk.workflow_status,"CLOSED");assert.equal(closed.risk.can_edit,false);
     assert.equal((await api(`/records/${risk.risk_code}`,"admin","PUT",{...assessment,expected_updated_at:closed.risk.updated_at})).status,409);
     await ok("/workflow","admin","POST",wf("REOPEN"));
+    await ok("/assignments","admin","POST",{depart_code:f.departments[1],
+      champion_username:f.accounts.unrelated.username,owner_username:f.accounts.owner.username});
+    // Stale legacy champion rows must not override an explicit department map.
+    await pool.query("INSERT INTO risk.champions(emp_code,username,department) VALUES($1,$1,$2)",
+      [f.accounts.champion.username,f.departments[1]]);
+    assert.equal((await api("/records?access=review","champion")).status,403);
+    assert.equal((await api("/records?access=update","owner")).status,403);
+    assert.equal((await api("/summary?access=review","champion")).status,403);
+    assert.equal((await api("/summary?access=update","owner")).status,403);
+    assert.equal((await api(`/records?access=update&depart_code=${f.departments[1]}`,"champion")).status,403);
+    const ownerOptions=await ok("/options","owner","GET");
+    assert.deepEqual([...ownerOptions.actor.owner_departments].sort(),[...f.departments].sort());
+    const ownerRows=await ok(`/records?access=review&period_id=${f.period}`,"owner","GET");
+    assert.equal(ownerRows.length,2);
+    const ownerSummaries=await ok(`/summary?access=review&period_id=${f.period}`,"owner","GET");
+    assert.deepEqual(ownerSummaries.map(row=>row.depart_code).sort(),[...f.departments].sort());
+    const championRows=await ok(`/records?access=update&period_id=${f.period}`,"champion","GET");
+    assert.deepEqual(championRows.map(row=>row.depart_code),[f.department]);
+    await ok("/assignments","admin","POST",{depart_code:f.departments[1],
+      champion_username:f.accounts.unrelated.username,owner_username:f.accounts.champion.username});
+    const dualUpdate=await ok(`/records?access=update&period_id=${f.period}`,"champion","GET");
+    const dualReview=await ok(`/records?access=review&period_id=${f.period}`,"champion","GET");
+    assert.deepEqual(dualUpdate.map(row=>row.depart_code),[f.department]);
+    assert.deepEqual(dualReview.map(row=>row.depart_code),[f.departments[1]]);
+    await ok("/assignments","admin","POST",{depart_code:f.departments[1],
+      champion_username:f.accounts.unrelated.username,owner_username:f.accounts.owner.username});
     // Remove only the extra synthetic private risk, so the browser can close
     // the remaining registered department without modifying real departments.
     await pool.query("DELETE FROM risk.register_history WHERE risk_code=$1",[privateRisk.risk_code]);
     await pool.query("DELETE FROM risk.risk_master WHERE risk_code=$1",[privateRisk.risk_code]);
     await pool.query("DELETE FROM risk.department_summary WHERE depart_code=$1",[f.departments[1]]);
+    if(process.argv.includes("--keep")){
+      const fresh=await ok(`/records/${risk.risk_code}`,"champion","GET");
+      await ok(`/records/${risk.risk_code}`,"champion","PUT",{...assessment,expected_updated_at:fresh.risk.updated_at});
+      await ok("/workflow","champion","POST",wf("SUBMIT"));
+    }
     await save();
-    console.log("Risk live checks passed: department isolation, role gates, stale updates, exact scoring, return/reassessment, review/sign-off, closure guards, and retained history.");
+    console.log("Risk live checks passed: department isolation, multi-department owner and dual-role page scopes, stale champion-map rejection, role gates, stale updates, exact scoring, return/reassessment, review/sign-off, closure guards, and retained history.");
     if(!process.argv.includes("--keep")) await cleanup();
     else console.log("Private browser fixture ready at /tmp/mis-risk-fixtures.json.");
   }

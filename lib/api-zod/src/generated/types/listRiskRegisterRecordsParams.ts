@@ -5,9 +5,14 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ListRiskRegisterRecordsAccess } from './listRiskRegisterRecordsAccess';
 import type { ListRiskRegisterRecordsView } from './listRiskRegisterRecordsView';
 
 export type ListRiskRegisterRecordsParams = {
+/**
+ * Department role scope for the requested workspace
+ */
+access?: ListRiskRegisterRecordsAccess;
 depart_code?: string;
 period_id?: number;
 view?: ListRiskRegisterRecordsView;

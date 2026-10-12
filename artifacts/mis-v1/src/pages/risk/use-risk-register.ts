@@ -37,10 +37,10 @@ function useRiskMutationOptions() {
 
 export function useRiskOptions(username: string) {
   const key = identityKey(username, getGetRiskRegisterOptionsQueryKey());
-  return useGetRiskRegisterOptions({ query: { ...finiteQuery, queryKey: key } });
+  return useGetRiskRegisterOptions({ query: { ...finiteQuery, enabled: Boolean(username), queryKey: key } });
 }
 
-export function useRiskRecords(username: string, params: { depart_code?: string; period_id?: number; view?: 'all' | 'open' | 'submitted' | 'reviewed' | 'signed' | 'closed'; search?: string }, enabled = true) {
+export function useRiskRecords(username: string, params: { access?: 'view' | 'update' | 'review'; depart_code?: string; period_id?: number; view?: 'all' | 'open' | 'submitted' | 'reviewed' | 'signed' | 'closed'; search?: string }, enabled = true) {
   const key = identityKey(username, getListRiskRegisterRecordsQueryKey(params));
   return useListRiskRegisterRecords(params, { query: { ...finiteQuery, enabled, queryKey: key } });
 }
@@ -50,14 +50,14 @@ export function useRiskRecord(username: string, riskCode: string) {
   return useGetRiskRegisterRecord(riskCode, { query: { ...finiteQuery, enabled: !!riskCode, queryKey: key } });
 }
 
-export function useRiskSummary(username: string, params: { depart_code?: string; period_id?: number }) {
+export function useRiskSummary(username: string, params: { access?: 'view' | 'update' | 'review'; depart_code?: string; period_id?: number }, enabled = true) {
   const key = identityKey(username, getGetRiskRegisterSummaryQueryKey(params));
-  return useGetRiskRegisterSummary(params, { query: { ...finiteQuery, queryKey: key } });
+  return useGetRiskRegisterSummary(params, { query: { ...finiteQuery, enabled, queryKey: key } });
 }
 
-export function useRiskHistory(username: string, params: { depart_code?: string; period_id?: number }) {
+export function useRiskHistory(username: string, params: { depart_code?: string; period_id?: number }, enabled = true) {
   const key = identityKey(username, getGetRiskRegisterHistoryQueryKey(params));
-  return useGetRiskRegisterHistory(params, { query: { ...finiteQuery, queryKey: key } });
+  return useGetRiskRegisterHistory(params, { query: { ...finiteQuery, enabled, queryKey: key } });
 }
 
 export function useCreateRisk() { return useCreateRiskRegisterRecord(useRiskMutationOptions()); }

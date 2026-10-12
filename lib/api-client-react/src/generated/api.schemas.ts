@@ -371,11 +371,24 @@ export const GetClientRatingsReportRating = {
 } as const;
 
 export type ListRiskRegisterRecordsParams = {
+/**
+ * Department role scope for the requested workspace
+ */
+access?: ListRiskRegisterRecordsAccess;
 depart_code?: string;
 period_id?: number;
 view?: ListRiskRegisterRecordsView;
 search?: string;
 };
+
+export type ListRiskRegisterRecordsAccess = typeof ListRiskRegisterRecordsAccess[keyof typeof ListRiskRegisterRecordsAccess];
+
+
+export const ListRiskRegisterRecordsAccess = {
+  view: 'view',
+  update: 'update',
+  review: 'review',
+} as const;
 
 export type ListRiskRegisterRecordsView = typeof ListRiskRegisterRecordsView[keyof typeof ListRiskRegisterRecordsView];
 
@@ -390,9 +403,22 @@ export const ListRiskRegisterRecordsView = {
 } as const;
 
 export type GetRiskRegisterSummaryParams = {
+/**
+ * Department role scope for the requested workspace
+ */
+access?: GetRiskRegisterSummaryAccess;
 period_id?: number;
 depart_code?: string;
 };
+
+export type GetRiskRegisterSummaryAccess = typeof GetRiskRegisterSummaryAccess[keyof typeof GetRiskRegisterSummaryAccess];
+
+
+export const GetRiskRegisterSummaryAccess = {
+  view: 'view',
+  update: 'update',
+  review: 'review',
+} as const;
 
 export type GetRiskRegisterHistoryParams = {
 period_id?: number;

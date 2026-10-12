@@ -10,6 +10,8 @@ import HomePage from '@/pages/home';
 import BusinessTrackingPage from '@/pages/business';
 import AllocatedFilesPage from '@/pages/business/allocated-files';
 import RiskRegisterPage from '@/pages/risk';
+import { useRiskOptions } from '@/pages/risk/use-risk-register';
+import { canAccessRiskPage } from '@/pages/risk/risk-access';
 import LoginPage from '@/pages/login';
 import UsersPage from '@/pages/admin/users';
 import ProfilesPage from '@/pages/admin/profiles';
@@ -130,6 +132,9 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
 
   // Show admin section only for profile 1 (SuperAdmin) or 2 (System Admin)
   const isAdmin = user && (user.profileId === 1 || user.profileId === 2);
+  const riskOptions = useRiskOptions(user?.username ?? '');
+  const riskActor = !riskOptions.isError && riskOptions.data?.ok
+    && riskOptions.data.data?.actor?.username === user?.username ? riskOptions.data.data.actor : undefined;
   const canSeePricing = isAdmin || user?.profileName?.trim().toLowerCase() === 'pricing';
   const canSeeMedical = isAdmin || user?.profileId === 5 || user?.profileName?.trim().toLowerCase() === 'medical uw';
   const canSeeCashier = isAdmin || user?.profileId === 6
@@ -193,7 +198,9 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
                 if ('giOnly' in item && item.giOnly && !canSeeGi) return null;
                 const active = location === href || (href !== '/' && location.startsWith(href));
                 const visibleChildren = item.children?.filter(child =>
-                  (!child.bpoOnly || canSeeAllocatedFiles)
+                  (child.href !== '/risk/update' || canAccessRiskPage(riskActor, 'update'))
+                  && (child.href !== '/risk/review' || canAccessRiskPage(riskActor, 'review'))
+                  && (!child.bpoOnly || canSeeAllocatedFiles)
                   && (!child.bpoReviewOnly || canSeeBpoReviewQueues)
                    && (!child.medicalOnly || canSeeMedical)
                   && (!child.pricingOnly || canSeePricing)

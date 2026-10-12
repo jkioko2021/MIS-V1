@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/lib/auth-context';
 import ClientRatingsPage from './client-ratings';
+import { canAccessRiskPage, riskPageDepartments } from './risk-access';
 import {
   AlertCircle, Archive, ArrowUpRight, BadgeCheck, CalendarDays, Check, ClipboardCheck,
   FilePlus2, History, LockKeyhole, RefreshCw, Shield, UsersRound, Workflow, X,
@@ -46,11 +47,16 @@ function RiskRegisterWorkspace() {
   const routeKey = location.split('/')[2] ?? 'dashboard';
   const activePage: PageKey = navLabels[routeKey] ?? 'dashboard';
   const optionsQuery = useRiskOptions(username);
-  const options = envelopeData<RiskOptionsResponseData>(optionsQuery.data);
+  const savedOptions = envelopeData<RiskOptionsResponseData>(optionsQuery.data);
+  const options = !optionsQuery.isError && savedOptions?.actor?.username === username ? savedOptions : undefined;
   const actor = options?.actor;
-  const departments = options?.departments ?? [];
-  const periods = options?.periods ?? [];
   const [department, setDepartment] = useState('');
+  const pageCodes = riskPageDepartments(actor, activePage);
+  const departments = (options?.departments ?? []).filter(item => pageCodes === null || pageCodes.includes(item.depart_code ?? ''));
+  const pageAllowed = canAccessRiskPage(actor, activePage);
+  const dataEnabled = Boolean(options && pageAllowed && (!department || departments.some(item => item.depart_code === department)));
+  const access = activePage === 'update' ? 'update' as const : activePage === 'review' ? 'review' as const : 'view' as const;
+  const periods = options?.periods ?? [];
   const [period, setPeriod] = useState('');
   const [search, setSearch] = useState('');
   const [selectedRiskCode, setSelectedRiskCode] = useState('');
@@ -69,7 +75,7 @@ function RiskRegisterWorkspace() {
     if (!options || actor?.username !== username) return;
     if (initializedFor.current !== username) {
       initializedFor.current = username;
-      const suggested = actor?.can_manage ? departments[0]?.depart_code : (actor?.champion_departments[0] ?? actor?.owner_departments[0]);
+      const suggested = departments[0]?.depart_code;
       setDepartment(suggested ?? '');
       const active = periods.find(item => String(item.status ?? '').toLowerCase() === 'open');
       setPeriod(active?.period_id ? String(active.period_id) : '');
@@ -82,22 +88,26 @@ function RiskRegisterWorkspace() {
   }, [options, actor, departments, periods, username, department, period]);
 
   const params = useMemo(() => ({
+    access,
     ...(department ? { depart_code: department } : {}),
     ...(period ? { period_id: Number(period) } : {}),
     ...(search ? { search } : {}),
-    ...(activePage === 'closed' ? { view: 'closed' as const } : activePage === 'review' ? { view: 'submitted' as const } : undefined),
-  }), [department, period, search, activePage]);
-  const recordsQuery = useRiskRecords(username, params);
-  const records = envelopeData<RiskRecord[]>(recordsQuery.data) ?? [];
-  const summaryQuery = useRiskSummary(username, { ...(department ? { depart_code: department } : {}), ...(period ? { period_id: Number(period) } : {}) });
-  const summaries = envelopeData<RiskDepartmentSummary[]>(summaryQuery.data) ?? [];
-  const allDepartmentPeriodSummaryQuery = useRiskSummary(username, period ? { period_id: Number(period) } : {});
+    ...(activePage === 'closed' ? { view: 'closed' as const } : activePage === 'review' ? { view: 'submitted' as const } : activePage === 'update' ? { view: 'open' as const } : undefined),
+  }), [access, department, period, search, activePage]);
+  const recordsQuery = useRiskRecords(username, params, dataEnabled);
+  const records = (envelopeData<RiskRecord[]>(recordsQuery.data) ?? []).filter(item => pageCodes === null || pageCodes.includes(item.depart_code));
+  const summaryQuery = useRiskSummary(username, { access, ...(department ? { depart_code: department } : {}), ...(period ? { period_id: Number(period) } : {}) }, dataEnabled);
+  const summaries = (envelopeData<RiskDepartmentSummary[]>(summaryQuery.data) ?? []).filter(item =>
+    (pageCodes === null || pageCodes.includes(item.depart_code))
+    && (activePage !== 'review' || item.workflow_status === 'SUBMITTED'));
+  const allDepartmentPeriodSummaryQuery = useRiskSummary(username, period ? { period_id: Number(period) } : {}, dataEnabled && activePage === 'close');
   const allDepartmentPeriodSummaries = envelopeData<RiskDepartmentSummary[]>(allDepartmentPeriodSummaryQuery.data) ?? [];
   const allDepartmentPeriodSummaryFailure = allDepartmentPeriodSummaryQuery.data ? envelopeError(allDepartmentPeriodSummaryQuery.data) ?? '' : '';
-  const historyQuery = useRiskHistory(username, { ...(department ? { depart_code: department } : {}), ...(period ? { period_id: Number(period) } : {}) });
+  const historyQuery = useRiskHistory(username, { ...(department ? { depart_code: department } : {}), ...(period ? { period_id: Number(period) } : {}) }, dataEnabled && activePage === 'history');
   const history = envelopeData<RiskHistoryEvent[]>(historyQuery.data) ?? [];
   const detailQuery = useRiskRecord(username, selectedRiskCode);
-  const detail = envelopeData<{ risk: RiskRecord; root_causes: RiskRootCause[]; history: RiskHistoryEvent[] }>(detailQuery.data);
+  const savedDetail = envelopeData<{ risk: RiskRecord; root_causes: RiskRootCause[]; history: RiskHistoryEvent[] }>(detailQuery.data);
+  const detail = pageAllowed && savedDetail && (pageCodes === null || pageCodes.includes(savedDetail.risk.depart_code)) ? savedDetail : undefined;
   const recordsFailure = recordsQuery.data ? envelopeError(recordsQuery.data) ?? '' : '';
   const summaryFailure = summaryQuery.data ? envelopeError(summaryQuery.data) ?? '' : '';
   const historyFailure = historyQuery.data ? envelopeError(historyQuery.data) ?? '' : '';
@@ -174,7 +184,7 @@ function RiskRegisterWorkspace() {
       </div>
 
       <div className="mb-6 flex gap-1 overflow-x-auto border-b border-border pb-1">
-        {PAGES.map(({ key, short, icon: Icon }) => <button key={key} onClick={() => setPage(key)} data-testid={`tab-risk-${key}`}
+        {PAGES.filter(item => canAccessRiskPage(actor, item.key)).map(({ key, short, icon: Icon }) => <button key={key} onClick={() => setPage(key)} data-testid={`tab-risk-${key}`}
           className={`inline-flex shrink-0 items-center gap-2 rounded-t-lg px-3 py-2.5 text-xs font-semibold transition ${activePage === key ? 'border-b-2 border-primary bg-primary/5 text-primary' : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'}`}>
           <Icon className="h-3.5 w-3.5" />{short}</button>)}
       </div>
@@ -182,13 +192,16 @@ function RiskRegisterWorkspace() {
       {optionsQuery.isLoading && <div className="space-y-4"><div className="h-24 animate-pulse rounded-2xl bg-muted" /><SkeletonRows /></div>}
       {optionsQuery.isError && <ErrorNotice message={queryError(optionsQuery.error)} onRetry={() => optionsQuery.refetch()} />}
       {optionsFailure && <ErrorNotice message={optionsFailure} onRetry={() => optionsQuery.refetch()} />}
+      {options && !pageAllowed && <div role="alert" className="mb-6 rounded-xl border border-border p-4 text-sm">
+        <strong>Access denied.</strong> {activePage === 'update' ? 'Update Register is available to mapped department champions.' : 'Risk Register Review is available to mapped department risk owners.'}
+      </div>}
       {!optionsQuery.isLoading && !optionsQuery.isError && !optionsFailure && noScope && <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><div><strong>Department access is not mapped.</strong><p className="mt-1">Contact your MIS administrator to set up your champion or owner department mapping.</p></div>
       </div>}
       {notice && <div role="status" className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"><Check className="h-4 w-4" />{notice}<button aria-label="Dismiss notice" className="ml-auto" onClick={() => setNotice('')}><X className="h-4 w-4" /></button></div>}
       {mutationError && <div className="mb-4"><ErrorNotice message={mutationError} /></div>}
 
-      {!optionsQuery.isLoading && !optionsQuery.isError && options && <main className="space-y-6">
+      {!optionsQuery.isLoading && !optionsQuery.isError && options && pageAllowed && <main className="space-y-6">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div><div className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Risk office / {PAGES.find(item => item.key === activePage)?.short}</div><h2 className="mt-1 font-[Manrope] text-2xl font-bold">{title}</h2></div>
           <div className="grid grid-cols-2 gap-2 sm:flex">

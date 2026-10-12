@@ -5,8 +5,13 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { GetRiskRegisterSummaryAccess } from './getRiskRegisterSummaryAccess';
 
 export type GetRiskRegisterSummaryParams = {
+/**
+ * Department role scope for the requested workspace
+ */
+access?: GetRiskRegisterSummaryAccess;
 period_id?: number;
 depart_code?: string;
 };
