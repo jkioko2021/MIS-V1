@@ -13,3 +13,15 @@ are not exercised by compilation or server health checks.
 workflow verification. Never substitute fallback reference values for required
 approved tables. Development schema readiness does not establish production
 schema readiness.
+
+A passing live integration check may exercise an older running API even when the
+working tree already contains merged workflow changes. Confirm the running build
+and development schema together before treating that check as evidence.
+
+**Why:** Newly merged workflow side effects can introduce cleanup dependencies
+that an older API never creates; tests against that process miss the dependency.
+
+**How to apply:** After merged API changes, restart its managed workflow and apply
+the existing development migrations before verifying fixture creation and cleanup.
+Do not change the production schema or skip missing-table failures to make the
+development check pass.

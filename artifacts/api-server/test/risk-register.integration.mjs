@@ -1,5 +1,6 @@
 // Development-only live PostgreSQL/API verification. --keep leaves a private
-// /tmp fixture for browser verification; --cleanup removes only this test's rows.
+// /tmp fixture for browser verification; --cleanup <manifest> removes only that
+// run's rows. Bare --cleanup still supports the old, fixed-path manifest.
 import assert from "node:assert/strict";
 import { readFile,writeFile,rm } from "node:fs/promises";
 import { randomBytes,randomUUID } from "node:crypto";
@@ -8,18 +9,32 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 if(process.env.NODE_ENV==="production") throw new Error("Development tests only.");
-const fixturePath="/tmp/mis-risk-fixtures.json";
+const cleanupIndex=process.argv.indexOf("--cleanup");
+const cleanupMode=cleanupIndex!==-1;
+let fixturePath=cleanupMode ? (process.argv[cleanupIndex+1]??"/tmp/mis-risk-fixtures.json") : undefined;
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL});
 let f;
-async function save(){await writeFile(fixturePath,JSON.stringify(f),{mode:0o600});}
+let ownsManifest=false;
+async function save(){
+  await writeFile(fixturePath,JSON.stringify(f),{mode:0o600,flag:ownsManifest?"w":"wx"});
+  ownsManifest=true;
+}
 async function cleanup(){
-  if(!f) return;
+  if(!f || !ownsManifest) return;
   assert.match(f.prefix,/^RTEST_[a-f0-9]{8}$/);
+  // Validate every destructive selector before opening the transaction. Never
+  // use a wildcard to remove accounts or departments from other fixture runs.
+  assert(Array.isArray(f.users) && f.users.every(user=>
+    ["admin","champion","owner","unrelated"].some(label=>user===`${f.prefix}_${label}`)));
+  assert(Array.isArray(f.departments) && f.departments.every(code=>
+    code===`${f.prefix}A` || code===`${f.prefix}B`));
+  assert(Array.isArray(f.periods) && f.periods.every(id=>Number.isSafeInteger(id) && id>0));
   const client=await pool.connect();
   try{
     await client.query("BEGIN");
     const notificationTable=await client.query("SELECT to_regclass('risk.review_notifications') AS name");
-    if(notificationTable.rows[0]?.name) await client.query("DELETE FROM risk.review_notifications WHERE depart_code=ANY($1::text[])",[f.departments]);
+    if(notificationTable.rows[0]?.name) await client.query(`DELETE FROM risk.review_notifications WHERE summary_id IN
+      (SELECT summary_id FROM risk.department_summary WHERE depart_code=ANY($1::text[]))`,[f.departments]);
     await client.query("DELETE FROM risk.register_history WHERE depart_code=ANY($1::text[]) OR period_id=ANY($2::int[])",[f.departments,f.periods]);
     await client.query("DELETE FROM risk.root_causes WHERE risk_code IN(SELECT risk_code FROM risk.risk_master WHERE depart_code=ANY($1::text[]))",[f.departments]);
     await client.query("DELETE FROM risk.master_summary WHERE depart_code=ANY($1::text[])",[f.departments]);
@@ -31,7 +46,7 @@ async function cleanup(){
     await client.query("DELETE FROM risk.periods WHERE period_id=ANY($1::int[])",[f.periods]);
     await client.query("DELETE FROM crm.admin_audit_trail WHERE username=ANY($1::text[])",[f.users]);
     await client.query("DELETE FROM crm.employees WHERE username=ANY($1::text[])",[f.users]);
-    await client.query("COMMIT");await rm(fixturePath,{force:true});
+    await client.query("COMMIT");await rm(fixturePath,{force:true});ownsManifest=false;
   }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
 }
 async function api(path="",label="admin",method="GET",data){
@@ -46,12 +61,34 @@ async function ok(path,label,method,data,status=200){
   assert.equal(r.status,status,`${method} ${path}: ${r.body.error??"unexpected status"}`);
   assert.equal(r.body.ok,true);return r.body.data;
 }
+async function createTestPeriod(){
+  // Select an unused full year so the later April-June period is also free.
+  // Retry a 409 if another independent fixture wins the same dates first.
+  const {rows}=await pool.query(`SELECT year FROM generate_series(2100,2399) year
+    WHERE NOT EXISTS(SELECT 1 FROM risk.periods
+      WHERE period_from<=make_date(year,12,31) AND period_to>=make_date(year,1,1))
+    ORDER BY random()`);
+  for(const {year} of rows){
+    const result=await api("/periods","admin","POST",{
+      period_from:`${year}-01-01`,period_to:`${year}-03-31`});
+    if(result.status===409) continue;
+    assert.equal(result.status,201,result.body.error);
+    assert.equal(result.body.ok,true);
+    f.period=result.body.data.period_id;f.periods.push(f.period);await save();
+    return year;
+  }
+  throw new Error("No unused synthetic reporting year is available.");
+}
 try{
-  if(process.argv.includes("--cleanup")){
-    f=JSON.parse(await readFile(fixturePath,"utf8"));await cleanup();console.log("Risk fixtures removed.");
+  if(cleanupMode){
+    assert(!fixturePath.startsWith("--"),"Pass the manifest path after --cleanup.");
+    f=JSON.parse(await readFile(fixturePath,"utf8"));ownsManifest=true;
+    await cleanup();console.log("Risk fixtures removed.");
   }else{
     f={prefix:`RTEST_${randomBytes(4).toString("hex")}`,users:[],departments:[],periods:[],cookies:{},accounts:{}};
+    fixturePath=`/tmp/mis-risk-fixtures-${f.prefix}.json`;
     await save();
+    console.log(`Risk fixture manifest: ${fixturePath}`);
     const password=`RiskT!${randomBytes(18).toString("hex")}`,hash=await bcrypt.hash(password,10);
     for(const [label,profile] of [["admin",1],["champion",9],["owner",9],["unrelated",8]]){
       const username=`${f.prefix}_${label}`;
@@ -72,14 +109,12 @@ try{
       const department=`${f.prefix}${label}`,objective=`${f.prefix}O${label}`;
       f.departments.push(department);await save();
       await pool.query("INSERT INTO risk.departments(depart_code,depart_name) VALUES($1,$2)",
-        [department,`Synthetic risk department ${label}`]);
+        [department,`Synthetic risk department ${label} ${f.prefix}`]);
       await pool.query("INSERT INTO risk.objectives(obj_code,obj_name,depart_code) VALUES($1,$2,$3)",
         [objective,`Synthetic objective ${label}`,department]);
     }
     f.department=f.departments[0];f.objective=`${f.prefix}OA`;
-    const year=2100+Math.floor(Math.random()*300);
-    const p=await ok("/periods","admin","POST",{period_from:`${year}-01-01`,period_to:`${year}-03-31`},201);
-    f.period=p.period_id;f.periods.push(p.period_id);await save();
+    const year=await createTestPeriod();
     await ok("/assignments","admin","POST",{depart_code:f.department,
       champion_username:f.accounts.champion.username,owner_username:f.accounts.owner.username});
     const options=await ok("/options","champion","GET");
@@ -276,9 +311,15 @@ try{
     await save();
     console.log("Risk live checks passed: full-scope totals above 500 rows, department/period/search/workflow isolation, multi-department owner and dual-role page scopes, stale champion-map rejection, role gates, stale updates, exact scoring, return/reassessment, review/sign-off, closure guards, and retained history.");
     if(!process.argv.includes("--keep")) await cleanup();
-    else console.log("Private browser fixture ready at /tmp/mis-risk-fixtures.json.");
+    else console.log(`Private browser fixture ready at ${fixturePath}.\nRemove it with: node test/risk-register.integration.mjs --cleanup ${fixturePath}`);
   }
 }catch(e){
-  if(!process.argv.includes("--keep")) await cleanup();
+  // --keep retains successful fixtures only. A failed setup/workflow must not
+  // leave accounts behind or touch a previously retained run's manifest.
+  if(!cleanupMode){
+    try{await cleanup();}catch(cleanupError){
+      throw new AggregateError([e,cleanupError],`Risk check and cleanup failed; retry --cleanup ${fixturePath}`);
+    }
+  }
   throw e;
 }finally{await pool.end();}
