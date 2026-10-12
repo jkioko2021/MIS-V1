@@ -5,6 +5,7 @@ export type RiskPageActor = {
 };
 
 export function canAccessRiskPage(actor: RiskPageActor | undefined, page: string) {
+  if (page === "import") return Boolean(actor?.can_manage);
   if (page !== "update" && page !== "review") return true;
   if (!actor) return false;
   return actor.can_manage || (page === "update" ? actor.champion_departments : actor.owner_departments).length > 0;

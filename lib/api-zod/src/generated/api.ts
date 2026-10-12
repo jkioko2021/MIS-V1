@@ -23,7 +23,6 @@ export const createRiskAdministrationDepartmentBodyDepartCodeMax = 20;
 export const createRiskAdministrationDepartmentBodyDepartNameMax = 100;
 
 
-
 export const CreateRiskAdministrationDepartmentBody = zod.object({
   "depart_code": zod.string().max(createRiskAdministrationDepartmentBodyDepartCodeMax),
   "depart_name": zod.string().max(createRiskAdministrationDepartmentBodyDepartNameMax)
@@ -44,7 +43,6 @@ export const UpdateRiskAdministrationDepartmentParams = zod.object({
 })
 
 export const updateRiskAdministrationDepartmentBodyDepartNameMax = 100;
-
 
 
 export const UpdateRiskAdministrationDepartmentBody = zod.object({
@@ -78,7 +76,6 @@ export const listClientRatingsQuerySearchMax = 150;
 
 
 export const listClientRatingsQueryPageSizeMax = 100;
-
 
 
 export const ListClientRatingsQueryParams = zod.object({
@@ -122,10 +119,9 @@ export const GetClientRatingsReportQueryParams = zod.object({
 
 export const GetClientRatingsReportResponse = zod.unknown()
 
-
+export const previewRiskRegisterImportBodySourceNameMax = 200;
 export const getRiskRegisterOptionsResponseDataControlEffectivenessItemRatingMin = 0;
 export const getRiskRegisterOptionsResponseDataControlEffectivenessItemRatingMax = 1;
-
 
 
 export const GetRiskRegisterOptionsResponse = zod.object({
@@ -423,7 +419,6 @@ export const updateRiskRegisterRecordBodyTwoControlEffectivenessMin = 0;
 export const updateRiskRegisterRecordBodyTwoControlEffectivenessMax = 1;
 
 
-
 export const UpdateRiskRegisterRecordBody = zod.object({
   "depart_code": zod.string(),
   "period_id": zod.number().int(),
@@ -480,7 +475,6 @@ export const SaveRiskRegisterRootCauseParams = zod.object({
 })
 
 export const saveRiskRegisterRootCauseBodyActionStatusMax = 50;
-
 
 
 export const SaveRiskRegisterRootCauseBody = zod.object({
@@ -619,7 +613,6 @@ export const recordMedicalDocumentUploadBodyOnePolicyCodeMax = 100;
 export const recordMedicalDocumentUploadBodyTwoMimeTypeMax = 200;
 
 
-
 export const RecordMedicalDocumentUploadBody = zod.object({
   "req_id": zod.number().int(),
   "filename": zod.string(),
@@ -692,7 +685,6 @@ export const recordAllocatedDocumentUploadBodyInvoiceNoMax = 25;
 export const recordAllocatedDocumentUploadBodyPolicyCodeMax = 100;
 
 
-
 export const RecordAllocatedDocumentUploadBody = zod.object({
   "req_id": zod.number().int(),
   "filename": zod.string(),
@@ -715,3 +707,57 @@ export const RecordAllocatedDocumentUploadResponse = zod.object({
 })
 
 
+export const PreviewRiskRegisterImportBody = zod.object({
+  "source_name": zod.string().min(1).max(previewRiskRegisterImportBodySourceNameMax),
+  "source_text": zod.string().min(1).max(previewRiskRegisterImportBodySourceTextMax)
+})
+
+export const confirmRiskRegisterImportBodyOneSourceTextMax = 61440;
+
+export const previewRiskRegisterImportBodySourceTextMax = 61440;
+
+export const confirmRiskRegisterImportBodyTwoEnvironmentMax = 200;
+
+export const confirmRiskRegisterImportBodyTwoPreviewTokenMax = 2000;
+
+export const ConfirmRiskRegisterImportBody = zod.object({
+  "source_name": zod.string().min(1).max(confirmRiskRegisterImportBodyOneSourceNameMax),
+  "source_text": zod.string().min(1).max(confirmRiskRegisterImportBodyOneSourceTextMax)
+}).and(zod.object({
+  "preview_token": zod.string().min(1).max(confirmRiskRegisterImportBodyTwoPreviewTokenMax),
+  "environment": zod.string().min(1).max(confirmRiskRegisterImportBodyTwoEnvironmentMax),
+  "confirm": zod.literal(true)
+}))
+
+export const PreviewRiskRegisterImportResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.object({
+  "environment": zod.string(),
+  "valid": zod.boolean(),
+  "rows": zod.array(zod.object({
+  "row": zod.number().int(),
+  "legacy_risk_code": zod.string(),
+  "depart_code": zod.string(),
+  "risk_title": zod.string(),
+  "period_id": zod.number().int().optional(),
+  "inherent": zod.number().optional(),
+  "residual": zod.number().optional(),
+  "errors": zod.array(zod.string()),
+  "warnings": zod.array(zod.string())
+})),
+  "errors": zod.array(zod.string()),
+  "preview_token": zod.string().optional(),
+  "expires_at": zod.coerce.date().optional()
+})
+})
+
+export const ConfirmRiskRegisterImportResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.object({
+  "environment": zod.string(),
+  "imported": zod.number().int(),
+  "risk_codes": zod.array(zod.string())
+})
+})
+
+export const confirmRiskRegisterImportBodyOneSourceNameMax = 200;

@@ -16,6 +16,18 @@ export interface RiskAdministrationDepartmentResponse {
   data: RiskAdministrationDepartment;
 }
 
+export interface RiskImportSource {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  source_name: string;
+  /**
+     * @minLength 1
+     * @maxLength 61440
+     */
+  source_text: string;
+}
 export interface RiskRecordInput {
   depart_code: string;
   period_id: number;
@@ -623,3 +635,54 @@ export type RecordAllocatedDocumentUpload201 = {
   data: RecordAllocatedDocumentUpload201Data;
 };
 
+
+export interface RiskImportResultResponse {
+  ok: boolean;
+  data: RiskImportResultResponseData;
+}
+
+export type RiskImportPreviewResponseData = {
+  environment: string;
+  valid: boolean;
+  rows: RiskImportPreviewRow[];
+  errors: string[];
+  preview_token?: string;
+  expires_at?: string;
+};
+
+export type RiskImportConfirmation = RiskImportSource & {
+  /**
+     * @minLength 1
+     * @maxLength 2000
+     */
+  preview_token: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  environment: string;
+  confirm: true;
+};
+
+export interface RiskImportPreviewRow {
+  row: number;
+  legacy_risk_code: string;
+  depart_code: string;
+  risk_title: string;
+  period_id?: number;
+  inherent?: number;
+  residual?: number;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface RiskImportPreviewResponse {
+  ok: boolean;
+  data: RiskImportPreviewResponseData;
+}
+
+export type RiskImportResultResponseData = {
+  environment: string;
+  imported: number;
+  risk_codes: string[];
+};

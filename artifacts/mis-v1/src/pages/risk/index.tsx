@@ -23,8 +23,9 @@ import {
   dateLabel, EmptyState, envelopeData, envelopeError, ErrorNotice, Field, fieldClass,
   queryError, SkeletonRows, StatusPill,
 } from './risk-ui';
+import RiskImportPanel from './risk-import';
 
-type PageKey = 'dashboard' | 'new' | 'update' | 'review' | 'summary' | 'status' | 'open' | 'close' | 'closed' | 'history' | 'client-rating' | 'champions';
+type PageKey = 'dashboard' | 'new' | 'update' | 'review' | 'summary' | 'status' | 'open' | 'close' | 'closed' | 'history' | 'client-rating' | 'champions' | 'import';
 const PAGES: Array<{ key: PageKey; title: string; short: string; icon: typeof Shield }> = [
   { key: 'new', title: 'Add New Risk', short: 'Add New Risk', icon: FilePlus2 },
   { key: 'update', title: 'Update Register', short: 'Update Register', icon: ClipboardCheck },
@@ -37,6 +38,7 @@ const PAGES: Array<{ key: PageKey; title: string; short: string; icon: typeof Sh
   { key: 'client-rating', title: 'Client Rating', short: 'Client Rating', icon: BadgeCheck },
   { key: 'dashboard', title: 'Risk Dashboard', short: 'Risk Dashboard', icon: Shield },
   { key: 'closed', title: 'Closed Archives', short: 'Closed Archives', icon: Archive },
+  { key: 'import', title: 'Legacy Risk Import', short: 'Legacy Import', icon: FileUp },
 ];
 const navLabels: Record<string, PageKey> = Object.fromEntries(PAGES.map(item => [item.key, item.key]));
 
@@ -197,7 +199,7 @@ function RiskRegisterWorkspace() {
       {optionsQuery.isError && <ErrorNotice message={queryError(optionsQuery.error)} onRetry={() => optionsQuery.refetch()} />}
       {optionsFailure && <ErrorNotice message={optionsFailure} onRetry={() => optionsQuery.refetch()} />}
       {options && !pageAllowed && <div role="alert" className="mb-6 rounded-xl border border-border p-4 text-sm">
-        <strong>Access denied.</strong> {activePage === 'update' ? 'Update Register is available to mapped department champions.' : 'Risk Register Review is available to mapped department risk owners.'}
+        <strong>Access denied.</strong> {activePage === 'import' ? 'Legacy import is available to risk management only.' : activePage === 'update' ? 'Update Register is available to mapped department champions.' : 'Risk Register Review is available to mapped department risk owners.'}
       </div>}
       {!optionsQuery.isLoading && !optionsQuery.isError && !optionsFailure && noScope && <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><div><strong>Department access is not mapped.</strong><p className="mt-1">Contact your MIS administrator to set up your champion or owner department mapping.</p></div>
@@ -277,6 +279,7 @@ function RiskRegisterWorkspace() {
 
          {activePage === 'closed' && <RecordsTable records={records} closedView loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={viewDetails} search={search} setSearch={setSearch} title="Closed action & archive records" />}
         {activePage === 'history' && <HistoryTable events={history} loading={historyQuery.isLoading} error={historyFailure || (historyQuery.isError ? queryError(historyQuery.error) : '')} retry={() => historyQuery.refetch()} />}
+        {activePage === 'import' && manage && <RiskImportPanel key={username} options={options} />}
         {activePage === 'champions' && <TeamMapping options={options} manage={manage} mutating={assignTeam.isPending} onAssign={data => assignTeam.mutate({ data }, { onSuccess: response => announce(response, 'Department team mapping saved.'), onError: error => setMutationError(queryError(error)) })} />}
       </main>}
 

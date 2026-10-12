@@ -50,3 +50,15 @@ Existing retired action statuses may remain unchanged on their own historical ac
 **Why:** The supplied action catalogue excludes legacy Open. Preserving historical records must not add Open back to the approved choices.
 
 **How to apply:** Show a legacy option only while editing an action already using it; validate new selections against the active catalogue on the server and keep status corrections auditable.
+
+Do not automatically resolve historical import usernames to current MIS action owners, even if the names happen to match.
+
+**Why:** Legacy attribution does not establish current responsibility. Imports must preserve source evidence without silently assigning work or granting access.
+
+**How to apply:** Keep historical owners in audit provenance; leave imported actions unassigned until an authorized user explicitly selects a current account.
+
+Full import-batch provenance must not inherit the access scope of a single imported risk row.
+
+**Why:** A mixed-department source contains information that a champion or owner of only one department must not see through an otherwise authorized row's history.
+
+**How to apply:** Keep row-level evidence department-scoped; retain the exact full batch only in management-restricted history.

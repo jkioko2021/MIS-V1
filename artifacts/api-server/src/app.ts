@@ -31,6 +31,9 @@ app.use(
 app.use(cors({ origin: true, credentials: true }));
 app.use(cookieParser());
 if (isLocalRuntime()) app.use("/api", localUploadRouter);
+// Only the bounded, authenticated register import accepts a larger JSON envelope.
+// Source is limited separately to 60 KiB; escaped multiline JSON can be larger on the wire.
+app.use("/api/risk-register/import", express.json({ limit: "512kb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

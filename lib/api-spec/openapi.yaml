@@ -143,6 +143,36 @@ paths:
           content:
             text/csv:
               schema: { type: string }
+  /risk-register/import/preview:
+    post:
+      operationId: previewRiskRegisterImport
+      tags: [Risk]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RiskImportSource" }
+      responses:
+        "200":
+          description: Read-only validation of an insert-only departmental risk import
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskImportPreviewResponse" }
+  /risk-register/import/confirm:
+    post:
+      operationId: confirmRiskRegisterImport
+      tags: [Risk]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RiskImportConfirmation" }
+      responses:
+        "201":
+          description: All records and audit evidence inserted atomically
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskImportResultResponse" }
   /risk-register/options:
     get:
       operationId: getRiskRegisterOptions
@@ -423,6 +453,62 @@ components:
       properties:
         ok: { type: boolean }
         data: { $ref: "#/components/schemas/RiskAdministrationDepartment" }
+    RiskImportSource:
+      type: object
+      additionalProperties: false
+      required: [source_name, source_text]
+      properties:
+        source_name: { type: string, minLength: 1, maxLength: 200 }
+        source_text: { type: string, minLength: 1, maxLength: 61440 }
+    RiskImportConfirmation:
+      allOf:
+        - { $ref: "#/components/schemas/RiskImportSource" }
+        - type: object
+          required: [preview_token, environment, confirm]
+          properties:
+            preview_token: { type: string, minLength: 1, maxLength: 2000 }
+            environment: { type: string, minLength: 1, maxLength: 200 }
+            confirm: { type: boolean, enum: [true] }
+    RiskImportPreviewRow:
+      type: object
+      required: [row, legacy_risk_code, depart_code, risk_title, errors, warnings]
+      properties:
+        row: { type: integer }
+        legacy_risk_code: { type: string }
+        depart_code: { type: string }
+        risk_title: { type: string }
+        period_id: { type: integer }
+        inherent: { type: number }
+        residual: { type: number }
+        errors: { type: array, items: { type: string } }
+        warnings: { type: array, items: { type: string } }
+    RiskImportPreviewResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok: { type: boolean }
+        data:
+          type: object
+          required: [environment, valid, rows, errors]
+          properties:
+            environment: { type: string }
+            valid: { type: boolean }
+            rows: { type: array, items: { $ref: "#/components/schemas/RiskImportPreviewRow" } }
+            errors: { type: array, items: { type: string } }
+            preview_token: { type: string }
+            expires_at: { type: string, format: date-time }
+    RiskImportResultResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok: { type: boolean }
+        data:
+          type: object
+          required: [environment, imported, risk_codes]
+          properties:
+            environment: { type: string }
+            imported: { type: integer }
+            risk_codes: { type: array, items: { type: string } }
     RiskRecordInput:
       type: object
       required: [depart_code, period_id, objective_code, risk_title, risk_description, risk_category, risk_consequence]
