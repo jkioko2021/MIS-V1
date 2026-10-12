@@ -27,15 +27,26 @@ export async function queueRiskReviewNotification(client: PoolClient, input: {
     : process.env.MIS_EMAIL_FROM?.trim() ? "PENDING" : "WAITING_CONFIGURATION";
   // No risk snapshots, import identifiers, comments, or other departments enter the email.
   // Navigation instructions do not need a deployment URL and never bypass sign-in.
-  const title = `Risk register ready for review: ${input.departmentName}`;
-  const message = `Department: ${input.departmentName} (${input.department})
+  const title = `Action required: Review ${input.departmentName} risk register`;
+  const message = `Hello ${input.owner.username},
+
+The following risk register has been submitted and requires your review as the assigned Risk Owner.
+
+Department: ${input.departmentName} (${input.department})
 Reporting period: ${input.periodFrom} to ${input.periodTo}
 Submitted by: ${input.submittedBy}
 
-This department's register is now available in Risk Register Review.
-Sign in to MIS, open Risk Management > Risk Register Review (/risk/review),
-and select department ${input.department} and reporting period ${input.periodFrom} to ${input.periodTo}.
-Your current department access permissions apply.`;
+Please review the risk details, root causes, action plans and saved risk assessments.
+
+To complete your review:
+1. Sign in to MIS.
+2. Open Risk Management > Risk Register Review (/risk/review).
+3. Select ${input.departmentName} (${input.department}) and reporting period ${input.periodFrom} to ${input.periodTo}.
+4. If the register is satisfactory, select Review and record your decision comments. If corrections are needed, select Return and explain what the Risk Champion must correct.
+
+Your current department access permissions apply. Please complete the review in MIS rather than replying to this email.
+
+MIS Risk Management`;
   const [row] = await txQuery<{ notification_id: number; email_status: string }>(client, `INSERT INTO risk.review_notifications
     (summary_id,submitted_at,depart_code,period_id,recipient_username,submitted_by,title,message,email_status)
     SELECT summary_id,submitted_at,$2,$3,$4,$5,$6,$7,$8 FROM risk.department_summary WHERE summary_id=$1

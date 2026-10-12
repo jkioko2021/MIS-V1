@@ -123,6 +123,12 @@ try {
   assert.equal(await lib.dispatchRiskReviewEmails(async email => sent.push(email)), 3);
   assert.equal(sent.filter(email => email.to === `${owner}@example.test`).length, 2);
   for (let i = 0; i < sent.length; i++) {
+    assert.match(sent[i].subject, /^Action required: Review .* risk register$/);
+    assert.ok(sent[i].text.includes("requires your review as the assigned Risk Owner"));
+    assert.ok(sent[i].text.includes("Please review the risk details, root causes, action plans and saved risk assessments."));
+    assert.ok(sent[i].text.includes("select Review and record your decision comments"));
+    assert.ok(sent[i].text.includes("select Return and explain what the Risk Champion must correct"));
+    assert.ok(sent[i].text.includes("Sign in to MIS"));
     assert.match(sent[i].text, new RegExp(codes[i]));
     for (const code of codes.filter(code => code !== codes[i])) assert.ok(!sent[i].text.includes(code));
     assert.ok(sent[i].text.includes("2190-01-01 to 2190-03-31"));
