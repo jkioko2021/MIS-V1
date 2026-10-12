@@ -73,6 +73,13 @@ database provisioning in Publishing. Let Publish manage runtime database
 bindings; never fix this by hardcoding workspace connection details or adding
 production schema creation to application startup.
 
+## Published schema diagnostics
+Do not treat a publishing schema check that reports no changes as proof that the live MIS authentication schema matches development.
+
+**Why:** Read-only production metadata has shown missing authentication structures while the publishing schema checker reported no pending diff.
+
+**How to apply:** Compare required authentication structures in development and production directly. If that contradicts the publishing diff, report the mismatch and investigate publishing's schema coverage. Do not bypass the managed production migration boundary with startup DDL, custom production migration scripts, or weakened session security.
+
 ## Route layout (Express)
 `app.use("/api", router)` — so all router-level paths drop the `/api` prefix:
 - Auth: `router.get("/auth/me")` → accessible at `/api/auth/me`

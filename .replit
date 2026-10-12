@@ -1,4 +1,4 @@
-modules = ["nodejs-24"]
+modules = ["nodejs-24", "postgresql-16"]
 
 [deployment]
 router = "application"
@@ -21,3 +21,6 @@ timeoutMs = 20000
 
 [userenv.shared]
 MIS_PUBLIC_APP_URL = "https://mis-v-1.replit.app/"
+
+[nix]
+channel = "stable-25_05"
