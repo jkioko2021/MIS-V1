@@ -19,6 +19,7 @@ const inputSchema = z.object({
   label: z.string().trim().min(1).max(100),
   description: z.string().trim().max(5000).nullable().optional(),
   rating: z.number().optional(),
+  matrix_weight: z.number().int().min(1).max(5).optional(),
   risk_type: z.enum(["I", "R"]).optional(),
   minimum: numeric(100, 2).optional(), maximum: numeric(100, 2).optional(),
   rate_label: z.string().trim().min(1).max(50).optional(),
@@ -33,9 +34,12 @@ function projection(catalog: Catalog) {
     ${catalog === "exposure" ? "risk_type" : "NULL::text"} AS risk_type,
     ${catalog === "exposure" ? "minimum::float8" : "NULL::float8"} AS minimum,
     ${catalog === "exposure" ? "maximum::float8" : "NULL::float8"} AS maximum,
-    ${catalog === "impact" ? "rate" : "NULL::text"} AS rate_label`;
+    ${catalog === "impact" ? "rate" : "NULL::text"} AS rate_label,
+    ${catalog === "impact" || catalog === "likelihood" ? "matrix_weight" : "NULL::integer"} AS matrix_weight`;
 }
 function validate(catalog: Catalog, code: string, input: Input) {
+  if (catalog !== "impact" && catalog !== "likelihood" && input.matrix_weight !== undefined)
+    throw new RiskError(400, "Only impact and likelihood accept a matrix weight.");
   if (catalog === "exposure") {
     if (!input.risk_type || input.minimum === undefined || input.maximum === undefined ||
       input.maximum < input.minimum || !input.description || input.label.length > 20)
@@ -108,6 +112,15 @@ for (const method of ["get", "post", "patch"] as const) {
         if (catalog === "exposure") { add("maximum", input.maximum); add("description", input.description); }
         if (catalog === "impact") { add("rate_factor", input.rating); add("rate", input.rate_label); }
         if (catalog === "likelihood") { add("rating", input.rating); add("qualification_criteria", input.description); }
+        if (catalog === "impact" || catalog === "likelihood") {
+          // Never infer weights from calibrated exposure factors. Approved stable
+          // identities retain their original ordering; other identities need a choice.
+          const approved = new RegExp(`^${catalog === "impact" ? "IMP" : "LIK"}_0([1-5])$`, "i").exec(code);
+          const weight = input.matrix_weight ?? (method === "patch" ? before?.matrix_weight : approved ? 6 - Number(approved[1]) : undefined);
+          if (method === "post" && weight == null)
+            throw new RiskError(400, "Choose an integer matrix weight from 1 to 5.");
+          add("matrix_weight", weight ?? null);
+        }
         let after;
         if (method === "post") {
           if (catalog === "exposure") { add("risk_type", input.risk_type); add("minimum", input.minimum); }

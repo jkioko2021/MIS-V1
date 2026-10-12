@@ -37,6 +37,13 @@ export interface RiskReference {
   description: string | null;
   /** @nullable */
   rating: number | null;
+  /**
+     * Independent matrix ranking weight; null means an unconfigured historical custom reference.
+     * @minimum 1
+     * @maximum 5
+     * @nullable
+     */
+  matrix_weight?: number | null;
   /** @nullable */
   depart_code: string | null;
   is_active: boolean;
@@ -85,6 +92,12 @@ export interface RiskReferenceCreateInput {
      * @maximum 100
      */
   rating?: number;
+  /**
+     * Required for new custom impact or likelihood references; approved identities default to 5/4/3/2/1.
+     * @minimum 1
+     * @maximum 5
+     */
+  matrix_weight?: number;
   /** Required active department for objectives */
   depart_code?: string;
   risk_type?: RiskReferenceCreateInputRiskType;
@@ -129,6 +142,12 @@ export interface RiskReferenceUpdateInput {
      * @maximum 100
      */
   rating?: number;
+  /**
+     * Impact or likelihood only. Changes apply to new snapshots or explicit reassessment. Ordinary saves retain saved ranking weights. Omission preserves the reference weight.
+     * @minimum 1
+     * @maximum 5
+     */
+  matrix_weight?: number;
   is_active: boolean;
   risk_type?: RiskReferenceUpdateInputRiskType;
   /**
@@ -491,6 +510,12 @@ export interface RiskImpactFactor {
   label: string;
   factor: number;
   rate: string;
+  /**
+     * @minimum 1
+     * @maximum 5
+     * @nullable
+     */
+  matrix_weight?: number | null;
 }
 
 export interface RiskLikelihoodFactor {
@@ -498,6 +523,12 @@ export interface RiskLikelihoodFactor {
   label: string;
   factor: number;
   criteria: string;
+  /**
+     * @minimum 1
+     * @maximum 5
+     * @nullable
+     */
+  matrix_weight?: number | null;
 }
 
 export type RiskExposureBandRiskType = typeof RiskExposureBandRiskType[keyof typeof RiskExposureBandRiskType];

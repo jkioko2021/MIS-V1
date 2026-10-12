@@ -12,6 +12,10 @@ export const ListRiskAdministrationReferencesParams = zod.object({
   "catalog": zod.enum(['action-statuses', 'categories', 'control-effectiveness', 'objectives', 'exposure', 'impact', 'likelihood', 'reasons'])
 })
 
+export const listRiskAdministrationReferencesResponseDataItemMatrixWeightMax = 5;
+
+
+
 export const ListRiskAdministrationReferencesResponse = zod.object({
   "ok": zod.boolean(),
   "data": zod.array(zod.object({
@@ -19,6 +23,7 @@ export const ListRiskAdministrationReferencesResponse = zod.object({
   "label": zod.string(),
   "description": zod.string().nullable(),
   "rating": zod.number().nullable(),
+  "matrix_weight": zod.number().int().min(1).max(listRiskAdministrationReferencesResponseDataItemMatrixWeightMax).nullish().describe('Independent matrix ranking weight; null means an unconfigured historical custom reference.'),
   "depart_code": zod.string().nullable(),
   "is_active": zod.boolean(),
   "risk_type": zod.union([zod.literal('I'),zod.literal('R'),zod.literal(null)]).nullish(),
@@ -42,6 +47,8 @@ export const createRiskAdministrationReferenceBodyDescriptionMax = 5000;
 export const createRiskAdministrationReferenceBodyRatingMin = 0;
 export const createRiskAdministrationReferenceBodyRatingMax = 100;
 
+export const createRiskAdministrationReferenceBodyMatrixWeightMax = 5;
+
 export const createRiskAdministrationReferenceBodyMinimumMin = 0;
 export const createRiskAdministrationReferenceBodyMinimumMax = 100;
 
@@ -57,12 +64,17 @@ export const CreateRiskAdministrationReferenceBody = zod.object({
   "label": zod.string().min(1).max(createRiskAdministrationReferenceBodyLabelMax),
   "description": zod.string().max(createRiskAdministrationReferenceBodyDescriptionMax).nullish(),
   "rating": zod.number().min(createRiskAdministrationReferenceBodyRatingMin).max(createRiskAdministrationReferenceBodyRatingMax).optional().describe('Fraction for control-effectiveness and likelihood; impact factor up to 100 for impact'),
+  "matrix_weight": zod.number().int().min(1).max(createRiskAdministrationReferenceBodyMatrixWeightMax).optional().describe('Required for new custom impact or likelihood references; approved identities default to 5\/4\/3\/2\/1.'),
   "depart_code": zod.string().optional().describe('Required active department for objectives'),
   "risk_type": zod.enum(['I', 'R']).optional(),
   "minimum": zod.number().min(createRiskAdministrationReferenceBodyMinimumMin).max(createRiskAdministrationReferenceBodyMinimumMax).optional(),
   "maximum": zod.number().min(createRiskAdministrationReferenceBodyMaximumMin).max(createRiskAdministrationReferenceBodyMaximumMax).optional(),
   "rate_label": zod.string().min(1).max(createRiskAdministrationReferenceBodyRateLabelMax).optional()
 })
+
+export const createRiskAdministrationReferenceResponseDataMatrixWeightMax = 5;
+
+
 
 export const CreateRiskAdministrationReferenceResponse = zod.object({
   "ok": zod.boolean(),
@@ -71,6 +83,7 @@ export const CreateRiskAdministrationReferenceResponse = zod.object({
   "label": zod.string(),
   "description": zod.string().nullable(),
   "rating": zod.number().nullable(),
+  "matrix_weight": zod.number().int().min(1).max(createRiskAdministrationReferenceResponseDataMatrixWeightMax).nullish().describe('Independent matrix ranking weight; null means an unconfigured historical custom reference.'),
   "depart_code": zod.string().nullable(),
   "is_active": zod.boolean(),
   "risk_type": zod.union([zod.literal('I'),zod.literal('R'),zod.literal(null)]).nullish(),
@@ -93,6 +106,8 @@ export const updateRiskAdministrationReferenceBodyDescriptionMax = 5000;
 export const updateRiskAdministrationReferenceBodyRatingMin = 0;
 export const updateRiskAdministrationReferenceBodyRatingMax = 100;
 
+export const updateRiskAdministrationReferenceBodyMatrixWeightMax = 5;
+
 export const updateRiskAdministrationReferenceBodyMinimumMin = 0;
 export const updateRiskAdministrationReferenceBodyMinimumMax = 100;
 
@@ -101,12 +116,15 @@ export const updateRiskAdministrationReferenceBodyMaximumMax = 100;
 
 export const updateRiskAdministrationReferenceBodyRateLabelMax = 50;
 
+export const updateRiskAdministrationReferenceBodyExpectedMatrixWeightMax = 5;
+
 
 
 export const UpdateRiskAdministrationReferenceBody = zod.object({
   "label": zod.string().min(1).max(updateRiskAdministrationReferenceBodyLabelMax),
   "description": zod.string().max(updateRiskAdministrationReferenceBodyDescriptionMax).nullish(),
   "rating": zod.number().min(updateRiskAdministrationReferenceBodyRatingMin).max(updateRiskAdministrationReferenceBodyRatingMax).optional(),
+  "matrix_weight": zod.number().int().min(1).max(updateRiskAdministrationReferenceBodyMatrixWeightMax).optional().describe('Impact or likelihood only. Changes apply to new snapshots or explicit reassessment. Ordinary saves retain saved ranking weights. Omission preserves the reference weight.'),
   "is_active": zod.boolean(),
   "risk_type": zod.enum(['I', 'R']).optional(),
   "minimum": zod.number().min(updateRiskAdministrationReferenceBodyMinimumMin).max(updateRiskAdministrationReferenceBodyMinimumMax).optional(),
@@ -118,6 +136,7 @@ export const UpdateRiskAdministrationReferenceBody = zod.object({
   "label": zod.string(),
   "description": zod.string().nullable(),
   "rating": zod.number().nullable(),
+  "matrix_weight": zod.number().int().min(1).max(updateRiskAdministrationReferenceBodyExpectedMatrixWeightMax).nullish().describe('Independent matrix ranking weight; null means an unconfigured historical custom reference.'),
   "depart_code": zod.string().nullable(),
   "is_active": zod.boolean(),
   "risk_type": zod.union([zod.literal('I'),zod.literal('R'),zod.literal(null)]).nullish(),
@@ -127,6 +146,10 @@ export const UpdateRiskAdministrationReferenceBody = zod.object({
 }).optional().describe('Last loaded reference; reject stale edits or status changes rather than overwriting another administrator')
 })
 
+export const updateRiskAdministrationReferenceResponseDataMatrixWeightMax = 5;
+
+
+
 export const UpdateRiskAdministrationReferenceResponse = zod.object({
   "ok": zod.boolean(),
   "data": zod.object({
@@ -134,6 +157,7 @@ export const UpdateRiskAdministrationReferenceResponse = zod.object({
   "label": zod.string(),
   "description": zod.string().nullable(),
   "rating": zod.number().nullable(),
+  "matrix_weight": zod.number().int().min(1).max(updateRiskAdministrationReferenceResponseDataMatrixWeightMax).nullish().describe('Independent matrix ranking weight; null means an unconfigured historical custom reference.'),
   "depart_code": zod.string().nullable(),
   "is_active": zod.boolean(),
   "risk_type": zod.union([zod.literal('I'),zod.literal('R'),zod.literal(null)]).nullish(),
@@ -325,6 +349,10 @@ export const ConfirmRiskRegisterImportResponse = zod.object({
 export const getRiskRegisterOptionsResponseDataControlEffectivenessItemRatingMin = 0;
 export const getRiskRegisterOptionsResponseDataControlEffectivenessItemRatingMax = 1;
 
+export const getRiskRegisterOptionsResponseDataImpactFactorsItemMatrixWeightMax = 5;
+
+export const getRiskRegisterOptionsResponseDataLikelihoodFactorsItemMatrixWeightMax = 5;
+
 
 
 export const GetRiskRegisterOptionsResponse = zod.object({
@@ -446,13 +474,15 @@ export const GetRiskRegisterOptionsResponse = zod.object({
   "code": zod.string(),
   "label": zod.string(),
   "factor": zod.number(),
-  "rate": zod.string()
+  "rate": zod.string(),
+  "matrix_weight": zod.number().int().min(1).max(getRiskRegisterOptionsResponseDataImpactFactorsItemMatrixWeightMax).nullish()
 })),
   "likelihood_factors": zod.array(zod.object({
   "code": zod.string(),
   "label": zod.string(),
   "factor": zod.number(),
-  "criteria": zod.string()
+  "criteria": zod.string(),
+  "matrix_weight": zod.number().int().min(1).max(getRiskRegisterOptionsResponseDataLikelihoodFactorsItemMatrixWeightMax).nullish()
 })),
   "exposure_bands": zod.array(zod.object({
   "risk_type": zod.enum(['I', 'R']),

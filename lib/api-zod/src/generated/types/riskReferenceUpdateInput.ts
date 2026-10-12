@@ -24,6 +24,12 @@ export interface RiskReferenceUpdateInput {
      * @maximum 100
      */
   rating?: number;
+  /**
+     * Impact or likelihood only. Changes apply to new snapshots or explicit reassessment. Ordinary saves retain saved ranking weights. Omission preserves the reference weight.
+     * @minimum 1
+     * @maximum 5
+     */
+  matrix_weight?: number;
   is_active: boolean;
   risk_type?: RiskReferenceUpdateInputRiskType;
   /**

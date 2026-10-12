@@ -11,4 +11,10 @@ export interface RiskImpactFactor {
   label: string;
   factor: number;
   rate: string;
+  /**
+     * @minimum 1
+     * @maximum 5
+     * @nullable
+     */
+  matrix_weight?: number | null;
 }

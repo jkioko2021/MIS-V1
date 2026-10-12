@@ -50,3 +50,18 @@ for (const legacy of [{i_rate:'100',l_rate:'.9'}, {i_rate:'IMP_01',l_rate:'Certa
   assert.equal(exportsObject.orderRiskSummary([{risk_code:'legacy',...legacy}],factors)[0].risk_score,null);
 }
 console.log('PASS: all 25 matrix combinations, exact ranking bands, score order/ties, historical/ambiguous ratings unranked, saved exposure data preserved.');
+const weighted = {
+  impact_factors: [{code:'CUSTOM_I', label:'Custom impact', factor:22.25, matrix_weight:2}],
+  likelihood_factors: [{code:'CUSTOM_L', label:'Custom likelihood', factor:.333111, matrix_weight:4}],
+};
+const customSnapshot = {impact:{code:'CUSTOM_I',label:'Custom impact',ordinal:2},likelihood:{code:'CUSTOM_L',label:'Custom likelihood',ordinal:4}};
+assert.equal(exportsObject.orderRiskSummary([{risk_code:'custom', ranking_snapshot:customSnapshot, i_rate:'22.25', l_rate:'.333111'}],weighted)[0].risk_score,8);
+const saved = {risk_code:'saved', i_rate:'22.25', l_rate:'.333111', ranking_snapshot:customSnapshot, risk_status:'Closed', r_risk_exposure:'6.25'};
+weighted.impact_factors[0].matrix_weight=5;
+assert.equal(exportsObject.orderRiskSummary([saved],weighted)[0].risk_score,8,'Saved score survives weight edits and reload');
+assert.equal(exportsObject.orderRiskSummary([saved],weighted)[0].risk_status,'Closed');
+assert.equal(exportsObject.orderRiskSummary([{...saved,ranking_snapshot:{impact:null,likelihood:customSnapshot.likelihood}}],weighted)[0].risk_score,null,'Saved unknown is never reclassified');
+assert.equal(exportsObject.orderRiskSummary([{...saved,ranking_snapshot:{...customSnapshot,impact:{...customSnapshot.impact,ordinal:6}}}],weighted)[0].risk_score,null);
+assert.equal(exportsObject.orderRiskSummary([{...saved,ranking_snapshot:{...customSnapshot,impact:{...customSnapshot.impact,ordinal:5}}}],weighted)[0].risk_score,20,'Explicit reassessment snapshot applies new weight');
+assert.equal(exportsObject.orderRiskSummary([saved],{impact_factors:[],likelihood_factors:[]})[0].risk_score,8,'Retired catalogues cannot change saved rankings');
+console.log('PASS: custom matrix weights independent of exposure factors, saved scores/unknowns stable across changes, retirement and reload.');

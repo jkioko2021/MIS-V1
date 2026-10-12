@@ -14,6 +14,13 @@ export interface RiskReference {
   description: string | null;
   /** @nullable */
   rating: number | null;
+  /**
+     * Independent matrix ranking weight; null means an unconfigured historical custom reference.
+     * @minimum 1
+     * @maximum 5
+     * @nullable
+     */
+  matrix_weight?: number | null;
   /** @nullable */
   depart_code: string | null;
   is_active: boolean;

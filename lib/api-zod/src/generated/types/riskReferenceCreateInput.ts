@@ -29,6 +29,12 @@ export interface RiskReferenceCreateInput {
      * @maximum 100
      */
   rating?: number;
+  /**
+     * Required for new custom impact or likelihood references; approved identities default to 5/4/3/2/1.
+     * @minimum 1
+     * @maximum 5
+     */
+  matrix_weight?: number;
   /** Required active department for objectives */
   depart_code?: string;
   risk_type?: RiskReferenceCreateInputRiskType;

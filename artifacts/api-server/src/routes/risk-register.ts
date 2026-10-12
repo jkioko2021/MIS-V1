@@ -86,8 +86,8 @@ router.get("/risk-register/options", async (req,res) => {
         FROM risk.action_statuses WHERE is_active ORDER BY status_code`),
       query(`SELECT eff_factor,qual_criteria,rating::float8 AS rating
         FROM risk.control_effectiveness WHERE is_active ORDER BY rating DESC,eff_factor`),
-      query("SELECT impact_code AS code,impact_factor AS label,rate_factor::float8 AS factor,rate FROM risk.impact_factors WHERE is_active ORDER BY impact_code"),
-      query("SELECT likelihood_code AS code,likelihood_factor AS label,rating::float8 AS factor,qualification_criteria AS criteria FROM risk.likelihood_factors WHERE is_active ORDER BY likelihood_code"),
+      query("SELECT impact_code AS code,impact_factor AS label,rate_factor::float8 AS factor,rate,matrix_weight FROM risk.impact_factors WHERE is_active ORDER BY impact_code"),
+      query("SELECT likelihood_code AS code,likelihood_factor AS label,rating::float8 AS factor,qualification_criteria AS criteria,matrix_weight FROM risk.likelihood_factors WHERE is_active ORDER BY likelihood_code"),
       query("SELECT risk_type,level,minimum::float8,maximum::float8,description FROM risk.exposure_bands WHERE is_active ORDER BY risk_type,minimum"),
     ]);
     res.json({ok:true,data:{actor:{username:a.username,can_manage:canManage(a),

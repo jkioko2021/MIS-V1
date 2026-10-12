@@ -3,14 +3,10 @@ import type { RiskRankingFactorSnapshot, RiskRankingSnapshot } from "@workspace/
 import { txQuery } from "./postgres";
 import { RiskError } from "./risk-register";
 
-const scales: Record<"impact" | "likelihood", Record<string, number>> = {
-  impact: { imp_01: 5, catastrophic: 5, imp_02: 4, major: 4, imp_03: 3, moderate: 3, imp_04: 2, minor: 2, imp_05: 1, insignificant: 1 },
-  likelihood: { lik_01: 5, certain: 5, lik_02: 4, likely: 4, lik_03: 3, possible: 3, lik_04: 2, unlikely: 2, lik_05: 1, rare: 1 },
-};
-export function factorSnapshot(axis: "impact" | "likelihood", factor: { code: string; label: string }): RiskRankingFactorSnapshot {
-  const scale = scales[axis];
+export function factorSnapshot(_axis: "impact" | "likelihood", factor: { code: string; label: string; matrix_weight: number | null }): RiskRankingFactorSnapshot {
   return { code: factor.code, label: factor.label,
-    ordinal: scale[factor.code.toLowerCase()] ?? scale[factor.label.trim().toLowerCase()] ?? null };
+    ordinal: factor.matrix_weight != null && Number.isInteger(factor.matrix_weight) && factor.matrix_weight >= 1 && factor.matrix_weight <= 5
+      ? factor.matrix_weight : null };
 }
 
 type RankingInput = {
@@ -34,8 +30,8 @@ export async function assessmentRanking(client: PoolClient, existing: Record<str
     const rating = isImpact ? "rate_factor" : "rating";
     // Lock reference rows until the assessment commits so concurrent reference
     // maintenance cannot change the identity/weight halfway through capture.
-    const matches = await txQuery<{code: string; label: string}>(client,
-      `SELECT ${code} AS code,${label} AS label FROM risk.${table}
+    const matches = await txQuery<{code: string; label: string; matrix_weight:number|null}>(client,
+      `SELECT ${code} AS code,${label} AS label,matrix_weight FROM risk.${table}
        WHERE is_active AND ${rating}=$1 AND ($2::text IS NULL OR ${code}=$2) FOR SHARE`,
       [value, identity ?? null]);
     if (identity && matches.length !== 1)

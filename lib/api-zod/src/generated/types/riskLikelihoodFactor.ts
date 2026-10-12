@@ -11,4 +11,10 @@ export interface RiskLikelihoodFactor {
   label: string;
   factor: number;
   criteria: string;
+  /**
+     * @minimum 1
+     * @maximum 5
+     * @nullable
+     */
+  matrix_weight?: number | null;
 }

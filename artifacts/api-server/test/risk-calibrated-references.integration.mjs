@@ -16,8 +16,8 @@ async function api(catalog, method = "GET", body, suffix = "", role = "admin") {
   return { status: res.status, body: await res.json() };
 }
 const payloads = {
-  impact: { code, label: "Synthetic impact", rating: 22.25, rate_label: "Low" },
-  likelihood: { code, label: "Synthetic likelihood", rating: .333111, description: "Synthetic qualitative criteria" },
+  impact: { code, label: "Synthetic impact", rating: 22.25, rate_label: "Low", matrix_weight: 4 },
+  likelihood: { code, label: "Synthetic likelihood", rating: .333111, description: "Synthetic qualitative criteria", matrix_weight: 2 },
   reasons: { code: `T${fixture.prefix.slice(-2)}`, label: "Synthetic AML reason" },
 };
 try {

@@ -111,6 +111,12 @@ Reference administration deliberately retires choices rather than offering delet
 
 **How to apply:** To replace a status name, retire the old choice and create a distinct choice. Do not rewrite historical actions or recalculate saved assessments when maintaining reference lists.
 
+Matrix ranking weights are independent of calibrated exposure factors. Preserve unresolved historical rankings as unresolved; do not guess a weight from an exposure factor or arbitrarily choose among conflicting reference matches.
+
+**Why:** Maintenance must support custom reference identities without reinterpreting historical numeric codes. Two references can share an exposure factor but have different matrix weights, so choosing the first match would assert a classification the assessment did not establish.
+
+**How to apply:** Use explicit approved weights when capturing a new assessment snapshot or explicitly reassessing a risk; retain saved rankings during reference changes and ordinary saves. Use exact assessment reference identities to distinguish conflicting factor-to-weight matches; unmatched historical values stay unranked.
+
 Retiring a category or department objective must not block an assessment that retains that risk's existing choice; changing to a different choice still requires an active catalogue entry.
 
 **Why:** Retirement is intended to stop new use, not freeze ongoing maintenance of historical risks.

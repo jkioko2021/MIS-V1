@@ -62,6 +62,8 @@ export default function RiskReferences({ catalog, username }: { catalog: RiskRef
   const [label, setLabel] = useState('');
   const [description, setDescription] = useState('');
   const [rating, setRating] = useState('');
+  const [matrixWeight, setMatrixWeight] = useState('');
+  const hasMatrixWeight = config.kind === 'impact' || config.kind === 'likelihood';
   const [dept, setDept] = useState('');
   const [riskType, setRiskType] = useState<'I' | 'R'>('I');
   const [minimum, setMinimum] = useState('');
@@ -88,14 +90,16 @@ export default function RiskReferences({ catalog, username }: { catalog: RiskRef
       ))
     )) });
   }
-  function reset() { setEditing(null); setCode(''); setLabel(''); setDescription(''); setRating(''); setDept(''); setRiskType('I'); setMinimum(''); setMaximum(''); setRateLabel(''); setFormError(''); }
+  function reset() { setEditing(null); setCode(''); setLabel(''); setDescription(''); setRating(''); setMatrixWeight(''); setDept(''); setRiskType('I'); setMinimum(''); setMaximum(''); setRateLabel(''); setFormError(''); }
   function startEdit(row: RiskReference) {
     setEditing(row); setCode(row.code); setLabel(row.label); setDescription(row.description ?? ''); setRating(row.rating === null ? '' : String(row.rating)); setDept(row.depart_code ?? '');
+    setMatrixWeight(row.matrix_weight == null ? '' : String(row.matrix_weight));
     setRiskType(row.risk_type === 'R' ? 'R' : 'I'); setMinimum(row.minimum == null ? '' : Number(row.minimum).toFixed(2)); setMaximum(row.maximum == null ? '' : Number(row.maximum).toFixed(2)); setRateLabel(row.rate_label ?? '');
     setFormError(''); setSuccess(''); setConfirming(null);
     document.getElementById('reference-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
   function validate(): string {
+    if (hasMatrixWeight && !/^[1-5]$/.test(matrixWeight)) return 'Choose an integer matrix weight from 1 to 5.';
     const c = config.kind === 'exposure' && !editing && minimum.trim() ? `${riskType}:${Number(minimum).toFixed(2)}` : (editing ? editing.code : code.trim());
     if (!editing && (!c || c.length > config.codeMax || !config.codePattern.test(c))) return `Code: ${config.codeHint}`;
     const l = config.labelIsCode ? c : label.trim();
@@ -133,6 +137,7 @@ export default function RiskReferences({ catalog, username }: { catalog: RiskRef
           expected: editing,
           ...(desc !== undefined ? { description: desc } : {}),
           ...(rate !== undefined ? { rating: rate } : {}),
+          ...(hasMatrixWeight ? { matrix_weight: Number(matrixWeight) } : {}),
           ...(config.kind === 'impact' ? { rate_label: rateLabel.trim() } : {}),
           ...(config.kind === 'exposure' ? { risk_type: editing.risk_type ?? riskType, minimum: editing.minimum ?? Number(minimum), maximum: Number(maximum) } : {}),
           ...(config.department ? { depart_code: editing.depart_code ?? '' } : {}),
@@ -145,6 +150,7 @@ export default function RiskReferences({ catalog, username }: { catalog: RiskRef
           code: c, label: config.labelIsCode ? c : label.trim(),
           ...(desc ? { description: desc } : {}),
           ...(rate !== undefined ? { rating: rate } : {}),
+          ...(hasMatrixWeight ? { matrix_weight: Number(matrixWeight) } : {}),
           ...(config.kind === 'impact' ? { rate_label: rateLabel.trim() } : {}),
           ...(config.kind === 'exposure' ? { risk_type: riskType, minimum: Number(minimum), maximum: Number(maximum) } : {}),
           ...(config.department ? { depart_code: dept } : {}),
@@ -165,6 +171,7 @@ export default function RiskReferences({ catalog, username }: { catalog: RiskRef
         label: row.label, is_active: !row.is_active, expected: row,
         ...(config.description !== 'none' ? { description: row.description } : {}),
         ...(config.rating && row.rating !== null ? { rating: row.rating } : {}),
+        ...(hasMatrixWeight && row.matrix_weight != null ? { matrix_weight: row.matrix_weight } : {}),
          ...(config.kind === 'impact' ? { rate_label: row.rate_label ?? '' } : {}),
          ...(config.kind === 'exposure' ? { risk_type: row.risk_type ?? 'I', minimum: row.minimum ?? 0, maximum: row.maximum ?? 0 } : {}),
         ...(config.department ? { depart_code: row.depart_code ?? '' } : {}),
@@ -216,6 +223,15 @@ export default function RiskReferences({ catalog, username }: { catalog: RiskRef
            <input data-testid="input-reference-rating" inputMode="decimal" className={`${inputClass} font-mono`} value={rating} onChange={e => { setRating(e.target.value); setSuccess(''); }} placeholder={config.kind === 'impact' ? '0.00' : '0.000000'} required />
         </Field>}
          {config.kind === 'impact' && <Field label="Rate label" hint="Required; up to 50 characters."><input className={inputClass} maxLength={50} value={rateLabel} onChange={e => { setRateLabel(e.target.value); setSuccess(''); }} required /></Field>}
+        {hasMatrixWeight && <Field label="Matrix ranking weight" hint="1 = lowest; 5 = highest. Independent of the exposure factor above.">
+          <select data-testid="input-reference-matrix-weight" className={inputClass} value={matrixWeight} onChange={e => { setMatrixWeight(e.target.value); setSuccess(''); }} required>
+            <option value="">Select a weight</option>
+            {[5, 4, 3, 2, 1].map(weight => <option key={weight} value={weight}>{weight}</option>)}
+          </select>
+        </Field>}
+        {hasMatrixWeight && <p data-testid="text-matrix-weight-policy" className="rounded-xl bg-[#f2f7f4] px-3.5 py-3 text-xs leading-5 text-[#526f69]">
+          Matrix score = impact weight × likelihood weight (1–25). Weight edits apply to future assessments, an explicitly selected assessment factor, or explicit ranking reassessment. Ordinary saves retain saved scores. Exposure factors, closed risks and root-cause actions are not changed by reference edits.
+        </p>}
         {editing && <div className="rounded-xl bg-[#f2f7f4] px-3.5 py-3 text-xs text-[#526f69]">Current status: <strong>{editing.is_active ? 'Active' : 'Retired'}</strong>. Saving these details does not change status.</div>}
       </div>
       {formError && <Notice tone="error" message={formError} />}
@@ -254,6 +270,7 @@ export default function RiskReferences({ catalog, username }: { catalog: RiskRef
                         {config.department && <span className="rounded-md bg-[#eef0e6] px-2 py-1 text-[10px] font-semibold text-[#5f6a4c]">{deptName(row.depart_code) ? `${deptName(row.depart_code)} · ` : ''}{row.depart_code ?? 'No department'}</span>}
                         <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${row.is_active ? 'bg-[#e2efe8] text-[#34745f]' : 'bg-[#f0eee8] text-[#746b56]'}`}>{row.is_active ? 'Active' : 'Retired'}</span>
                         {config.rating && row.rating !== null && <span className="rounded-full bg-[#fbf1df] px-2.5 py-1 font-mono text-[10px] font-bold text-[#7a5a24]">x {row.rating}</span>}
+                        {hasMatrixWeight && <span data-testid={`reference-matrix-weight-${key}`} className="rounded-full bg-[#e2efe8] px-2.5 py-1 text-[10px] font-bold text-[#34745f]">Matrix weight: {row.matrix_weight ?? 'Not configured'}</span>}
                          {config.kind === 'impact' && row.rate_label && <span className="rounded-full bg-[#fbf1df] px-2.5 py-1 text-[10px] font-bold text-[#7a5a24]">{row.rate_label}</span>}
                          {config.kind === 'exposure' && <span className="rounded-full bg-[#fbf1df] px-2.5 py-1 font-mono text-[10px] font-bold text-[#7a5a24]">{row.risk_type ?? '—'} · {row.minimum?.toFixed(2) ?? '—'}–{row.maximum?.toFixed(2) ?? '—'}</span>}
                       </div>

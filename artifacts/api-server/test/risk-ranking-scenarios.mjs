@@ -14,10 +14,10 @@ export async function verifyRankingStability({pool, ok, api, assessment, assesse
     return saved;
   };
   try {
-    await pool.query(`INSERT INTO risk.impact_factors(impact_code,impact_factor,rate_factor,rate)
-      VALUES($1,'Major',70.13,'Synthetic')`,[impactCode]);
-    await pool.query(`INSERT INTO risk.likelihood_factors(likelihood_code,likelihood_factor,rating,qualification_criteria)
-      VALUES($1,'Possible',.42,'Synthetic ranking fixture')`,[likelihoodCode]);
+    await pool.query(`INSERT INTO risk.impact_factors(impact_code,impact_factor,rate_factor,rate,matrix_weight)
+      VALUES($1,'Major',70.13,'Synthetic',4)`,[impactCode]);
+    await pool.query(`INSERT INTO risk.likelihood_factors(likelihood_code,likelihood_factor,rating,qualification_criteria,matrix_weight)
+      VALUES($1,'Possible',.42,'Synthetic ranking fixture',3)`,[likelihoodCode]);
     await save({risk_impact:impactCode,risk_likelihood:likelihoodCode});
     const original=structuredClone(saved.ranking_snapshot);
     assert.deepEqual(original,{
@@ -42,8 +42,8 @@ export async function verifyRankingStability({pool, ok, api, assessment, assesse
     assert.equal((await api(path,"champion","PUT",{
       ...assessment,...factors,expected_updated_at:saved.updated_at,reassess_ranking:true,
     })).status,400,"Retired or reweighted factors require an active selection");
-    await pool.query("UPDATE risk.impact_factors SET impact_factor='Minor',rate_factor=70.13,is_active=true WHERE impact_code=$1",[impactCode]);
-    await pool.query("UPDATE risk.likelihood_factors SET likelihood_factor='Rare',rating=.42,is_active=true WHERE likelihood_code=$1",[likelihoodCode]);
+    await pool.query("UPDATE risk.impact_factors SET impact_factor='Minor',rate_factor=70.13,matrix_weight=2,is_active=true WHERE impact_code=$1",[impactCode]);
+    await pool.query("UPDATE risk.likelihood_factors SET likelihood_factor='Rare',rating=.42,matrix_weight=1,is_active=true WHERE likelihood_code=$1",[likelihoodCode]);
     await save({});
     assert.deepEqual(saved.ranking_snapshot,original,"Reactivation must not silently refresh weights");
     await save({reassess_ranking:true});
@@ -58,7 +58,7 @@ export async function verifyRankingStability({pool, ok, api, assessment, assesse
     assert.equal(event.snapshot.after.ranking_snapshot.impact.ordinal,2);
     // Selecting the same numeric factor is an explicit reassessment of that
     // axis, even without the refresh-both checkbox.
-    await pool.query("UPDATE risk.impact_factors SET impact_factor='Moderate' WHERE impact_code=$1",[impactCode]);
+    await pool.query("UPDATE risk.impact_factors SET impact_factor='Moderate',matrix_weight=3 WHERE impact_code=$1",[impactCode]);
     await save({risk_impact:impactCode});
     assert.equal(saved.ranking_snapshot.impact.ordinal,3);
     assert.equal(saved.ranking_snapshot.likelihood.ordinal,1);

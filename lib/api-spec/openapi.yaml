@@ -512,6 +512,7 @@ components:
         label: { type: string }
         description: { type: ["string", "null"] }
         rating: { type: ["number", "null"] }
+        matrix_weight: { type: ["integer", "null"], minimum: 1, maximum: 5, description: Independent matrix ranking weight; null means an unconfigured historical custom reference. }
         depart_code: { type: ["string", "null"] }
         is_active: { type: boolean }
         risk_type: { type: ["string", "null"], enum: [I, R, null] }
@@ -532,6 +533,7 @@ components:
         label: { type: string, minLength: 1, maxLength: 1000 }
         description: { type: ["string", "null"], maxLength: 5000 }
         rating: { type: number, minimum: 0, maximum: 100, description: Fraction for control-effectiveness and likelihood; impact factor up to 100 for impact }
+        matrix_weight: { type: integer, minimum: 1, maximum: 5, description: Required for new custom impact or likelihood references; approved identities default to 5/4/3/2/1. }
         depart_code: { type: string, description: Required active department for objectives }
         risk_type: { type: string, enum: [I, R] }
         minimum: { type: number, minimum: 0, maximum: 100 }
@@ -544,6 +546,7 @@ components:
         label: { type: string, minLength: 1, maxLength: 1000 }
         description: { type: ["string", "null"], maxLength: 5000 }
         rating: { type: number, minimum: 0, maximum: 100 }
+        matrix_weight: { type: integer, minimum: 1, maximum: 5, description: Impact or likelihood only. Changes apply to new snapshots or explicit reassessment. Ordinary saves retain saved ranking weights. Omission preserves the reference weight. }
         is_active: { type: boolean }
         risk_type: { type: string, enum: [I, R] }
         minimum: { type: number, minimum: 0, maximum: 100 }
@@ -827,6 +830,7 @@ components:
         label: { type: string }
         factor: { type: number }
         rate: { type: string }
+        matrix_weight: { type: ["integer", "null"], minimum: 1, maximum: 5 }
     RiskLikelihoodFactor:
       type: object
       required: [code, label, factor, criteria]
@@ -835,6 +839,7 @@ components:
         label: { type: string }
         factor: { type: number }
         criteria: { type: string }
+        matrix_weight: { type: ["integer", "null"], minimum: 1, maximum: 5 }
     RiskExposureBand:
       type: object
       required: [risk_type, level, minimum, maximum, description]
