@@ -25,6 +25,7 @@ MIS_PUBLIC_APP_URL = "https://mis-v-1.replit.app/"
 [userenv.production]
 MIS_LOGIN_OTP_EMAIL = "mwaniki56@gmail.com"
 MIS_LOGIN_OTP_USERNAME = "admin"
+MIS_LOGIN_OTP_FROM = "onboarding@resend.dev"
 
 [nix]
 channel = "stable-25_05"
