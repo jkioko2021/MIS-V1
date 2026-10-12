@@ -8,7 +8,7 @@ import { Storage } from '@google-cloud/storage';
 if(process.env.NODE_ENV==='production') throw new Error('Development database only.');
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL});
 const fixturePath='/tmp/mis-record-filing-fixtures.json';
-const base='http://localhost:8080/api';
+const base='http://localhost:80/api';
 const prefix=`RF_TEST_${randomUUID().slice(0,8)}`;
 const fixture={users:[],files:[],objects:[],cookies:{}};
 async function cleanup(f) {
@@ -33,6 +33,8 @@ async function cleanup(f) {
       await c.query(`DELETE FROM crm.${table} WHERE file_no=ANY($1::varchar[])`,[f.files]);
     await c.query('DELETE FROM crm.business_tracking WHERE file_no=ANY($1::varchar[])',[f.files]);
     await c.query('DELETE FROM crm.admin_audit_trail WHERE username=ANY($1::varchar[])',[f.users]);
+    await c.query(`DELETE FROM crm.auth_sessions WHERE employee_id IN
+      (SELECT employee_id FROM crm.employees WHERE username=ANY($1::varchar[]))`,[f.users]);
     await c.query('DELETE FROM crm.employees WHERE username=ANY($1::varchar[])',[f.users]);
     await c.query('COMMIT');
   }catch(err){await c.query('ROLLBACK');throw err;}finally{c.release();}
@@ -49,7 +51,13 @@ async function employee(label,profileId){
     VALUES($1,'TEST_SESSION_ONLY',$2,$3,TRUE,TRUE,CURRENT_DATE,$4,$5) RETURNING employee_id`,
     [username,`Filing test ${label}`,profileId,label==='bpo'?'BPO':'DPU',`${label}@example.test`]);
   const {rows:[profile]}=await pool.query('SELECT profile_name FROM crm.profiles WHERE profile_id=$1',[profileId]);
-  fixture.cookies[label]=jwt.sign({sub:user.employee_id,username,name:`Filing test ${label}`,profileId,
+  const sid=randomUUID();
+  await pool.query(`INSERT INTO crm.auth_sessions
+    (session_id,employee_id,employee_version,profile_id,profile_version)
+    SELECT $1,e.employee_id,e.session_version,e.profile_id,p.session_version
+    FROM crm.employees e JOIN crm.profiles p ON p.profile_id=e.profile_id
+    WHERE e.employee_id=$2`,[sid,user.employee_id]);
+  fixture.cookies[label]=jwt.sign({sub:user.employee_id,username,sid,name:`Filing test ${label}`,profileId,
     profileName:profile.profile_name,department:'DPU'},process.env.SESSION_SECRET??'dev-secret-change-me',{expiresIn:'30m'});
   return username;
 }
@@ -61,7 +69,8 @@ async function api(path,body,label='dpu'){
 }
 const path=no=>`/record-filing/files/${encodeURIComponent(no)}`;
 async function file(label,type='N',modern=false){
-  const no=`${prefix}_${label}`;fixture.files.push(no);
+  // File numbers are varchar(30); keep descriptive labels on the proposer.
+  const no=`${prefix}_${type}_${fixture.files.length}`;fixture.files.push(no);
   await pool.query(`INSERT INTO crm.business_tracking
     (file_no,proposer_name,business_type,client_type,business,rate_type,entered_by,allocated_to,
      file_status,forwarded,ready_for_update,receipted,updated,policy_generated,policy_signed,policy_dispatched)
@@ -132,6 +141,67 @@ try{
     {action:'F',expected_updated_at:closedTime,upload_ids:[],comments:'Closed allocation filed'});
   assert.equal(filedClosed.status,200,JSON.stringify(filedClosed.body));
   assert.equal((await api(path(closed))).body.data.file.file_status,'FILED');
+  // Closed endorsements enter Filing and DPU Status without receipt/policy stages.
+  for(const [type,label] of [['T','TERMINATION'],['RT','REINSTATEMENT'],['CC','CATEGORY_CHANGE'],['PR','PREMIUM_RECON']]){
+    const no=await file(`CLOSED_${label}`,type,true);
+    await pool.query(`UPDATE crm.business_tracking SET file_status='ALLOCATED',allocated=TRUE,
+      receipted=FALSE,benefit_verified='YES' WHERE file_no=$1`,[no]);
+    const closedAction=await api(`/business/${no}/allocation-action`,
+      {action:'CL',comments:`Close ${label} for filing`},'bpo');
+    assert.equal(closedAction.status,200,JSON.stringify(closedAction.body));
+    // Preserve the existing closure-lane DPU admission even if the lane is open.
+    await pool.query(`INSERT INTO crm.business_work_items
+      (file_no,queue_name,work_status,assigned_to,assigned_by,forwarded_by)
+      VALUES($1,'MEMBERSHIP_CLOSURE','OPEN',$2,$3,$3)
+      ON CONFLICT(file_no,queue_name) DO UPDATE SET work_status='OPEN'`,[no,fixture.users[2],fixture.users[1]]);
+    const queue=await api(`/record-filing?business_type=${type}&search=${no}`);
+    assert.equal(queue.status,200);assert.equal(queue.body.total,1);
+    assert.equal(queue.body.counts[type],1);assert.equal(queue.body.data[0].file_no,no);
+    assert.equal((await api(`/record-filing?search=${no}`)).body.total,1);
+    const status=await api(`/business-status/files/${no}`);
+    assert.equal(status.status,200);assert.equal(status.body.data.file.can_view_details,true);
+    assert.equal((await api(`/business-status?search=${no}`)).body.total,1);
+    assert.equal((await api(`/business-status/files/${no}`,undefined,'tracker')).body.data.file.can_view_details,false);
+    assert.equal((await api(path(no),undefined,'tracker')).status,403);
+    const detail=(await api(path(no))).body.data;
+    assert.equal(detail.reviewable,true);assert.equal(detail.file.receipted,false);
+    for(const flag of ['updated','policy_generated','policy_signed','policy_dispatched']) assert.equal(detail.file[flag],false);
+    const doc=await upload(no,`${label}-document`);
+    const filed=await api(`${path(no)}/file`,{action:'F',expected_updated_at:detail.file.updated_at,
+      upload_ids:[doc],comments:`Filed ${label}`});
+    assert.equal(filed.status,200,JSON.stringify(filed.body));
+    const archived=(await api(path(no))).body.data;
+    assert.equal(archived.reviewable,false);assert.equal(archived.file.filed,true);
+    assert.equal(archived.uploads.find(u=>u.upload_id===doc).filed,true);
+    assert.equal(archived.reviews.length,1);
+    assert(archived.notes.some(n=>n.notes==='Original note - never delete'));
+    assert.equal((await api(`/record-filing?search=${no}`)).body.total,0);
+    assert.equal((await api(`/record-filing?bucket=filed&business_type=${type}&search=${no}`)).body.total,1);
+    assert.equal((await api(`/business-status/files/${no}`)).body.data.file.can_view_details,true);
+    assert.equal((await api(`${path(no)}/file`,{action:'F',expected_updated_at:archived.file.updated_at})).status,409);
+    // A receipt is also sufficient for these business types without Closed.
+    const receipted=await file(`RECEIPTED_${label}`,type,true);
+    const receiptDetail=(await api(path(receipted))).body.data;
+    assert.equal(receiptDetail.reviewable,true);
+    assert.equal((await api(`${path(receipted)}/file`,
+      {action:'F',expected_updated_at:receiptDetail.file.updated_at})).status,200);
+    for(const [excluded,patch] of [
+      ['UNRELATED',"file_status='REGISTERED',receipted=FALSE"],
+      ['DECLINED',"file_status='CLOSED',receipted=FALSE,is_declined=TRUE"],
+      ['INACTIVE',"file_status='CLOSED',receipted=FALSE,is_active=FALSE"],
+      ['ALREADY_FILED',"file_status='CLOSED',receipted=FALSE,filed=TRUE"],
+      ['FILED_STATUS',"file_status='FILED',receipted=FALSE,filed=FALSE"],
+    ]){
+      const rejected=await file(`${excluded}_${label}`,type,true);
+      await pool.query(`UPDATE crm.business_tracking SET ${patch} WHERE file_no=$1`,[rejected]);
+      assert.equal((await api(`/record-filing?search=${rejected}`)).body.total,0,excluded);
+      assert.equal((await api(`${path(rejected)}/file`,
+        {action:'F',expected_updated_at:'2000-01-01T00:00:00Z'})).status,
+        ['ALREADY_FILED','FILED_STATUS'].includes(excluded)?409:404,excluded);
+      if(['UNRELATED','DECLINED','INACTIVE'].includes(excluded))
+        assert.equal((await api(`/business-status/files/${rejected}`)).status,404,excluded);
+    }
+  }
   const otherDoc=await upload(legacyR,'other-record');
   const old=(await api(path(modern))).body.data.file.updated_at;
   assert.equal((await api(`${path(modern)}/file`,{action:'X',expected_updated_at:old})).status,400);
@@ -174,7 +244,7 @@ try{
   assert.equal((await api(`${path(legacyR)}/file`,{action:'F',expected_updated_at:renew.updated_at})).status,200);
   const ui=await file('UI_FILE','N',true);
   await upload(ui,'ui-filing-document',true);
-  console.log('Record Filing checks passed: DPU access, full receipting, Allocation Files Closed handoff, partial-payment exclusion, N/R/A queues, documents/downloads, notes, notifications, history and concurrent filing.');
+  console.log('Record Filing checks passed: all seven business types, Closed and receipted endorsements, DPU status scope, exclusions, documents/downloads, retained notes, history, notifications and concurrent filing.');
   passed=true;
 }finally{
   if(process.argv.includes('--keep')&&passed) await writeFile(fixturePath,JSON.stringify(fixture),{mode:0o600});

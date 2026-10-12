@@ -6,14 +6,18 @@ import {
   ShieldCheck, X,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { filingApi, type FilingDetail, type FilingFile, type FilingUpload } from '@/lib/record-filing-api';
+import { filingApi, type FilingBusinessType, type FilingDetail, type FilingFile, type FilingUpload } from '@/lib/record-filing-api';
 
 type Bucket = 'pending' | 'filed';
-type BusinessType = 'N' | 'R' | 'A' | 'all';
+type BusinessType = FilingBusinessType | 'all';
 const PAGE_SIZE_FALLBACK = 25;
 const dateText = (value?: string | null) => value ? new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 const moneyText = (value?: string | number | null) => value == null || value === '' ? '—' : `KES ${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-const typeName = (type: string) => ({ N: 'New business', R: 'Renewal', A: 'Amendment' }[type] ?? type);
+const typeNames: Record<FilingBusinessType, string> = {
+  N: 'New business', R: 'Renewal', A: 'Amendment', T: 'Termination',
+  RT: 'Reinstatement', CC: 'Category Change', PR: 'Premium Recon',
+};
+const typeName = (type: string) => typeNames[type as FilingBusinessType] ?? type;
 
 function AccessMessage() {
   return <div className="flex min-h-[70vh] items-center justify-center bg-[#f2f6f3] p-6"><div className="max-w-md rounded-2xl border border-[#d9e5df] bg-[#fbfdfb] p-8 text-center shadow-[0_18px_50px_-38px_rgba(24,58,57,.45)]">
@@ -184,10 +188,10 @@ export default function RecordFilingPage() {
           <div className="border-b border-[#e4ece7] px-4 pb-3 pt-4">
             <div className="flex items-center justify-between"><p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#6d847d]">{bucket === 'pending' ? 'Filing queue' : 'Filed history'}</p><button type="button" onClick={() => queueQuery.refetch()} disabled={queueQuery.isFetching} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#68817a] hover:bg-[#edf4f0] disabled:opacity-50" aria-label="Refresh queue" data-testid="button-refresh-filing-queue"><RefreshCw size={14} className={queueQuery.isFetching ? 'animate-spin' : ''} /></button></div>
             <div className="mt-3 grid grid-cols-2 rounded-lg bg-[#edf3ef] p-1">{(['pending', 'filed'] as Bucket[]).map(item => <button type="button" key={item} onClick={() => changeBucket(item)} className={`rounded-md px-2 py-2 text-xs font-semibold transition ${bucket === item ? 'bg-[#fbfdfb] text-[#285a52] shadow-sm' : 'text-[#7b8c86] hover:text-[#47665e]'}`} data-testid={`tab-filing-${item}`}>{item === 'pending' ? 'To file' : 'Filed history'}</button>)}</div>
-            <div className="mt-3 grid grid-cols-4 gap-1 rounded-lg bg-[#f4f7f5] p-1">{(['all', 'N', 'R', 'A'] as BusinessType[]).map(type => <button type="button" key={type} onClick={() => { setBusinessType(type); setPage(1); setSelectedFile(''); }} className={`rounded-md px-1.5 py-1.5 text-[10px] font-bold transition ${businessType === type ? 'bg-[#dfece5] text-[#285a52]' : 'text-[#82918b] hover:bg-white'}`} data-testid={`filter-filing-type-${type}`}>{type === 'all' ? 'All' : type}</button>)}</div>
+            <div className="mt-3 grid grid-cols-4 gap-1 rounded-lg bg-[#f4f7f5] p-1">{(['all', 'N', 'R', 'A', 'T', 'RT', 'CC', 'PR'] as BusinessType[]).map(type => <button type="button" key={type} title={type === 'all' ? 'All business types' : typeName(type)} onClick={() => { setBusinessType(type); setPage(1); setSelectedFile(''); }} className={`rounded-md px-1.5 py-1.5 text-[10px] font-bold transition ${businessType === type ? 'bg-[#dfece5] text-[#285a52]' : 'text-[#82918b] hover:bg-white'}`} data-testid={`filter-filing-type-${type}`}>{type === 'all' ? 'All' : type}</button>)}</div>
             <label className="mt-3 flex h-10 items-center gap-2 rounded-lg border border-[#dce7e1] bg-white px-3 text-[#7b8d87] focus-within:border-[#74a195]"><Search size={15} /><input value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder="Search file or proposer…" className="min-w-0 flex-1 bg-transparent text-xs text-[#294540] outline-none placeholder:text-[#9baaa4]" data-testid="input-filing-search" />{search && <button type="button" onClick={() => setSearch('')} aria-label="Clear search" className="rounded p-1 hover:bg-[#edf3ef]" data-testid="button-clear-filing-search"><X size={13} /></button>}</label>
-            <div className="mt-3 flex items-center justify-between text-[10px] text-[#83928d]"><span>{businessType === 'all' ? 'New · Renewal · Amendment' : typeName(businessType)}</span>{!queueQuery.isLoading && !queueQuery.isError && <span className="font-mono">{total} files</span>}</div>
-            <div className="mt-2 flex gap-3 text-[9px] font-semibold uppercase tracking-wide text-[#82918b]">{(['N', 'R', 'A'] as const).map(type => <span key={type}>{type} <b className="font-mono text-[#476a60]">{queueQuery.data?.counts[type] ?? '—'}</b></span>)}</div>
+            <div className="mt-3 flex items-center justify-between text-[10px] text-[#83928d]"><span>{businessType === 'all' ? 'All business types' : typeName(businessType)}</span>{!queueQuery.isLoading && !queueQuery.isError && <span className="font-mono">{total} files</span>}</div>
+            <div className="mt-2 flex flex-wrap gap-3 text-[9px] font-semibold uppercase tracking-wide text-[#82918b]">{(Object.keys(typeNames) as FilingBusinessType[]).map(type => <span key={type} title={typeName(type)}>{type} <b className="font-mono text-[#476a60]">{queueQuery.data?.counts[type] ?? '—'}</b></span>)}</div>
           </div>
           <div className="max-h-[calc(100dvh-365px)] min-h-[270px] overflow-y-auto">
             {queueQuery.isLoading ? <div className="space-y-2 p-4">{[0, 1, 2, 3].map(index => <div key={index} className="h-[92px] animate-pulse rounded-lg bg-[#edf3ef]" />)}</div>

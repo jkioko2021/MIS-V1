@@ -82,7 +82,7 @@ export const STATUS_SCOPE_SQL = `b.is_active AND (
   OR EXISTS (SELECT 1 FROM crm.business_work_items sw WHERE sw.file_no=b.file_no
     AND (sw.assigned_to=$1::varchar OR sw.assigned_by=$1::varchar OR sw.forwarded_by=$1::varchar
       OR (sw.work_status='OPEN' AND sw.queue_name=ANY($2::varchar[]))))
-  OR ($4::boolean AND NOT b.is_declined AND b.business_type IN ('N','R','A')
+  OR ($4::boolean AND NOT b.is_declined
     AND (b.receipted OR b.filed OR b.file_status='CLOSED'))
 )`;
 
@@ -122,7 +122,7 @@ export function canViewStatusDetails(actor: StatusActor, file: StatusRecord): bo
   }
   // Record Filing intentionally accepts receipted/closed files even while a
   // legacy closure work item remains open. Use the same eligibility gate.
-  if (actor.isDpu && !file.is_declined && ["N", "R", "A"].includes(file.business_type)
+  if (actor.isDpu && !file.is_declined
     && (file.receipted || file.filed || file.file_status === "CLOSED")) return true;
   if (items.length) {
     // A malformed file with overlapping open lanes must not grant access merely

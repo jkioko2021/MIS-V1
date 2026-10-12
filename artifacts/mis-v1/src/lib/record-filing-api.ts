@@ -1,3 +1,4 @@
+export type FilingBusinessType = 'N' | 'R' | 'A' | 'T' | 'RT' | 'CC' | 'PR';
 export type FilingFile = {
   file_no: string; proposer_name: string; receive_dt: string;
   premium: string | number | null; file_status: string;
@@ -22,7 +23,7 @@ export type FilingDetail = {
 type Envelope<T> = { ok: boolean; data: T };
 type FilingList = Envelope<FilingFile[]> & {
   total: number; page: number; pageSize: number;
-  counts: { N: number; R: number; A: number };
+  counts: Record<FilingBusinessType, number>;
 };
 const base = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/api/record-filing`;
 const filePath = (fileNo: string) => `/files/${encodeURIComponent(fileNo)}`;
@@ -39,7 +40,7 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
   return result as T;
 }
 export const filingApi = {
-  list: (params: { bucket?: 'pending' | 'filed'; business_type?: 'N' | 'R' | 'A' | 'all'; search?: string; page?: number }) =>
+  list: (params: { bucket?: 'pending' | 'filed'; business_type?: FilingBusinessType | 'all'; search?: string; page?: number }) =>
     request<FilingList>(`?${new URLSearchParams(Object.entries(params).map(([k,v]) => [k,String(v)]))}`),
   detail: (fileNo: string) => request<Envelope<FilingDetail>>(filePath(fileNo)),
   file: (fileNo: string, input: { action: 'F'; expected_updated_at: string; upload_ids: number[]; comments?: string }) =>

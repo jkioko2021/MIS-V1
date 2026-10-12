@@ -6,7 +6,7 @@ import { logger } from "./logger";
 // Receipting sets receipted only on full payment; Allocation Files marks its
 // Closed action with the CLOSED status. Either outcome hands off to DPU.
 export const filingPending = `b.is_active AND NOT b.is_declined AND NOT b.filed
-  AND b.file_status<>'FILED' AND b.business_type IN ('N','R','A')
+  AND b.file_status<>'FILED'
   AND (b.receipted OR b.file_status='CLOSED')`;
 export class FilingError extends Error {
   constructor(public status: number, message: string) { super(message); }

@@ -15,11 +15,13 @@ downloads. Staff enrollment is separate from creating the profile; never
 silently reassign existing users.
 
 Receive eligible business after receipting **or** after the Closed action in
-Allocation Files. Do not require legacy policy-stage flags for either route.
+Allocation Files, across all supported business types including endorsements.
+Do not require legacy policy-stage flags for either route.
 
 **Why:** The user corrected the routing to these two sources. Cashier marks
 fully paid files receipted but not partial receipts, and Allocation Files' Closed
-action is an alternative even without a receipt. The legacy Filing query did
+action is an alternative even without a receipt. The user requested this without
+a New/Renewal/Addon-only exception. The legacy Filing query did
 require completed policy stages; that remains documented as legacy behavior,
 not a modern prerequisite.
 

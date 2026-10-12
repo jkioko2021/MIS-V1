@@ -25,7 +25,7 @@ router.use("/record-filing", requireAuth, async (req, res, next) => {
 });
 const listSchema = z.object({
   bucket: z.enum(["pending","filed"]).default("pending"),
-  business_type: z.enum(["N","R","A","all"]).default("all"),
+  business_type: z.enum(["N","R","A","T","RT","CC","PR","all"]).default("all"),
   search: z.string().trim().max(100).default(""),
   page: z.coerce.number().int().min(1).max(100000).default(1),
 });
@@ -46,7 +46,7 @@ router.get("/record-filing", async (req, res) => {
       query<{ business_type: string; total: number }>(`SELECT b.business_type,COUNT(*)::int AS total
         FROM crm.business_tracking b WHERE ${searchGate} GROUP BY b.business_type`, [params[0]]),
     ]);
-    const counts = { N: 0, R: 0, A: 0 };
+    const counts = { N: 0, R: 0, A: 0, T: 0, RT: 0, CC: 0, PR: 0 };
     for (const row of typeCounts) if (row.business_type in counts) counts[row.business_type as keyof typeof counts] = row.total;
     res.json({ ok: true, data: rows, total: Number(count?.total ?? 0), page, pageSize: 25, counts });
   } catch (err) { filingFailure(res, err); }
