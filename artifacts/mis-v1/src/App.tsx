@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { SidebarNavigationGroup } from '@/components/sidebar-navigation-group';
 import { Toaster } from '@/components/ui/toaster';
 import { toast } from '@/hooks/use-toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -200,12 +201,14 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
           if (section.adminOnly && !isAdmin) return null;
           if (section.cashierOnly && !canSeeCashier) return null;
           return (
-            <div key={si} className="space-y-0.5">
-              {section.label && (
-                <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  {section.label}
-                </p>
-              )}
+            <SidebarNavigationGroup
+              key={si}
+              id={`navigation-section-${si}`}
+              label={section.label}
+              active={section.items.some(item => location === item.href || (item.href !== '/' && location.startsWith(`${item.href}/`)))}
+              location={location}
+              section
+            >
               {section.items.map((item) => {
                 const { href, label, icon: Icon } = item;
                 if (item.riskAdminOnly && !riskActor?.can_manage) return null;
@@ -224,9 +227,9 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
                    && (!child.dpuOnly || canSeeRecordFiling)
                    && (!child.giOnly || canSeeGi),
                 ) ?? [];
-                return (
-                  <div key={href}>
+                if (visibleChildren.length === 0) return (
                     <Link
+                       key={href}
                       href={href}
                       onClick={onNavigate}
                       className={cn(
@@ -240,7 +243,16 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
                       <span className="flex-1">{label}</span>
                       {active && <ChevronRight className="w-3 h-3 opacity-60" />}
                     </Link>
-                    {visibleChildren.length > 0 && (
+                );
+                return (
+                  <SidebarNavigationGroup
+                    key={href}
+                    id={`navigation-group-${href.replace(/[^a-z0-9-]/gi, '-')}`}
+                    label={label}
+                    icon={Icon}
+                    active={active}
+                    location={location}
+                  >
                       <div className="ml-5 border-l border-border/70 pl-2">
                         {visibleChildren.map(child => {
                           const childActive = location === child.href
@@ -266,11 +278,10 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
                           );
                         })}
                       </div>
-                    )}
-                  </div>
+                  </SidebarNavigationGroup>
                 );
               })}
-            </div>
+            </SidebarNavigationGroup>
           );
         })}
       </nav>
