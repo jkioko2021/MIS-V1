@@ -1,0 +1,253 @@
+# Run MIS in Visual Studio 2022
+
+Windows setup guide | Prepared 13 October 2026
+
+## What this guide runs
+
+This guide runs the current MIS: React/TypeScript frontend, Express/Node.js API, and PostgreSQL database. It does not run the legacy ASP.NET/VB.NET application.
+
+Visual Studio 2022 is the editor. Ubuntu WSL runs the package installation, compilation and servers. This project currently has no Visual Studio solution or F5 launch configuration. The included .vscode tasks belong to Visual Studio Code, not Visual Studio 2022.
+
+Use an x64 Windows computer with WSL 2. The workspace's native dependency overrides are Linux-oriented; do not install its dependencies in Windows PowerShell or copy node_modules from Replit. ARM installations need a separate compatibility review.
+
+## 1. Prepare Visual Studio 2022
+
+Open Visual Studio Installer, select Modify for Visual Studio 2022, and select the Node.js development workload for JavaScript/TypeScript tooling.
+
+Install the workload, then open Visual Studio 2022. You will open a folder, not import the application as an ASP.NET project. No conversion to .NET is required.
+
+## 2. Install Ubuntu WSL
+
+Run these commands in Windows PowerShell as Administrator:
+
+```powershell
+wsl --list --online
+wsl --install -d Ubuntu-24.04
+```
+
+Restart Windows if requested. Launch Ubuntu-24.04 and create your Linux username and password. Password input in Linux terminals is not displayed.
+
+If you already have Ubuntu 24.04, do not reinstall it. Run wsl --list --verbose and use its existing distribution name in all examples below, including the Explorer path.
+
+From a normal Windows terminal, enter Ubuntu:
+
+```powershell
+wsl -d Ubuntu-24.04
+```
+
+All remaining installation and MIS commands run in this Ubuntu shell unless explicitly marked otherwise.
+
+## 3. Install Node.js, pnpm and PostgreSQL
+
+In Ubuntu:
+
+```bash
+sudo apt update
+sudo apt install -y git unzip curl ca-certificates build-essential \
+  postgresql-16 postgresql-client-16
+sudo service postgresql start
+uname -m
+```
+
+The architecture should be x86_64. This guide uses Ubuntu 24.04 because its package repository provides PostgreSQL 16.
+
+Install nvm, then Node.js 24. The following installer URL was checked against the official nvm instructions. Review the downloaded installer before executing it:
+
+```bash
+curl -fsSLo /tmp/nvm-install.sh \
+  https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.8/install.sh
+less /tmp/nvm-install.sh
+bash /tmp/nvm-install.sh
+export NVM_DIR="$HOME/.nvm"
+. "$NVM_DIR/nvm.sh"
+nvm install 24
+nvm alias default 24
+npm install -g pnpm@10
+node --version
+pnpm --version
+psql --version
+```
+
+Press q to leave less after reviewing the installer. Verify Node.js reports v24, pnpm reports 10, and PostgreSQL reports 16.
+
+## 4. Extract your application backup
+
+Download MIS-source-and-production-backup-2026-10-13.zip from the backup card to your Windows Downloads folder. The archive contains confidential production records. Do not put it in a public or shared folder.
+
+Replace YOUR_WINDOWS_USER in the command below with your Windows user-folder name. If your downloaded file has a different name or location, adjust the quoted path.
+
+Use a new, empty project folder; do not overwrite existing local work.
+
+```bash
+mkdir -p ~/mis-backup ~/projects/MIS-V1
+unzip "/mnt/c/Users/YOUR_WINDOWS_USER/Downloads/MIS-source-and-production-backup-2026-10-13.zip" \
+  -d ~/mis-backup
+cd ~/mis-backup/MIS-backup
+sha256sum -c SHA256SUMS.txt
+unzip application-source.zip -d ~/projects/MIS-V1
+cd ~/projects/MIS-V1
+pnpm install --frozen-lockfile
+pnpm local:init
+```
+
+All checksum entries should show OK. Stop if any checksum fails. local:init creates a private .env.local file with a generated session secret. If that file already exists, keep it and review its settings rather than overwriting it.
+
+The application source reflects the workspace when the backup was created; it may include changes not yet published.
+
+## 5. Create your local database and settings
+
+In Ubuntu:
+
+```bash
+sudo -u postgres psql
+```
+
+At the PostgreSQL prompt, enter:
+
+```sql
+CREATE ROLE mis_local LOGIN;
+\password mis_local
+CREATE DATABASE mis_local OWNER mis_local;
+\q
+```
+
+Choose your own local database password at the hidden prompt. These commands create a new role and database. If those names already exist, do not drop them: either use your existing approved local setup or choose new names and adjust all commands consistently.
+
+Open .env.local in the project folder. Keep the generated SESSION_SECRET private. Replace only the database password placeholder in DATABASE_URL:
+
+```env
+DATABASE_URL=postgresql://mis_local:YOUR_URL_ENCODED_LOCAL_PASSWORD@127.0.0.1:5432/mis_local
+MIS_LOGIN_OTP_ENABLED=false
+```
+
+Add MIS_LOGIN_OTP_ENABLED=false to keep the current requested password-only login behavior. Leave MIS_LOCAL_DEV=1, the local document path and the synthetic email addresses generated by local:init intact. Password checks, account approval, lockout, expiry and authorization still apply.
+
+URL-encode special characters in the database password: for example, @ becomes %40, # becomes %23, and % becomes %25. Do not paste a production database URL or saved production secrets into this file.
+
+## 6. Choose ONE database setup
+
+### Option A: Clean test data - recommended for development
+
+This option creates synthetic reference data without real employees, customers, business files or risk records. Start with the empty database created above:
+
+```bash
+cd ~/projects/MIS-V1
+pnpm local:db:init
+pnpm local:db:admin
+pnpm local:check
+```
+
+The admin command asks you to choose and confirm a password, then type PROVISION. Choose at least 12 characters including an uppercase letter, a number and a special character. Log in as admin using that chosen password.
+
+No default password is supplied. The provisioning command refuses to reset existing accounts or create an administrator over an already populated database.
+
+### Option B: Restore the existing production backup
+
+Use this only if you are authorized to keep the production records on this computer. The backup contains staff/business records, password hashes and authentication metadata. Protect the computer and restrict access to the backup.
+
+Restore into the NEW EMPTY local database:
+
+```bash
+pg_restore --host=127.0.0.1 --username=mis_local --dbname=mis_local \
+  --no-owner --no-privileges --no-comments \
+  --exit-on-error --single-transaction \
+  "$HOME/mis-backup/MIS-backup/production.dump"
+cd ~/projects/MIS-V1
+pnpm local:check
+```
+
+Enter your local DATABASE password when prompted by pg_restore. --no-comments avoids extension-comment ownership errors for a non-superuser; the application records and structure are restored.
+
+Use the existing MIS account's password to sign in to a restored database. A database restore does not reset account passwords, approvals, lockouts or expiry. local:check expects the configured username, admin by default, to exist.
+
+DO NOT run local:db:init or local:db:admin after restoring a populated backup. Do not replay every historical migration or run drizzle-kit push against it. Never restore this archive over the live production database.
+
+## 7. Open the folder in Visual Studio 2022
+
+In Ubuntu, find your Linux username:
+
+```bash
+whoami
+```
+
+In Visual Studio 2022, choose File > Open > Folder. Enter this Windows Explorer path, replacing YOUR_UBUNTU_USER with that username:
+
+```text
+\\wsl.localhost\Ubuntu-24.04\home\YOUR_UBUNTU_USER\projects\MIS-V1
+```
+
+Use your actual distribution name if different. Do not copy the folder back to C: just to run it; keep package installation and execution inside Ubuntu.
+
+Open View > Terminal in Visual Studio. If the terminal starts in Windows PowerShell, enter Ubuntu and change directories:
+
+```powershell
+wsl -d Ubuntu-24.04
+```
+
+```bash
+cd ~/projects/MIS-V1
+```
+
+If View > Terminal is unavailable, use the Ubuntu application or Windows Terminal for the same commands while editing in Visual Studio.
+
+## 8. Compile, run and log in
+
+In the Ubuntu terminal:
+
+```bash
+pnpm local:check
+pnpm local:build
+pnpm local:dev
+```
+
+local:build checks TypeScript and builds the API and frontend. local:dev starts the local API and frontend; leave this terminal open.
+
+Open http://localhost:5173 in your Windows browser. Use localhost consistently for login cookies. The API listens on 127.0.0.1:8080; the frontend proxies /api requests to it.
+
+For Option A, use admin and the password you chose during provisioning. For Option B, use the restored account's existing password. With the explicit OTP setting above, login does not require an email code.
+
+After frontend edits, Vite normally refreshes the page automatically. After backend edits, stop with Ctrl+C and run pnpm local:dev again. Run pnpm local:build whenever you want a full compilation check.
+
+F5 is not configured for this folder. Use these terminal commands; the .vscode launch/task files are not Visual Studio 2022 launch configurations.
+
+## 9. Local email and uploaded documents
+
+Local mode captures workflow emails privately on disk instead of sending them to real recipients. In another Ubuntu terminal, inspect local mail with:
+
+```bash
+cd ~/projects/MIS-V1
+pnpm local:mail
+```
+
+Captured means saved locally, not delivered externally. If you later explicitly enable OTP, this local outbox contains the login code. Do not share outbox contents.
+
+New local documents are stored privately under .local-dev/documents. Download them through the application's business pages so normal permissions apply.
+
+The production database backup contains cloud document references, NOT the uploaded App Storage file contents. Previously uploaded documents may be unavailable locally until transferred through an approved process. Do not connect this local setup to live cloud storage to bypass that limitation.
+
+## 10. Troubleshooting
+
+- pnpm or nvm not found: open a new Ubuntu shell, or load nvm with export NVM_DIR="$HOME/.nvm" followed by . "$NVM_DIR/nvm.sh".
+- PostgreSQL stopped after restarting Windows: run sudo service postgresql start.
+- Native package installation fails: confirm uname -m shows x86_64 and that pnpm is running inside Ubuntu, not PowerShell. Do not delete the lockfile to work around it.
+- Database check fails: verify the local password, URL encoding and PostgreSQL service. Confirm you selected exactly one complete database setup.
+- Missing tables: an empty database alone is insufficient. Use the clean baseline on a new empty database or restore the complete approved backup.
+- Login fails: verify password, active/approved account, active profile, lockout and password-expiry requirements. Do not bypass authentication or reset production accounts.
+- Ports 5173 or 8080 busy: stop your other local MIS session with Ctrl+C. Do not terminate unrelated processes.
+- Folder cannot open: verify the distribution name and Linux username, start Ubuntu, then browse to the same WSL path in Windows Explorer.
+- Backup restore fails: stop and inspect the reported error. Do not retry with --clean or over an existing database; that can destroy data.
+
+## Safety and verification
+
+This guide changes only your local computer. It does not publish MIS, change production credentials or alter the live database.
+
+Keep .env.local, .local-dev, database exports and the confidential backup out of Git and public folders. The backup ZIP is not encrypted; store it on encrypted storage with restricted access.
+
+Commands were checked against the current repository and supported tool documentation. The production backup was restored and verified in isolated PostgreSQL 16 databases. Visual Studio 2022 and the Windows/WSL installation steps were not executed in this Linux workspace.
+
+## Official references
+
+- WSL installation: https://learn.microsoft.com/en-us/windows/wsl/install
+- Node.js download information: https://nodejs.org/en/download
+- nvm installation: https://github.com/nvm-sh/nvm#installing-and-updating
+- Visual Studio downloads: https://visualstudio.microsoft.com/downloads/

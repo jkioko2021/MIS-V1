@@ -42,3 +42,31 @@ mtime_ms = 1791874915993
 storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:1d891ef0-d2dd-41b3-b4a9-0f70c8efb7ff/4d185332-0853-4439-985e-6eb22bd7ee5b/97971fc9-17e2-4b9e-99cb-b57528f41fb6"
 storage_version_token = "1791874989122463"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "8MHcDfFDk34Gm1vtfzeIG"
+uri = "file://generated-artifacts/guides/MIS-Visual-Studio-2022-Setup-Guide.pdf"
+type = "pdf"
+title = "MIS — Visual Studio 2022 Setup Guide (PDF)"
+description = "Seven-page Windows guide covering Visual Studio 2022, Ubuntu WSL, Node.js, PostgreSQL, database setup, compilation, login, and troubleshooting."
+logical_id = "924eabb9-67cd-42a7-9bc9-e84a869f0ed3"
+content_hash = "sha256:53fb6f3b8751a886e2ff01b93c1397e30ff8beb7b3b9b769bf73435aa54b82d2"
+size = 31098
+mtime_ms = 1791881433584
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:1d891ef0-d2dd-41b3-b4a9-0f70c8efb7ff/924eabb9-67cd-42a7-9bc9-e84a869f0ed3/3e497fcc-0341-494a-bc83-e2db2e0658b1"
+storage_version_token = "1791881522291661"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "xjG6CXp6UzUTJeX5no9Im"
+uri = "file://generated-artifacts/guides/MIS-Visual-Studio-2022-Setup-Guide.html"
+type = "html"
+title = "MIS — Visual Studio 2022 Setup Guide (HTML)"
+description = "Self-contained browser version with copyable installation and run commands. Includes clean testing and approved backup-restoration options."
+logical_id = "353ebe44-82be-45c3-87ad-3825a7d7cba8"
+content_hash = "sha256:f294e371720c270a77f4d44d980bd6903c3d5b9b6369a991aae60c3239f979d5"
+size = 15831
+mtime_ms = 1791881433581
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:1d891ef0-d2dd-41b3-b4a9-0f70c8efb7ff/353ebe44-82be-45c3-87ad-3825a7d7cba8/418bb0f1-8d0c-4a70-af67-c4d74e1df5de"
+storage_version_token = "1791881522823767"
+content_type = "text/html"

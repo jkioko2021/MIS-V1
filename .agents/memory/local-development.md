@@ -3,7 +3,7 @@ name: Local MIS development
 description: Safety boundaries and supported scope for running MIS outside Replit
 ---
 
-Local development targets Windows through Ubuntu WSL and Visual Studio Code, not
+Local development runs the current MIS on Windows through Ubuntu WSL, not
 the legacy ASP.NET application. Keep local email capture and disk documents
 explicitly opt-in, loopback-only, and prohibited on Replit or production. Never
 disable OTP or business authorization for local convenience.
