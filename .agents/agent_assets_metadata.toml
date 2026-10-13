@@ -28,3 +28,17 @@ mtime_ms = 1791787154714
 storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:1d891ef0-d2dd-41b3-b4a9-0f70c8efb7ff/c6733670-625c-4e2f-8c45-20a2e1c668a8/38df8481-a718-457a-9d9f-f2adfa99b77d"
 storage_version_token = "1791787155334358"
 content_type = "text/html"
+
+[[outputs]]
+id = "gvrfb558-isE9FaRPLEAu"
+uri = "file://generated-artifacts/backups/MIS-source-and-production-backup-2026-10-13.zip"
+type = "unspecified"
+title = "MIS source and production database backup"
+description = "Verified backup: 518 application source files, 51 production tables and 856 records. Includes PostgreSQL custom and SQL exports, restore instructions, and checksums. Confidential and unencrypted; App Storage documents and saved secrets are excluded."
+logical_id = "4d185332-0853-4439-985e-6eb22bd7ee5b"
+content_hash = "sha256:ca4c5c6dd17920f12ba65a9c24c5c8eb66072e9c2c082542ce95c49c7bdf8168"
+size = 1056732
+mtime_ms = 1791874915993
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:1d891ef0-d2dd-41b3-b4a9-0f70c8efb7ff/4d185332-0853-4439-985e-6eb22bd7ee5b/97971fc9-17e2-4b9e-99cb-b57528f41fb6"
+storage_version_token = "1791874989122463"
+content_type = "application/octet-stream"
