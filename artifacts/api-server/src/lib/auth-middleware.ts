@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { logger } from "./logger";
 import { sessionIsActive } from "./auth-sessions";
+import { requiresLoginOtp } from "./login-otp-policy";
 
 const COOKIE_NAME = "mis_session";
 const SECRET = process.env["SESSION_SECRET"] ?? "dev-secret-change-me";
@@ -74,8 +75,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       res.status(401).json({ ok: false, error: "Session revoked. Please log in again." });
       return;
     }
-    const otpUsername = process.env.MIS_LOGIN_OTP_USERNAME?.trim() || "admin";
-    if (req.user.username?.toLowerCase() === otpUsername.toLowerCase() && !req.user.otpVerified) {
+    if (requiresLoginOtp(req.user.username) && !req.user.otpVerified) {
       res.clearCookie(COOKIE_NAME, { path: "/" });
       res.status(401).json({ ok: false, error: "Please sign in again with your email verification code." });
       return;

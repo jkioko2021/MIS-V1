@@ -11,7 +11,7 @@
 - [MIS Architecture Decisions](mis-architecture-decisions.md) — Modular monolith, React SPA + Express API, PostgreSQL, Redis, JWT; target arch in 05_Target_Architecture/
 - [MIS Validation Findings](mis-validation-findings.md) — 3 critical conflicts resolved; 12 DBs confirmed; navigation map reveals 2nd application tier with ~47 pages
 - [MIS Business Processes](mis-business-processes.md) — 16 processes documented in BP-CAT-001; 62 unknowns in BP-UNK-001; BT state machine incomplete
-- [Auth module](auth-module.md) — Admin-only email OTP; staff password-only; scoped revocation must not interrupt unrelated staff or upgrade stale cookies.
+- [Auth module](auth-module.md) — Login OTP disabled by request; preserve password and session guards and scoped revocation.
 - [Authentication abuse boundaries](auth-abuse-boundaries.md) — Fail closed at limiter capacity; verify proxy trust before using forwarded client IPs.
 - [Admin module](admin-module.md) — User enrollment, profiles/roles CRUD, access rights matrix; MENU_MASTER defines all pages
 - [Business Tracking module](business-module.md) — BT pages, upload flow, Object Storage setup, security gap on downloads

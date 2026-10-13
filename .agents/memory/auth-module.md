@@ -4,16 +4,17 @@ description: Account-scoped OTP policy and published-login diagnostics for the M
 ---
 
 ## Authentication policy
-Require email OTP only for the designated `admin` account. Other accounts use
-username/password sign-in without OTP.
+Login OTP is disabled at the user's request. All MIS accounts, including admin,
+use username/password sign-in.
 
-**Why:** After disabling project-wide OTP, the user explicitly chose to enable
-it only for their admin account, not for all staff. This does not authorize
-removing account locks, approval checks or required password changes.
+**Why:** The user explicitly requested disabling OTP after configuring its email
+sender. This does not authorize removing account locks, approval checks,
+required password changes, or persistent session verification.
 
-**How to apply:** Apply OTP to the configured account only; do not send other
-staff members' codes to its inbox. Configure the delivery address outside
-memory, and never display development OTP codes in production as a workaround.
+**How to apply:** Do not re-enable OTP without a new user request. If it is
+re-enabled, the previously chosen scope was the designated admin account only,
+not all staff. Keep delivery addresses outside memory, and never display
+development OTP codes in production as a workaround.
 
 
 ## Session revocation decisions

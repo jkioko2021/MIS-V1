@@ -21,6 +21,7 @@ timeoutMs = 20000
 
 [userenv.shared]
 MIS_PUBLIC_APP_URL = "https://mis-v-1.replit.app/"
+MIS_LOGIN_OTP_ENABLED = "false"
 
 [userenv.production]
 MIS_LOGIN_OTP_EMAIL = "mwaniki56@gmail.com"

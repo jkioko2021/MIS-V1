@@ -9,11 +9,16 @@ import { build } from "esbuild";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 let dir;
 let auth;
+let otpPolicy;
 before(async () => {
   dir = await mkdtemp(path.join(tmpdir(), "auth-session-tests-"));
   await build({
-    entryPoints: [path.join(root, "src/lib/auth-middleware.ts")],
-    outfile: path.join(dir, "auth.mjs"), bundle: true, platform: "node", format: "esm",
+    entryPoints: {
+      auth: path.join(root, "src/lib/auth-middleware.ts"),
+      policy: path.join(root, "src/lib/login-otp-policy.ts"),
+    },
+    outdir: dir, bundle: true, platform: "node", format: "esm",
+    outExtension: { ".js": ".mjs" },
     banner: { js: 'import { createRequire } from "node:module"; const require=createRequire(import.meta.url);' },
     plugins: [{
       name: "auth-session-db-double",
@@ -26,6 +31,7 @@ before(async () => {
     logLevel: "silent",
   });
   auth = await import(pathToFileURL(path.join(dir, "auth.mjs")).href);
+  otpPolicy = await import(pathToFileURL(path.join(dir, "policy.mjs")).href);
 });
 after(async () => {
   delete globalThis.__authSessionState;
@@ -61,10 +67,40 @@ test("revoked session never proceeds to protected handler", async () => {
 test("password-only staff remain authorized without OTP", async () => {
   assert.equal((await verify()).next, true);
 });
-test("admin persistent session must still have OTP verification", async () => {
+async function withOtpFlag(value, run) {
+  const previous = process.env.MIS_LOGIN_OTP_ENABLED;
+  if (value === undefined) delete process.env.MIS_LOGIN_OTP_ENABLED;
+  else process.env.MIS_LOGIN_OTP_ENABLED = value;
+  try { return await run(); }
+  finally {
+    if (previous === undefined) delete process.env.MIS_LOGIN_OTP_ENABLED;
+    else process.env.MIS_LOGIN_OTP_ENABLED = previous;
+  }
+}
+test("admin persistent session must still have OTP verification when enabled", async () => withOtpFlag("true", async () => {
   const admin = { ...payload, username: process.env.MIS_LOGIN_OTP_USERNAME?.trim() || "admin" };
   assert.equal((await verify(admin)).status, 401);
   assert.equal((await verify({ ...admin, otpVerified: true })).next, true);
+}));
+test("explicitly disabled OTP allows password-only admin sessions without bypassing session or password guards", async () => withOtpFlag("false", async () => {
+  const admin = { ...payload, username: process.env.MIS_LOGIN_OTP_USERNAME?.trim() || "admin" };
+  assert.equal((await verify(admin)).next, true);
+  assert.equal((await verify(admin, { active: false })).status, 401);
+  assert.equal((await verify(admin, { fail: true })).status, 503);
+  assert.equal((await verify({ ...admin, passwordChangeRequired: true })).status, 403);
+  assert.equal((await verify({ ...admin, sid: undefined })).status, 401);
+}));
+test("OTP policy is enabled by default and invalid flags cannot silently disable it", async () => {
+  const username = process.env.MIS_LOGIN_OTP_USERNAME?.trim() || "admin";
+  for (const value of [undefined, "", "true", "invalid", "0"]) {
+    await withOtpFlag(value, async () => {
+      assert.equal(otpPolicy.requiresLoginOtp(username.toUpperCase()), true);
+      assert.equal(otpPolicy.requiresLoginOtp("synthetic-non-otp-staff"), false);
+    });
+  }
+  await withOtpFlag(" FALSE ", async () => {
+    assert.equal(otpPolicy.requiresLoginOtp(username), false);
+  });
 });
 test("expired password remains restricted, but password change and logout remain available", async () => {
   const expired = { ...payload, passwordChangeRequired: true };

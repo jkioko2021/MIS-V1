@@ -47,6 +47,7 @@ try {
   assert(lockout >= 1 && lockout <= 6, "Integration fixture expects a lockout policy within the username allowance");
   // No provider calls or secrets: isolated process uses a synthetic email sender.
   process.env.MIS_LOGIN_OTP_USERNAME = usernames[1];
+  process.env.MIS_LOGIN_OTP_ENABLED = "true";
   process.env.MIS_LOGIN_OTP_EMAIL = "fixture@example.test";
   process.env.MIS_LOGIN_OTP_FROM = "MIS <fixture@example.test>";
   await build({ stdin: { contents: `export { default } from "./src/routes/auth";

@@ -3,10 +3,9 @@ import { withTransaction, query } from "./postgres";
 import { sendResendEmail, type EmailSender } from "./business-notifications";
 import { signOtpChallenge, verifyOtpChallenge } from "./auth-middleware";
 import { lockLoginAccount } from "./login-account";
+import { requiresLoginOtp } from "./login-otp-policy";
 
-export function requiresLoginOtp(username: string) {
-  return username.toLowerCase() === (process.env.MIS_LOGIN_OTP_USERNAME?.trim() || "admin").toLowerCase();
-}
+export { requiresLoginOtp } from "./login-otp-policy";
 
 export class OtpError extends Error {
   constructor(public status: number, message: string, public retryAfterSeconds?: number) { super(message); }

@@ -46,8 +46,9 @@ try {
     [username, hash, `OTP test ${role}`, role === "otp" ? null : new Date()]);
     f.ids.push(e.employee_id); f.users[role] = { username, password }; await save();
   }
-  // Only this isolated process changes the configured account; managed workflows remain admin-only.
+  // Enable OTP only in this isolated test process, regardless of the workspace policy.
   process.env.MIS_LOGIN_OTP_USERNAME = f.users.otp.username;
+  process.env.MIS_LOGIN_OTP_ENABLED = "true";
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
     if (String(input).endsWith("/emails") && init?.method === "POST") {
