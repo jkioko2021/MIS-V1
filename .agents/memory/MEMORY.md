@@ -46,6 +46,7 @@
 - [Risk analytics scope](risk-analytics-scope.md) — Overall Top 10 spans authorized departments; department filters narrow department lists, never the overall comparison.
 - [Risk return and reversion](risk-reassessment-policy.md) — Return/reopen requires reassessment; Revert Back goes to owner Review with saved assessments and closed root actions preserved.
 - [Shared-period reopening](risk-period-reopening.md) — Opening the shared period resets only the selected department; confirm the scope and preserve other departments.
+- [Risk AI provider choice](risk-ai-provider-choice.md) — Dashboard insights use the user's own OpenAI key; do not retry managed AI provisioning.
 - [Department risk access](risk-department-access.md) — Champions update their departments; owners review theirs and may own multiple departments.
 - [Risk Owner email boundaries](risk-owner-email-boundaries.md) — Cancel stale recipient notices rather than redirect retries; distinguish provider acceptance from inbox delivery.
 - [OpenAPI generator compatibility](openapi-generator-compatibility.md) — Match generated Zod syntax to the target library; auto-detection can pick the wrong major.

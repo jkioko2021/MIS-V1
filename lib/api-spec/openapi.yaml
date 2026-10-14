@@ -402,6 +402,7 @@ paths:
       - { name: periodId, in: path, required: true, schema: { type: integer } }
     post:
       operationId: closeRiskRegisterPeriod
+      description: Close all Signed-OFF registered active departments in the selected period. Unsigned registers remain unchanged and keep the shared period open. Closed registers are available on Open Register.
       requestBody:
         required: true
         content:

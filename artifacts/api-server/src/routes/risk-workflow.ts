@@ -102,24 +102,34 @@ riskWorkflowRouter.post("/risk-register/periods/:periodId/close",async(req,res)=
         JOIN risk.departments d ON d.depart_code=r.depart_code AND d.is_active
         WHERE r.period_from=$1 AND r.period_to=$2 AND r.is_active ORDER BY r.depart_code`,[p.period_from,p.period_to]);
       if(!departments.length) throw new RiskError(409,"An empty reporting period cannot be closed.");
-      for(const d of departments){
-        const s=await cycle(client,d.depart_code,p);
-        if(!s.sign_off) throw new RiskError(409,"Sign off every registered department before closing this reporting period.");
+      const registers:Array<{department:string;register:Record<string,unknown>}>=[];
+      for(const d of departments) {
+        const [s]=await txQuery<Record<string,unknown>>(client,`SELECT * FROM risk.department_summary
+          WHERE depart_code=$1 AND period_from=$2 AND period_to=$3 FOR UPDATE`,[d.depart_code,p.period_from,p.period_to]);
+        registers.push({department:d.depart_code,register:s ?? {sign_off:false,closed:false}});
       }
-      for(const d of departments){
-        const s=await cycle(client,d.depart_code,p);
-        // A previously closed department is untouched, including its closure attribution.
-        if(s.closed) continue;
+      const eligible=registers.filter(({register:s})=>s.sign_off && !s.closed);
+      if(!eligible.length) throw new RiskError(409,"No Signed-OFF departmental registers are available to close in this period.");
+      for(const {department,register:s} of eligible){
         const snapshot=await txQuery(client,`SELECT r.*,
           (SELECT jsonb_agg(c) FROM risk.root_causes c WHERE c.risk_code=r.risk_code) AS root_causes
           FROM risk.risk_master r WHERE depart_code=$1 AND period_from=$2 AND period_to=$3`,
-        [d.depart_code,p.period_from,p.period_to]);
+        [department,p.period_from,p.period_to]);
         await txQuery(client,`UPDATE risk.department_summary SET closed=TRUE,closed_by=$2,closed_at=NOW(),updated_at=NOW()
           WHERE summary_id=$1`,[s.summary_id,a.username]);
-        await history(client,null,d.depart_code,id,"PERIOD_CLOSED",a.username,comments,{register:s,risks:snapshot});
+        await history(client,null,department,id,"CLOSE",a.username,comments,{register:s,risks:snapshot,closure_scope:"SIGNED_OFF_BATCH"});
       }
-      await txQuery(client,"UPDATE risk.periods SET status='CLOSED' WHERE period_id=$1",[id]);
-      return {period_id:id,status:"CLOSED"};
+      // Unsigned registers stay actionable. Close the shared period only when
+      // all registered active departments are now closed.
+      const remaining=registers.filter(({register:s})=>!s.closed && !s.sign_off).length;
+      if(!remaining) {
+        await txQuery(client,"UPDATE risk.periods SET status='CLOSED' WHERE period_id=$1",[id]);
+        await history(client,null,null,id,"PERIOD_CLOSED",a.username,comments,
+          {period:p,closed_departments:eligible.map(item=>item.department)});
+      }
+      return {period_id:id,status:remaining ? "OPEN" : "CLOSED",
+        closed_registers:eligible.length,remaining_registers:remaining,
+        closed_departments:eligible.map(item=>item.department)};
     });
     res.json({ok:true,data});
   }catch(err){riskFailure(req,res,err);}

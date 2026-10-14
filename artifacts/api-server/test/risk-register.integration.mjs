@@ -252,10 +252,22 @@ try{
     assert.equal((await api(`/analytics?depart_code=${f.departments[1]}&period_id=${f.period}`,"champion")).status,403);
     assert.equal((await api(`/analytics?population=invalid`,"admin")).status,400);
     assert.equal((await api("/analytics",null)).status,401);
-    assert.equal((await api(`/periods/${f.period}/close`,"admin","POST",{comments:"Must reject unsigned department"})).status,409);
-    await ok("/workflow","admin","POST",wf("CLOSE"));
+    const unsignedBefore=(await pool.query(`SELECT to_jsonb(s) AS snapshot FROM risk.department_summary s
+      JOIN risk.periods p ON p.period_from=s.period_from AND p.period_to=s.period_to
+      WHERE p.period_id=$1 AND s.depart_code=$2`,[f.period,f.departments[1]])).rows;
+    assert.equal((await api(`/periods/${f.period}/close`,"champion","POST",{comments:"Unauthorized close"})).status,403);
+    assert.equal((await api(`/periods/${f.period}/close`,"admin","POST",{comments:""})).status,400);
+    const batch=await ok(`/periods/${f.period}/close`,"admin","POST",{comments:"Close signed registers, preserve unsigned departments"});
+    assert.equal(batch.status,"OPEN");assert.equal(batch.closed_registers,1);
+    assert.deepEqual(batch.closed_departments,[f.department]);
+    const unsignedAfter=(await pool.query(`SELECT to_jsonb(s) AS snapshot FROM risk.department_summary s
+      JOIN risk.periods p ON p.period_from=s.period_from AND p.period_to=s.period_to
+      WHERE p.period_id=$1 AND s.depart_code=$2`,[f.period,f.departments[1]])).rows;
+    assert.deepEqual(unsignedAfter,unsignedBefore,"Unsigned register data and workflow remain unchanged");
+    assert.equal((await api(`/periods/${f.period}/close`,"admin","POST",{comments:"Repeat close must not duplicate events"})).status,409);
     const closed=await ok(`/records/${risk.risk_code}`,"champion","GET");
     assert.equal(closed.risk.workflow_status,"CLOSED");assert.equal(closed.risk.can_edit,false);
+    assert.equal((await ok(`/summary?period_id=${f.period}`,"admin","GET")).find(row=>row.depart_code===f.department).workflow_status,"CLOSED");
     assert.equal((await api("/workflow","admin","POST",wf("REVERT_REVIEW"))).status,409);
     assert.equal((await api(`/records/${risk.risk_code}`,"admin","PUT",{...assessment,expected_updated_at:closed.risk.updated_at})).status,409);
     const reopenScope=await ok(`/workflow/reopen-scope?depart_code=${f.departments[0]}&period_id=${f.period}`,"admin","GET");
@@ -369,6 +381,25 @@ try{
     await pool.query("DELETE FROM risk.risk_master WHERE risk_code LIKE $1",[bulkPrefix+"%"]);
     await pool.query("DELETE FROM risk.register_history WHERE period_id=$1",[extraPeriod.period_id]);
     await pool.query("DELETE FROM risk.periods WHERE period_id=$1",[extraPeriod.period_id]);
+    // Fixture-only sign-offs let us verify one batch closes both departments,
+    // rather than silently following a client-supplied department filter.
+    const beforeBatch=await ok(`/records/${risk.risk_code}`,"admin","GET");
+    await pool.query(`UPDATE risk.department_summary s SET submitted=TRUE,reviewed=TRUE,sign_off=TRUE
+      FROM risk.periods p WHERE p.period_id=$1 AND s.period_from=p.period_from
+      AND s.period_to=p.period_to AND s.depart_code=ANY($2::text[])`,[f.period,f.departments]);
+    const wholePeriod=await ok(`/periods/${f.period}/close`,"admin","POST",
+      {comments:"Close every signed fixture register in this period",depart_code:f.department});
+    assert.equal(wholePeriod.closed_registers,2);
+    assert.equal(wholePeriod.status,"CLOSED");assert.equal(wholePeriod.remaining_registers,0);
+    assert.deepEqual(wholePeriod.closed_departments,[...f.departments].sort());
+    const afterBatch=await ok(`/records/${risk.risk_code}`,"admin","GET");
+    assert.deepEqual(afterBatch.risk.ranking_snapshot,beforeBatch.risk.ranking_snapshot);
+    assert.deepEqual(afterBatch.root_causes,beforeBatch.root_causes,"Batch closure preserves every saved root cause and action");
+    const closedRegisters=await ok(`/summary?period_id=${f.period}`,"admin","GET");
+    assert(closedRegisters.filter(row=>f.departments.includes(row.depart_code)).every(row=>row.workflow_status==="CLOSED"));
+    assert.equal((await api(`/periods/${f.period}/close`,"admin","POST",{comments:"Do not close twice"})).status,409);
+    const batchReopen=await ok(`/workflow/reopen-scope?depart_code=${f.department}&period_id=${f.period}`,"admin","GET");
+    await ok("/workflow","admin","POST",{...wf("REOPEN"),confirmation_token:batchReopen.confirmation_token});
     // Remove only the extra synthetic private risk, so the browser can close
     // the remaining registered department without modifying real departments.
     await pool.query("DELETE FROM risk.register_history WHERE risk_code=$1",[privateRisk.risk_code]);

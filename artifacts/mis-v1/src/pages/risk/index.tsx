@@ -95,7 +95,6 @@ function RiskRegisterWorkspace() {
   const [comments, setComments] = useState('');
   const [reopening, setReopening] = useState<RiskDepartmentSummary | null>(null);
   const [signoffSelection, setSignoffSelection] = useState<{ department: string; period: string } | null>(null);
-  const [closeSelection, setCloseSelection] = useState<{ department: string; period: string } | null>(null);
   const [population, setPopulation] = useState<'open' | 'all'>('open');
   const analyticsQuery = useRiskAnalytics(username, {
     ...(department ? { depart_code: department } : {}),
@@ -153,11 +152,10 @@ function RiskRegisterWorkspace() {
     && (activePage !== 'update' || item.workflow_status === 'OPEN')
     && (activePage !== 'review' || item.workflow_status === 'SUBMITTED')
     && (activePage !== 'summary' || item.workflow_status === 'REVIEWED')
-    && (activePage !== 'close' || item.workflow_status === 'SIGNED_OFF'));
+    && (activePage !== 'close' || item.workflow_status === 'SIGNED_OFF')
+    && (activePage !== 'open' || item.workflow_status === 'CLOSED'));
   const signoffSummary = summaries.find(item => item.depart_code === signoffSelection?.department
     && String(item.period_id) === signoffSelection?.period);
-  const closeSummary = summaries.find(item => item.depart_code === closeSelection?.department
-    && String(item.period_id) === closeSelection?.period);
   const selectSignoffSummary = (row: RiskDepartmentSummary) => {
     setSignoffSelection({ department: row.depart_code, period: String(row.period_id) });
     setSelectedRiskCode('');
@@ -259,7 +257,6 @@ function RiskRegisterWorkspace() {
       onSuccess: response => {
         if (['SIGN_OFF', 'REVERT_REVIEW', 'CLOSE'].includes(action) && !envelopeError(response)) {
           setSignoffSelection(null);
-          setCloseSelection(null);
           setSelectedRiskCode('');
           setDrawerOpen(false);
         }
@@ -443,22 +440,17 @@ function RiskRegisterWorkspace() {
         </section>}
 
         {activePage === 'close' && <section className="space-y-5">
-          <SummaryTable rows={summaries} loading={summaryQuery.isLoading || summaryQuery.isFetching}
-            error={summaryFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')}
-            retry={() => summaryQuery.refetch()} title="Signed-OFF departmental registers"
-            onSelect={row => setCloseSelection({ department: row.depart_code, period: String(row.period_id) })}
-            selectedDepartment={closeSummary?.depart_code} selectedPeriod={closeSummary?.period_id} />
-          {closeSummary && <RiskAssessmentSummary key={`close:${closeSummary.depart_code}:${closeSummary.period_id}`} mode="close"
-            summaries={[closeSummary]} options={options} department={closeSummary.depart_code} period={String(closeSummary.period_id)}
-            comments={comments} setComments={setComments} mutating={mutating}
-            onSubmit={row => chooseAction('CLOSE', row, true)} onSelect={viewDetails}
-            loading={summaryQuery.isLoading || summaryQuery.isFetching}
-            error={summaryFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')}
-            retry={() => summaryQuery.refetch()} />}
-          <WorkflowPanel summaries={summaries} departments={departments} assignments={options.assignments} period={period} actor={actor} manage={manage} comments={comments} setComments={setComments} mutating={workflow.isPending} closeView onAction={(action, row) => chooseAction(action, row, action === 'CLOSE')} />
-          <ReportingPeriodClose periods={periods} summaries={allDepartmentPeriodSummaries} summaryLoading={allDepartmentPeriodSummaryQuery.isLoading} summaryError={allDepartmentPeriodSummaryFailure || (allDepartmentPeriodSummaryQuery.isError ? queryError(allDepartmentPeriodSummaryQuery.error) : '')} selectedPeriod={period} setSelectedPeriod={setPeriod} comments={comments} setComments={setComments} manage={manage} mutating={closePeriod.isPending} onClose={(periodId, closeComment) => {
-            if (!window.confirm('Close this reporting period? It will be retained as an archive and cannot be edited as open.')) return;
-            closePeriod.mutate({ periodId, data: { comments: closeComment } }, { onSuccess: response => announce(response, 'Reporting period closed.'), onError: error => setMutationError(queryError(error)) });
+          <SummaryTable rows={allDepartmentPeriodSummaries.filter(row => row.workflow_status === 'SIGNED_OFF')}
+            loading={allDepartmentPeriodSummaryQuery.isLoading || allDepartmentPeriodSummaryQuery.isFetching}
+            error={allDepartmentPeriodSummaryFailure || (allDepartmentPeriodSummaryQuery.isError ? queryError(allDepartmentPeriodSummaryQuery.error) : '')}
+            retry={() => allDepartmentPeriodSummaryQuery.refetch()} title="Signed-OFF departmental registers" />
+          <ReportingPeriodClose periods={periods} summaries={allDepartmentPeriodSummaries} summaryLoading={allDepartmentPeriodSummaryQuery.isLoading || allDepartmentPeriodSummaryQuery.isFetching} summaryError={allDepartmentPeriodSummaryFailure || (allDepartmentPeriodSummaryQuery.isError ? queryError(allDepartmentPeriodSummaryQuery.error) : '')} selectedPeriod={period} setSelectedPeriod={setPeriod} comments={comments} setComments={setComments} manage={manage} mutating={closePeriod.isPending} onClose={(periodId, closeComment) => {
+            if (!window.confirm('Close all Signed-OFF departmental registers in this reporting period? Unsigned registers will remain unchanged. Closed registers will appear on Open Register, and history will be retained.')) return;
+            closePeriod.mutate({ periodId, data: { comments: closeComment } }, { onSuccess: response => announce(response,
+              envelopeData<{status:string}>(response)?.status === 'OPEN'
+                ? 'Signed-OFF registers closed and moved to Open Register. The reporting period remains open for unsigned registers.'
+                : 'Signed-OFF registers closed and moved to Open Register. The reporting period is now closed.'),
+              onError: error => setMutationError(queryError(error)) });
           }} />
         </section>}
 
