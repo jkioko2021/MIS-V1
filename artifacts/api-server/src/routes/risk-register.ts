@@ -11,6 +11,7 @@ import { riskWorkflowRouter } from "./risk-workflow";
 import { riskImportRouter } from "./risk-import-routes";
 import { assessmentRanking } from "../lib/risk-ranking";
 import { activeDepartmentOwner, riskReviewEmailReadiness } from "../lib/risk-notifications";
+import { buildRiskAnalytics } from "../lib/risk-analytics";
 
 const router = Router();
 router.use("/risk-register", privateRiskResponses, requireAuth, requireRiskActor);
@@ -248,6 +249,22 @@ router.get("/risk-register/readiness/:departCode/:periodId",async(req,res)=>{
       return {...counts,...riskReviewEmailReadiness(owner)};
     });
     res.json({ok:true,data});
+  }catch(err){riskFailure(req,res,err);}
+});
+router.get("/risk-register/analytics",async(req,res)=>{
+  try {
+    const f=filters.extend({population:z.enum(["open","all"]).default("open")}).parse(req.query),a=actor(res);
+    if(f.depart_code) assertDepartment(a,f.depart_code,"view");
+    const rows=await query<Record<string,unknown>>(`${selectRecords(`action_totals.open_actions,action_totals.overdue_actions,`)}
+      LEFT JOIN LATERAL (
+        SELECT count(*) FILTER(WHERE action_status IS DISTINCT FROM 'Closed')::integer AS open_actions,
+          count(*) FILTER(WHERE action_status IS DISTINCT FROM 'Closed' AND due_date<CURRENT_DATE)::integer AS overdue_actions
+        FROM risk.root_causes WHERE risk_code=r.risk_code
+      ) action_totals ON TRUE
+      WHERE r.is_active AND d.is_active AND ($1::boolean OR r.depart_code=ANY($2::text[]))
+        AND ($3::integer=0 OR p.period_id=$3)`,
+      [...workspaceScope(a,"view"),f.period_id]);
+    res.json({ok:true,data:buildRiskAnalytics(rows.map(row=>({...row,workflow_status:workflowState(row)})),f.population,new Date(),f.depart_code)});
   }catch(err){riskFailure(req,res,err);}
 });
 router.get("/risk-register/summary",async(req,res)=>{

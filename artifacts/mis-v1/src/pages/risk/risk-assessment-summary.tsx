@@ -7,11 +7,11 @@ import { orderRiskSummary } from './risk-summary-order';
 import { riskExposureColors } from './risk-exposure-colors';
 import RiskSummaryCauses from './risk-summary-causes';
 import {
-  dateLabel, EmptyState, envelopeData, envelopeError, ErrorNotice, Field, fieldClass, SkeletonRows, RiskStatusPill,
+  dateLabel, EmptyState, envelopeData, envelopeError, ErrorNotice, Field, fieldClass, SkeletonRows, RiskStatusPill, StatusPill,
 } from './risk-ui';
 
 type Props = {
-  mode?: 'assessment' | 'review' | 'signoff';
+  mode?: 'assessment' | 'review' | 'signoff' | 'close';
   summaries: RiskDepartmentSummary[];
   options: RiskOptionsResponseData;
   department: string;
@@ -55,7 +55,8 @@ export default function RiskAssessmentSummary({
   const [chosenPeriod, setChosenPeriod] = useState('');
 
   const eligibleSummaries = useMemo(() => summaries.filter(row =>
-    mode === 'signoff' ? ['REVIEWED', 'SIGNED_OFF'].includes(row.workflow_status ?? '')
+    mode === 'close' ? row.workflow_status === 'SIGNED_OFF'
+    : mode === 'signoff' ? row.workflow_status === 'REVIEWED'
       : row.workflow_status === (mode === 'review' ? 'SUBMITTED' : 'OPEN')), [summaries, mode]);
   const departments = useMemo(() => [...new Map(eligibleSummaries.map(row => [row.depart_code, row])).values()], [eligibleSummaries]);
   const compatibleRisk = selectedRisk
@@ -81,7 +82,7 @@ export default function RiskAssessmentSummary({
   const activeRecordsQuery = useRiskRecords(
     options.actor.username,
     { access: mode === 'review' ? 'review' : mode === 'signoff' ? 'view' : 'update',
-      view: mode === 'signoff' ? (row?.workflow_status === 'SIGNED_OFF' ? 'signed' : 'reviewed') : mode === 'review' ? 'submitted' : 'open',
+      view: mode === 'close' ? 'signed' : mode === 'signoff' ? 'reviewed' : mode === 'review' ? 'submitted' : 'open',
       ...(selectedDepartment ? { depart_code: selectedDepartment } : {}), ...(selectedPeriod ? { period_id: Number(selectedPeriod) } : {}) },
     Boolean(scopeKey && row),
   );
@@ -129,8 +130,8 @@ export default function RiskAssessmentSummary({
     <div className="flex flex-col justify-between gap-4 border-b border-border bg-muted/30 p-5 sm:flex-row sm:items-end sm:px-6">
       <div className="max-w-2xl">
         <div className="mb-2 flex items-center gap-2 text-primary"><ClipboardList className="h-4 w-4" /><span className="text-[10px] font-bold uppercase tracking-[.17em]">Department cycle closeout</span></div>
-        <h3 className="font-[Manrope] text-xl font-extrabold sm:text-2xl">{mode === 'review' ? 'Submitted risk summary' : mode === 'signoff' ? 'Reviewed risk summary' : 'Risk summary'}</h3>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">Saved risks are ranked by impact (1–5) × likelihood (1–5), with the highest risk score first. This separate 1–25 score does not change inherent or residual exposure. {mode === 'review' ? 'Review the submitted assessments, root causes and action plans, then record your Review or Return decision below.' : mode === 'signoff' ? 'Inspect this department’s saved assessments, root causes and action plans. Reviewed registers are ready for management sign-off below.' : 'Historical ratings that cannot be mapped are not ranked; reassess them using current impact and likelihood choices. Once submitted, this summary moves to Risk Register Review.'}</p>
+        <h3 className="font-[Manrope] text-xl font-extrabold sm:text-2xl">{mode === 'close' ? 'Signed-OFF risk summary' : mode === 'review' ? 'Submitted risk summary' : mode === 'signoff' ? 'Department risk summary' : 'Risk summary'}</h3>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">Saved risks are ranked by impact (1–5) × likelihood (1–5), with the highest risk score first. This separate 1–25 score does not change inherent or residual exposure. {mode === 'close' ? 'This signed-off register is awaiting closure. Inspect its saved assessments and root causes, then close it or use Revert Back to return it to Risk Owner review.' : mode === 'review' ? 'Review the submitted assessments, root causes and action plans, then record your Review or Return decision below.' : mode === 'signoff' ? 'Inspect this department’s saved assessments, root causes and action plans. Reviewed registers are ready for management sign-off below.' : 'Historical ratings that cannot be mapped are not ranked; reassess them using current impact and likelihood choices. Once submitted, this summary moves to Risk Register Review.'}</p>
         <div className="mt-3 flex flex-wrap gap-2" aria-label="Risk ranking color key">{[['Critical', '15–25'], ['High', '10–14'], ['Medium', '5–9'], ['Low', '1–4']].map(([level, range]) => <span key={level} className={`rounded-full px-2 py-1 text-[10px] font-semibold ${riskExposureColors(level).badge}`}>{level} · {range}</span>)}</div>
       </div>
       <div className="grid w-full gap-3 sm:w-auto sm:min-w-[420px] sm:grid-cols-2">
@@ -154,7 +155,7 @@ export default function RiskAssessmentSummary({
         : !row ? <div className="p-5"><EmptyState title={mode === 'signoff' ? 'No register selected for sign-off' : mode === 'review' ? 'No register awaiting review for this cycle' : 'No register awaiting assessment for this cycle'} description={mode === 'signoff' ? 'Select a department register from Department exposure & sign-off.' : mode === 'review' ? 'Only submitted registers awaiting a Risk Owner decision appear here.' : 'Submitted registers leave this summary and are available in Risk Register Review. Saved assessments and history are retained.'} /></div>
           : <div className="p-5 sm:p-6">
             <div className="mb-4 flex flex-col gap-3 border-l-2 border-primary pl-4 sm:flex-row sm:items-center sm:justify-between">
-               <div><div className="text-sm font-bold">{row.depart_name}</div><div className="mt-1 font-[Space_Mono] text-[10px] text-muted-foreground">{row.depart_code} · Period {row.period_id} · {dateLabel(row.period_from)} – {dateLabel(row.period_to)}</div><div className="mt-1 text-xs font-semibold">Status: {row.workflow_status}</div></div>
+               <div><div className="text-sm font-bold">{row.depart_name}</div><div className="mt-1 font-[Space_Mono] text-[10px] text-muted-foreground">{row.depart_code} · Period {row.period_id} · {dateLabel(row.period_from)} – {dateLabel(row.period_to)}</div><div className="mt-1 flex items-center gap-2 text-xs font-semibold">Status: <StatusPill status={row.workflow_status} /></div></div>
                <div className="flex flex-wrap items-center gap-2 text-xs"><span className="rounded-md bg-secondary px-2.5 py-1.5 font-semibold text-primary">{row.total_risks} active risks expected</span><span data-testid="risk-summary-progress" className="rounded-md border border-border px-2.5 py-1.5">{readiness.complete ? readiness.data?.assessed_risks : row.assessed_risks ?? 0} of {readiness.complete ? readiness.data?.total_active_risks : row.total_risks} assessed</span></div>
             </div>
 

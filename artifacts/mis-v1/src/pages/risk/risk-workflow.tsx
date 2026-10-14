@@ -7,7 +7,7 @@ import {
   prettyKey, secondaryButton, SkeletonRows, Snapshot, StatusPill,
 } from './risk-ui';
 
-type WorkflowAction = 'SUBMIT' | 'REVIEW' | 'RETURN' | 'SIGN_OFF' | 'CLOSE' | 'REOPEN' | 'PROCESS';
+type WorkflowAction = 'SUBMIT' | 'REVIEW' | 'RETURN' | 'SIGN_OFF' | 'CLOSE' | 'REOPEN' | 'REVERT_REVIEW';
 
 export function WorkflowPanel({ summaries, departments, assignments, period, actor, manage, comments, setComments, mutating, onAction, closeView = false, openView = false }: {
   summaries: RiskDepartmentSummary[]; departments: RiskLookup[]; assignments: RiskLookup[]; period: string; actor?: RiskOptionsResponseData['actor']; manage: boolean;
@@ -17,7 +17,7 @@ export function WorkflowPanel({ summaries, departments, assignments, period, act
   return <section className="rounded-2xl border border-border bg-card p-5">
     <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-[Manrope] text-lg font-bold">Department workflow</h3><p className="mt-1 text-xs text-muted-foreground">Actions are recorded with the signed-in MIS identity and retained in event history.</p></div><span className="rounded-md bg-secondary px-2 py-1 font-[Space_Mono] text-[10px] text-primary">PERIOD {period || 'NOT SELECTED'}</span></div>
     {manage && <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-950">Reopening one register also opens the shared reporting period. Only the selected department’s workflow and assessment completion reset; other departments remain unchanged. Review the full scope before confirming. Closing the period again requires every registered active department to be signed off.</p>}
-    {!closeView && !openView && <p className="mb-3 mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-950">Returning or reopening resets assessment completion for every active risk in that department, including risks with closed actions. Reassess each risk in Update Register before submitting again. Closed actions stay closed; existing scores and rankings remain until an explicit assessment save. History and prior notes are always retained.</p>}
+    {!closeView && !openView && <p className="mb-3 mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-950">Return sends a submitted register back for reassessment. Revert Back sends a reviewed register back to the Risk Owner's Review queue without clearing saved assessments, root causes or rankings. History and prior notes are always retained.</p>}
     <Field label="Decision comment (required)"><textarea className={`${fieldClass} mt-2 min-h-16`} value={comments} onChange={event => setComments(event.target.value)} placeholder="Add a concise note that explains the decision." /></Field>
     {!period && <p className="mt-2 text-xs text-amber-800">Choose a reporting period above to enable workflow actions.</p>}
     {!summaries.length ? <div className="mt-4"><EmptyState title="No registers to process" description="Department actions appear once the selected period contains a register." /></div> : <div className="mt-4 divide-y divide-border">
@@ -38,20 +38,21 @@ export function WorkflowPanel({ summaries, departments, assignments, period, act
           { id: 'REOPEN', label: 'Reopen register', show: closed, allowed: manage, reason: 'Management only. Workflow flags reset and history remains immutable.' },
         ] : closeView ? [
           { id: 'CLOSE', label: 'Close register', show: signed && !closed && row.total_risks > 0, allowed: manage, reason: 'Management only; requires sign-off and at least one registered risk.' },
+          { id: 'REVERT_REVIEW', label: 'Revert Back', show: signed && !closed, allowed: manage, reason: 'Return this signed-off register to the Risk Owner for review; saved assessments are retained.' },
           { id: 'REOPEN', label: 'Reopen', show: closed, allowed: manage, reason: 'Management only. History is preserved.' },
         ] : [
           { id: 'SUBMIT', label: 'Submit', show: !submitted && !reviewed && !signed && !closed, allowed: canSubmit, reason: !ownerAssigned ? 'No active owner is mapped. Contact management to assign an owner before submission.' : canSubmit ? 'All active risks are assessed, have a root cause and have an active owner.' : read.label },
           { id: 'REVIEW', label: 'Review', show: submitted, allowed: canReview(row), reason: 'Owner department or management only.' },
           { id: 'RETURN', label: 'Return', show: submitted, allowed: canReview(row), reason: 'Owner department or management only.' },
           { id: 'SIGN_OFF', label: 'Sign off', show: reviewed, allowed: manage, reason: 'Management only; register must be reviewed.' },
-          { id: 'PROCESS', label: 'Process rankings', show: reviewed || signed, allowed: manage && Number(row.assessed_risks ?? 0) > 0, reason: 'Management only; rankings can be recomputed after assessment.' },
+          { id: 'REVERT_REVIEW', label: 'Revert Back', show: reviewed || signed, allowed: manage, reason: 'Management only; return to the Risk Owner for review without changing saved assessments.' },
           { id: 'REOPEN', label: 'Reopen', show: closed, allowed: manage, reason: 'Management only. History is preserved.' },
         ];
         return <div className="py-4">
           <div className="flex flex-col gap-3 pt-2 lg:flex-row lg:items-center">
             <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{row.depart_name}</div><div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground"><span>{row.total_risks} risks</span><span>{row.assessed_risks ?? 0} assessed</span><span>{row.open_actions ?? 0} open actions</span><span>{row.overdue_actions ?? 0} overdue</span></div></div>
             <StatusPill status={row.workflow_status} />
-            <div className="flex flex-wrap gap-1.5">{actions.filter(item => item.show).map(item => <button key={item.id} title={item.reason} disabled={!item.allowed || disableCommon || !row.period_id} className={item.id === 'RETURN' || item.id === 'REOPEN' ? secondaryButton : buttonClass} onClick={() => onAction(item.id, row)}>{item.label}</button>)}</div>
+            <div className="flex flex-wrap gap-1.5">{actions.filter(item => item.show).map(item => <button key={item.id} title={item.reason} disabled={!item.allowed || disableCommon || !row.period_id} className={item.id === 'RETURN' || item.id === 'REOPEN' || item.id === 'REVERT_REVIEW' ? secondaryButton : buttonClass} onClick={() => onAction(item.id, row)}>{item.label}</button>)}</div>
           </div>
         </div>;
           }}

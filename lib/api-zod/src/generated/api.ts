@@ -905,7 +905,7 @@ export const GetRiskRegisterReopenScopeResponse = zod.object({
 export const DecideRiskRegisterWorkflowBody = zod.object({
   "depart_code": zod.string(),
   "period_id": zod.number().int(),
-  "action": zod.enum(['SUBMIT', 'REVIEW', 'RETURN', 'SIGN_OFF', 'CLOSE', 'REOPEN', 'PROCESS']),
+  "action": zod.enum(['SUBMIT', 'REVIEW', 'RETURN', 'SIGN_OFF', 'CLOSE', 'REOPEN', 'REVERT_REVIEW']),
   "comments": zod.string(),
   "confirmation_token": zod.string().optional().describe('Required for REOPEN; obtained from the current reopening scope.')
 })
@@ -913,6 +913,126 @@ export const DecideRiskRegisterWorkflowBody = zod.object({
 export const DecideRiskRegisterWorkflowResponse = zod.object({
   "ok": zod.boolean(),
   "data": zod.record(zod.string(), zod.unknown()).optional()
+})
+
+
+export const getRiskAnalyticsQueryPopulationDefault = `open`;
+
+export const GetRiskAnalyticsQueryParams = zod.object({
+  "depart_code": zod.coerce.string().optional(),
+  "period_id": zod.coerce.number().int().optional(),
+  "population": zod.enum(['open', 'all']).default(getRiskAnalyticsQueryPopulationDefault)
+})
+
+export const getRiskAnalyticsResponseDataHeatmapItemImpactMax = 5;
+
+export const getRiskAnalyticsResponseDataHeatmapItemLikelihoodMax = 5;
+
+export const getRiskAnalyticsResponseDataTopTenOverallMax = 10;
+
+export const getRiskAnalyticsResponseDataTopTenDepartmentsItemRisksMax = 10;
+
+
+
+export const GetRiskAnalyticsResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.object({
+  "generated_at": zod.coerce.date(),
+  "population": zod.enum(['open', 'all']),
+  "totals": zod.object({
+  "total_risks": zod.number().int(),
+  "assessed_risks": zod.number().int(),
+  "open_risks": zod.number().int(),
+  "closed_risks": zod.number().int(),
+  "ranked_risks": zod.number().int(),
+  "unranked_risks": zod.number().int(),
+  "open_actions": zod.number().int(),
+  "behind_schedule_actions": zod.number().int(),
+  "overdue_actions": zod.number().int(),
+  "critical_risks": zod.number().int(),
+  "high_risks": zod.number().int(),
+  "avg_residual_exposure": zod.number().nullable()
+}),
+  "heatmap": zod.array(zod.object({
+  "impact": zod.number().int().min(1).max(getRiskAnalyticsResponseDataHeatmapItemImpactMax),
+  "likelihood": zod.number().int().min(1).max(getRiskAnalyticsResponseDataHeatmapItemLikelihoodMax),
+  "score": zod.number().int(),
+  "ranking": zod.string(),
+  "count": zod.number().int()
+})),
+  "rankings": zod.array(zod.object({
+  "name": zod.string(),
+  "count": zod.number().int()
+})),
+  "departments": zod.array(zod.object({
+  "depart_code": zod.string(),
+  "name": zod.string(),
+  "total": zod.number().int(),
+  "critical": zod.number().int(),
+  "high": zod.number().int(),
+  "avg_residual_exposure": zod.number().nullable()
+})),
+  "categories": zod.array(zod.object({
+  "name": zod.string(),
+  "count": zod.number().int()
+}).and(zod.object({
+  "code": zod.string()
+}))),
+  "workflows": zod.array(zod.object({
+  "name": zod.string(),
+  "count": zod.number().int()
+})),
+  "priorities": zod.array(zod.object({
+  "risk_code": zod.string(),
+  "risk_title": zod.string(),
+  "department": zod.string(),
+  "depart_code": zod.string(),
+  "risk_score": zod.number().int().nullable(),
+  "risk_ranking": zod.string().nullable(),
+  "residual_exposure": zod.number().nullable(),
+  "open_actions": zod.number().int(),
+  "behind_schedule_actions": zod.number().int(),
+  "overdue_actions": zod.number().int(),
+  "impact_ordinal": zod.number().int().nullable(),
+  "likelihood_ordinal": zod.number().int().nullable()
+})),
+  "top_ten_overall": zod.array(zod.object({
+  "risk_code": zod.string(),
+  "risk_title": zod.string(),
+  "department": zod.string(),
+  "depart_code": zod.string(),
+  "risk_score": zod.number().int().nullable(),
+  "risk_ranking": zod.string().nullable(),
+  "residual_exposure": zod.number().nullable(),
+  "open_actions": zod.number().int(),
+  "behind_schedule_actions": zod.number().int(),
+  "overdue_actions": zod.number().int(),
+  "impact_ordinal": zod.number().int().nullable(),
+  "likelihood_ordinal": zod.number().int().nullable()
+})).max(getRiskAnalyticsResponseDataTopTenOverallMax).describe('Highest saved matrix scores across all authorized departments in the selected period\/population, independent of the department filter.'),
+  "top_ten_departments": zod.array(zod.object({
+  "depart_code": zod.string(),
+  "department": zod.string(),
+  "total_ranked": zod.number().int(),
+  "total_unranked": zod.number().int(),
+  "risks": zod.array(zod.object({
+  "risk_code": zod.string(),
+  "risk_title": zod.string(),
+  "department": zod.string(),
+  "depart_code": zod.string(),
+  "risk_score": zod.number().int().nullable(),
+  "risk_ranking": zod.string().nullable(),
+  "residual_exposure": zod.number().nullable(),
+  "open_actions": zod.number().int(),
+  "behind_schedule_actions": zod.number().int(),
+  "overdue_actions": zod.number().int(),
+  "impact_ordinal": zod.number().int().nullable(),
+  "likelihood_ordinal": zod.number().int().nullable()
+})).max(getRiskAnalyticsResponseDataTopTenDepartmentsItemRisksMax)
+})),
+  "overall_ranked_count": zod.number().int(),
+  "overall_unranked_count": zod.number().int()
+})
 })
 
 

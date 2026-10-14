@@ -318,7 +318,7 @@ export const RiskWorkflowInputAction = {
   SIGN_OFF: 'SIGN_OFF',
   CLOSE: 'CLOSE',
   REOPEN: 'REOPEN',
-  PROCESS: 'PROCESS',
+  REVERT_REVIEW: 'REVERT_REVIEW',
 } as const;
 
 export interface RiskWorkflowInput {
@@ -649,6 +649,119 @@ export interface RiskDetailResponse {
   data: RiskDetailResponseData;
 }
 
+export interface RiskAnalyticsBreakdown {
+  name: string;
+  count: number;
+}
+
+export type RiskAnalyticsCategory = RiskAnalyticsBreakdown & {
+  code: string;
+};
+
+export interface RiskAnalyticsDepartment {
+  depart_code: string;
+  name: string;
+  total: number;
+  critical: number;
+  high: number;
+  /** @nullable */
+  avg_residual_exposure: number | null;
+}
+
+export interface RiskAnalyticsCell {
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  impact: number;
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  likelihood: number;
+  score: number;
+  ranking: string;
+  count: number;
+}
+
+export interface RiskAnalyticsPriority {
+  risk_code: string;
+  risk_title: string;
+  department: string;
+  depart_code: string;
+  /** @nullable */
+  risk_score: number | null;
+  /** @nullable */
+  risk_ranking: string | null;
+  /** @nullable */
+  residual_exposure: number | null;
+  open_actions: number;
+  behind_schedule_actions: number;
+  overdue_actions: number;
+  /** @nullable */
+  impact_ordinal: number | null;
+  /** @nullable */
+  likelihood_ordinal: number | null;
+}
+
+export interface RiskAnalyticsTopDepartment {
+  depart_code: string;
+  department: string;
+  total_ranked: number;
+  total_unranked: number;
+  /** @maxItems 10 */
+  risks: RiskAnalyticsPriority[];
+}
+
+export interface RiskAnalyticsTotals {
+  total_risks: number;
+  assessed_risks: number;
+  open_risks: number;
+  closed_risks: number;
+  ranked_risks: number;
+  unranked_risks: number;
+  open_actions: number;
+  behind_schedule_actions: number;
+  overdue_actions: number;
+  critical_risks: number;
+  high_risks: number;
+  /** @nullable */
+  avg_residual_exposure: number | null;
+}
+
+export type RiskAnalyticsResponseDataPopulation = typeof RiskAnalyticsResponseDataPopulation[keyof typeof RiskAnalyticsResponseDataPopulation];
+
+
+export const RiskAnalyticsResponseDataPopulation = {
+  open: 'open',
+  all: 'all',
+} as const;
+
+export type RiskAnalyticsResponseData = {
+  generated_at: string;
+  population: RiskAnalyticsResponseDataPopulation;
+  totals: RiskAnalyticsTotals;
+  heatmap: RiskAnalyticsCell[];
+  rankings: RiskAnalyticsBreakdown[];
+  departments: RiskAnalyticsDepartment[];
+  categories: RiskAnalyticsCategory[];
+  workflows: RiskAnalyticsBreakdown[];
+  priorities: RiskAnalyticsPriority[];
+  /**
+     * Highest saved matrix scores across all authorized departments in the selected period/population, independent of the department filter.
+     * @maxItems 10
+     */
+  top_ten_overall: RiskAnalyticsPriority[];
+  top_ten_departments: RiskAnalyticsTopDepartment[];
+  overall_ranked_count: number;
+  overall_unranked_count: number;
+};
+
+export interface RiskAnalyticsResponse {
+  ok: boolean;
+  data: RiskAnalyticsResponseData;
+}
+
 export interface RiskDepartmentSummary {
   depart_code: string;
   depart_name: string;
@@ -945,6 +1058,20 @@ export type GetRiskRegisterReopenScope200 = {
   ok: boolean;
   data: RiskReopenScope;
 };
+
+export type GetRiskAnalyticsParams = {
+depart_code?: string;
+period_id?: number;
+population?: GetRiskAnalyticsPopulation;
+};
+
+export type GetRiskAnalyticsPopulation = typeof GetRiskAnalyticsPopulation[keyof typeof GetRiskAnalyticsPopulation];
+
+
+export const GetRiskAnalyticsPopulation = {
+  open: 'open',
+  all: 'all',
+} as const;
 
 export type GetRiskRegisterSummaryParams = {
 /**

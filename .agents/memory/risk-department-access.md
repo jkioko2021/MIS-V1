@@ -27,6 +27,12 @@ Risk administration is restricted to Risk Management and administrators, not aut
 
 **How to apply:** Use management authorization for both the administration menu and its API operations. Mapping staff means choosing active MIS accounts; it does not itself grant those staff global administration rights.
 
+After login, Champions and Risk Owners must see dashboard data only for their mapped departments; an Owner may have multiple departments. The Risk department team has the overall view through explicit Risk Management access, not merely because an employee's department field says Risk.
+
+**Why:** The user explicitly required department-only dashboards for Champions/Owners and an overall view for the Risk department team.
+
+**How to apply:** Scope dashboard options, analytics, heatmap, priority records and Top 10 on the server, including requests with no department filter or a forged department. Preserve administrator access. Never reassign existing users or elevate unmapped staff implicitly when creating the Risk Management profile.
+
 Older departments outside the supplied department list are archived, not deleted or remapped. The two supplied inactive departments remain part of the current administration list.
 
 **Why:** The user explicitly chose archiving when informed that older departments had linked risks and objectives.

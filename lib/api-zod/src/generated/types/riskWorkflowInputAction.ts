@@ -16,5 +16,5 @@ export const RiskWorkflowInputAction = {
   SIGN_OFF: 'SIGN_OFF',
   CLOSE: 'CLOSE',
   REOPEN: 'REOPEN',
-  PROCESS: 'PROCESS',
+  REVERT_REVIEW: 'REVERT_REVIEW',
 } as const;

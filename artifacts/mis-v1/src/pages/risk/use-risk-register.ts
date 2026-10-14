@@ -19,10 +19,19 @@ import {
   useOpenRiskRegisterPeriod,
   useSaveRiskRegisterRootCause,
   useUpdateRiskRegisterRecord,
+  getGetRiskAnalyticsQueryKey,
+  useGetRiskAnalytics,
 } from '@workspace/api-client-react';
 
 const identityKey = (username: string, key: readonly unknown[]) => [...key, 'actor', username];
 const finiteQuery = { staleTime: 20_000, refetchInterval: 60_000, refetchOnWindowFocus: true } as const;
+
+export function useRiskAnalytics(username: string, params: NonNullable<Parameters<typeof useGetRiskAnalytics>[0]>, enabled = true) {
+  return useGetRiskAnalytics(params, { query: {
+    ...finiteQuery, queryKey: identityKey(username, getGetRiskAnalyticsQueryKey(params)),
+    enabled: enabled && Boolean(username),
+  } });
+}
 
 function useRiskMutationOptions() {
   const client = useQueryClient();

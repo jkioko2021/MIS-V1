@@ -344,6 +344,20 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RiskMutationResponse" }
+  /risk-register/analytics:
+    get:
+      operationId: getRiskAnalytics
+      tags: [RiskRegister]
+      parameters:
+        - { name: depart_code, in: query, schema: { type: string } }
+        - { name: period_id, in: query, schema: { type: integer } }
+        - { name: population, in: query, schema: { type: string, enum: [open, all], default: open } }
+      responses:
+        "200":
+          description: Complete role-scoped risk analytics using saved assessment snapshots
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskAnalyticsResponse" }
   /risk-register/summary:
     get:
       operationId: getRiskRegisterSummary
@@ -693,7 +707,7 @@ components:
       properties:
         depart_code: { type: string }
         period_id: { type: integer }
-        action: { type: string, enum: [SUBMIT, REVIEW, RETURN, SIGN_OFF, CLOSE, REOPEN, PROCESS] }
+        action: { type: string, enum: [SUBMIT, REVIEW, RETURN, SIGN_OFF, CLOSE, REOPEN, REVERT_REVIEW] }
         comments: { type: string }
         confirmation_token: { type: string, description: Required for REOPEN; obtained from the current reopening scope. }
     RiskReopenScope:
@@ -972,6 +986,101 @@ components:
             risk: { $ref: "#/components/schemas/RiskRecord" }
             root_causes: { type: array, items: { $ref: "#/components/schemas/RiskRootCause" } }
             history: { type: array, items: { $ref: "#/components/schemas/RiskHistoryEvent" } }
+    RiskAnalyticsBreakdown:
+      type: object
+      required: [name, count]
+      properties:
+        name: { type: string }
+        count: { type: integer }
+    RiskAnalyticsCategory:
+      allOf:
+        - { $ref: "#/components/schemas/RiskAnalyticsBreakdown" }
+        - type: object
+          required: [code]
+          properties:
+            code: { type: string }
+    RiskAnalyticsDepartment:
+      type: object
+      required: [depart_code, name, total, critical, high, avg_residual_exposure]
+      properties:
+        depart_code: { type: string }
+        name: { type: string }
+        total: { type: integer }
+        critical: { type: integer }
+        high: { type: integer }
+        avg_residual_exposure: { type: [number, "null"] }
+    RiskAnalyticsCell:
+      type: object
+      required: [impact, likelihood, score, ranking, count]
+      properties:
+        impact: { type: integer, minimum: 1, maximum: 5 }
+        likelihood: { type: integer, minimum: 1, maximum: 5 }
+        score: { type: integer }
+        ranking: { type: string }
+        count: { type: integer }
+    RiskAnalyticsPriority:
+      type: object
+      required: [risk_code, risk_title, department, depart_code, risk_score, risk_ranking, residual_exposure, open_actions, behind_schedule_actions, overdue_actions, impact_ordinal, likelihood_ordinal]
+      properties:
+        risk_code: { type: string }
+        risk_title: { type: string }
+        department: { type: string }
+        depart_code: { type: string }
+        risk_score: { type: [integer, "null"] }
+        risk_ranking: { type: [string, "null"] }
+        residual_exposure: { type: [number, "null"] }
+        open_actions: { type: integer }
+        behind_schedule_actions: { type: integer }
+        overdue_actions: { type: integer }
+        impact_ordinal: { type: [integer, "null"] }
+        likelihood_ordinal: { type: [integer, "null"] }
+    RiskAnalyticsTopDepartment:
+      type: object
+      required: [depart_code, department, total_ranked, total_unranked, risks]
+      properties:
+        depart_code: { type: string }
+        department: { type: string }
+        total_ranked: { type: integer }
+        total_unranked: { type: integer }
+        risks: { type: array, maxItems: 10, items: { $ref: "#/components/schemas/RiskAnalyticsPriority" } }
+    RiskAnalyticsTotals:
+      type: object
+      required: [total_risks, assessed_risks, open_risks, closed_risks, ranked_risks, unranked_risks, open_actions, behind_schedule_actions, overdue_actions, critical_risks, high_risks, avg_residual_exposure]
+      properties:
+        total_risks: { type: integer }
+        assessed_risks: { type: integer }
+        open_risks: { type: integer }
+        closed_risks: { type: integer }
+        ranked_risks: { type: integer }
+        unranked_risks: { type: integer }
+        open_actions: { type: integer }
+        behind_schedule_actions: { type: integer }
+        overdue_actions: { type: integer }
+        critical_risks: { type: integer }
+        high_risks: { type: integer }
+        avg_residual_exposure: { type: [number, "null"] }
+    RiskAnalyticsResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok: { type: boolean }
+        data:
+          type: object
+          required: [generated_at, population, totals, heatmap, rankings, departments, categories, workflows, priorities, top_ten_overall, top_ten_departments, overall_ranked_count, overall_unranked_count]
+          properties:
+            generated_at: { type: string, format: date-time }
+            population: { type: string, enum: [open, all] }
+            totals: { $ref: "#/components/schemas/RiskAnalyticsTotals" }
+            heatmap: { type: array, items: { $ref: "#/components/schemas/RiskAnalyticsCell" } }
+            rankings: { type: array, items: { $ref: "#/components/schemas/RiskAnalyticsBreakdown" } }
+            departments: { type: array, items: { $ref: "#/components/schemas/RiskAnalyticsDepartment" } }
+            categories: { type: array, items: { $ref: "#/components/schemas/RiskAnalyticsCategory" } }
+            workflows: { type: array, items: { $ref: "#/components/schemas/RiskAnalyticsBreakdown" } }
+            priorities: { type: array, items: { $ref: "#/components/schemas/RiskAnalyticsPriority" } }
+            top_ten_overall: { type: array, maxItems: 10, description: "Highest saved matrix scores across all authorized departments in the selected period/population, independent of the department filter.", items: { $ref: "#/components/schemas/RiskAnalyticsPriority" } }
+            top_ten_departments: { type: array, items: { $ref: "#/components/schemas/RiskAnalyticsTopDepartment" } }
+            overall_ranked_count: { type: integer }
+            overall_unranked_count: { type: integer }
     RiskDepartmentSummary:
       type: object
       additionalProperties: true

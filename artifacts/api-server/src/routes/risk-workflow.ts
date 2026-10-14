@@ -5,7 +5,7 @@ import { activeDepartmentOwner, queueRiskReviewNotification } from "../lib/risk-
 import { reopenScope } from "../lib/risk-reopen-scope";
 import {
   RiskError, type RiskActor, riskFailure, assertDepartment, canManage, cycleInput,
-  workflowState, period, cycle, history, calculateRisk,
+  workflowState, period, cycle, history,
 } from "../lib/risk-register";
 
 export const riskWorkflowRouter=Router();
@@ -44,27 +44,10 @@ riskWorkflowRouter.post("/risk-register/workflow",async(req,res)=>{
       if(input.action==="SIGN_OFF" && state!=="REVIEWED") throw new RiskError(409,"The department owner must review before sign-off.");
       if(input.action==="CLOSE" && state!=="SIGNED_OFF") throw new RiskError(409,"Sign off the register before closing it.");
       if(input.action==="REOPEN" && state==="OPEN" && p.status==="OPEN") throw new RiskError(409,"This register is already open.");
-      if(input.action==="PROCESS" && !["OPEN","SUBMITTED"].includes(state)) throw new RiskError(409,"Signed or reviewed assessments cannot be recalculated.");
-      if(["SUBMIT","PROCESS"].includes(input.action) && risks.some(r=>!r.assessment_updated || !r.has_cause))
-        throw new RiskError(409,"Assess every active risk and add at least one root cause and mitigation before submitting or processing.");
-      if(input.action==="PROCESS"){
-        for(const r of risks){
-          const i=Number(r.i_rate),l=Number(r.l_rate),control=Number(r.perceived_rate);
-          if(!Number.isFinite(i) || i<=0 || !Number.isFinite(l) || l<=0
-            || !Number.isFinite(control) || control<0 || control>1)
-            throw new RiskError(409,"Update invalid or historical rating factors before processing.");
-          const score=calculateRisk(i,l,control);
-          await txQuery(client,`UPDATE risk.risk_master SET i_risk_exposure=$2,i_risk_rate=$2,
-            r_risk_exposure=$3,r_risk_rate=$3,updated_at=NOW() WHERE risk_code=$1`,[r.risk_code,score.inherent,score.residual]);
-        }
-        await txQuery(client,`DELETE FROM risk.master_summary WHERE depart_code=$1 AND period_from=$2 AND period_to=$3`,
-        [input.depart_code,p.period_from,p.period_to]);
-        await txQuery(client,`INSERT INTO risk.master_summary(depart_code,period_from,period_to,risk_code,r_risk_exposure,ranking)
-          SELECT depart_code,period_from,period_to,risk_code,r_risk_exposure,
-          dense_rank() OVER(ORDER BY r_risk_exposure DESC)::integer FROM risk.risk_master
-          WHERE depart_code=$1 AND period_from=$2 AND period_to=$3 AND is_active`,
-        [input.depart_code,p.period_from,p.period_to]);
-      }
+      if(input.action==="REVERT_REVIEW" && !["REVIEWED","SIGNED_OFF"].includes(state))
+        throw new RiskError(409,"Only reviewed or signed-off registers can be reverted to review.");
+      if(input.action==="SUBMIT" && risks.some(r=>!r.assessment_updated || !r.has_cause))
+        throw new RiskError(409,"Assess every active risk and add at least one root cause and mitigation before submitting.");
       const reset=["RETURN","REOPEN"].includes(input.action);
       if(reset) {
         // Root-action closure never exempts an active risk from reassessment.
@@ -75,7 +58,14 @@ riskWorkflowRouter.post("/risk-register/workflow",async(req,res)=>{
         await txQuery(client,`UPDATE risk.risk_master SET assessment_updated=FALSE,updated_at=NOW()
           WHERE depart_code=$1 AND period_from=$2 AND period_to=$3 AND is_active`,[input.depart_code,p.period_from,p.period_to]);
         if(input.action==="REOPEN") await txQuery(client,"UPDATE risk.periods SET status='OPEN' WHERE period_id=$1",[p.period_id]);
-      } else if(input.action!=="PROCESS") {
+      } else if(input.action==="REVERT_REVIEW") {
+        // Return to the owner's Review queue, not the champion's assessment queue.
+        // Preserve every saved assessment, root action and prior audit event.
+        await txQuery(client,`UPDATE risk.department_summary SET submitted=TRUE,
+          reviewed=FALSE,reviewed_by=NULL,reviewed_at=NULL,
+          sign_off=FALSE,signed_off_by=NULL,signed_off_at=NULL,
+          closed=FALSE,closed_by=NULL,closed_at=NULL,updated_at=NOW() WHERE summary_id=$1`,[s.summary_id]);
+      } else {
         const columns={
           SUBMIT:["submitted","submitted_by","submitted_at"],
           REVIEW:["reviewed","reviewed_by","reviewed_at"],

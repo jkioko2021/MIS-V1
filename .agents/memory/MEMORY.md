@@ -43,7 +43,8 @@
 - [Local development](local-development.md) — Windows/WSL setup must isolate local mail/storage, preserve OTP, and require a complete database baseline.
 - [Enterprise risk compatibility](risk-register-compatibility.md) — Do not infer calibrated factors from historical effectiveness codes or unpopulated catalogs.
 - [Saved risk ranking stability](risk-ranking-stability.md) — Reference maintenance must not recompute historical ranks; only explicit reassessment refreshes their basis.
-- [Closed-action reassessment](risk-reassessment-policy.md) — Return/reopen requires explicit reassessment of every active risk; closed root actions remain closed.
+- [Risk analytics scope](risk-analytics-scope.md) — Overall Top 10 spans authorized departments; department filters narrow department lists, never the overall comparison.
+- [Risk return and reversion](risk-reassessment-policy.md) — Return/reopen requires reassessment; Revert Back goes to owner Review with saved assessments and closed root actions preserved.
 - [Shared-period reopening](risk-period-reopening.md) — Opening the shared period resets only the selected department; confirm the scope and preserve other departments.
 - [Department risk access](risk-department-access.md) — Champions update their departments; owners review theirs and may own multiple departments.
 - [Risk Owner email boundaries](risk-owner-email-boundaries.md) — Cancel stale recipient notices rather than redirect retries; distinguish provider acceptance from inbox delivery.

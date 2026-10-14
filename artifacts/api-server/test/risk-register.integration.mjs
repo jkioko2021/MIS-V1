@@ -26,7 +26,7 @@ async function cleanup(){
   // Validate every destructive selector before opening the transaction. Never
   // use a wildcard to remove accounts or departments from other fixture runs.
   assert(Array.isArray(f.users) && f.users.every(user=>
-    ["admin","champion","owner","unrelated"].some(label=>user===`${f.prefix}_${label}`)));
+    ["admin","manager","champion","owner","unrelated","unmapped"].some(label=>user===`${f.prefix}_${label}`)));
   assert(Array.isArray(f.departments) && f.departments.every(code=>
     code===`${f.prefix}A` || code===`${f.prefix}B`));
   assert(Array.isArray(f.periods) && f.periods.every(id=>Number.isSafeInteger(id) && id>0));
@@ -91,7 +91,10 @@ try{
     await save();
     console.log(`Risk fixture manifest: ${fixturePath}`);
     const password=`RiskT!${randomBytes(18).toString("hex")}`,hash=await bcrypt.hash(password,10);
-    for(const [label,profile] of [["admin",1],["champion",9],["owner",9],["unrelated",8]]){
+    const {rows:[managementProfile]}=await pool.query(
+      "SELECT profile_id FROM crm.profiles WHERE LOWER(TRIM(profile_name))='risk management' AND is_active");
+    assert(managementProfile,"Apply the Risk Management profile migration before testing its overall view");
+    for(const [label,profile] of [["admin",1],["manager",managementProfile.profile_id],["champion",9],["owner",9],["unrelated",8],["unmapped",9]]){
       const username=`${f.prefix}_${label}`;
       f.users.push(username);await save();
       const {rows:[e]}=await pool.query(`INSERT INTO crm.employees
@@ -200,7 +203,8 @@ try{
     assert.equal(returned.risk.assessment_updated,false);
     assert(returned.history.some(h=>h.comments==="Synthetic assessment retained note"));
     await ok(`/records/${risk.risk_code}`,"champion","PUT",{...assessment,expected_updated_at:returned.risk.updated_at});
-    await ok("/workflow","admin","POST",wf("PROCESS"));
+    assert.equal((await api("/workflow","admin","POST",wf("PROCESS"))).status,400,
+      "Manual ranking processing is no longer a supported workflow action");
     const processed=await ok(`/records/${risk.risk_code}`,"champion","GET");
     assert.equal(Number(processed.risk.r_risk_exposure),13.33);
     await ok("/workflow","champion","POST",wf("SUBMIT"));
@@ -213,11 +217,46 @@ try{
     assert(signoffRecords.some(row=>row.risk_code===risk.risk_code),"The department's reviewed risks are available to the Signoff summary");
     assert(signoffRecords.every(row=>row.depart_code===f.department && row.period_id===f.period && row.workflow_status==="REVIEWED"),
       "Signoff summary records stay within the selected department, reporting period and reviewed state");
+    assert.equal((await api("/workflow","owner","POST",wf("REVERT_REVIEW"))).status,403);
+    await ok("/workflow","admin","POST",wf("REVERT_REVIEW"));
+    const reverted=await ok(`/records/${risk.risk_code}`,"owner","GET");
+    assert.equal(reverted.risk.workflow_status,"SUBMITTED");
+    assert.equal(reverted.risk.assessment_updated,true);
+    assert.deepEqual(reverted.risk.ranking_snapshot,reviewedRisk.risk.ranking_snapshot);
+    assert.equal(reverted.risk.r_risk_exposure,reviewedRisk.risk.r_risk_exposure);
+    assert.deepEqual(reverted.root_causes,reviewedRisk.root_causes);
+    assert(reverted.history.some(event=>event.action==="REVERT_REVIEW"));
+    assert.equal((await ok(`/records?view=reviewed&depart_code=${f.department}&period_id=${f.period}`,"admin","GET")).length,0);
+    const submittedAgain=await ok(`/records?view=submitted&depart_code=${f.department}&period_id=${f.period}`,"owner","GET");
+    assert(submittedAgain.some(row=>row.risk_code===risk.risk_code));
+    await ok("/workflow","owner","POST",wf("REVIEW"));
     await ok("/workflow","admin","POST",wf("SIGN_OFF"));
+    const signed=await ok(`/records/${risk.risk_code}`,"admin","GET");
+    assert.equal(signed.risk.workflow_status,"SIGNED_OFF");
+    assert.deepEqual(signed.risk.ranking_snapshot,reviewedRisk.risk.ranking_snapshot);
+    assert.equal((await ok(`/records?view=reviewed&depart_code=${f.department}&period_id=${f.period}`,"admin","GET")).length,0);
+    assert((await ok(`/records?view=signed&depart_code=${f.department}&period_id=${f.period}`,"admin","GET")).some(row=>row.risk_code===risk.risk_code));
+    await ok("/workflow","admin","POST",wf("REVERT_REVIEW"));
+    assert.equal((await ok(`/records/${risk.risk_code}`,"owner","GET")).risk.workflow_status,"SUBMITTED");
+    await ok("/workflow","owner","POST",wf("REVIEW"));
+    await ok("/workflow","admin","POST",wf("SIGN_OFF"));
+    const analytics=await ok(`/analytics?depart_code=${f.department}&period_id=${f.period}&population=all`,"champion","GET");
+    assert.equal(analytics.totals.total_risks,1);
+    assert.equal(analytics.heatmap.length,25);
+    assert.equal(analytics.heatmap.reduce((sum,cell)=>sum+cell.count,0),analytics.totals.ranked_risks);
+    assert(analytics.departments.every(d=>d.depart_code===f.department));
+    assert(analytics.top_ten_overall.length<=10);
+    assert(analytics.top_ten_overall.every(r=>r.depart_code===f.department),"Champion overall rankings remain inside authorized departments");
+    assert(analytics.top_ten_departments.every(d=>d.depart_code===f.department&&d.risks.length<=10));
+    assert.equal(analytics.overall_ranked_count+analytics.overall_unranked_count,1);
+    assert.equal((await api(`/analytics?depart_code=${f.departments[1]}&period_id=${f.period}`,"champion")).status,403);
+    assert.equal((await api(`/analytics?population=invalid`,"admin")).status,400);
+    assert.equal((await api("/analytics",null)).status,401);
     assert.equal((await api(`/periods/${f.period}/close`,"admin","POST",{comments:"Must reject unsigned department"})).status,409);
     await ok("/workflow","admin","POST",wf("CLOSE"));
     const closed=await ok(`/records/${risk.risk_code}`,"champion","GET");
     assert.equal(closed.risk.workflow_status,"CLOSED");assert.equal(closed.risk.can_edit,false);
+    assert.equal((await api("/workflow","admin","POST",wf("REVERT_REVIEW"))).status,409);
     assert.equal((await api(`/records/${risk.risk_code}`,"admin","PUT",{...assessment,expected_updated_at:closed.risk.updated_at})).status,409);
     const reopenScope=await ok(`/workflow/reopen-scope?depart_code=${f.departments[0]}&period_id=${f.period}`,"admin","GET");
     await ok("/workflow","admin","POST",{...wf("REOPEN"),confirmation_token:reopenScope.confirmation_token});
@@ -238,14 +277,29 @@ try{
     const ownerSummaries=await ok(`/summary?access=review&period_id=${f.period}`,"owner","GET");
     assert.deepEqual(ownerSummaries.map(row=>row.depart_code).sort(),[...f.departments].sort());
     // Dashboard defaults omit depart_code, but the server still scopes both data contracts.
-    for (const [label,expected] of [["admin",f.departments],["owner",f.departments],["champion",[f.department]]]) {
+    for (const [label,expected] of [["admin",f.departments],["manager",f.departments],["owner",f.departments],["champion",[f.department]]]) {
       const dashboardRows=await ok(`/records?access=view&period_id=${f.period}`,label,"GET");
       assert.deepEqual(dashboardRows.map(row=>row.depart_code).sort(),[...expected].sort());
       assert(dashboardRows.every(row=>row.risk_code && row.risk_title),"Dashboard receives risks, not history events.");
       const dashboardSummary=await ok(`/summary?access=view&period_id=${f.period}`,label,"GET");
       assert(dashboardSummary.filter(row=>expected.includes(row.depart_code)).every(row=>row.total_risks===1));
-      if (label!=="admin") assert.deepEqual(dashboardSummary.map(row=>row.depart_code).sort(),[...expected].sort());
+      if (label!=="admin"&&label!=="manager") assert.deepEqual(dashboardSummary.map(row=>row.depart_code).sort(),[...expected].sort());
+      const dashboardAnalytics=await ok(`/analytics?period_id=${f.period}&population=all`,label,"GET");
+      assert.deepEqual(dashboardAnalytics.departments.map(row=>row.depart_code).sort(),[...expected].sort());
+      assert.deepEqual(dashboardAnalytics.top_ten_departments.map(row=>row.depart_code).sort(),[...expected].sort());
+      assert(dashboardAnalytics.priorities.every(row=>expected.includes(row.depart_code)));
+      assert(dashboardAnalytics.top_ten_overall.every(row=>expected.includes(row.depart_code)));
+      const roleOptions=await ok("/options",label,"GET");
+      assert.equal(roleOptions.actor.can_manage,["admin","manager"].includes(label));
+      if(label==="champion"||label==="owner") {
+        assert(roleOptions.departments.every(row=>expected.includes(row.depart_code)));
+      }
     }
+    const unmappedAnalytics=await ok(`/analytics?period_id=${f.period}&population=all`,"unmapped","GET");
+    assert.equal(unmappedAnalytics.totals.total_risks,0);
+    assert.deepEqual(unmappedAnalytics.top_ten_overall,[]);
+    assert.deepEqual(unmappedAnalytics.top_ten_departments,[]);
+    assert.equal((await api(`/analytics?depart_code=${f.department}&period_id=${f.period}`,"unmapped")).status,403);
     const championRows=await ok(`/records?access=update&period_id=${f.period}`,"champion","GET");
     assert.deepEqual(championRows.map(row=>row.depart_code),[f.department]);
     await ok("/assignments","admin","POST",{depart_code:f.departments[1],

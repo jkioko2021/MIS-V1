@@ -24,6 +24,7 @@ import type {
   AmlOriginatingSystemsResponse,
   GetClientRatingOptions200,
   GetClientRatingsReportParams,
+  GetRiskAnalyticsParams,
   GetRiskRegisterHistoryParams,
   GetRiskRegisterReopenScope200,
   GetRiskRegisterReopenScopeParams,
@@ -39,6 +40,7 @@ import type {
   RecordAllocatedDocumentUpload201,
   RecordMedicalDocumentUpload201,
   RiskAdministrationDepartmentResponse,
+  RiskAnalyticsResponse,
   RiskAssessmentInput,
   RiskAssignmentInput,
   RiskCauseInput,
@@ -1495,6 +1497,84 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getDecideRiskRegisterWorkflowMutationOptions(options));
     }
+
+export const getGetRiskAnalyticsUrl = (params?: GetRiskAnalyticsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/risk-register/analytics?${stringifiedParams}` : `/api/risk-register/analytics`
+}
+
+export const getRiskAnalytics = async (params?: GetRiskAnalyticsParams, options?: Parameters<typeof customFetch>[1]): Promise<RiskAnalyticsResponse> => {
+
+  return customFetch<RiskAnalyticsResponse>(getGetRiskAnalyticsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRiskAnalyticsQueryKey = (params?: GetRiskAnalyticsParams,) => {
+    return [
+    `/api/risk-register/analytics`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetRiskAnalyticsQueryOptions = <TData = Awaited<ReturnType<typeof getRiskAnalytics>>, TError = ErrorType<unknown>>(params?: GetRiskAnalyticsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRiskAnalytics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRiskAnalyticsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRiskAnalytics>>> = ({ signal }) => getRiskAnalytics(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRiskAnalytics>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRiskAnalyticsQueryResult = NonNullable<Awaited<ReturnType<typeof getRiskAnalytics>>>
+export type GetRiskAnalyticsQueryError = ErrorType<unknown>
+
+
+
+export function useGetRiskAnalytics<TData = Awaited<ReturnType<typeof getRiskAnalytics>>, TError = ErrorType<unknown>>(
+ params?: GetRiskAnalyticsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRiskAnalytics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRiskAnalyticsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetRiskRegisterSummaryUrl = (params?: GetRiskRegisterSummaryParams,) => {
   const normalizedParams = new URLSearchParams();

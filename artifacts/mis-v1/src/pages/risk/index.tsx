@@ -7,14 +7,14 @@ import {
   AlertCircle, ArrowUpRight, BadgeCheck, CalendarDays, Check, ClipboardCheck,
   FilePlus2, FileUp, History, LockKeyhole, RefreshCw, Shield, UsersRound, Workflow, X,
 } from 'lucide-react';
-import type { RiskHistoryEvent, RiskOptionsResponseData, RiskRecord, RiskRootCause, RiskDepartmentSummary } from '@workspace/api-client-react';
+import type { RiskHistoryEvent, RiskOptionsResponseData, RiskRecord, RiskRootCause, RiskDepartmentSummary, RiskAnalyticsResponseData } from '@workspace/api-client-react';
 import {
   useAssignRiskTeam, useCloseRiskPeriod, useCreateRisk, useOpenRiskPeriod, useRiskHistory,
   useRiskOptions, useRiskRecord, useRiskRecords, useRiskSummary, useRiskWorkflow,
-  useSaveRiskCause, useUpdateRisk,
+  useSaveRiskCause, useUpdateRisk, useRiskAnalytics,
 } from './use-risk-register';
 import { AssessmentPanel, NewRiskForm } from './risk-forms';
-import { latestDepartmentReviews } from './department-reviews';
+import RiskDashboard from './risk-dashboard';
 import { RecordsTable, RiskDrawer } from './risk-details';
 import {
   HistoryTable, OpenPeriods, ReportingPeriodClose, SummaryTable, TeamMapping, WorkflowPanel,
@@ -95,6 +95,13 @@ function RiskRegisterWorkspace() {
   const [comments, setComments] = useState('');
   const [reopening, setReopening] = useState<RiskDepartmentSummary | null>(null);
   const [signoffSelection, setSignoffSelection] = useState<{ department: string; period: string } | null>(null);
+  const [closeSelection, setCloseSelection] = useState<{ department: string; period: string } | null>(null);
+  const [population, setPopulation] = useState<'open' | 'all'>('open');
+  const analyticsQuery = useRiskAnalytics(username, {
+    ...(department ? { depart_code: department } : {}),
+    ...(period ? { period_id: Number(period) } : {}),
+    population,
+  }, dataEnabled && activePage === 'dashboard');
   useEffect(() => {
     setSelectedRiskCode('');
     setDrawerOpen(false);
@@ -145,9 +152,12 @@ function RiskRegisterWorkspace() {
     (pageCodes === null || pageCodes.includes(item.depart_code))
     && (activePage !== 'update' || item.workflow_status === 'OPEN')
     && (activePage !== 'review' || item.workflow_status === 'SUBMITTED')
-    && (activePage !== 'summary' || ['REVIEWED', 'SIGNED_OFF'].includes(item.workflow_status ?? '')));
+    && (activePage !== 'summary' || item.workflow_status === 'REVIEWED')
+    && (activePage !== 'close' || item.workflow_status === 'SIGNED_OFF'));
   const signoffSummary = summaries.find(item => item.depart_code === signoffSelection?.department
     && String(item.period_id) === signoffSelection?.period);
+  const closeSummary = summaries.find(item => item.depart_code === closeSelection?.department
+    && String(item.period_id) === closeSelection?.period);
   const selectSignoffSummary = (row: RiskDepartmentSummary) => {
     setSignoffSelection({ department: row.depart_code, period: String(row.period_id) });
     setSelectedRiskCode('');
@@ -237,7 +247,7 @@ function RiskRegisterWorkspace() {
     setNotice(error ? '' : success);
     if (!error) setComments('');
   };
-  const chooseAction = (action: 'SUBMIT' | 'REVIEW' | 'RETURN' | 'SIGN_OFF' | 'CLOSE' | 'REOPEN' | 'PROCESS', row?: RiskDepartmentSummary, confirm = false, token?: string) => {
+  const chooseAction = (action: 'SUBMIT' | 'REVIEW' | 'RETURN' | 'SIGN_OFF' | 'CLOSE' | 'REOPEN' | 'REVERT_REVIEW', row?: RiskDepartmentSummary, confirm = false, token?: string) => {
     const depart_code = row?.depart_code ?? department;
     const period_id = row?.period_id ?? Number(period);
     if (action === 'REOPEN' && !token) {
@@ -247,6 +257,12 @@ function RiskRegisterWorkspace() {
     if (confirm && action === 'CLOSE' && !window.confirm('Close this register? The event will be retained in history.')) return;
     workflow.mutate({ data: { depart_code, period_id, action, comments: comments.trim(), ...(token ? { confirmation_token: token } : {}) } }, {
       onSuccess: response => {
+        if (['SIGN_OFF', 'REVERT_REVIEW', 'CLOSE'].includes(action) && !envelopeError(response)) {
+          setSignoffSelection(null);
+          setCloseSelection(null);
+          setSelectedRiskCode('');
+          setDrawerOpen(false);
+        }
         if (action === 'REOPEN' && !envelopeError(response)) setReopening(null);
         if (['REVIEW', 'RETURN'].includes(action) && !envelopeError(response)) {
           setReviewOpen(false);
@@ -335,7 +351,7 @@ function RiskRegisterWorkspace() {
           <div><div className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Risk office / {PAGES.find(item => item.key === activePage)?.short}</div><h2 className="mt-1 font-[Manrope] text-2xl font-bold">{title}</h2></div>
           <div className="grid grid-cols-2 gap-2 sm:flex">
             <Field label="Department"><select aria-label="Filter by department" data-testid="select-risk-department" className={`${fieldClass} sm:min-w-44`} value={department} onChange={event => setDepartment(event.target.value)}>
-              <option value="">All mapped departments</option>{departments.map((item, index) => <option key={item.depart_code ?? index} value={item.depart_code ?? ''}>{item.depart_name ?? item.depart_code}</option>)}
+              <option value="">{manage ? 'All departments' : 'My assigned departments'}</option>{departments.map((item, index) => <option key={item.depart_code ?? index} value={item.depart_code ?? ''}>{item.depart_name ?? item.depart_code}</option>)}
             </select></Field>
             <Field label="Reporting period"><select aria-label="Filter by period" data-testid="select-risk-period" className={`${fieldClass} sm:min-w-44`} value={period} onChange={event => setPeriod(event.target.value)}>
               <option value="">Latest / all periods</option>{periods.map((item, index) => <option key={item.period_id ?? index} value={String(item.period_id ?? '')}>{dateLabel(item.period_from)} – {dateLabel(item.period_to)} · {item.status ?? '—'}</option>)}
@@ -344,31 +360,17 @@ function RiskRegisterWorkspace() {
         </div>
 
         {activePage === 'dashboard' && <section className="space-y-5">
-          <div className="grid gap-4 md:grid-cols-[1.6fr_1fr]">
-            <div className="relative overflow-hidden rounded-2xl bg-[#16483f] p-6 text-[#f5f0e5] sm:p-8">
-              <div className="absolute -right-12 -top-16 h-64 w-64 rounded-full border border-white/10" /><div className="absolute -right-2 -top-7 h-44 w-44 rounded-full border border-white/10" />
-              <div className="relative max-w-xl"><p className="text-[11px] font-bold uppercase tracking-[.18em] text-[#c8b779]">Department accountability</p>
-                <h3 className="mt-4 font-[Manrope] text-3xl font-bold leading-tight sm:text-4xl">See the risk.<br />See who owns the next move.</h3>
-                <p className="mt-3 max-w-lg text-sm leading-6 text-white/70">Assessment, review and sign-off stay connected to the record—not scattered across inboxes and spreadsheet copies.</p>
-                <button className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#e8d6a2] px-4 py-2.5 text-sm font-bold text-[#193c35] hover:bg-[#f0e4c2]" onClick={() => setPage('new')}><FilePlus2 className="h-4 w-4" /> Register a risk <ArrowUpRight className="h-4 w-4" /></button>
-              </div>
-              <div className="relative mt-8 grid max-w-lg grid-cols-3 border-t border-white/15 pt-5">
-                <div><strong className="block font-[Space_Mono] text-2xl">{activeCount ?? '—'}</strong><span className="text-xs text-white/65">Active risks</span></div>
-                <div><strong className="block font-[Space_Mono] text-2xl">{assessedCount ?? '—'}</strong><span className="text-xs text-white/65">Assessed</span></div>
-                <div><strong className="block font-[Space_Mono] text-2xl">{overdueCount}</strong><span className="text-xs text-white/65">Behind schedule</span></div>
-              </div>
-            </div>
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <div className="mb-4 flex items-center justify-between"><div><div className="text-[10px] font-bold uppercase tracking-[.16em] text-muted-foreground">Workflow pulse</div><h3 className="mt-1 font-[Manrope] text-lg font-bold">Department reviews</h3></div><Workflow className="h-5 w-5 text-primary" /></div>
-              {summaryQuery.isLoading ? <SkeletonRows /> : summaryQuery.isError || summaryFailure ? <ErrorNotice message={summaryFailure || queryError(summaryQuery.error)} onRetry={() => summaryQuery.refetch()} /> : summaries.length ? <div className="space-y-1">
-                  {latestDepartmentReviews(summaries).slice(0, 5).map(row => <div key={row.depart_code} className="flex items-center gap-3 border-t border-border/70 py-3 first:border-0">
-                   <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{row.depart_name}</div><div className="text-xs text-muted-foreground">{row.total_risks} risks · {row.assessed_risks ?? 0} assessed</div>{!period && <div className="mt-1 text-[10px] text-muted-foreground">Latest period: {dateLabel(row.period_from)} – {dateLabel(row.period_to)}</div>}</div>
-                  <StatusPill status={row.workflow_status} />
-                </div>)}</div> : <EmptyState title="No department summaries yet" description="Summaries appear when risk data is available for this period." />}
-            </div>
-          </div>
-           <p className="text-xs text-muted-foreground">Active risks and Assessed cover all matching risks in your authorized departments and selected reporting period.</p>
-           <RecordsTable records={records} totalRecords={activeCount} loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={viewDetails} search={search} setSearch={setSearch} title="Risk register" />
+          <Field label="Risk population"><select aria-label="Risk population" className={`${fieldClass} max-w-sm`} value={population} onChange={event => setPopulation(event.target.value as 'open' | 'all')}>
+            <option value="open">Open risks</option><option value="all">All active risks, including closed actions</option>
+          </select></Field>
+          <RiskDashboard overallAccess={manage} data={!analyticsQuery.isError && !envelopeError(analyticsQuery.data) ? envelopeData<RiskAnalyticsResponseData>(analyticsQuery.data) : undefined}
+            loading={analyticsQuery.isLoading} error={envelopeError(analyticsQuery.data) || (analyticsQuery.isError ? queryError(analyticsQuery.error) : '')}
+            retry={() => { void analyticsQuery.refetch(); }} onSelect={viewDetails} />
+          <p className="text-xs text-muted-foreground">Register search below includes all active records in the selected department and period, including closed actions. Analytics above follow the population selector and are not narrowed by this search.</p>
+          <RecordsTable records={records} totalRecords={activeCount} loading={recordsQuery.isLoading}
+            error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')}
+            retry={() => recordsQuery.refetch()} onSelect={viewDetails} search={search} setSearch={setSearch}
+            title="Search the authorized register" />
         </section>}
 
         {activePage === 'new' && <NewRiskForm options={options} activeDepartment={department} period={period} mutation={createRisk} mutating={mutating} onSubmit={response => announce(response, 'Risk registered.')} onError={error => setMutationError(queryError(error))} />}
@@ -431,7 +433,7 @@ function RiskRegisterWorkspace() {
               comments={comments} setComments={setComments} mutating={workflow.isPending}
               onAction={(action, row) => chooseAction(action, row)} />
           </> : <EmptyState title="Select a department register"
-            description="Select a department in Department exposure & sign-off to display its reviewed risk summary and decision actions. Only reviewed or signed-off registers appear here." />}
+            description="Select a department awaiting sign-off. Signed-off registers leave this queue and appear in Risk Register Close." />}
         </section>}
 
         {activePage === 'status' && <SummaryTable rows={summaries} loading={summaryQuery.isLoading} error={summaryFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')} retry={() => summaryQuery.refetch()} title="Department workflow status" />}
@@ -441,6 +443,18 @@ function RiskRegisterWorkspace() {
         </section>}
 
         {activePage === 'close' && <section className="space-y-5">
+          <SummaryTable rows={summaries} loading={summaryQuery.isLoading || summaryQuery.isFetching}
+            error={summaryFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')}
+            retry={() => summaryQuery.refetch()} title="Signed-OFF departmental registers"
+            onSelect={row => setCloseSelection({ department: row.depart_code, period: String(row.period_id) })}
+            selectedDepartment={closeSummary?.depart_code} selectedPeriod={closeSummary?.period_id} />
+          {closeSummary && <RiskAssessmentSummary key={`close:${closeSummary.depart_code}:${closeSummary.period_id}`} mode="close"
+            summaries={[closeSummary]} options={options} department={closeSummary.depart_code} period={String(closeSummary.period_id)}
+            comments={comments} setComments={setComments} mutating={mutating}
+            onSubmit={row => chooseAction('CLOSE', row, true)} onSelect={viewDetails}
+            loading={summaryQuery.isLoading || summaryQuery.isFetching}
+            error={summaryFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')}
+            retry={() => summaryQuery.refetch()} />}
           <WorkflowPanel summaries={summaries} departments={departments} assignments={options.assignments} period={period} actor={actor} manage={manage} comments={comments} setComments={setComments} mutating={workflow.isPending} closeView onAction={(action, row) => chooseAction(action, row, action === 'CLOSE')} />
           <ReportingPeriodClose periods={periods} summaries={allDepartmentPeriodSummaries} summaryLoading={allDepartmentPeriodSummaryQuery.isLoading} summaryError={allDepartmentPeriodSummaryFailure || (allDepartmentPeriodSummaryQuery.isError ? queryError(allDepartmentPeriodSummaryQuery.error) : '')} selectedPeriod={period} setSelectedPeriod={setPeriod} comments={comments} setComments={setComments} manage={manage} mutating={closePeriod.isPending} onClose={(periodId, closeComment) => {
             if (!window.confirm('Close this reporting period? It will be retained as an archive and cannot be edited as open.')) return;

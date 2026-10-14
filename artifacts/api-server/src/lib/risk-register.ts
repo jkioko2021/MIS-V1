@@ -105,7 +105,7 @@ export const causeInput = z.object({
 });
 export const cycleInput = z.object({
   depart_code: z.string().trim().min(1).max(50), period_id: z.number().int().positive(),
-  action: z.enum(["SUBMIT","REVIEW","RETURN","SIGN_OFF","CLOSE","REOPEN","PROCESS"]),
+  action: z.enum(["SUBMIT","REVIEW","RETURN","SIGN_OFF","CLOSE","REOPEN","REVERT_REVIEW"]),
   comments: z.string().trim().min(1).max(4000),
   confirmation_token: z.string().regex(/^[a-f0-9]{64}$/).optional(),
 });
