@@ -22,6 +22,17 @@ across all reporting periods rather than inheriting the latest open workflow
 period. Historical registers remain read-only. Preserve explicit management
 oversight; unmapped staff must not receive departmental data.
 
+Risk Register view must display its register's risk list and selected risk
+details in the same page pane, not in a popup.
+
+**Why:** The user explicitly requested same-pane details when clicking a risk
+on Risk Register view.
+
+**How to apply:** Keep the risk list available while showing read-only details,
+assessments, root causes, action plans and history inline. Clear the selected
+details when changing department, period or register. This applies to Risk
+Register view, not the separately requested Review assessment popup.
+
 Risk Register Review should present the risk summary as its main risk list. Clicking Review assessment opens a popup containing Risk Details, Root causes & action plans, and Risk exposures, rather than an inline editor.
 
 **Why:** The user explicitly requested the summary on the Review page and a popup for these three parts of the selected risk.

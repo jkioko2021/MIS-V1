@@ -11,6 +11,7 @@ type Props = {
   options: RiskOptionsResponseData;
   manage: boolean;
   onSelect: (riskCode: string) => void;
+  onRegisterChange?: () => void;
   mode: 'open' | 'history';
 };
 
@@ -57,7 +58,18 @@ function Modal({ title, subtitle, onClose, children, testId }: { title: string; 
   </div>;
 }
 
-export default function RiskClosedRegisters({ username, department, period, options, manage, onSelect, mode }: Props) {
+function InlineRegister({ title, subtitle, onClose, children }: Parameters<typeof Modal>[0]) {
+  return <section aria-label="Department register risks" data-testid="pane-department-register" className="border-t border-border bg-muted/15 p-5 sm:p-6">
+    <header className="mb-5 flex items-start justify-between gap-4">
+      <div><h3 className="font-[Manrope] text-lg font-bold">{title}</h3><p className="mt-1 text-xs text-muted-foreground">{subtitle}</p></div>
+      <button type="button" onClick={onClose} aria-label="Close register risks" className="rounded-lg p-2 hover:bg-muted"><X className="h-4 w-4" /></button>
+    </header>
+    {children}
+  </section>;
+}
+
+export default function RiskClosedRegisters({ username, department, period, options, manage, onSelect, onRegisterChange, mode }: Props) {
+  const RegisterContainer = mode === 'history' ? InlineRegister : Modal;
   const params = useMemo(() => ({ ...(department ? { depart_code: department } : {}), ...(period ? { period_id: Number(period) } : {}) }), [department, period]);
   const query = useClosedRiskRegisters(username, params, Boolean(username));
   const rows = envelopeData<ClosedRiskRegister[]>(query.data) ?? [];
@@ -149,13 +161,13 @@ export default function RiskClosedRegisters({ username, department, period, opti
           <div className="flex flex-wrap gap-2">
             {mode === 'open' && ready && manage && <button type="button" onClick={() => { setSelected(row); setSearch(''); setPage(1); setTarget(''); setFrom(''); setTo(''); setComments(''); setResult(null); }} className="inline-flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2.5 text-xs font-semibold text-primary-foreground hover:brightness-105" data-testid={`button-open-cycle-${row.depart_code}-${row.period_id}`}><CalendarDays className="h-3.5 w-3.5" />Open next cycle</button>}
             {mode === 'open' && ready && !manage && <span className="self-center text-[11px] text-muted-foreground">Management access required to open</span>}
-            <button type="button" onClick={() => { setSelected(row); setSearch(''); setPage(1); setResult(null); }} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3.5 py-2.5 text-xs font-semibold hover:bg-muted" data-testid={`button-view-risks-${row.depart_code}-${row.period_id}`}><History className="h-3.5 w-3.5" />View risks</button>
+            <button type="button" onClick={() => { onRegisterChange?.(); setSelected(row); setSearch(''); setPage(1); setResult(null); }} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3.5 py-2.5 text-xs font-semibold hover:bg-muted" data-testid={`button-view-risks-${row.depart_code}-${row.period_id}`}><History className="h-3.5 w-3.5" />View risks</button>
           </div>
         </article>;
       })}
     </div> : <div className="p-5"><EmptyState title={mode === 'open' ? 'No closed registers in this scope' : 'No historical registers found'} description={mode === 'open' ? 'Closed departmental cycles will appear here after register close. Select a department or period filter to narrow the list.' : 'The current department and period filters have no closed cycles to browse.'} /></div>}
 
-    {selected && <Modal title={result ? 'Department cycle opened' : `Period ${selected.period_id} · ${selected.depart_name}`} subtitle={`${dateLabel(selected.period_from)} – ${dateLabel(selected.period_to)} · Previous cycle remains closed and read-only`} onClose={close} testId="dialog-department-cycle">
+    {selected && <RegisterContainer title={result ? 'Department cycle opened' : `Period ${selected.period_id} · ${selected.depart_name}`} subtitle={`${dateLabel(selected.period_from)} – ${dateLabel(selected.period_to)} · Previous cycle remains closed and read-only`} onClose={mode === 'history' ? () => { onRegisterChange?.(); close(); } : close} testId="dialog-department-cycle">
       {result ? <div className="space-y-4">
         <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950"><strong>New cycle created for period {result.period}.</strong><p className="mt-1">Ongoing risks and their action plans were carried forward for fresh assessment. Closed risks remain in this historical register.</p><p className="mt-2 text-xs">{result.carried} carried forward · {result.historical} retained as history</p></div>
         {result.email && <p role="status" className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
@@ -182,7 +194,7 @@ export default function RiskClosedRegisters({ username, department, period, opti
             <label className="relative block sm:w-64"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><input value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} aria-label="Search historical risks" placeholder="Search title or risk ID" className="w-full rounded-lg border border-input bg-card py-2.5 pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" data-testid="input-historical-risk-search" /></label>
           </div>
           {historical.isLoading ? <div className="mt-4"><SkeletonRows /></div> : historicalFailure ? <div className="mt-4"><ErrorNotice message={historicalFailure} onRetry={() => historical.refetch()} /></div> : historicalData?.records.length ? <div className="mt-4 divide-y divide-border rounded-xl border border-border">
-            {historicalData.records.map(risk => <button type="button" key={risk.risk_code} onClick={() => { close(); onSelect(risk.risk_code); }} className="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/45 sm:px-4" data-testid={`historical-risk-${risk.risk_code}`}>
+            {historicalData.records.map(risk => <button type="button" key={risk.risk_code} onClick={() => { if (mode !== 'history') close(); onSelect(risk.risk_code); }} className="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/45 sm:px-4" data-testid={`historical-risk-${risk.risk_code}`}>
               <span className="min-w-0 flex-1"><span className="flex flex-wrap items-center gap-2"><span className="font-[Space_Mono] text-[10px] text-muted-foreground">{risk.risk_code}</span><RiskStatusPill risk={risk} /></span><span className="mt-1 block truncate text-sm font-semibold">{risk.risk_title}</span><span className="mt-1 block text-[10px] text-muted-foreground">Inherent {risk.i_risk_exposure ?? '—'} · Residual {risk.r_risk_exposure ?? '—'} · {risk.root_cause_count ?? 0} root action plans</span></span>
               <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
             </button>)}
@@ -190,6 +202,6 @@ export default function RiskClosedRegisters({ username, department, period, opti
           {historicalData && historicalData.total > historicalData.page_size && <div className="mt-3 flex items-center justify-between text-xs"><span className="text-muted-foreground">Page {historicalData.page} of {Math.ceil(historicalData.total / historicalData.page_size)} · {historicalData.total} risks</span><div className="flex gap-2"><button type="button" aria-label="Previous page" onClick={() => setPage(value => Math.max(1, value - 1))} disabled={page <= 1 || historical.isFetching} className="rounded-md border border-border p-2 disabled:opacity-40" data-testid="button-history-page-prev"><ChevronLeft className="h-4 w-4" /></button><button type="button" aria-label="Next page" onClick={() => setPage(value => value + 1)} disabled={page >= Math.ceil(historicalData.total / historicalData.page_size) || historical.isFetching} className="rounded-md border border-border p-2 disabled:opacity-40" data-testid="button-history-page-next"><ChevronRight className="h-4 w-4" /></button></div></div>}
         </section>
       </div>}
-    </Modal>}
+    </RegisterContainer>}
   </section>;
 }

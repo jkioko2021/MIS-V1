@@ -91,6 +91,8 @@ function RiskRegisterWorkspace() {
   const [search, setSearch] = useState('');
   const [selectedRiskCode, setSelectedRiskCode] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const historyDetailsRef = useRef<HTMLDivElement>(null);
+  const historyRiskTrigger = useRef<HTMLElement | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const assessmentTrigger = useRef<HTMLButtonElement | null>(null);
   const [notice, setNotice] = useState('');
@@ -110,6 +112,12 @@ function RiskRegisterWorkspace() {
     setReviewOpen(false);
     setComments('');
   }, [activePage, department, period, username]);
+  useEffect(() => {
+    if (activePage === 'history' && drawerOpen && selectedRiskCode) {
+      historyDetailsRef.current?.focus({ preventScroll: true });
+      historyDetailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [activePage, drawerOpen, selectedRiskCode]);
 
   const initializedFor = useRef('');
   useEffect(() => {
@@ -199,6 +207,7 @@ function RiskRegisterWorkspace() {
     window.requestAnimationFrame(() => document.getElementById('risk-assessment-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
   const viewDetails = (code: string) => {
+    if (activePage === 'history') historyRiskTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setSelectedRiskCode(code);
     setDrawerOpen(true);
   };
@@ -461,14 +470,20 @@ function RiskRegisterWorkspace() {
             {manage ? 'Management view: departmental registers across all reporting periods.'
               : 'Department-only view: you can view current and previous reporting periods for departments where you are an assigned Risk Champion or Risk Owner. Previous-period registers remain read-only.'}
           </p>
-          <RiskClosedRegisters username={username} department={department} period={period} options={options} manage={manage} onSelect={viewDetails} mode="history" />
+          <RiskClosedRegisters username={username} department={department} period={period} options={options} manage={manage} onSelect={viewDetails} onRegisterChange={() => { setDrawerOpen(false); setSelectedRiskCode(''); }} mode="history" />
+          {drawerOpen && selectedRiskCode && <div ref={historyDetailsRef} tabIndex={-1} className="scroll-mt-5 outline-none">
+            <RiskDrawer inline riskCode={selectedRiskCode} risk={detail?.risk} roots={detail?.root_causes ?? []} events={detail?.history ?? []} loading={detailQuery.isLoading} error={detailFailure || (detailQuery.isError ? queryError(detailQuery.error) : '')} onClose={() => {
+              setDrawerOpen(false); setSelectedRiskCode('');
+              historyRiskTrigger.current?.focus();
+            }} />
+          </div>}
           <HistoryTable events={history} loading={historyQuery.isLoading} error={historyFailure || (historyQuery.isError ? queryError(historyQuery.error) : '')} retry={() => historyQuery.refetch()} />
         </section>}
         {activePage === 'import' && manage && <RiskImportPanel key={username} options={options} />}
         {activePage === 'champions' && <TeamMapping options={options} manage={manage} mutating={assignTeam.isPending} onAssign={data => assignTeam.mutate({ data }, { onSuccess: response => announce(response, 'Department team mapping saved.'), onError: error => setMutationError(queryError(error)) })} />}
       </main>}
 
-       {drawerOpen && selectedRiskCode && <RiskDrawer riskCode={selectedRiskCode} risk={detail?.risk} roots={detail?.root_causes ?? []} events={detail?.history ?? []} loading={detailQuery.isLoading} error={detailFailure || (detailQuery.isError ? queryError(detailQuery.error) : '')} onClose={() => setDrawerOpen(false)} />}
+       {activePage !== 'history' && drawerOpen && selectedRiskCode && <RiskDrawer riskCode={selectedRiskCode} risk={detail?.risk} roots={detail?.root_causes ?? []} events={detail?.history ?? []} loading={detailQuery.isLoading} error={detailFailure || (detailQuery.isError ? queryError(detailQuery.error) : '')} onClose={() => setDrawerOpen(false)} />}
        {activePage === 'review' && pageAllowed && <RiskReviewDialog open={reviewOpen && Boolean(selectedRiskCode)} riskCode={selectedRiskCode}
          trigger={assessmentTrigger.current} mutating={mutating} onClose={() => {
            setReviewOpen(false);

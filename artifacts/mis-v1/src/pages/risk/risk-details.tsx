@@ -72,12 +72,10 @@ function historyScopeLabel(event: HistoryDisplayEvent) {
   return event.action === 'TEAM_ASSIGNED' ? 'Department mapping' : 'Reporting period';
 }
 
-export function RiskDrawer({ riskCode, risk, roots, events, loading, error, onClose }: {
-  riskCode: string; risk?: RiskRecord; roots: RiskRootCause[]; events: RiskHistoryEvent[]; loading: boolean; error: string; onClose: () => void;
+export function RiskDrawer({ riskCode, risk, roots, events, loading, error, onClose, inline = false }: {
+  riskCode: string; risk?: RiskRecord; roots: RiskRootCause[]; events: RiskHistoryEvent[]; loading: boolean; error: string; onClose: () => void; inline?: boolean;
 }) {
-  return <Sheet open onOpenChange={open => { if (!open) onClose(); }}>
-    <SheetContent className="overflow-y-auto bg-background p-5 sm:max-w-2xl sm:p-7" aria-label="Risk record details">
-      <SheetHeader className="sr-only"><SheetTitle>Risk record details</SheetTitle><SheetDescription>Assessment, mitigation actions and retained history for {riskCode}.</SheetDescription></SheetHeader>
+  const content = <>
       <div className="mb-6 flex items-start justify-between gap-4"><div><div className="font-[Space_Mono] text-[10px] text-muted-foreground">{riskCode}</div><h2 className="mt-1 font-[Manrope] text-2xl font-extrabold">{risk?.risk_title ?? 'Risk details'}</h2><p className="mt-1 text-xs text-muted-foreground">{risk?.depart_name ?? risk?.depart_code}</p></div><button className={secondaryButton} onClick={onClose} aria-label="Close risk details"><X className="h-4 w-4" /></button></div>
       {loading ? <SkeletonRows /> : error ? <ErrorNotice message={error} /> : risk ? <div className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="mb-1 text-xs text-muted-foreground">Risk status</p><RiskStatusPill risk={risk} /></div><div><p className="mb-1 text-xs text-muted-foreground">Register workflow</p><StatusPill status={risk.workflow_status} /></div><span className="font-[Space_Mono] text-xs">Updated {dateLabel(risk.updated_at)}</span></div>
@@ -89,6 +87,12 @@ export function RiskDrawer({ riskCode, risk, roots, events, loading, error, onCl
           return <div key={item.history_id} className="border-t border-border py-3 first:border-0"><div className="flex justify-between gap-2"><strong className="text-xs">{prettyKey(item.action)}</strong><span className="text-[10px] text-muted-foreground">{dateLabel(item.created_at)}</span></div><p className="mt-1 text-xs">{item.comments || 'No comment recorded.'}</p><p className="mt-1 text-[10px] text-muted-foreground">By {item.actor} · {historyDepartmentLabel(displayEvent)} · {historyScopeLabel(displayEvent)}</p></div>;
         }) : <p className="text-sm text-muted-foreground">No risk-specific event history.</p>}</section>
       </div> : <EmptyState title="Record unavailable" description="The selected risk could not be loaded." />}
+  </>;
+  if (inline) return <section aria-label="Risk record details" data-testid="inline-risk-record-details" className="rounded-2xl border border-border bg-card p-5 sm:p-6">{content}</section>;
+  return <Sheet open onOpenChange={open => { if (!open) onClose(); }}>
+    <SheetContent className="overflow-y-auto bg-background p-5 sm:max-w-2xl sm:p-7" aria-label="Risk record details">
+      <SheetHeader className="sr-only"><SheetTitle>Risk record details</SheetTitle><SheetDescription>Assessment, mitigation actions and retained history for {riskCode}.</SheetDescription></SheetHeader>
+      {content}
     </SheetContent>
   </Sheet>;
 }
