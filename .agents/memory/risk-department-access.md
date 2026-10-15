@@ -29,9 +29,21 @@ details in the same page pane, not in a popup.
 on Risk Register view.
 
 **How to apply:** Keep the risk list available while showing read-only details,
-assessments, root causes, action plans and history inline. Clear the selected
+assessments, root causes and action plans inline. Clear the selected
 details when changing department, period or register. This applies to Risk
 Register view, not the separately requested Review assessment popup.
+
+Risk Register view should follow Update Register's Risk Details, Root causes &
+action plans, and Risk exposures presentation, without editing controls or Risk
+event history. It should also show the highest-ranked open Critical risks by
+department within the authorized department and reporting-period scope.
+
+**Why:** The user explicitly requested Update-style details, removal of the event
+history section, and top open critical risks for each department.
+
+**How to apply:** Hide event history in this view without deleting audit records.
+Show saved assessments and preserve department access and historical read-only
+rules; do not infer new historical rankings from current reference weights.
 
 Risk Register Review should present the risk summary as its main risk list. Clicking Review assessment opens a popup containing Risk Details, Root causes & action plans, and Risk exposures, rather than an inline editor.
 

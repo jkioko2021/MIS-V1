@@ -38,6 +38,6 @@ const registers = file('risk-closed-registers.tsx');
 assert.match(registers, /mode === 'history' \? InlineRegister : Modal/);
 assert.match(registers, /if \(mode !== 'history'\) close\(\); onSelect/);
 const workspace = file('index.tsx');
-assert.match(workspace, /<RiskDrawer inline/);
+assert.match(workspace, /<RiskHistoryDetails key=\{selectedRiskCode\}/);
 assert.match(workspace, /activePage !== 'history' && drawerOpen/);
 console.log('PASS: inline read-only risk details, retained register list, loading/error states and unchanged drawers on other pages.');

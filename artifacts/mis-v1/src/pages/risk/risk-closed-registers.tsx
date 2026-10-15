@@ -141,7 +141,7 @@ export default function RiskClosedRegisters({ username, department, period, opti
           <h3 className="mt-2 font-[Manrope] text-xl font-bold">{mode === 'open' ? 'Closed departmental registers' : 'Historical department registers'}</h3>
           <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">{mode === 'open'
             ? 'Start a fresh cycle from an eligible closed register. Earlier cycles remain closed, unchanged and available to view.'
-            : 'Browse the risk records held by each closed department cycle. Historical decisions and event trails remain read-only.'}</p>
+            : 'Browse saved risk details, root causes, action plans and exposures for each closed department cycle. Previous-period records remain read-only.'}</p>
         </div>
         <div className="flex gap-2 text-[10px] font-semibold">
           {mode === 'open' && manage && <span className="rounded-full bg-emerald-100 px-3 py-1.5 text-emerald-900">{readyCount} ready to open</span>}
@@ -190,7 +190,7 @@ export default function RiskClosedRegisters({ username, department, period, opti
         </section>}
         {mode === 'open' && (!selected.can_open || selected.historical || !manage) && <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">{selected.historical ? 'This is a historical register and cannot be opened again.' : !selected.can_open ? 'This department is not eligible to open a new cycle from this register.' : 'Management access is required to start a new department cycle.'}</div>}
         <section>
-          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><h3 className="font-[Manrope] text-base font-bold">Risks in this closed register</h3><p className="mt-1 text-xs text-muted-foreground">Select a risk to inspect its saved ranking, root action plans and append-only event history.</p></div>
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><h3 className="font-[Manrope] text-base font-bold">Risks in this closed register</h3><p className="mt-1 text-xs text-muted-foreground">Select a risk to inspect its saved details, ranking, root causes, action plans and exposures.</p></div>
             <label className="relative block sm:w-64"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><input value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} aria-label="Search historical risks" placeholder="Search title or risk ID" className="w-full rounded-lg border border-input bg-card py-2.5 pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" data-testid="input-historical-risk-search" /></label>
           </div>
           {historical.isLoading ? <div className="mt-4"><SkeletonRows /></div> : historicalFailure ? <div className="mt-4"><ErrorNotice message={historicalFailure} onRetry={() => historical.refetch()} /></div> : historicalData?.records.length ? <div className="mt-4 divide-y divide-border rounded-xl border border-border">

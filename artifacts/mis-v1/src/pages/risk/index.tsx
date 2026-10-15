@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import type { RiskHistoryEvent, RiskOptionsResponseData, RiskRecord, RiskRootCause, RiskDepartmentSummary, RiskAnalyticsResponseData } from '@workspace/api-client-react';
 import {
-  useAssignRiskTeam, useCloseRiskPeriod, useCreateRisk, useRiskHistory,
+  useAssignRiskTeam, useCloseRiskPeriod, useCreateRisk,
   useRiskOptions, useRiskRecord, useRiskRecords, useRiskSummary, useRiskWorkflow,
   useSaveRiskCause, useUpdateRisk, useRiskAnalytics,
 } from './use-risk-register';
@@ -17,7 +17,7 @@ import { AssessmentPanel, NewRiskForm } from './risk-forms';
 import RiskDashboard from './risk-dashboard';
 import { RecordsTable, RiskDrawer } from './risk-details';
 import {
-  HistoryTable, ReportingPeriodClose, SummaryTable, TeamMapping, WorkflowPanel,
+  ReportingPeriodClose, SummaryTable, TeamMapping, WorkflowPanel,
 } from './risk-workflow';
 import {
   dateLabel, EmptyState, envelopeData, envelopeError, ErrorNotice, Field, fieldClass,
@@ -28,6 +28,8 @@ import RiskAssessmentSummary from './risk-assessment-summary';
 import RiskClosedRegisters from './risk-closed-registers';
 import RiskReviewDialog from './risk-review-dialog';
 import RiskReopenDialog from './risk-reopen-dialog';
+import RiskHistoryDetails from './risk-history-details';
+import RiskHistoryPriorities from './risk-history-priorities';
 import { riskDepartmentSelection } from './department-filter';
 import { parseReviewLink, reviewScopeError, reviewAvailability } from './review-link';
 
@@ -106,6 +108,13 @@ function RiskRegisterWorkspace() {
     ...(period ? { period_id: Number(period) } : {}),
     population,
   }, dataEnabled && activePage === 'dashboard');
+  const historyPrioritiesQuery = useRiskAnalytics(username, {
+    ...(department ? { depart_code: department } : {}),
+    ...(period ? { period_id: Number(period) } : {}),
+    population: 'open',
+  }, dataEnabled && activePage === 'history');
+  const historyPrioritiesData = !historyPrioritiesQuery.isError && !envelopeError(historyPrioritiesQuery.data)
+    ? envelopeData<RiskAnalyticsResponseData>(historyPrioritiesQuery.data) : undefined;
   useEffect(() => {
     setSelectedRiskCode('');
     setDrawerOpen(false);
@@ -176,9 +185,6 @@ function RiskRegisterWorkspace() {
   const allDepartmentPeriodSummaryQuery = useRiskSummary(username, period ? { period_id: Number(period) } : {}, dataEnabled && activePage === 'close');
   const allDepartmentPeriodSummaries = envelopeData<RiskDepartmentSummary[]>(allDepartmentPeriodSummaryQuery.data) ?? [];
   const allDepartmentPeriodSummaryFailure = allDepartmentPeriodSummaryQuery.data ? envelopeError(allDepartmentPeriodSummaryQuery.data) ?? '' : '';
-  const historyQuery = useRiskHistory(username, { ...(department ? { depart_code: department } : {}), ...(period ? { period_id: Number(period) } : {}) }, dataEnabled && activePage === 'history');
-  const history = (envelopeData<RiskHistoryEvent[]>(historyQuery.data) ?? []).filter(event =>
-    pageCodes === null || Boolean(event.depart_code && pageCodes.includes(event.depart_code)));
   const detailQuery = useRiskRecord(username, selectedRiskCode);
   const savedDetail = envelopeData<{ risk: RiskRecord; root_causes: RiskRootCause[]; history: RiskHistoryEvent[] }>(detailQuery.data);
   const detail = pageAllowed && savedDetail && (pageCodes === null || pageCodes.includes(savedDetail.risk.depart_code)) ? savedDetail : undefined;
@@ -191,7 +197,6 @@ function RiskRegisterWorkspace() {
       || (recordsQuery.isError ? queryError(recordsQuery.error) : '') : '';
   const linkAvailability = linkedScope && dataEnabled && !summaryQuery.isFetching && !summaryQuery.isError && !summaryFailure
     ? reviewAvailability(linkedSummary?.workflow_status) : '';
-  const historyFailure = historyQuery.data ? envelopeError(historyQuery.data) ?? '' : '';
   const detailFailure = detailQuery.data ? envelopeError(detailQuery.data) ?? '' : '';
   const createRisk = useCreateRisk();
   const updateRisk = useUpdateRisk();
@@ -471,13 +476,18 @@ function RiskRegisterWorkspace() {
               : 'Department-only view: you can view current and previous reporting periods for departments where you are an assigned Risk Champion or Risk Owner. Previous-period registers remain read-only.'}
           </p>
           <RiskClosedRegisters username={username} department={department} period={period} options={options} manage={manage} onSelect={viewDetails} onRegisterChange={() => { setDrawerOpen(false); setSelectedRiskCode(''); }} mode="history" />
+          <RiskHistoryPriorities data={historyPrioritiesData}
+            loading={historyPrioritiesQuery.isLoading}
+            error={envelopeError(historyPrioritiesQuery.data) || (historyPrioritiesQuery.isError ? queryError(historyPrioritiesQuery.error) : '')}
+            retry={() => historyPrioritiesQuery.refetch()}
+            departments={departments.filter(item => !department || item.depart_code === department)}
+            onSelect={viewDetails} />
           {drawerOpen && selectedRiskCode && <div ref={historyDetailsRef} tabIndex={-1} className="scroll-mt-5 outline-none">
-            <RiskDrawer inline riskCode={selectedRiskCode} risk={detail?.risk} roots={detail?.root_causes ?? []} events={detail?.history ?? []} loading={detailQuery.isLoading} error={detailFailure || (detailQuery.isError ? queryError(detailQuery.error) : '')} onClose={() => {
+            <RiskHistoryDetails key={selectedRiskCode} options={options} riskCode={selectedRiskCode} risk={detail?.risk} roots={detail?.root_causes ?? []} loading={detailQuery.isLoading} error={detailFailure || (detailQuery.isError ? queryError(detailQuery.error) : '')} onClose={() => {
               setDrawerOpen(false); setSelectedRiskCode('');
               historyRiskTrigger.current?.focus();
             }} />
           </div>}
-          <HistoryTable events={history} loading={historyQuery.isLoading} error={historyFailure || (historyQuery.isError ? queryError(historyQuery.error) : '')} retry={() => historyQuery.refetch()} />
         </section>}
         {activePage === 'import' && manage && <RiskImportPanel key={username} options={options} />}
         {activePage === 'champions' && <TeamMapping options={options} manage={manage} mutating={assignTeam.isPending} onAssign={data => assignTeam.mutate({ data }, { onSuccess: response => announce(response, 'Department team mapping saved.'), onError: error => setMutationError(queryError(error)) })} />}
