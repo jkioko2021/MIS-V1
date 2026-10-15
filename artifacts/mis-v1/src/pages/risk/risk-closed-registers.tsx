@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3, History, LockKeyhole, Search, X } from 'lucide-react';
 import type { ClosedRiskRegister, RiskOptionsResponseData, RiskRecord } from '@workspace/api-client-react';
 import { useClosedRiskRegisters, useHistoricalDepartmentRisks, useOpenDepartmentCycle } from './use-risk-register';
+import { nextOpenPeriod } from './current-open-period';
 import { dateLabel, EmptyState, envelopeData, envelopeError, ErrorNotice, Field, fieldClass, queryError, RiskStatusPill, SkeletonRows, StatusPill } from './risk-ui';
 
 type Props = {
@@ -132,9 +133,21 @@ export default function RiskClosedRegisters({ username, department, period, opti
   const openRows = departmentRows.filter(row => row.historical === false);
   const historyRows = departmentRows.filter(row => row.historical === true);
   const readyCount = openRows.filter(row => row.can_open && row.workflow_status === 'CLOSED').length;
+  const nextSourceEnd = selected?.period_to ?? openRows.filter(row => row.can_open && row.workflow_status === 'CLOSED')
+    .map(row => row.period_to).sort().at(-1);
+  const nextPeriod = selected && target ? laterPeriods.find(item => String(item.period_id) === target)
+    : !selected && nextSourceEnd ? nextOpenPeriod(options.periods, nextSourceEnd) : undefined;
   const displayed = mode === 'open' ? [...openRows, ...historyRows] : departmentRows;
 
   return <section className="overflow-hidden rounded-2xl border border-border bg-card">
+    {mode === 'open' && <div role="status" data-testid="next-reporting-period" className="border-b border-border bg-secondary px-5 py-4 text-sm">
+      <strong>Next reporting period: </strong>
+      {nextPeriod ? `${dateLabel(nextPeriod.period_from)} – ${dateLabel(nextPeriod.period_to)} · OPEN`
+        : selected && from && to ? `${dateLabel(from)} – ${dateLabel(to)} · New period (not yet opened)`
+        : nextSourceEnd ? 'Not configured. Select a closed department register and enter the next period’s dates.'
+        : 'Select an eligible closed department register to choose its next reporting period.'}
+      <p className="mt-1 text-xs text-muted-foreground">The registers below are the closed source periods. Opening a department carries its ongoing risks into the next period and preserves the source as history.</p>
+    </div>}
     <div className="border-b border-border bg-gradient-to-r from-primary/[0.07] via-transparent to-transparent p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div><div className="flex items-center gap-2 text-primary"><History className="h-4 w-4" /><span className="text-[10px] font-bold uppercase tracking-[.17em]">{mode === 'open' ? 'New department cycle' : 'Append-only archive'}</span></div>
@@ -159,7 +172,7 @@ export default function RiskClosedRegisters({ username, department, period, opti
             <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[11px]"><span><b>{row.total_risks}</b> total risks</span><span className="text-emerald-800"><b>{row.open_risks}</b> ongoing</span><span className="text-muted-foreground"><b>{row.closed_risks}</b> closed</span></div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {mode === 'open' && ready && manage && <button type="button" onClick={() => { setSelected(row); setSearch(''); setPage(1); setTarget(''); setFrom(''); setTo(''); setComments(''); setResult(null); }} className="inline-flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2.5 text-xs font-semibold text-primary-foreground hover:brightness-105" data-testid={`button-open-cycle-${row.depart_code}-${row.period_id}`}><CalendarDays className="h-3.5 w-3.5" />Open next cycle</button>}
+            {mode === 'open' && ready && manage && <button type="button" onClick={() => { setSelected(row); setSearch(''); setPage(1); setTarget(String(nextOpenPeriod(options.periods, row.period_to)?.period_id ?? '')); setFrom(''); setTo(''); setComments(''); setResult(null); }} className="inline-flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2.5 text-xs font-semibold text-primary-foreground hover:brightness-105" data-testid={`button-open-cycle-${row.depart_code}-${row.period_id}`}><CalendarDays className="h-3.5 w-3.5" />Open next cycle</button>}
             {mode === 'open' && ready && !manage && <span className="self-center text-[11px] text-muted-foreground">Management access required to open</span>}
             <button type="button" onClick={() => { onRegisterChange?.(); setSelected(row); setSearch(''); setPage(1); setResult(null); }} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3.5 py-2.5 text-xs font-semibold hover:bg-muted" data-testid={`button-view-risks-${row.depart_code}-${row.period_id}`}><History className="h-3.5 w-3.5" />View risks</button>
           </div>

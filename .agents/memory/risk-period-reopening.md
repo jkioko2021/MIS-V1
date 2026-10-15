@@ -13,3 +13,9 @@ Close Period closes all Signed-OFF departmental registers in the selected period
 **Why:** The user explicitly requested Signed-OFF-only batch closure and moving the resulting Closed registers to Open Register. Closing the shared period while unsigned registers remain would prevent those departments from completing their workflow.
 
 **How to apply:** Allow eligible Signed-OFF registers to close without waiting for unsigned departments. Keep the shared period open while any registered active department remains unsigned; mark it Closed once all are closed. Preserve saved assessments, rankings, root causes, action statuses, notes and prior closure attribution. Period-level closure ignores the department filter, so show the complete period's eligible department list and make this scope clear before confirmation.
+
+Update Register, Review, Signoff and Close display only the current open reporting period. Open Register displays the next target reporting period while retaining closed source registers for department selection.
+
+**Why:** The user explicitly requested current-open-period display across these workflow pages and next-period display on Open Register.
+
+**How to apply:** Do not offer historical/all-period choices on these four processing pages or silently fall back to all records when no period is open. Previous periods remain accessible through Register View. Keep source-period filtering separate from destination-period display when opening a department.

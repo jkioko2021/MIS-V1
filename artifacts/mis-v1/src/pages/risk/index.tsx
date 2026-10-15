@@ -31,6 +31,7 @@ import RiskReopenDialog from './risk-reopen-dialog';
 import RiskHistoryDetails from './risk-history-details';
 import RiskHistoryPriorities from './risk-history-priorities';
 import { riskDepartmentSelection } from './department-filter';
+import { currentOpenPeriod } from './current-open-period';
 import { parseReviewLink, reviewScopeError, reviewAvailability } from './review-link';
 
 type PageKey = 'dashboard' | 'new' | 'update' | 'review' | 'summary' | 'status' | 'open' | 'close' | 'closed' | 'history' | 'client-rating' | 'champions' | 'import';
@@ -81,15 +82,18 @@ function RiskRegisterWorkspace() {
   const [viewPeriod, setViewPeriod] = useState('');
   // History starts across all periods, independent of the current workflow's period.
   const [historyPeriod, setHistoryPeriod] = useState('');
-  const [updatePeriod, setUpdatePeriod] = useState('');
-  const period = linkedScope?.period ?? (activePage === 'history' ? historyPeriod : activePage === 'update' ? updatePeriod : viewPeriod);
+  const currentPeriodOnly = ['update', 'review', 'summary', 'close'].includes(activePage);
+  const updatePeriod = currentOpenPeriod(periods);
+  const period = currentPeriodOnly ? String(updatePeriod?.period_id ?? '') : activePage === 'open' ? '' : activePage === 'history' ? historyPeriod : viewPeriod;
   const setPeriod = (value: string) => {
     if (linkedScope) setDepartmentChoices(choices => ({ ...choices, review: linkedScope.department }));
-    (activePage === 'history' ? setHistoryPeriod : activePage === 'update' ? setUpdatePeriod : setViewPeriod)(value);
+    if (currentPeriodOnly || activePage === 'open') return;
+    (activePage === 'history' ? setHistoryPeriod : setViewPeriod)(value);
     clearReviewLink();
   };
-  const linkError = options ? reviewScopeError(reviewLink, departments, periods) : '';
-  const dataEnabled = Boolean(options && pageAllowed && !linkError && (!department || departments.some(item => item.depart_code === department)));
+  const linkError = options ? reviewScopeError(reviewLink, departments, periods)
+    || (linkedScope && linkedScope.period !== period ? 'This link is for a previous reporting period. Review is available only for the current open reporting period. Use Risk Register View for previous periods.' : '') : '';
+  const dataEnabled = Boolean(options && pageAllowed && !linkError && (!currentPeriodOnly || updatePeriod) && (!department || departments.some(item => item.depart_code === department)));
   const [search, setSearch] = useState('');
   const [selectedRiskCode, setSelectedRiskCode] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -370,9 +374,11 @@ function RiskRegisterWorkspace() {
             <Field label="Department"><select aria-label="Filter by department" data-testid="select-risk-department" className={`${fieldClass} sm:min-w-44`} value={department} onChange={event => setDepartment(event.target.value)}>
               <option value="">{manage ? 'All departments' : 'My assigned departments'}</option>{departments.map((item, index) => <option key={item.depart_code ?? index} value={item.depart_code ?? ''}>{item.depart_name ?? item.depart_code}</option>)}
             </select></Field>
-            <Field label="Reporting period"><select aria-label="Filter by period" data-testid="select-risk-period" className={`${fieldClass} sm:min-w-44`} value={period} onChange={event => setPeriod(event.target.value)}>
-              <option value="">{activePage === 'history' ? 'All reporting periods' : 'Latest / all periods'}</option>{periods.map((item, index) => <option key={item.period_id ?? index} value={String(item.period_id ?? '')}>{dateLabel(item.period_from)} – {dateLabel(item.period_to)} · {item.status ?? '—'}</option>)}
-            </select></Field>
+            {activePage !== 'open' && <Field label={currentPeriodOnly ? 'Current open reporting period' : 'Reporting period'}><select aria-label="Filter by period" data-testid="select-risk-period" className={`${fieldClass} sm:min-w-44`} value={period} disabled={currentPeriodOnly} onChange={event => setPeriod(event.target.value)}>
+              {!currentPeriodOnly && <option value="">{activePage === 'history' ? 'All reporting periods' : 'Latest / all periods'}</option>}
+              {currentPeriodOnly && !updatePeriod && <option value="">No open reporting period</option>}
+              {(currentPeriodOnly ? updatePeriod ? [updatePeriod] : [] : periods).map((item, index) => <option key={item.period_id ?? index} value={String(item.period_id ?? '')}>{dateLabel(item.period_from)} – {dateLabel(item.period_to)} · {item.status ?? '—'}</option>)}
+            </select></Field>}
           </div>
         </div>
 
@@ -392,7 +398,8 @@ function RiskRegisterWorkspace() {
 
         {activePage === 'new' && <NewRiskForm options={options} activeDepartment={department} period={period} mutation={createRisk} mutating={mutating} onSubmit={response => announce(response, 'Risk registered.')} onError={error => setMutationError(queryError(error))} />}
 
-        {activePage === 'update' && <section className="space-y-6">
+        {currentPeriodOnly && !updatePeriod && <div role="status" className="rounded-xl border border-border p-4 text-sm">No open reporting period is available. Risk Management must open the next reporting period before processing registers. Previous periods remain available in Risk Register View.</div>}
+        {activePage === 'update' && updatePeriod && <section className="space-y-6">
           <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.45fr)]">
             <div className="min-w-0">
               <div className="mb-3 flex items-center gap-3"><span className="grid h-8 w-8 place-items-center rounded-lg bg-secondary font-[Space_Mono] text-xs font-bold text-primary">01</span><div><h3 className="font-[Manrope] text-base font-bold">Choose a risk</h3><p className="text-xs text-muted-foreground">Only risks awaiting assessment appear here. Revise saved assessments from the Risk Summary below.</p></div></div>
@@ -421,7 +428,7 @@ function RiskRegisterWorkspace() {
           />
         </section>}
 
-        {activePage === 'review' && <section className="space-y-5">
+        {activePage === 'review' && updatePeriod && <section className="space-y-5">
            <RiskAssessmentSummary mode="review" summaries={summaries} options={options}
              department={department} period={period} selectedRisk={detail?.risk}
              comments={comments} setComments={setComments} mutating={mutating}
@@ -432,7 +439,7 @@ function RiskRegisterWorkspace() {
           <WorkflowPanel summaries={summaries} departments={departments} assignments={options.assignments} period={period} actor={actor} manage={manage} comments={comments} setComments={setComments} mutating={workflow.isPending} onAction={(action, row) => chooseAction(action, row)} />
         </section>}
 
-        {activePage === 'summary' && <section className="space-y-5">
+        {activePage === 'summary' && updatePeriod && <section className="space-y-5">
           <SummaryTable rows={summaries} loading={summaryQuery.isLoading || summaryQuery.isFetching}
             error={summaryFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')}
             retry={() => summaryQuery.refetch()} onSelect={selectSignoffSummary}
@@ -457,12 +464,12 @@ function RiskRegisterWorkspace() {
 
         {activePage === 'open' && <RiskClosedRegisters username={username} department={department} period={period} options={options} manage={manage} onSelect={viewDetails} mode="open" />}
 
-        {activePage === 'close' && <section className="space-y-5">
+        {activePage === 'close' && updatePeriod && <section className="space-y-5">
           <SummaryTable rows={allDepartmentPeriodSummaries.filter(row => row.workflow_status === 'SIGNED_OFF')}
             loading={allDepartmentPeriodSummaryQuery.isLoading || allDepartmentPeriodSummaryQuery.isFetching}
             error={allDepartmentPeriodSummaryFailure || (allDepartmentPeriodSummaryQuery.isError ? queryError(allDepartmentPeriodSummaryQuery.error) : '')}
             retry={() => allDepartmentPeriodSummaryQuery.refetch()} title="Signed-OFF departmental registers" />
-          <ReportingPeriodClose periods={periods} summaries={allDepartmentPeriodSummaries} summaryLoading={allDepartmentPeriodSummaryQuery.isLoading || allDepartmentPeriodSummaryQuery.isFetching} summaryError={allDepartmentPeriodSummaryFailure || (allDepartmentPeriodSummaryQuery.isError ? queryError(allDepartmentPeriodSummaryQuery.error) : '')} selectedPeriod={period} setSelectedPeriod={setPeriod} comments={comments} setComments={setComments} manage={manage} mutating={closePeriod.isPending} onClose={(periodId, closeComment) => {
+          <ReportingPeriodClose periods={updatePeriod ? [updatePeriod] : []} summaries={allDepartmentPeriodSummaries} summaryLoading={allDepartmentPeriodSummaryQuery.isLoading || allDepartmentPeriodSummaryQuery.isFetching} summaryError={allDepartmentPeriodSummaryFailure || (allDepartmentPeriodSummaryQuery.isError ? queryError(allDepartmentPeriodSummaryQuery.error) : '')} selectedPeriod={period} setSelectedPeriod={setPeriod} comments={comments} setComments={setComments} manage={manage} mutating={closePeriod.isPending} onClose={(periodId, closeComment) => {
             if (!window.confirm('Close all Signed-OFF departmental registers in this reporting period? Unsigned registers will remain unchanged. Closed registers will appear on Open Register, and history will be retained.')) return;
             closePeriod.mutate({ periodId, data: { comments: closeComment } }, { onSuccess: response => announce(response,
               envelopeData<{status:string}>(response)?.status === 'OPEN'
