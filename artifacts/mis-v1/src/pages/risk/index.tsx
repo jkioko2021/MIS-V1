@@ -124,7 +124,10 @@ function RiskRegisterWorkspace() {
   useEffect(() => {
     if (activePage === 'history' && drawerOpen && selectedRiskCode) {
       historyDetailsRef.current?.focus({ preventScroll: true });
-      historyDetailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (historyDetailsRef.current) historyDetailsRef.current.scrollTop = 0;
+      if (!window.matchMedia('(min-width: 1024px)').matches) {
+        historyDetailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
   }, [activePage, drawerOpen, selectedRiskCode]);
 
@@ -475,19 +478,27 @@ function RiskRegisterWorkspace() {
             {manage ? 'Management view: departmental registers across all reporting periods.'
               : 'Department-only view: you can view current and previous reporting periods for departments where you are an assigned Risk Champion or Risk Owner. Previous-period registers remain read-only.'}
           </p>
-          <RiskClosedRegisters username={username} department={department} period={period} options={options} manage={manage} onSelect={viewDetails} onRegisterChange={() => { setDrawerOpen(false); setSelectedRiskCode(''); }} mode="history" />
-          <RiskHistoryPriorities data={historyPrioritiesData}
-            loading={historyPrioritiesQuery.isLoading}
-            error={envelopeError(historyPrioritiesQuery.data) || (historyPrioritiesQuery.isError ? queryError(historyPrioritiesQuery.error) : '')}
-            retry={() => historyPrioritiesQuery.refetch()}
-            departments={departments.filter(item => !department || item.depart_code === department)}
-            onSelect={viewDetails} />
-          {drawerOpen && selectedRiskCode && <div ref={historyDetailsRef} tabIndex={-1} className="scroll-mt-5 outline-none">
-            <RiskHistoryDetails key={selectedRiskCode} options={options} riskCode={selectedRiskCode} risk={detail?.risk} roots={detail?.root_causes ?? []} loading={detailQuery.isLoading} error={detailFailure || (detailQuery.isError ? queryError(detailQuery.error) : '')} onClose={() => {
-              setDrawerOpen(false); setSelectedRiskCode('');
-              historyRiskTrigger.current?.focus();
-            }} />
-          </div>}
+          <div data-testid="risk-register-split-view" className="grid min-w-0 items-stretch gap-5 lg:h-[calc(100dvh-12rem)] lg:min-h-[34rem] lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+            <section aria-label="Department registers and risk list" data-testid="risk-register-list-pane"
+              className={`min-h-0 min-w-0 space-y-5 lg:overflow-y-auto lg:overscroll-contain lg:pr-2 ${drawerOpen && selectedRiskCode ? 'hidden lg:block' : ''}`}>
+              <RiskClosedRegisters username={username} department={department} period={period} options={options} manage={manage} onSelect={viewDetails} onRegisterChange={() => { setDrawerOpen(false); setSelectedRiskCode(''); }} mode="history" />
+              <RiskHistoryPriorities data={historyPrioritiesData}
+                loading={historyPrioritiesQuery.isLoading}
+                error={envelopeError(historyPrioritiesQuery.data) || (historyPrioritiesQuery.isError ? queryError(historyPrioritiesQuery.error) : '')}
+                retry={() => historyPrioritiesQuery.refetch()}
+                departments={departments.filter(item => !department || item.depart_code === department)}
+                onSelect={viewDetails} />
+            </section>
+            <section ref={historyDetailsRef} tabIndex={-1} aria-label="Selected risk details" data-testid="risk-register-details-pane"
+              className={`min-h-0 min-w-0 scroll-mt-5 outline-none lg:overflow-y-auto lg:overscroll-contain lg:pr-2 ${drawerOpen && selectedRiskCode ? '' : 'hidden lg:block'}`}>
+              {drawerOpen && selectedRiskCode ? <RiskHistoryDetails key={selectedRiskCode} options={options} riskCode={selectedRiskCode} risk={detail?.risk} roots={detail?.root_causes ?? []} loading={detailQuery.isLoading} error={detailFailure || (detailQuery.isError ? queryError(detailQuery.error) : '')} onClose={() => {
+                setDrawerOpen(false); setSelectedRiskCode('');
+                window.requestAnimationFrame(() => historyRiskTrigger.current?.focus());
+              }} /> : <div className="flex h-full min-h-64 items-center justify-center rounded-2xl border border-dashed border-border bg-card p-6 text-center">
+                <EmptyState title="Select a risk" description="Choose a risk from a department register or the open Critical risks on the left. Its details, root causes, action plans and exposures will appear here." />
+              </div>}
+            </section>
+          </div>
         </section>}
         {activePage === 'import' && manage && <RiskImportPanel key={username} options={options} />}
         {activePage === 'champions' && <TeamMapping options={options} manage={manage} mutating={assignTeam.isPending} onAssign={data => assignTeam.mutate({ data }, { onSuccess: response => announce(response, 'Department team mapping saved.'), onError: error => setMutationError(queryError(error)) })} />}
