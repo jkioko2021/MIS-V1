@@ -330,6 +330,25 @@ paths:
                   ok: { type: boolean }
                   data:
                     $ref: "#/components/schemas/RiskReopenScope"
+  /risk-register/workflow/reminder:
+    post:
+      operationId: sendRiskWorkflowReminder
+      tags: [RiskRegister]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RiskReminderInput" }
+      responses:
+        "200":
+          description: Provider acceptance results for the current pending users; not inbox delivery confirmation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskReminderResponse" }
+        "409":
+          description: Period or workflow changed, or recipients are missing
+        "429":
+          description: A reminder was already attempted in the last ten minutes
   /risk-register/workflow:
     post:
       operationId: decideRiskRegisterWorkflow
@@ -365,6 +384,7 @@ paths:
         - { name: access, in: query, schema: { type: string, enum: [view, update, review] }, description: Department role scope for the requested workspace }
         - { name: period_id, in: query, schema: { type: integer } }
         - { name: depart_code, in: query, schema: { type: string } }
+        - { name: include_pending, in: query, schema: { type: boolean }, description: Include responsible users and reminder readiness for workflow status }
       responses:
         "200":
           description: Department register summaries
@@ -1189,6 +1209,32 @@ components:
             top_ten_departments: { type: array, items: { $ref: "#/components/schemas/RiskAnalyticsTopDepartment" } }
             overall_ranked_count: { type: integer }
             overall_unranked_count: { type: integer }
+    RiskReminderInput:
+      type: object
+      required: [depart_code, period_id, expected_status]
+      properties:
+        depart_code: { type: string, minLength: 1, maxLength: 50 }
+        period_id: { type: integer, minimum: 1 }
+        expected_status: { type: string, enum: [OPEN, SUBMITTED, REVIEWED, SIGNED_OFF] }
+        comments: { type: string, maxLength: 2000 }
+    RiskReminderResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok: { type: boolean }
+        data:
+          type: object
+          required: [accepted, failed, message]
+          properties:
+            accepted: { type: integer }
+            failed: { type: integer }
+            message: { type: string }
+    RiskPendingUser:
+      type: object
+      required: [username, name]
+      properties:
+        username: { type: string }
+        name: { type: string }
     RiskDepartmentSummary:
       type: object
       additionalProperties: true
@@ -1205,6 +1251,11 @@ components:
         review_email_status: { type: [string, "null"] }
         review_email_error: { type: [string, "null"] }
         workflow_status: { type: string }
+        pending_role: { type: string }
+        pending_action: { type: string }
+        pending_users: { type: array, items: { $ref: "#/components/schemas/RiskPendingUser" } }
+        reminder_available: { type: boolean }
+        reminder_unavailable_reason: { type: string }
         period_id: { type: integer }
         period_from: { type: string, format: date }
         period_to: { type: string, format: date }

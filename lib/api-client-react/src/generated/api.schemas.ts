@@ -788,6 +788,45 @@ export interface RiskAnalyticsResponse {
   data: RiskAnalyticsResponseData;
 }
 
+export type RiskReminderInputExpectedStatus = typeof RiskReminderInputExpectedStatus[keyof typeof RiskReminderInputExpectedStatus];
+
+
+export const RiskReminderInputExpectedStatus = {
+  OPEN: 'OPEN',
+  SUBMITTED: 'SUBMITTED',
+  REVIEWED: 'REVIEWED',
+  SIGNED_OFF: 'SIGNED_OFF',
+} as const;
+
+export interface RiskReminderInput {
+  /**
+     * @minLength 1
+     * @maxLength 50
+     */
+  depart_code: string;
+  /** @minimum 1 */
+  period_id: number;
+  expected_status: RiskReminderInputExpectedStatus;
+  /** @maxLength 2000 */
+  comments?: string;
+}
+
+export type RiskReminderResponseData = {
+  accepted: number;
+  failed: number;
+  message: string;
+};
+
+export interface RiskReminderResponse {
+  ok: boolean;
+  data: RiskReminderResponseData;
+}
+
+export interface RiskPendingUser {
+  username: string;
+  name: string;
+}
+
 export interface RiskDepartmentSummary {
   depart_code: string;
   depart_name: string;
@@ -804,6 +843,11 @@ export interface RiskDepartmentSummary {
   /** @nullable */
   review_email_error?: string | null;
   workflow_status: string;
+  pending_role?: string;
+  pending_action?: string;
+  pending_users?: RiskPendingUser[];
+  reminder_available?: boolean;
+  reminder_unavailable_reason?: string;
   period_id?: number;
   period_from?: string;
   period_to?: string;
@@ -1106,6 +1150,10 @@ export type GetRiskRegisterSummaryParams = {
 access?: GetRiskRegisterSummaryAccess;
 period_id?: number;
 depart_code?: string;
+/**
+ * Include responsible users and reminder readiness for workflow status
+ */
+include_pending?: boolean;
 };
 
 export type GetRiskRegisterSummaryAccess = typeof GetRiskRegisterSummaryAccess[keyof typeof GetRiskRegisterSummaryAccess];

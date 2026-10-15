@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { RiskPendingUser } from './riskPendingUser';
 
 export interface RiskDepartmentSummary {
   depart_code: string;
@@ -22,6 +23,11 @@ export interface RiskDepartmentSummary {
   /** @nullable */
   review_email_error?: string | null;
   workflow_status: string;
+  pending_role?: string;
+  pending_action?: string;
+  pending_users?: RiskPendingUser[];
+  reminder_available?: boolean;
+  reminder_unavailable_reason?: string;
   period_id?: number;
   period_from?: Date;
   period_to?: Date;

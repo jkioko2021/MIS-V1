@@ -3,6 +3,12 @@ name: Risk Owner email boundaries
 description: Safety decisions for department-register submission notifications
 ---
 
+Workflow Status must identify who is pending to act and provide an explicit reminder email action.
+
+**Why:** The user requested responsibility visibility and reminder sending on Risk Register Status. Reusing queued submission notices would risk sending the wrong stage or recipient.
+
+**How to apply:** Resolve the pending users from the live workflow and active assignments at send time; reminders are distinct audited events, not retries of the original owner notice. Do not silently redirect queued notices or change the workflow as a side effect of a reminder. Report provider acceptance separately from confirmed delivery.
+
 Cancel a queued submission notice when its original recipient is no longer the
 authorized owner or its register is no longer awaiting review. Do not redirect
 that same notice to a replacement owner.

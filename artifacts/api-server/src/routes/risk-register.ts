@@ -8,6 +8,7 @@ import {
   assertEditable, assertRecordEditable, assertFresh, lockedRecord, history, calendarDate,
 } from "../lib/risk-register";
 import { riskWorkflowRouter } from "./risk-workflow";
+import { pendingResponsibility } from "../lib/risk-reminders";
 import { riskImportRouter } from "./risk-import-routes";
 import { assessmentRanking } from "../lib/risk-ranking";
 import { activeDepartmentOwner, riskReviewEmailReadiness } from "../lib/risk-notifications";
@@ -24,6 +25,7 @@ const filters = z.object({
   period_id: z.coerce.number().int().nonnegative().optional().default(0),
   view: z.enum(["all","open","pending_assessment","submitted","reviewed","signed","closed"]).optional().default("all"),
   search: z.string().max(150).optional().default(""),
+  include_pending: z.enum(["true","false"]).optional(),
 });
 const selectRecords = (extraColumns = "") => `SELECT ${extraColumns} r.*,r.period_from::text,r.period_to::text,p.period_id,
   to_char(r.updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at,
@@ -295,7 +297,8 @@ router.get("/risk-register/summary",async(req,res)=>{
       AND ($3::integer=0 OR p.period_id=$3) AND ($4::text='' OR d.depart_code=$4)
       GROUP BY d.depart_code,d.depart_name,p.period_id,p.period_from,p.period_to,p.status,s.summary_id
       ORDER BY p.period_from DESC,d.depart_name`,[...pageScope,f.period_id,f.depart_code]);
-    res.json({ok:true,data:rows.map(r=>({...r,workflow_status:workflowState(r)}))});
+    res.json({ok:true,data:await Promise.all(rows.map(async r=>({...r,workflow_status:workflowState(r),
+      ...(f.include_pending==="true" ? await pendingResponsibility(String(r.depart_code),workflowState(r),Number(r.total_risks)) : {})})))});
   }catch(err){riskFailure(req,res,err);}
 });
 router.get("/risk-register/history",async(req,res)=>{

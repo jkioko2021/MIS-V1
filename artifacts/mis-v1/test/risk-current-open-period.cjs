@@ -23,7 +23,7 @@ const source = fs.readFileSync(path.join(root, 'index.tsx'), 'utf8');
 assert.match(source, /!currentPeriodOnly \|\| updatePeriod/, 'Disable unscoped requests without an open period.');
 assert.match(source, /activePage === 'update' && updatePeriod && <section/);
 assert.match(source, /disabled=\{currentPeriodOnly\}/);
-assert.match(source, /\['update', 'review', 'summary', 'close'\]/);
+assert.match(source, /\['update', 'review', 'summary', 'close', 'status'\]/);
 assert.match(source, /activePage === 'open' \? ''/, 'Do not filter closed sources by the target period.');
 assert.match(source, /linkedScope.period !== period/, 'Reject stale review links instead of reviewing the wrong period.');
 assert.equal(nextOpenPeriod(periods, '2025-12-31').period_id, 1);

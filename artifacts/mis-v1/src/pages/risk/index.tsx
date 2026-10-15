@@ -30,6 +30,7 @@ import RiskReviewDialog from './risk-review-dialog';
 import RiskReopenDialog from './risk-reopen-dialog';
 import RiskHistoryDetails from './risk-history-details';
 import RiskHistoryPriorities from './risk-history-priorities';
+import RiskStatusWorkflow from './risk-status-workflow';
 import { riskDepartmentSelection } from './department-filter';
 import { currentOpenPeriod } from './current-open-period';
 import { parseReviewLink, reviewScopeError, reviewAvailability } from './review-link';
@@ -82,7 +83,7 @@ function RiskRegisterWorkspace() {
   const [viewPeriod, setViewPeriod] = useState('');
   // History starts across all periods, independent of the current workflow's period.
   const [historyPeriod, setHistoryPeriod] = useState('');
-  const currentPeriodOnly = ['update', 'review', 'summary', 'close'].includes(activePage);
+  const currentPeriodOnly = ['update', 'review', 'summary', 'close', 'status'].includes(activePage);
   const updatePeriod = currentOpenPeriod(periods);
   const period = currentPeriodOnly ? String(updatePeriod?.period_id ?? '') : activePage === 'open' ? '' : activePage === 'history' ? historyPeriod : viewPeriod;
   const setPeriod = (value: string) => {
@@ -163,7 +164,7 @@ function RiskRegisterWorkspace() {
   const recordsQuery = useRiskRecords(username, params, dataEnabled, Boolean(reviewLink));
   const records = (envelopeData<RiskRecord[]>(recordsQuery.data) ?? []).filter(item =>
     (pageCodes === null || pageCodes.includes(item.depart_code)));
-  const summaryQuery = useRiskSummary(username, { access, ...(department ? { depart_code: department } : {}), ...(period ? { period_id: Number(period) } : {}) }, dataEnabled, Boolean(reviewLink));
+  const summaryQuery = useRiskSummary(username, { access, ...(department ? { depart_code: department } : {}), ...(period ? { period_id: Number(period) } : {}), ...(activePage === 'status' ? { include_pending: true } : {}) }, dataEnabled, Boolean(reviewLink));
   useEffect(() => {
     // The workspace stays mounted during in-app navigation. Recheck an incoming
     // scope even if its query keys already exist in this session.
@@ -460,7 +461,7 @@ function RiskRegisterWorkspace() {
             description="Select a department awaiting sign-off. Signed-off registers leave this queue and appear in Risk Register Close." />}
         </section>}
 
-        {activePage === 'status' && <SummaryTable rows={summaries} loading={summaryQuery.isLoading} error={summaryFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')} retry={() => summaryQuery.refetch()} title="Department workflow status" />}
+        {activePage === 'status' && updatePeriod && <SummaryTable rows={summaries} loading={summaryQuery.isLoading} error={summaryFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')} retry={() => summaryQuery.refetch()} title="Department workflow status" renderWorkflow={row => <RiskStatusWorkflow key={`${username}:${row.depart_code}:${row.period_id}:${row.workflow_status}`} row={row} onFeedback={(message, isError) => { if (isError) setMutationError(message); else { setMutationError(''); setNotice(message); } }} />} />}
 
         {activePage === 'open' && <RiskClosedRegisters username={username} department={department} period={period} options={options} manage={manage} onSelect={viewDetails} mode="open" />}
 

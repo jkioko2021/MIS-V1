@@ -14,4 +14,8 @@ export type GetRiskRegisterSummaryParams = {
 access?: GetRiskRegisterSummaryAccess;
 period_id?: number;
 depart_code?: string;
+/**
+ * Include responsible users and reminder readiness for workflow status
+ */
+include_pending?: boolean;
 };

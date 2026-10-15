@@ -70,6 +70,8 @@ import type {
   RiskReferenceCreateInput,
   RiskReferenceResponse,
   RiskReferenceUpdateInput,
+  RiskReminderInput,
+  RiskReminderResponse,
   RiskSummaryResponse,
   RiskWorkflowInput
 } from './api.schemas';
@@ -1438,6 +1440,71 @@ export function useGetRiskRegisterReopenScope<TData = Awaited<ReturnType<typeof 
 
 
 
+
+export const getSendRiskWorkflowReminderUrl = () => {
+
+
+
+
+  return `/api/risk-register/workflow/reminder`
+}
+
+export const sendRiskWorkflowReminder = async (riskReminderInput: RiskReminderInput, options?: Parameters<typeof customFetch>[1]): Promise<RiskReminderResponse> => {
+
+  return customFetch<RiskReminderResponse>(getSendRiskWorkflowReminderUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(riskReminderInput)
+  }
+);}
+
+
+
+
+
+export const getSendRiskWorkflowReminderMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendRiskWorkflowReminder>>, TError,{data: BodyType<RiskReminderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendRiskWorkflowReminder>>, TError,{data: BodyType<RiskReminderInput>}, TContext> => {
+
+const mutationKey = ['sendRiskWorkflowReminder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendRiskWorkflowReminder>>, {data: BodyType<RiskReminderInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  sendRiskWorkflowReminder(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendRiskWorkflowReminderMutationResult = NonNullable<Awaited<ReturnType<typeof sendRiskWorkflowReminder>>>
+    export type SendRiskWorkflowReminderMutationBody = BodyType<RiskReminderInput>
+    export type SendRiskWorkflowReminderMutationError = ErrorType<void>
+
+    export const useSendRiskWorkflowReminder = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendRiskWorkflowReminder>>, TError,{data: BodyType<RiskReminderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendRiskWorkflowReminder>>,
+        TError,
+        {data: BodyType<RiskReminderInput>},
+        TContext
+      > => {
+      return useMutation(getSendRiskWorkflowReminderMutationOptions(options));
+    }
 
 export const getDecideRiskRegisterWorkflowUrl = () => {
 

@@ -4,12 +4,23 @@ import { txQuery, withTransaction } from "../lib/postgres";
 import { activeDepartmentOwner, queueRiskReviewNotification } from "../lib/risk-notifications";
 import { reopenScope } from "../lib/risk-reopen-scope";
 import { historicalMarker } from "../lib/risk-period-opening";
+import { sendRiskReminder } from "../lib/risk-reminders";
 import {
   RiskError, type RiskActor, riskFailure, assertDepartment, canManage, cycleInput,
   workflowState, period, cycle, history,
 } from "../lib/risk-register";
 
 export const riskWorkflowRouter=Router();
+riskWorkflowRouter.post("/risk-register/workflow/reminder", async(req,res)=>{
+  try {
+    const input=z.object({
+      depart_code:z.string().trim().min(1).max(50), period_id:z.number().int().positive(),
+      expected_status:z.enum(["OPEN","SUBMITTED","REVIEWED","SIGNED_OFF"]),
+      comments:z.string().trim().max(2000).default(""),
+    }).parse(req.body);
+    res.json({ok:true,data:await sendRiskReminder(res.locals.riskActor as RiskActor,input)});
+  }catch(err){riskFailure(req,res,err);}
+});
 riskWorkflowRouter.get("/risk-register/workflow/reopen-scope",async(req,res)=>{
   try {
     const input=z.object({depart_code:z.string().trim().min(1).max(50),period_id:z.coerce.number().int().positive()}).parse(req.query);

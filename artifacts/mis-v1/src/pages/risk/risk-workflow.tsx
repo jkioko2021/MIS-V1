@@ -119,9 +119,10 @@ export function RiskSubmissionGate({ children, ...scope }: SubmissionScope & {
   </div>}{enabled && complete && !failed && !waiting && data && <RiskEmailReadinessNotice data={data} refresh={() => { void query.refetch(); }} />}{children?.({ ready, label })}</>;
 }
 
-export function SummaryTable({ rows, loading, error, retry, title = 'Department exposure & sign-off', onSelect, selectedDepartment, selectedPeriod }: {
+export function SummaryTable({ rows, loading, error, retry, title = 'Department exposure & sign-off', onSelect, selectedDepartment, selectedPeriod, renderWorkflow }: {
   rows: RiskDepartmentSummary[]; loading: boolean; error: string; retry: () => void; title?: string;
   onSelect?: (row: RiskDepartmentSummary) => void; selectedDepartment?: string; selectedPeriod?: number | null;
+  renderWorkflow?: (row: RiskDepartmentSummary) => ReactNode;
 }) {
   return <section className="overflow-hidden rounded-2xl border border-border bg-card"><div className="border-b border-border p-5"><p className="text-[10px] font-bold uppercase tracking-[.16em] text-primary">Read-only MIS status</p><h3 className="mt-1 font-[Manrope] text-xl font-bold">{title}</h3></div>
     {onSelect && <p className="px-5 pt-3 text-xs text-muted-foreground">Select a department to display its risk summary for the corresponding reporting period.</p>}
@@ -129,7 +130,7 @@ export function SummaryTable({ rows, loading, error, retry, title = 'Department 
       aria-label={`Show ${row.depart_name} risk summary for period ${row.period_id}`}
       data-testid={`select-signoff-department-${row.depart_code}-${row.period_id}`}
       aria-pressed={row.depart_code === selectedDepartment && row.period_id === selectedPeriod}
-      onClick={() => onSelect(row)}>{row.depart_name}</button> : <strong>{row.depart_name}</strong>}<div className="font-[Space_Mono] text-[10px] text-muted-foreground">{row.depart_code}</div></td><td className="px-4 py-4 text-xs">{dateLabel(row.period_from)} – {dateLabel(row.period_to)}</td><td className="px-4 py-4 font-[Space_Mono] text-xs">{row.avg_exposure ?? '—'} <span className="text-muted-foreground">/</span> {row.max_exposure ?? '—'}</td><td className="px-4 py-4">{row.assessed_risks ?? 0} <span className="text-muted-foreground">/ {row.total_risks}</span></td><td className="px-4 py-4">{row.open_actions ?? 0}</td><td className="px-4 py-4">{row.overdue_actions ?? 0}</td><td className="px-4 py-4"><StatusPill status={row.workflow_status} /></td></tr>)}</tbody></table></div> : <div className="p-4"><EmptyState title="No summaries available" description="The selected period has no department summary data." /></div>}
+      onClick={() => onSelect(row)}>{row.depart_name}</button> : <strong>{row.depart_name}</strong>}<div className="font-[Space_Mono] text-[10px] text-muted-foreground">{row.depart_code}</div></td><td className="px-4 py-4 text-xs">{dateLabel(row.period_from)} – {dateLabel(row.period_to)}</td><td className="px-4 py-4 font-[Space_Mono] text-xs">{row.avg_exposure ?? '—'} <span className="text-muted-foreground">/</span> {row.max_exposure ?? '—'}</td><td className="px-4 py-4">{row.assessed_risks ?? 0} <span className="text-muted-foreground">/ {row.total_risks}</span></td><td className="px-4 py-4">{row.open_actions ?? 0}</td><td className="px-4 py-4">{row.overdue_actions ?? 0}</td><td className="px-4 py-4">{renderWorkflow ? renderWorkflow(row) : <StatusPill status={row.workflow_status} />}</td></tr>)}</tbody></table></div> : <div className="p-4"><EmptyState title="No summaries available" description="The selected period has no department summary data." /></div>}
     {!loading && !error && rows.some(row => row.review_email_status) && <div className="border-t border-border p-4 text-xs" aria-label="Risk Owner email delivery">
       <h4 className="mb-2 font-semibold">Risk Owner email delivery</h4>
       {rows.filter(row => row.review_email_status).map(row => <div key={`${row.depart_code}:${row.period_id}`} className="mb-2">

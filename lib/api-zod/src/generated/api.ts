@@ -902,6 +902,30 @@ export const GetRiskRegisterReopenScopeResponse = zod.object({
 })
 
 
+export const sendRiskWorkflowReminderBodyDepartCodeMax = 50;
+
+
+export const sendRiskWorkflowReminderBodyCommentsMax = 2000;
+
+
+
+export const SendRiskWorkflowReminderBody = zod.object({
+  "depart_code": zod.string().min(1).max(sendRiskWorkflowReminderBodyDepartCodeMax),
+  "period_id": zod.number().int().min(1),
+  "expected_status": zod.enum(['OPEN', 'SUBMITTED', 'REVIEWED', 'SIGNED_OFF']),
+  "comments": zod.string().max(sendRiskWorkflowReminderBodyCommentsMax).optional()
+})
+
+export const SendRiskWorkflowReminderResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.object({
+  "accepted": zod.number().int(),
+  "failed": zod.number().int(),
+  "message": zod.string()
+})
+})
+
+
 export const DecideRiskRegisterWorkflowBody = zod.object({
   "depart_code": zod.string(),
   "period_id": zod.number().int(),
@@ -1039,7 +1063,8 @@ export const GetRiskAnalyticsResponse = zod.object({
 export const GetRiskRegisterSummaryQueryParams = zod.object({
   "access": zod.enum(['view', 'update', 'review']).optional().describe('Department role scope for the requested workspace'),
   "period_id": zod.coerce.number().int().optional(),
-  "depart_code": zod.coerce.string().optional()
+  "depart_code": zod.coerce.string().optional(),
+  "include_pending": zod.coerce.boolean().optional().describe('Include responsible users and reminder readiness for workflow status')
 })
 
 export const GetRiskRegisterSummaryResponse = zod.object({
@@ -1056,6 +1081,14 @@ export const GetRiskRegisterSummaryResponse = zod.object({
   "review_email_status": zod.string().nullish(),
   "review_email_error": zod.string().nullish(),
   "workflow_status": zod.string(),
+  "pending_role": zod.string().optional(),
+  "pending_action": zod.string().optional(),
+  "pending_users": zod.array(zod.object({
+  "username": zod.string(),
+  "name": zod.string()
+})).optional(),
+  "reminder_available": zod.boolean().optional(),
+  "reminder_unavailable_reason": zod.string().optional(),
   "period_id": zod.number().int().optional(),
   "period_from": zod.coerce.date().optional(),
   "period_to": zod.coerce.date().optional()
