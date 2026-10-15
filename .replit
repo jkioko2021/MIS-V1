@@ -30,3 +30,6 @@ MIS_LOGIN_OTP_FROM = "onboarding@resend.dev"
 
 [nix]
 channel = "stable-25_05"
+
+[objectStorage]
+defaultBucketID = "replit-objstore-4fd2a174-7038-4d8f-8139-e6eceb6034cd"
