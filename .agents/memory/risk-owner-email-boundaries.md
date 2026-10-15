@@ -46,3 +46,16 @@ immediate reminder while the register was still unsubmitted.
 **How to apply:** Identify the department, reporting period and submitter, explain
 where to review in MIS, and state how to record Review or Return with comments.
 Do not send a premature message claiming an unsubmitted register is available.
+
+When opening the next reporting-period cycle for a department, email its active
+assigned Risk Champion(s) directly and copy the active assigned Risk Owner.
+
+**Why:** The user explicitly requested Champion notification with the Risk Owner
+copied when opening the next reporting period.
+
+**How to apply:** Identify the department and new reporting dates, link to its
+Update Register and explain reassessment/submission. Queue only after a
+successful opening, atomically with that event. Preserve original recipient
+identities and addresses for retries; cancel stale notices rather than redirect
+them. Missing mappings or email setup must produce an advisory, not roll back
+the successfully opened register. Do not claim inbox delivery from queueing.

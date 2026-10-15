@@ -33,10 +33,16 @@ import type {
   ListAllocatedDocumentUploads200,
   ListClientRatings200,
   ListClientRatingsParams,
+  ListClosedRiskRegisters200,
+  ListClosedRiskRegistersParams,
+  ListHistoricalDepartmentRisks200,
+  ListHistoricalDepartmentRisksParams,
   ListRiskAdministrationDepartments200,
   ListRiskAdministrationReferences200,
   ListRiskRegisterRecordsParams,
   MedicalDocumentInput,
+  OpenDepartmentRiskCycle200,
+  OpenDepartmentRiskCycleInput,
   RecordAllocatedDocumentUpload201,
   RecordMedicalDocumentUpload201,
   RiskAdministrationDepartmentResponse,
@@ -1797,6 +1803,231 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getOpenRiskRegisterPeriodMutationOptions(options));
     }
 
+export const getListClosedRiskRegistersUrl = (params?: ListClosedRiskRegistersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/risk-register/closed-registers?${stringifiedParams}` : `/api/risk-register/closed-registers`
+}
+
+export const listClosedRiskRegisters = async (params?: ListClosedRiskRegistersParams, options?: Parameters<typeof customFetch>[1]): Promise<ListClosedRiskRegisters200> => {
+
+  return customFetch<ListClosedRiskRegisters200>(getListClosedRiskRegistersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListClosedRiskRegistersQueryKey = (params?: ListClosedRiskRegistersParams,) => {
+    return [
+    `/api/risk-register/closed-registers`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListClosedRiskRegistersQueryOptions = <TData = Awaited<ReturnType<typeof listClosedRiskRegisters>>, TError = ErrorType<unknown>>(params?: ListClosedRiskRegistersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClosedRiskRegisters>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListClosedRiskRegistersQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listClosedRiskRegisters>>> = ({ signal }) => listClosedRiskRegisters(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listClosedRiskRegisters>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListClosedRiskRegistersQueryResult = NonNullable<Awaited<ReturnType<typeof listClosedRiskRegisters>>>
+export type ListClosedRiskRegistersQueryError = ErrorType<unknown>
+
+
+
+export function useListClosedRiskRegisters<TData = Awaited<ReturnType<typeof listClosedRiskRegisters>>, TError = ErrorType<unknown>>(
+ params?: ListClosedRiskRegistersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClosedRiskRegisters>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListClosedRiskRegistersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getOpenDepartmentRiskCycleUrl = (departCode: string,) => {
+
+
+
+
+  return `/api/risk-register/closed-registers/${departCode}/open`
+}
+
+/**
+ * Start a new department cycle in a later open period. Preserve the closed source register and every previous risk/status as history. Carry only ongoing active risks, with all their action plans, for fresh assessment.
+ */
+export const openDepartmentRiskCycle = async (departCode: string,
+    openDepartmentRiskCycleInput: OpenDepartmentRiskCycleInput, options?: Parameters<typeof customFetch>[1]): Promise<OpenDepartmentRiskCycle200> => {
+
+  return customFetch<OpenDepartmentRiskCycle200>(getOpenDepartmentRiskCycleUrl(departCode),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(openDepartmentRiskCycleInput)
+  }
+);}
+
+
+
+
+
+export const getOpenDepartmentRiskCycleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof openDepartmentRiskCycle>>, TError,{departCode: string;data: BodyType<OpenDepartmentRiskCycleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof openDepartmentRiskCycle>>, TError,{departCode: string;data: BodyType<OpenDepartmentRiskCycleInput>}, TContext> => {
+
+const mutationKey = ['openDepartmentRiskCycle'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof openDepartmentRiskCycle>>, {departCode: string;data: BodyType<OpenDepartmentRiskCycleInput>}> = (props) => {
+          const {departCode,data} = props ?? {};
+
+          return  openDepartmentRiskCycle(departCode,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OpenDepartmentRiskCycleMutationResult = NonNullable<Awaited<ReturnType<typeof openDepartmentRiskCycle>>>
+    export type OpenDepartmentRiskCycleMutationBody = BodyType<OpenDepartmentRiskCycleInput>
+    export type OpenDepartmentRiskCycleMutationError = ErrorType<unknown>
+
+    export const useOpenDepartmentRiskCycle = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof openDepartmentRiskCycle>>, TError,{departCode: string;data: BodyType<OpenDepartmentRiskCycleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof openDepartmentRiskCycle>>,
+        TError,
+        {departCode: string;data: BodyType<OpenDepartmentRiskCycleInput>},
+        TContext
+      > => {
+      return useMutation(getOpenDepartmentRiskCycleMutationOptions(options));
+    }
+
+export const getListHistoricalDepartmentRisksUrl = (params: ListHistoricalDepartmentRisksParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/risk-register/historical-risks?${stringifiedParams}` : `/api/risk-register/historical-risks`
+}
+
+export const listHistoricalDepartmentRisks = async (params: ListHistoricalDepartmentRisksParams, options?: Parameters<typeof customFetch>[1]): Promise<ListHistoricalDepartmentRisks200> => {
+
+  return customFetch<ListHistoricalDepartmentRisks200>(getListHistoricalDepartmentRisksUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListHistoricalDepartmentRisksQueryKey = (params?: ListHistoricalDepartmentRisksParams,) => {
+    return [
+    `/api/risk-register/historical-risks`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListHistoricalDepartmentRisksQueryOptions = <TData = Awaited<ReturnType<typeof listHistoricalDepartmentRisks>>, TError = ErrorType<unknown>>(params: ListHistoricalDepartmentRisksParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listHistoricalDepartmentRisks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListHistoricalDepartmentRisksQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listHistoricalDepartmentRisks>>> = ({ signal }) => listHistoricalDepartmentRisks(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listHistoricalDepartmentRisks>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListHistoricalDepartmentRisksQueryResult = NonNullable<Awaited<ReturnType<typeof listHistoricalDepartmentRisks>>>
+export type ListHistoricalDepartmentRisksQueryError = ErrorType<unknown>
+
+
+
+export function useListHistoricalDepartmentRisks<TData = Awaited<ReturnType<typeof listHistoricalDepartmentRisks>>, TError = ErrorType<unknown>>(
+ params: ListHistoricalDepartmentRisksParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listHistoricalDepartmentRisks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListHistoricalDepartmentRisksQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getCloseRiskRegisterPeriodUrl = (periodId: number,) => {
 
 
@@ -1805,6 +2036,9 @@ export const getCloseRiskRegisterPeriodUrl = (periodId: number,) => {
   return `/api/risk-register/periods/${periodId}/close`
 }
 
+/**
+ * Close all Signed-OFF registered active departments in the selected period. Unsigned registers remain unchanged and keep the shared period open. Closed registers are available on Open Register.
+ */
 export const closeRiskRegisterPeriod = async (periodId: number,
     riskCommentInput: RiskCommentInput, options?: Parameters<typeof customFetch>[1]): Promise<RiskMutationResponse> => {
 

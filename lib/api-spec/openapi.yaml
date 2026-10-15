@@ -397,6 +397,87 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RiskMutationResponse" }
+  /risk-register/closed-registers:
+    get:
+      operationId: listClosedRiskRegisters
+      parameters:
+        - { name: depart_code, in: query, schema: { type: string } }
+        - { name: period_id, in: query, schema: { type: integer } }
+      responses:
+        "200":
+          description: Closed departmental registers, including previous-period history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data: { type: array, items: { $ref: "#/components/schemas/ClosedRiskRegister" } }
+  /risk-register/closed-registers/{departCode}/open:
+    parameters:
+      - { name: departCode, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: openDepartmentRiskCycle
+      description: Start a new department cycle in a later open period. Preserve the closed source register and every previous risk/status as history. Carry only ongoing active risks, with all their action plans, for fresh assessment.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OpenDepartmentRiskCycleInput" }
+      responses:
+        "200":
+          description: New department cycle opened; previous register retained
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    required: [depart_code, source_period_id, target_period_id, carried_risks, historical_risks, status]
+                    properties:
+                      depart_code: { type: string }
+                      source_period_id: { type: integer }
+                      target_period_id: { type: integer }
+                      carried_risks: { type: integer }
+                      historical_risks: { type: integer }
+                      status: { type: string }
+                      notification:
+                        type: object
+                        required: [queued, email_status]
+                        properties:
+                          queued: { type: integer }
+                          email_status: { type: string }
+  /risk-register/historical-risks:
+    get:
+      operationId: listHistoricalDepartmentRisks
+      parameters:
+        - { name: depart_code, in: query, required: true, schema: { type: string } }
+        - { name: period_id, in: query, required: true, schema: { type: integer } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, default: 20 } }
+        - { name: search, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Paginated read-only previous-period risks and recorded statuses
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    required: [records, total, page, page_size]
+                    properties:
+                      records: { type: array, items: { $ref: "#/components/schemas/RiskRecord" } }
+                      total: { type: integer }
+                      page: { type: integer }
+                      page_size: { type: integer }
   /risk-register/periods/{periodId}/close:
     parameters:
       - { name: periodId, in: path, required: true, schema: { type: integer } }
@@ -969,6 +1050,32 @@ components:
           properties:
             active_risks: { type: integer, minimum: 0 }
             assessed_risks: { type: integer, minimum: 0 }
+    ClosedRiskRegister:
+      type: object
+      required: [depart_code, depart_name, period_id, period_from, period_to, total_risks, open_risks, closed_risks, historical, can_open, workflow_status]
+      properties:
+        depart_code: { type: string }
+        depart_name: { type: string }
+        period_id: { type: integer }
+        period_from: { type: string }
+        period_to: { type: string }
+        total_risks: { type: integer }
+        open_risks: { type: integer }
+        closed_risks: { type: integer }
+        historical: { type: boolean }
+        can_open: { type: boolean }
+        target_period_id: { type: integer, nullable: true }
+        workflow_status: { type: string }
+    OpenDepartmentRiskCycleInput:
+      type: object
+      required: [source_period_id, comments]
+      description: Supply target_period_id OR both period_from and period_to for a new non-overlapping reporting period.
+      properties:
+        source_period_id: { type: integer }
+        target_period_id: { type: integer }
+        period_from: { type: string, format: date }
+        period_to: { type: string, format: date }
+        comments: { type: string }
     RiskRecordResponse:
       type: object
       required: [ok, data]

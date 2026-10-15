@@ -1096,6 +1096,138 @@ export const OpenRiskRegisterPeriodResponse = zod.object({
 })
 
 
+export const ListClosedRiskRegistersQueryParams = zod.object({
+  "depart_code": zod.coerce.string().optional(),
+  "period_id": zod.coerce.number().int().optional()
+})
+
+export const ListClosedRiskRegistersResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.array(zod.object({
+  "depart_code": zod.string(),
+  "depart_name": zod.string(),
+  "period_id": zod.number().int(),
+  "period_from": zod.string(),
+  "period_to": zod.string(),
+  "total_risks": zod.number().int(),
+  "open_risks": zod.number().int(),
+  "closed_risks": zod.number().int(),
+  "historical": zod.boolean(),
+  "can_open": zod.boolean(),
+  "target_period_id": zod.number().int().nullish(),
+  "workflow_status": zod.string()
+}))
+})
+
+
+/**
+ * Start a new department cycle in a later open period. Preserve the closed source register and every previous risk/status as history. Carry only ongoing active risks, with all their action plans, for fresh assessment.
+ */
+export const OpenDepartmentRiskCycleParams = zod.object({
+  "departCode": zod.coerce.string()
+})
+
+export const OpenDepartmentRiskCycleBody = zod.object({
+  "source_period_id": zod.number().int(),
+  "target_period_id": zod.number().int().optional(),
+  "period_from": zod.coerce.date().optional(),
+  "period_to": zod.coerce.date().optional(),
+  "comments": zod.string()
+}).describe('Supply target_period_id OR both period_from and period_to for a new non-overlapping reporting period.')
+
+export const OpenDepartmentRiskCycleResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.object({
+  "depart_code": zod.string(),
+  "source_period_id": zod.number().int(),
+  "target_period_id": zod.number().int(),
+  "carried_risks": zod.number().int(),
+  "historical_risks": zod.number().int(),
+  "status": zod.string(),
+  "notification": zod.object({
+  "queued": zod.number().int(),
+  "email_status": zod.string()
+}).optional()
+})
+})
+
+
+export const listHistoricalDepartmentRisksQueryPageDefault = 1;
+export const listHistoricalDepartmentRisksQueryPageSizeDefault = 20;
+
+export const ListHistoricalDepartmentRisksQueryParams = zod.object({
+  "depart_code": zod.coerce.string(),
+  "period_id": zod.coerce.number().int(),
+  "page": zod.coerce.number().int().default(listHistoricalDepartmentRisksQueryPageDefault),
+  "page_size": zod.coerce.number().int().default(listHistoricalDepartmentRisksQueryPageSizeDefault),
+  "search": zod.coerce.string().optional()
+})
+
+export const listHistoricalDepartmentRisksResponseDataRecordsItemRankingSnapshotOneImpactOneOrdinalMax = 5;
+
+export const listHistoricalDepartmentRisksResponseDataRecordsItemRankingSnapshotOneLikelihoodOneOrdinalMax = 5;
+
+
+
+export const ListHistoricalDepartmentRisksResponse = zod.object({
+  "ok": zod.boolean(),
+  "data": zod.object({
+  "records": zod.array(zod.object({
+  "risk_code": zod.string(),
+  "depart_code": zod.string(),
+  "depart_name": zod.string().optional(),
+  "period_id": zod.number().int(),
+  "period_from": zod.string().optional(),
+  "period_to": zod.string().optional(),
+  "objective_code": zod.string().nullish(),
+  "risk_title": zod.string(),
+  "risk_description": zod.string().nullish(),
+  "risk_category": zod.string().nullish(),
+  "category_name": zod.string().nullish(),
+  "risk_consequence": zod.string().nullish(),
+  "i_rate": zod.string().nullish(),
+  "l_rate": zod.string().nullish(),
+  "risk_impact": zod.string().nullish(),
+  "risk_likelihood": zod.string().nullish(),
+  "ranking_snapshot": zod.union([zod.object({
+  "impact": zod.union([zod.object({
+  "code": zod.string(),
+  "label": zod.string(),
+  "ordinal": zod.number().int().min(1).max(listHistoricalDepartmentRisksResponseDataRecordsItemRankingSnapshotOneImpactOneOrdinalMax).nullable()
+}),zod.null()]),
+  "likelihood": zod.union([zod.object({
+  "code": zod.string(),
+  "label": zod.string(),
+  "ordinal": zod.number().int().min(1).max(listHistoricalDepartmentRisksResponseDataRecordsItemRankingSnapshotOneLikelihoodOneOrdinalMax).nullable()
+}),zod.null()])
+}),zod.null()]).optional().describe('Server-owned identities, labels and 1–5 ordinals captured at assessment. Null axes are unranked; never resolve them against the live catalogue.'),
+  "perceived_rate": zod.string().nullish(),
+  "perceived_contr_eff": zod.string().nullish(),
+  "i_risk_exposure": zod.string().nullish(),
+  "r_risk_exposure": zod.string().nullish(),
+  "current_contr": zod.string().nullish(),
+  "desired_contr_effe": zod.string().nullish(),
+  "assessment_updated": zod.boolean().optional(),
+  "completed_action_count": zod.number().int().optional(),
+  "root_cause_count": zod.number().int().optional(),
+  "behind_schedule_count": zod.number().int().optional(),
+  "risk_status": zod.enum(['Open', 'Closed']).optional().describe('Closed only when at least one root cause exists and every root cause action is Closed; otherwise Open. Independent of register workflow.'),
+  "at_risk": zod.boolean().optional().describe('True when any root cause has action status Behind schedule; does not change exposure scores.'),
+  "is_active": zod.boolean().optional(),
+  "updated_at": zod.coerce.date(),
+  "workflow_status": zod.string(),
+  "can_edit": zod.boolean().optional()
+})),
+  "total": zod.number().int(),
+  "page": zod.number().int(),
+  "page_size": zod.number().int()
+})
+})
+
+
+/**
+ * Close all Signed-OFF registered active departments in the selected period. Unsigned registers remain unchanged and keep the shared period open. Closed registers are available on Open Register.
+ */
 export const CloseRiskRegisterPeriodParams = zod.object({
   "periodId": zod.coerce.number().int()
 })

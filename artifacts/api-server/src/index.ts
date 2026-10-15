@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { startMedicalEmailWorker } from "./lib/business-notifications";
 import { startRiskReviewEmailWorker } from "./lib/risk-notifications";
+import { startRiskOpeningEmailWorker } from "./lib/risk-opening-notifications";
 import { isLocalRuntime } from "./lib/local-runtime";
 
 const rawPort = process.env["PORT"];
@@ -27,4 +28,5 @@ app.listen(port, isLocalRuntime() ? "127.0.0.1" : "0.0.0.0", (err) => {
   logger.info({ port }, "Server listening");
   startMedicalEmailWorker();
   startRiskReviewEmailWorker();
+  startRiskOpeningEmailWorker();
 });

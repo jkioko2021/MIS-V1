@@ -5,7 +5,7 @@ import { logger } from "./logger";
 import { isLocalRuntime } from "./local-runtime";
 import { captureLocalEmail } from "./local-mail";
 
-export type OutboundEmail = { from: string; to: string; subject: string; text: string; idempotencyKey: string };
+export type OutboundEmail = { from: string; to: string; cc?: string[]; subject: string; text: string; idempotencyKey: string };
 export type EmailSender = (email: OutboundEmail) => Promise<void>;
 const validEmail = (value: unknown): value is string =>
   typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -44,7 +44,7 @@ export const sendResendEmail: EmailSender = async email => {
     method: "POST",
     headers: { ...await connectors.getProxyHeaders("resend"),
       "Content-Type": "application/json", "Idempotency-Key": email.idempotencyKey },
-    body: JSON.stringify({ from: email.from, to: [email.to], subject: email.subject, text: email.text }),
+    body: JSON.stringify({ from: email.from, to: [email.to], ...(email.cc?.length ? {cc:email.cc} : {}), subject: email.subject, text: email.text }),
     signal: AbortSignal.timeout(15000),
   });
   // Never log provider response bodies: they can contain recipients or content.

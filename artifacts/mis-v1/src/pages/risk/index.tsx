@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import type { RiskHistoryEvent, RiskOptionsResponseData, RiskRecord, RiskRootCause, RiskDepartmentSummary, RiskAnalyticsResponseData } from '@workspace/api-client-react';
 import {
-  useAssignRiskTeam, useCloseRiskPeriod, useCreateRisk, useOpenRiskPeriod, useRiskHistory,
+  useAssignRiskTeam, useCloseRiskPeriod, useCreateRisk, useRiskHistory,
   useRiskOptions, useRiskRecord, useRiskRecords, useRiskSummary, useRiskWorkflow,
   useSaveRiskCause, useUpdateRisk, useRiskAnalytics,
 } from './use-risk-register';
@@ -17,7 +17,7 @@ import { AssessmentPanel, NewRiskForm } from './risk-forms';
 import RiskDashboard from './risk-dashboard';
 import { RecordsTable, RiskDrawer } from './risk-details';
 import {
-  HistoryTable, OpenPeriods, ReportingPeriodClose, SummaryTable, TeamMapping, WorkflowPanel,
+  HistoryTable, ReportingPeriodClose, SummaryTable, TeamMapping, WorkflowPanel,
 } from './risk-workflow';
 import {
   dateLabel, EmptyState, envelopeData, envelopeError, ErrorNotice, Field, fieldClass,
@@ -25,6 +25,7 @@ import {
 } from './risk-ui';
 import RiskImportPanel from './risk-import';
 import RiskAssessmentSummary from './risk-assessment-summary';
+import RiskClosedRegisters from './risk-closed-registers';
 import RiskReviewDialog from './risk-review-dialog';
 import RiskReopenDialog from './risk-reopen-dialog';
 import { riskDepartmentSelection } from './department-filter';
@@ -185,10 +186,9 @@ function RiskRegisterWorkspace() {
   const updateRisk = useUpdateRisk();
   const saveCause = useSaveRiskCause();
   const workflow = useRiskWorkflow();
-  const openPeriod = useOpenRiskPeriod();
   const closePeriod = useCloseRiskPeriod();
   const assignTeam = useAssignRiskTeam();
-  const mutating = createRisk.isPending || updateRisk.isPending || saveCause.isPending || workflow.isPending || openPeriod.isPending || closePeriod.isPending || assignTeam.isPending;
+  const mutating = createRisk.isPending || updateRisk.isPending || saveCause.isPending || workflow.isPending || closePeriod.isPending || assignTeam.isPending;
   const manage = Boolean(actor?.can_manage);
   const selectAssessment = (code: string) => {
     setSelectedRiskCode(code);
@@ -435,9 +435,7 @@ function RiskRegisterWorkspace() {
 
         {activePage === 'status' && <SummaryTable rows={summaries} loading={summaryQuery.isLoading} error={summaryFailure || (summaryQuery.isError ? queryError(summaryQuery.error) : '')} retry={() => summaryQuery.refetch()} title="Department workflow status" />}
 
-        {activePage === 'open' && <section className="space-y-5"><OpenPeriods options={options} manage={manage} mutating={openPeriod.isPending} onOpen={data => openPeriod.mutate({ data }, { onSuccess: response => announce(response, 'Reporting period opened.'), onError: error => setMutationError(queryError(error)) })} />
-          <WorkflowPanel summaries={summaries} departments={departments} assignments={options.assignments} period={period} actor={actor} manage={manage} comments={comments} setComments={setComments} mutating={workflow.isPending} openView onAction={(action, row) => chooseAction(action, row, action === 'REOPEN')} />
-        </section>}
+        {activePage === 'open' && <RiskClosedRegisters username={username} department={department} period={period} options={options} manage={manage} onSelect={viewDetails} mode="open" />}
 
         {activePage === 'close' && <section className="space-y-5">
           <SummaryTable rows={allDepartmentPeriodSummaries.filter(row => row.workflow_status === 'SIGNED_OFF')}
@@ -455,7 +453,10 @@ function RiskRegisterWorkspace() {
         </section>}
 
          {activePage === 'closed' && <RecordsTable records={records} totalRecords={activeCount} closedView loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={viewDetails} search={search} setSearch={setSearch} title="Closed action & archive records" />}
-        {activePage === 'history' && <HistoryTable events={history} loading={historyQuery.isLoading} error={historyFailure || (historyQuery.isError ? queryError(historyQuery.error) : '')} retry={() => historyQuery.refetch()} />}
+        {activePage === 'history' && <section className="space-y-5">
+          <RiskClosedRegisters username={username} department={department} period={period} options={options} manage={manage} onSelect={viewDetails} mode="history" />
+          <HistoryTable events={history} loading={historyQuery.isLoading} error={historyFailure || (historyQuery.isError ? queryError(historyQuery.error) : '')} retry={() => historyQuery.refetch()} />
+        </section>}
         {activePage === 'import' && manage && <RiskImportPanel key={username} options={options} />}
         {activePage === 'champions' && <TeamMapping options={options} manage={manage} mutating={assignTeam.isPending} onAssign={data => assignTeam.mutate({ data }, { onSuccess: response => announce(response, 'Department team mapping saved.'), onError: error => setMutationError(queryError(error)) })} />}
       </main>}

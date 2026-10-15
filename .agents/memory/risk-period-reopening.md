@@ -1,12 +1,12 @@
 ---
-name: Shared reporting-period reopening
-description: User-approved scopes for shared-period reopening and Signed-OFF batch closure.
+name: Department reporting cycles
+description: Immutable previous-period registers, department-specific new cycles, and Signed-OFF batch closure.
 ---
-Reopening a department in a closed reporting period opens the shared period but resets only the selected department. Other departments retain workflow, assessments, closed actions and history.
+Opening a department through Open Register starts a new reporting-period cycle; it must not reset its closed source register in place. The user chooses a later reporting period in a popup. Preserve previous-period risks, statuses, assessments, root causes, action plans and closure attribution as read-only history.
 
-**Why:** The user explicitly chose selected-department-only reopening rather than requiring reassessment of every department.
+**Why:** The user explicitly requested historical previous-period records and department-specific opening into the next reporting period. This supersedes the earlier in-place reopening UI policy.
 
-**How to apply:** Show the shared status change and unchanged departments before confirmation. Preserve prior closure attribution in departments that remained closed.
+**How to apply:** Carry ongoing active risks into the selected later period for fresh assessment, retaining every action plan on those risks, including completed actions. Closed risks remain in history. Other departments stay unchanged. Never permit a rolled-forward historical source to be reopened in place or copied twice.
 
 Close Period closes all Signed-OFF departmental registers in the selected period, not just a selected department. Unsigned registers stay unchanged. Closed registers are listed on Open Register without automatically reopening them. The Close page lists Signed-OFF departments only, without a risk-level summary, Revert Back or Department workflow.
 

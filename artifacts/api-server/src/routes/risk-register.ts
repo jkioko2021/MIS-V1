@@ -12,6 +12,7 @@ import { riskImportRouter } from "./risk-import-routes";
 import { assessmentRanking } from "../lib/risk-ranking";
 import { activeDepartmentOwner, riskReviewEmailReadiness } from "../lib/risk-notifications";
 import { buildRiskAnalytics } from "../lib/risk-analytics";
+import { assertClosedRegister, closedActionsSQL, historicalMarker, openingInput, openDepartmentCycle } from "../lib/risk-period-opening";
 
 const router = Router();
 router.use("/risk-register", privateRiskResponses, requireAuth, requireRiskActor);
@@ -336,6 +337,57 @@ router.post("/risk-register/assignments",async(req,res)=>{
     res.json({ok:true,data});
   }catch(err){riskFailure(req,res,err);}
 });
+router.get("/risk-register/closed-registers",async(req,res)=>{
+  try {
+    const f=filters.parse(req.query),a=actor(res);
+    if(f.depart_code) assertDepartment(a,f.depart_code,"view");
+    const data=await query(`SELECT d.depart_code,d.depart_name,p.period_id,p.period_from::text,p.period_to::text,
+      count(*)::integer AS total_risks,
+      count(*) FILTER(WHERE r.is_active AND NOT (${closedActionsSQL}))::integer AS open_risks,
+      count(*) FILTER(WHERE (${closedActionsSQL}))::integer AS closed_risks,
+      (h.target_period_id IS NOT NULL) AS historical,h.target_period_id,
+      (d.is_active AND h.target_period_id IS NULL AND $1::boolean) AS can_open,'CLOSED' AS workflow_status
+      FROM risk.risk_master r JOIN risk.departments d ON d.depart_code=r.depart_code
+      JOIN risk.periods p ON p.period_from=r.period_from AND p.period_to=r.period_to
+      LEFT JOIN risk.department_summary s ON s.depart_code=r.depart_code AND s.period_from=r.period_from AND s.period_to=r.period_to
+      LEFT JOIN LATERAL(SELECT (snapshot->>'target_period_id')::integer AS target_period_id FROM risk.register_history
+        WHERE depart_code=d.depart_code AND period_id=p.period_id AND action=$5 LIMIT 1) h ON TRUE
+      WHERE ($1::boolean OR d.depart_code=ANY($2::text[]))
+        AND ($3::text='' OR d.depart_code=$3) AND ($4::integer=0 OR p.period_id=$4)
+        AND (COALESCE(s.closed,FALSE) OR p.status='CLOSED')
+      GROUP BY d.depart_code,d.depart_name,d.is_active,p.period_id,p.period_from,p.period_to,h.target_period_id
+      ORDER BY d.depart_name,p.period_from DESC`,[...scope(a),f.depart_code,f.period_id,historicalMarker]);
+    res.json({ok:true,data});
+  }catch(err){riskFailure(req,res,err);}
+});
+router.get("/risk-register/historical-risks",async(req,res)=>{
+  try {
+    const f=z.object({depart_code:z.string().min(1).max(50),period_id:z.coerce.number().int().positive(),
+      page:z.coerce.number().int().positive().max(1_000_000).default(1),
+      page_size:z.coerce.number().int().min(1).max(100).default(20),search:z.string().trim().max(500).default("")}).parse(req.query);
+    const a=actor(res);assertDepartment(a,f.depart_code,"view");
+    await assertClosedRegister(f.depart_code,f.period_id);
+    const params=[f.depart_code,f.period_id,f.search];
+    const [count]=await query<{total:number}>(`SELECT count(*)::integer AS total FROM risk.risk_master r
+      JOIN risk.periods p ON p.period_from=r.period_from AND p.period_to=r.period_to
+      WHERE r.depart_code=$1 AND p.period_id=$2
+      AND ($3::text='' OR r.risk_title ILIKE '%'||$3||'%' OR r.risk_code ILIKE '%'||$3||'%')`,params);
+    const records=await query<Record<string,unknown>>(`${selectRecords()}
+      WHERE r.depart_code=$1 AND p.period_id=$2
+      AND ($3::text='' OR r.risk_title ILIKE '%'||$3||'%' OR r.risk_code ILIKE '%'||$3||'%')
+      ORDER BY r.risk_title,r.risk_code LIMIT $4 OFFSET $5`,[...params,f.page_size,(f.page-1)*f.page_size]);
+    res.json({ok:true,data:{records:records.map(r=>({...presentRecord(r,a),can_edit:false})),
+      total:count.total,page:f.page,page_size:f.page_size}});
+  }catch(err){riskFailure(req,res,err);}
+});
+router.post("/risk-register/closed-registers/:departCode/open",async(req,res)=>{
+  try {
+    const department=z.string().min(1).max(50).parse(req.params.departCode);
+    const data=await openDepartmentCycle(department,openingInput.parse(req.body),actor(res));
+    res.json({ok:true,data});
+  }catch(err){riskFailure(req,res,err);}
+});
+
 router.post("/risk-register/periods",async(req,res)=>{
   try{
     const a=actor(res);

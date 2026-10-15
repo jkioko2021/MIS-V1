@@ -633,6 +633,32 @@ export interface RiskRecordsResponse {
   totals: RiskRecordsResponseTotals;
 }
 
+export interface ClosedRiskRegister {
+  depart_code: string;
+  depart_name: string;
+  period_id: number;
+  period_from: string;
+  period_to: string;
+  total_risks: number;
+  open_risks: number;
+  closed_risks: number;
+  historical: boolean;
+  can_open: boolean;
+  target_period_id?: number | null;
+  workflow_status: string;
+}
+
+/**
+ * Supply target_period_id OR both period_from and period_to for a new non-overlapping reporting period.
+ */
+export interface OpenDepartmentRiskCycleInput {
+  source_period_id: number;
+  target_period_id?: number;
+  period_from?: string;
+  period_to?: string;
+  comments: string;
+}
+
 export interface RiskRecordResponse {
   ok: boolean;
   data: RiskRecord;
@@ -1094,6 +1120,56 @@ export const GetRiskRegisterSummaryAccess = {
 export type GetRiskRegisterHistoryParams = {
 period_id?: number;
 depart_code?: string;
+};
+
+export type ListClosedRiskRegistersParams = {
+depart_code?: string;
+period_id?: number;
+};
+
+export type ListClosedRiskRegisters200 = {
+  ok: boolean;
+  data: ClosedRiskRegister[];
+};
+
+export type OpenDepartmentRiskCycle200DataNotification = {
+  queued: number;
+  email_status: string;
+};
+
+export type OpenDepartmentRiskCycle200Data = {
+  depart_code: string;
+  source_period_id: number;
+  target_period_id: number;
+  carried_risks: number;
+  historical_risks: number;
+  status: string;
+  notification?: OpenDepartmentRiskCycle200DataNotification;
+};
+
+export type OpenDepartmentRiskCycle200 = {
+  ok: boolean;
+  data: OpenDepartmentRiskCycle200Data;
+};
+
+export type ListHistoricalDepartmentRisksParams = {
+depart_code: string;
+period_id: number;
+page?: number;
+page_size?: number;
+search?: string;
+};
+
+export type ListHistoricalDepartmentRisks200Data = {
+  records: RiskRecord[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+export type ListHistoricalDepartmentRisks200 = {
+  ok: boolean;
+  data: ListHistoricalDepartmentRisks200Data;
 };
 
 export type RecordMedicalDocumentUpload201Data = {

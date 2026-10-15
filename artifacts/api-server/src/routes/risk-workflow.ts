@@ -3,6 +3,7 @@ import { z } from "zod";
 import { txQuery, withTransaction } from "../lib/postgres";
 import { activeDepartmentOwner, queueRiskReviewNotification } from "../lib/risk-notifications";
 import { reopenScope } from "../lib/risk-reopen-scope";
+import { historicalMarker } from "../lib/risk-period-opening";
 import {
   RiskError, type RiskActor, riskFailure, assertDepartment, canManage, cycleInput,
   workflowState, period, cycle, history,
@@ -27,6 +28,11 @@ riskWorkflowRouter.post("/risk-register/workflow",async(req,res)=>{
       const [department]=await txQuery<{depart_code:string;depart_name:string}>(client,"SELECT depart_code,depart_name FROM risk.departments WHERE depart_code=$1 AND is_active",[input.depart_code]);
       if(!department) throw new RiskError(404,"Active risk department was not found.");
       const p=await period(client,input.period_id,input.action==="REOPEN");
+      if(input.action==="REOPEN") {
+        const historical=await txQuery(client,`SELECT 1 FROM risk.register_history
+          WHERE depart_code=$1 AND period_id=$2 AND action=$3 LIMIT 1`,[input.depart_code,input.period_id,historicalMarker]);
+        if(historical.length) throw new RiskError(409,"This register is historical and cannot be reopened in place. Continue in its new reporting period.");
+      }
       const scope=input.action==="REOPEN" ? await reopenScope(client,p,input.depart_code) : undefined;
       if(scope && input.confirmation_token!==scope.confirmation_token)
         throw new RiskError(409,"Review the current reopening scope and confirm again. The period or department registers may have changed.");

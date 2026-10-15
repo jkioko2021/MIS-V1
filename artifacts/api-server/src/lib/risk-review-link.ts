@@ -15,3 +15,11 @@ export function riskReviewLink(department: string, period: number, base = proces
     return null;
   }
 }
+
+export function riskUpdateLink(department: string, period: number, base = process.env.MIS_PUBLIC_APP_URL): string | null {
+  const review = riskReviewLink(department, period, base);
+  if (!review) return null;
+  const url = new URL(review);
+  url.pathname = url.pathname.replace(/\/risk\/review$/, "/risk/update");
+  return url.toString();
+}

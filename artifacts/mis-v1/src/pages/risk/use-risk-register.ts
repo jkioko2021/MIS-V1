@@ -21,6 +21,11 @@ import {
   useUpdateRiskRegisterRecord,
   getGetRiskAnalyticsQueryKey,
   useGetRiskAnalytics,
+  getListClosedRiskRegistersQueryKey,
+  getListHistoricalDepartmentRisksQueryKey,
+  useListClosedRiskRegisters,
+  useListHistoricalDepartmentRisks,
+  useOpenDepartmentRiskCycle,
 } from '@workspace/api-client-react';
 
 const identityKey = (username: string, key: readonly unknown[]) => [...key, 'actor', username];
@@ -93,6 +98,29 @@ export function useRiskSummary(username: string, params: { access?: 'view' | 'up
 export function useRiskHistory(username: string, params: { depart_code?: string; period_id?: number }, enabled = true) {
   const key = identityKey(username, getGetRiskRegisterHistoryQueryKey(params));
   return useGetRiskRegisterHistory(params, { query: { ...finiteQuery, enabled, queryKey: key } });
+}
+
+export function useClosedRiskRegisters(username: string, params: { depart_code?: string; period_id?: number }, enabled = true) {
+  const key = identityKey(username, getListClosedRiskRegistersQueryKey(params));
+  return useListClosedRiskRegisters(params, { query: { ...finiteQuery, enabled: enabled && Boolean(username), queryKey: key } });
+}
+
+export function useHistoricalDepartmentRisks(username: string, params: { depart_code: string; period_id: number; page?: number; page_size?: number; search?: string }, enabled = true) {
+  const key = identityKey(username, getListHistoricalDepartmentRisksQueryKey(params));
+  return useListHistoricalDepartmentRisks(params, { query: { ...finiteQuery, enabled: enabled && Boolean(username && params.depart_code && params.period_id), queryKey: key } });
+}
+
+export function useOpenDepartmentCycle() {
+  const client = useQueryClient();
+  return useOpenDepartmentRiskCycle({
+    mutation: {
+      mutationKey: ['risk-register-write'],
+      onSuccess: async () => {
+        await client.invalidateQueries({ predicate: query => query.queryKey.some(part => typeof part === 'string' && (part.startsWith('/api/risk-register') || part === 'risk-register')) });
+        await client.invalidateQueries({ predicate: query => query.queryKey.some(part => typeof part === 'string' && part.startsWith('/api/risk-register/options')) });
+      },
+    },
+  });
 }
 
 export function useCreateRisk() { return useCreateRiskRegisterRecord(useRiskMutationOptions()); }
