@@ -77,11 +77,13 @@ function RiskRegisterWorkspace() {
   const access = activePage === 'update' ? 'update' as const : activePage === 'review' ? 'review' as const : 'view' as const;
   const periods = options?.periods ?? [];
   const [viewPeriod, setViewPeriod] = useState('');
+  // History starts across all periods, independent of the current workflow's period.
+  const [historyPeriod, setHistoryPeriod] = useState('');
   const [updatePeriod, setUpdatePeriod] = useState('');
-  const period = linkedScope?.period ?? (activePage === 'update' ? updatePeriod : viewPeriod);
+  const period = linkedScope?.period ?? (activePage === 'history' ? historyPeriod : activePage === 'update' ? updatePeriod : viewPeriod);
   const setPeriod = (value: string) => {
     if (linkedScope) setDepartmentChoices(choices => ({ ...choices, review: linkedScope.department }));
-    (activePage === 'update' ? setUpdatePeriod : setViewPeriod)(value);
+    (activePage === 'history' ? setHistoryPeriod : activePage === 'update' ? setUpdatePeriod : setViewPeriod)(value);
     clearReviewLink();
   };
   const linkError = options ? reviewScopeError(reviewLink, departments, periods) : '';
@@ -167,7 +169,8 @@ function RiskRegisterWorkspace() {
   const allDepartmentPeriodSummaries = envelopeData<RiskDepartmentSummary[]>(allDepartmentPeriodSummaryQuery.data) ?? [];
   const allDepartmentPeriodSummaryFailure = allDepartmentPeriodSummaryQuery.data ? envelopeError(allDepartmentPeriodSummaryQuery.data) ?? '' : '';
   const historyQuery = useRiskHistory(username, { ...(department ? { depart_code: department } : {}), ...(period ? { period_id: Number(period) } : {}) }, dataEnabled && activePage === 'history');
-  const history = envelopeData<RiskHistoryEvent[]>(historyQuery.data) ?? [];
+  const history = (envelopeData<RiskHistoryEvent[]>(historyQuery.data) ?? []).filter(event =>
+    pageCodes === null || Boolean(event.depart_code && pageCodes.includes(event.depart_code)));
   const detailQuery = useRiskRecord(username, selectedRiskCode);
   const savedDetail = envelopeData<{ risk: RiskRecord; root_causes: RiskRootCause[]; history: RiskHistoryEvent[] }>(detailQuery.data);
   const detail = pageAllowed && savedDetail && (pageCodes === null || pageCodes.includes(savedDetail.risk.depart_code)) ? savedDetail : undefined;
@@ -351,7 +354,7 @@ function RiskRegisterWorkspace() {
               <option value="">{manage ? 'All departments' : 'My assigned departments'}</option>{departments.map((item, index) => <option key={item.depart_code ?? index} value={item.depart_code ?? ''}>{item.depart_name ?? item.depart_code}</option>)}
             </select></Field>
             <Field label="Reporting period"><select aria-label="Filter by period" data-testid="select-risk-period" className={`${fieldClass} sm:min-w-44`} value={period} onChange={event => setPeriod(event.target.value)}>
-              <option value="">Latest / all periods</option>{periods.map((item, index) => <option key={item.period_id ?? index} value={String(item.period_id ?? '')}>{dateLabel(item.period_from)} – {dateLabel(item.period_to)} · {item.status ?? '—'}</option>)}
+              <option value="">{activePage === 'history' ? 'All reporting periods' : 'Latest / all periods'}</option>{periods.map((item, index) => <option key={item.period_id ?? index} value={String(item.period_id ?? '')}>{dateLabel(item.period_from)} – {dateLabel(item.period_to)} · {item.status ?? '—'}</option>)}
             </select></Field>
           </div>
         </div>
@@ -454,6 +457,10 @@ function RiskRegisterWorkspace() {
 
          {activePage === 'closed' && <RecordsTable records={records} totalRecords={activeCount} closedView loading={recordsQuery.isLoading} error={recordsFailure || (recordsQuery.isError ? queryError(recordsQuery.error) : '')} retry={() => recordsQuery.refetch()} onSelect={viewDetails} search={search} setSearch={setSearch} title="Closed action & archive records" />}
         {activePage === 'history' && <section className="space-y-5">
+          <p className="rounded-lg border border-border bg-muted/30 p-3 text-sm" data-testid="risk-history-access-scope">
+            {manage ? 'Management view: departmental registers across all reporting periods.'
+              : 'Department-only view: you can view current and previous reporting periods for departments where you are an assigned Risk Champion or Risk Owner. Previous-period registers remain read-only.'}
+          </p>
           <RiskClosedRegisters username={username} department={department} period={period} options={options} manage={manage} onSelect={viewDetails} mode="history" />
           <HistoryTable events={history} loading={historyQuery.isLoading} error={historyFailure || (historyQuery.isError ? queryError(historyQuery.error) : '')} retry={() => historyQuery.refetch()} />
         </section>}

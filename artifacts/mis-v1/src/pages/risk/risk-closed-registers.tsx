@@ -114,7 +114,9 @@ export default function RiskClosedRegisters({ username, department, period, opti
       onError: error => setFormError(queryError(error)),
     });
   };
-  const departmentRows = rows.filter(row => !department || row.depart_code === department);
+  const assignedDepartments = new Set([...(options.actor?.champion_departments ?? []), ...(options.actor?.owner_departments ?? [])]);
+  const departmentRows = rows.filter(row => (manage || assignedDepartments.has(row.depart_code))
+    && (!department || row.depart_code === department));
   const openRows = departmentRows.filter(row => row.historical === false);
   const historyRows = departmentRows.filter(row => row.historical === true);
   const readyCount = openRows.filter(row => row.can_open && row.workflow_status === 'CLOSED').length;
@@ -130,8 +132,8 @@ export default function RiskClosedRegisters({ username, department, period, opti
             : 'Browse the risk records held by each closed department cycle. Historical decisions and event trails remain read-only.'}</p>
         </div>
         <div className="flex gap-2 text-[10px] font-semibold">
-          <span className="rounded-full bg-emerald-100 px-3 py-1.5 text-emerald-900">{readyCount} ready to open</span>
-          <span className="rounded-full bg-muted px-3 py-1.5 text-muted-foreground">{historyRows.length} historical</span>
+          {mode === 'open' && manage && <span className="rounded-full bg-emerald-100 px-3 py-1.5 text-emerald-900">{readyCount} ready to open</span>}
+          <span className="rounded-full bg-muted px-3 py-1.5 text-muted-foreground">{mode === 'history' ? `${departmentRows.length} closed registers` : `${historyRows.length} historical`}</span>
         </div>
       </div>
     </div>

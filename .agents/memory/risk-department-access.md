@@ -9,6 +9,19 @@ Update Register is accessible to the specific champions assigned to each departm
 
 **How to apply:** Keep champion and owner scopes separate in links, department filters and server authorization. Do not infer responsibility from a staff member's home department or restrict an owner to one department. Explicit department assignments supersede conflicting old champion mappings. Preserve existing administrator/Risk Management oversight unless the user changes it.
 
+Risk Register view is restricted to departments where the user is an assigned
+Champion or Risk Owner, including registers from previous reporting periods.
+An Owner with several departments may view each of those departments.
+
+**Why:** The user explicitly requested departmental-only access for Champions
+and Owners on Risk Register view and access to previous-period registers.
+
+**How to apply:** Enforce the assigned-department union on lists, filters,
+historical records and detail requests, not just navigation. Start the view
+across all reporting periods rather than inheriting the latest open workflow
+period. Historical registers remain read-only. Preserve explicit management
+oversight; unmapped staff must not receive departmental data.
+
 Risk Register Review should present the risk summary as its main risk list. Clicking Review assessment opens a popup containing Risk Details, Root causes & action plans, and Risk exposures, rather than an inline editor.
 
 **Why:** The user explicitly requested the summary on the Review page and a popup for these three parts of the selected risk.
