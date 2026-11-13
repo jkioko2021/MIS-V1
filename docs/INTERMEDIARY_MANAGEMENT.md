@@ -86,6 +86,13 @@ updates and registration email integration are not simulated.
 
 ## Setup
 
+Agent Registration is arranged as a five-stage tabbed workflow:
+**Import & Select → Agent Details → Licence & Documents → Directors →
+Review & Complete**. Back/Next and tab selection navigate between stages; they
+do not save or submit records. Profile, licence, director and upload drafts remain
+mounted while moving between tabs. Completion still uses the saved server record
+and its existing verification/evidence requirements.
+
 Apply `lib/db/migrations/0052_intermediary_management.sql`,
 `lib/db/migrations/0053_intermediary_core_import.sql` and
 `lib/db/migrations/0054_intermediary_registration_fields.sql` to a development/local PostgreSQL

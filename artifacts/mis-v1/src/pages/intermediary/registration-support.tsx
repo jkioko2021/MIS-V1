@@ -27,8 +27,11 @@ const MIME_BY_EXT: Record<string, UploadMime> = {
 };
 const ALLOWED_MIME = new Set(Object.values(MIME_BY_EXT));
 
-export function RegistrationSupport({ code, detail, version, readOnly = false, onActionSuccess, onInvalidate, onReload }: {
+export type RegistrationSection = 'licence-documents' | 'directors' | 'review';
+
+export function RegistrationSupport({ code, detail, version, activeSection = 'licence-documents', readOnly = false, onActionSuccess, onInvalidate, onReload }: {
   code: string; detail: IntermediaryDetail; version: number; readOnly?: boolean;
+  activeSection?: RegistrationSection;
   onActionSuccess: (result: IntermediaryDetail) => void; onInvalidate: (code?: string) => Promise<void>; onReload: () => Promise<void>;
 }) {
   const [licence, setLicence] = useState<LicenceDraft>(EMPTY_LICENCE);
@@ -175,12 +178,12 @@ export function RegistrationSupport({ code, detail, version, readOnly = false, o
   const licensedDocs = detail.documents;
 
   return <div className="im-registration-support">
-    <div className="im-support-heading"><div><div className="im-section-index">04 / LICENCE, DOCUMENTS & DIRECTORS</div><h3>Registration support records</h3><p>Maintain compliance and ownership evidence without leaving this registration workspace.</p></div><span className="im-version">v{version}</span></div>
+    <div className="im-support-heading"><div><div className="im-section-index">REGISTRATION SUPPORT · SAVED VERSION {version}</div><h3>{activeSection === 'licence-documents' ? 'Licence & documents' : activeSection === 'directors' ? 'Directors' : 'Retained history'}</h3><p>Supporting drafts remain in this workspace when you move between stages.</p></div><span className="im-version">v{version}</span></div>
     {!!error && <ApiMessage error={error} onRetry={uploadIntent ? () => void transferAndConfirm(uploadIntent) : undefined} />}
     {isConflict(error) && <div className="im-alert im-alert-warn im-conflict-reload"><div><strong>Another administrator changed this record.</strong><p>Your current support-record draft is retained. Reload only after confirming that it can be discarded.</p></div><Button variant="quiet" onClick={() => void reloadConflict()}>Reload current details</Button></div>}
     {success && <SuccessMessage>{success}</SuccessMessage>}
 
-    <section className="im-support-section">
+    <section className="im-support-section" hidden={activeSection !== 'licence-documents'}>
       <div className="im-support-section-head"><span><FileCheck2 size={16} /></span><div><b>IRA / Contract Details</b><small>Licence dates, compliance declarations and waiver audit trail</small></div></div>
       <div className="im-form-grid im-support-grid">
         <label className="im-field"><span>Document Name</span><select disabled={readOnly} value={documentType} onChange={event => { const type = event.target.value as 'C001' | 'C002'; setDocumentType(type); setDocumentTitle(type === 'C001' ? 'New Application/Licence' : 'Others'); }}><option value="C001">C001 · New Application/Licence</option><option value="C002">C002 · Others</option></select></label>
@@ -210,7 +213,7 @@ export function RegistrationSupport({ code, detail, version, readOnly = false, o
       </div>
     </section>
 
-    <section className="im-support-section">
+    <section className="im-support-section" hidden={activeSection !== 'licence-documents'}>
       <div className="im-support-section-head"><span><FileText size={16} /></span><div><b>Supporting Documents</b><small>Files are transferred directly to secure object storage; only metadata is recorded by MIS.</small></div></div>
       {!readOnly && <div className="im-document-upload">
         <div className="im-form-grid im-support-grid">
@@ -230,7 +233,7 @@ export function RegistrationSupport({ code, detail, version, readOnly = false, o
       </div>
     </section>
 
-    <section className="im-support-section">
+    <section className="im-support-section" hidden={activeSection !== 'directors'}>
       <div className="im-support-section-head"><span><Users size={16} /></span><div><b>Directors</b><small>Director updates are versioned; historical notes are append-only.</small></div></div>
       {!readOnly && <div className="im-director-form">
         <div className="im-form-grid im-support-grid">
@@ -250,35 +253,39 @@ export function RegistrationSupport({ code, detail, version, readOnly = false, o
           {!readOnly && <Button variant="quiet" onClick={() => editDirector(item)}><Pencil size={13} /> Edit</Button>}
         </article>)}
       </div>
+    </section>
+    <section className="im-support-section" hidden={activeSection !== 'review'}>
       <div className="im-history-list">
         <div className="im-history-title">Historical notes & actions <span>{detail.events.length}</span></div>
         {detail.events.length === 0 ? <p className="im-support-empty">No historical notes retained.</p> : [...detail.events].reverse().map(event => <article className="im-support-note" key={event.event_id}><div><b>{event.action.replaceAll('_', ' ')}</b><small>{new Date(event.created_at).toLocaleString()} · {event.actor}</small></div><p>{event.notes}</p></article>)}
       </div>
+      <div className="im-support-footer"><ShieldAlert size={14} /><span>Waiver requests remain unverified until an independent authorized reviewer explicitly accepts the documented exception.</span></div>
     </section>
-    <div className="im-support-footer"><ShieldAlert size={14} /><span>Waiver requests remain unverified until an independent authorized reviewer explicitly accepts the documented exception.</span></div>
   </div>;
 }
 
-export function EmptyRegistrationSupport() {
+export function EmptyRegistrationSupport({ activeSection = 'licence-documents' }: { activeSection?: RegistrationSection }) {
   return <fieldset disabled className="im-registration-support im-registration-disabled" style={{ border: 0, margin: 0, minWidth: 0 }}>
-    <div className="im-support-heading"><div><div className="im-section-index">04 / LICENCE, DOCUMENTS & DIRECTORS</div><h3>Registration support records</h3><p>Import and select an agent to enable all support actions. No records can be created without a selected core identity.</p></div></div>
-    <section className="im-support-section" aria-disabled="true"><div className="im-support-section-head"><span><FileCheck2 size={16} /></span><div><b>IRA / Contract Details</b><small>Licence dates, compliance declarations, waiver request and reason</small></div></div>
+    <div className="im-alert im-alert-warn"><ShieldAlert size={16} /><span>Select or import a core-registered identity in step 1 before editing or creating support records. No manual identity creation is available.</span></div>
+    <div className="im-support-heading"><div><div className="im-section-index">SUPPORTING RECORDS</div><h3>{activeSection === 'licence-documents' ? 'Licence & documents' : activeSection === 'directors' ? 'Directors' : 'Review & complete'}</h3><p>These forms are inspectable but disabled until a core identity is selected.</p></div></div>
+    <section className="im-support-section" hidden={activeSection !== 'licence-documents'} aria-disabled="true"><div className="im-support-section-head"><span><FileCheck2 size={16} /></span><div><b>IRA / Contract Details</b><small>Licence dates, compliance declarations, waiver request and reason</small></div></div>
       <div className="im-form-grid im-support-grid"><Field label="Document Name" value="C001 · New Application/Licence" onChange={() => undefined} disabled /><Field label="Licence No" value="" onChange={() => undefined} disabled /><Field label="Year" value={String(new Date().getFullYear())} onChange={() => undefined} disabled /><Field label="Valid From" type="date" value="" onChange={() => undefined} disabled /><Field label="Valid To" type="date" value="" onChange={() => undefined} disabled /></div>
       <div className="im-compliance-checks"><Toggle label="Contract Signed" checked={false} onChange={() => undefined} /><Toggle label="IRA Compliance" checked={false} onChange={() => undefined} /><Toggle label="KYC Compliance" checked={false} onChange={() => undefined} /></div>
       <div className="im-waiver-box"><Toggle label="Request compliance waiver" checked={false} onChange={() => undefined} /><p>A waiver request requires a documented reason and independent review. It does not waive documents or current valid dates.</p></div>
       <div className="im-history-title">Licence history · 0</div><p className="im-support-empty">No record selected.</p>
     </section>
-    <section className="im-support-section" aria-disabled="true"><div className="im-support-section-head"><span><FileText size={16} /></span><div><b>Supporting Documents</b><small>C001 New Application/Licence · C002 Others</small></div></div>
+    <section className="im-support-section" hidden={activeSection !== 'licence-documents'} aria-disabled="true"><div className="im-support-section-head"><span><FileText size={16} /></span><div><b>Supporting Documents</b><small>C001 New Application/Licence · C002 Others</small></div></div>
       <div className="im-form-grid im-support-grid"><Field label="Document title" value="" onChange={() => undefined} disabled /><Field label="Choose file" value="" onChange={() => undefined} disabled /></div><p className="im-support-empty">No confirmed supporting documents. Waivers do not waive this requirement.</p>
     </section>
-    <section className="im-support-section" aria-disabled="true"><div className="im-support-section-head"><span><Users size={16} /></span><div><b>Directors</b><small>Full Name, ID Number, Mobile, Email, PIN and retained change notes</small></div></div>
+    <section className="im-support-section" hidden={activeSection !== 'directors'} aria-disabled="true"><div className="im-support-section-head"><span><Users size={16} /></span><div><b>Directors</b><small>Full Name, ID Number, Mobile, Email, PIN and retained change notes</small></div></div>
       <div className="im-form-grid im-support-grid"><Field label="Full Name" value="" onChange={() => undefined} disabled /><Field label="ID Number" value="" onChange={() => undefined} disabled /><Field label="Mobile" value="" onChange={() => undefined} disabled /><Field label="Email" value="" onChange={() => undefined} disabled /><Field label="PIN" value="" onChange={() => undefined} disabled /></div><p className="im-support-empty">No director selected.</p>
     </section>
-    <section className="im-support-section">
+    <section className="im-support-section" hidden={activeSection !== 'review'}>
       <h3>Complete registration</h3>
       <NoteField value="" onChange={() => undefined} label="Registration completion note" />
       <label className="im-complete-check"><input type="checkbox" checked={false} readOnly /><span><b>Is Complete</b><small>Select an imported agent and satisfy all completion requirements first.</small></span></label>
       <Button disabled>Complete registration</Button>
+      <div className="im-history-list"><div className="im-history-title">Historical notes & actions</div><p className="im-support-empty">Select an identity to inspect retained history.</p></div>
     </section>
   </fieldset>;
 }
