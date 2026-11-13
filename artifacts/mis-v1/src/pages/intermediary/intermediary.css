@@ -366,7 +366,8 @@
 .im-empty-inline > div { width: 34px; height: 34px; }
 .im-empty-inline h3 { margin-top: 8px; font-size: 11px; }
 .im-empty-inline p { margin-bottom: 0; font-size: 9px; }
-.im-registration { display: grid; grid-template-columns: minmax(0,.86fr) minmax(0,1.14fr); align-items: start; gap: 13px; }
+.im-registration { display: grid; grid-template-columns: minmax(0,1fr); align-items: start; gap: 13px; min-width: 0; width: 100%; }
+.im-registration > * { min-width: 0; }
 .im-registration > .im-registration-form { grid-column: 1 / -1; }
 .im-import-card { grid-column: 1 / -1; }
 .im-import-body { padding: 14px 20px 17px; }

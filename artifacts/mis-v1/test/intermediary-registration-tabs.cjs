@@ -23,6 +23,15 @@ const components = new Proxy({
   intermediaryInputFrom: agent => ({ ...agent, notes: '' }),
 }, { get: (target, key) => target[key] || String(key) });
 
+const styles = fs.readFileSync(path.join(__dirname, '../src/pages/intermediary/intermediary.css'), 'utf8');
+const workflowLayouts = [...styles.matchAll(/\.im-registration\s*\{([^}]+)\}/g)]
+  .map(match => match[1].match(/grid-template-columns:\s*([^;]+)/)?.[1]?.trim())
+  .filter(Boolean);
+assert(workflowLayouts.length > 0, 'The registration workflow has an explicit full-width layout');
+for (const columns of workflowLayouts) {
+  assert.match(columns, /^minmax\(0,\s*1fr\)$/, 'Registration uses one full-width column at all breakpoints');
+}
+
 function mount(file, exportName, initialProps) {
   let cursor = 0;
   let pendingEffects = [];
