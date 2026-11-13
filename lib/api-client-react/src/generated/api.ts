@@ -82,7 +82,13 @@ import type {
   RiskReminderInput,
   RiskReminderResponse,
   RiskSummaryResponse,
-  RiskWorkflowInput
+  RiskWorkflowInput,
+  SalesManagerInput,
+  SalesManagerUpdate,
+  SalesNodeInput,
+  SalesNodeUpdate,
+  SalesSetupSaved,
+  SalesStructure
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -111,6 +117,339 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetSalesStructureUrl = () => {
+
+
+
+
+  return `/api/admin/sales-structure`
+}
+
+export const getSalesStructure = async ( options?: Parameters<typeof customFetch>[1]): Promise<SalesStructure> => {
+
+  return customFetch<SalesStructure>(getGetSalesStructureUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSalesStructureQueryKey = () => {
+    return [
+    `/api/admin/sales-structure`
+    ] as const;
+    }
+
+
+export const getGetSalesStructureQueryOptions = <TData = Awaited<ReturnType<typeof getSalesStructure>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSalesStructure>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSalesStructureQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSalesStructure>>> = ({ signal }) => getSalesStructure({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSalesStructure>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSalesStructureQueryResult = NonNullable<Awaited<ReturnType<typeof getSalesStructure>>>
+export type GetSalesStructureQueryError = ErrorType<unknown>
+
+
+
+export function useGetSalesStructure<TData = Awaited<ReturnType<typeof getSalesStructure>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSalesStructure>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSalesStructureQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSalesStructureNodeUrl = () => {
+
+
+
+
+  return `/api/admin/sales-structure/nodes`
+}
+
+export const createSalesStructureNode = async (salesNodeInput: SalesNodeInput, options?: Parameters<typeof customFetch>[1]): Promise<SalesSetupSaved> => {
+
+  return customFetch<SalesSetupSaved>(getCreateSalesStructureNodeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(salesNodeInput)
+  }
+);}
+
+
+
+
+
+export const getCreateSalesStructureNodeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSalesStructureNode>>, TError,{data: BodyType<SalesNodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSalesStructureNode>>, TError,{data: BodyType<SalesNodeInput>}, TContext> => {
+
+const mutationKey = ['createSalesStructureNode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSalesStructureNode>>, {data: BodyType<SalesNodeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSalesStructureNode(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSalesStructureNodeMutationResult = NonNullable<Awaited<ReturnType<typeof createSalesStructureNode>>>
+    export type CreateSalesStructureNodeMutationBody = BodyType<SalesNodeInput>
+    export type CreateSalesStructureNodeMutationError = ErrorType<unknown>
+
+    export const useCreateSalesStructureNode = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSalesStructureNode>>, TError,{data: BodyType<SalesNodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSalesStructureNode>>,
+        TError,
+        {data: BodyType<SalesNodeInput>},
+        TContext
+      > => {
+      return useMutation(getCreateSalesStructureNodeMutationOptions(options));
+    }
+
+export const getUpdateSalesStructureNodeUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/sales-structure/nodes/${id}`
+}
+
+export const updateSalesStructureNode = async (id: number,
+    salesNodeUpdate: SalesNodeUpdate, options?: Parameters<typeof customFetch>[1]): Promise<SalesSetupSaved> => {
+
+  return customFetch<SalesSetupSaved>(getUpdateSalesStructureNodeUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(salesNodeUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateSalesStructureNodeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSalesStructureNode>>, TError,{id: number;data: BodyType<SalesNodeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSalesStructureNode>>, TError,{id: number;data: BodyType<SalesNodeUpdate>}, TContext> => {
+
+const mutationKey = ['updateSalesStructureNode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSalesStructureNode>>, {id: number;data: BodyType<SalesNodeUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateSalesStructureNode(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSalesStructureNodeMutationResult = NonNullable<Awaited<ReturnType<typeof updateSalesStructureNode>>>
+    export type UpdateSalesStructureNodeMutationBody = BodyType<SalesNodeUpdate>
+    export type UpdateSalesStructureNodeMutationError = ErrorType<unknown>
+
+    export const useUpdateSalesStructureNode = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSalesStructureNode>>, TError,{id: number;data: BodyType<SalesNodeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSalesStructureNode>>,
+        TError,
+        {id: number;data: BodyType<SalesNodeUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateSalesStructureNodeMutationOptions(options));
+    }
+
+export const getEnrollSalesManagerUrl = () => {
+
+
+
+
+  return `/api/admin/sales-structure/managers`
+}
+
+export const enrollSalesManager = async (salesManagerInput: SalesManagerInput, options?: Parameters<typeof customFetch>[1]): Promise<SalesSetupSaved> => {
+
+  return customFetch<SalesSetupSaved>(getEnrollSalesManagerUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(salesManagerInput)
+  }
+);}
+
+
+
+
+
+export const getEnrollSalesManagerMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enrollSalesManager>>, TError,{data: BodyType<SalesManagerInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof enrollSalesManager>>, TError,{data: BodyType<SalesManagerInput>}, TContext> => {
+
+const mutationKey = ['enrollSalesManager'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof enrollSalesManager>>, {data: BodyType<SalesManagerInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  enrollSalesManager(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EnrollSalesManagerMutationResult = NonNullable<Awaited<ReturnType<typeof enrollSalesManager>>>
+    export type EnrollSalesManagerMutationBody = BodyType<SalesManagerInput>
+    export type EnrollSalesManagerMutationError = ErrorType<unknown>
+
+    export const useEnrollSalesManager = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enrollSalesManager>>, TError,{data: BodyType<SalesManagerInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof enrollSalesManager>>,
+        TError,
+        {data: BodyType<SalesManagerInput>},
+        TContext
+      > => {
+      return useMutation(getEnrollSalesManagerMutationOptions(options));
+    }
+
+export const getUpdateSalesManagerEnrollmentUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/sales-structure/managers/${id}`
+}
+
+export const updateSalesManagerEnrollment = async (id: number,
+    salesManagerUpdate: SalesManagerUpdate, options?: Parameters<typeof customFetch>[1]): Promise<SalesSetupSaved> => {
+
+  return customFetch<SalesSetupSaved>(getUpdateSalesManagerEnrollmentUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(salesManagerUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateSalesManagerEnrollmentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSalesManagerEnrollment>>, TError,{id: number;data: BodyType<SalesManagerUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSalesManagerEnrollment>>, TError,{id: number;data: BodyType<SalesManagerUpdate>}, TContext> => {
+
+const mutationKey = ['updateSalesManagerEnrollment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSalesManagerEnrollment>>, {id: number;data: BodyType<SalesManagerUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateSalesManagerEnrollment(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSalesManagerEnrollmentMutationResult = NonNullable<Awaited<ReturnType<typeof updateSalesManagerEnrollment>>>
+    export type UpdateSalesManagerEnrollmentMutationBody = BodyType<SalesManagerUpdate>
+    export type UpdateSalesManagerEnrollmentMutationError = ErrorType<unknown>
+
+    export const useUpdateSalesManagerEnrollment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSalesManagerEnrollment>>, TError,{id: number;data: BodyType<SalesManagerUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSalesManagerEnrollment>>,
+        TError,
+        {id: number;data: BodyType<SalesManagerUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateSalesManagerEnrollmentMutationOptions(options));
+    }
 
 export const getImportIntermediariesUrl = () => {
 

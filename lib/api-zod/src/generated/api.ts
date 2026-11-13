@@ -8,6 +8,123 @@
 import * as zod from 'zod';
 
 
+export const GetSalesStructureResponse = zod.object({
+  "nodes": zod.array(zod.object({
+  "id": zod.number().int(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "level": zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT']),
+  "parent_id": zod.number().int().nullable(),
+  "manager_id": zod.number().int().nullable(),
+  "is_active": zod.boolean(),
+  "version": zod.number().int()
+})),
+  "managers": zod.array(zod.object({
+  "id": zod.number().int(),
+  "employee_id": zod.number().int(),
+  "level": zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT']),
+  "is_active": zod.boolean(),
+  "version": zod.number().int(),
+  "employee_name": zod.string(),
+  "username": zod.string(),
+  "user_eligible": zod.boolean()
+})),
+  "users": zod.array(zod.object({
+  "employee_id": zod.number().int(),
+  "employee_name": zod.string(),
+  "username": zod.string()
+}))
+})
+
+
+export const createSalesStructureNodeBodyCodeMax = 40;
+
+
+export const createSalesStructureNodeBodyCodeRegExp = new RegExp('^[A-Za-z0-9_-]+$');
+export const createSalesStructureNodeBodyNameMax = 150;
+
+
+
+
+
+export const CreateSalesStructureNodeBody = zod.object({
+  "code": zod.string().min(1).max(createSalesStructureNodeBodyCodeMax).regex(createSalesStructureNodeBodyCodeRegExp),
+  "name": zod.string().min(1).max(createSalesStructureNodeBodyNameMax),
+  "level": zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT']),
+  "parent_id": zod.number().int().min(1).nullable(),
+  "manager_id": zod.number().int().min(1).nullable(),
+  "is_active": zod.boolean()
+})
+
+export const CreateSalesStructureNodeResponse = zod.object({
+  "id": zod.number().int(),
+  "version": zod.number().int()
+})
+
+
+
+
+
+export const UpdateSalesStructureNodeParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const updateSalesStructureNodeBodyNameMax = 150;
+
+
+
+
+
+
+export const UpdateSalesStructureNodeBody = zod.object({
+  "name": zod.string().min(1).max(updateSalesStructureNodeBodyNameMax),
+  "parent_id": zod.number().int().min(1).nullable(),
+  "manager_id": zod.number().int().min(1).nullable(),
+  "is_active": zod.boolean(),
+  "version": zod.number().int().min(1)
+})
+
+export const UpdateSalesStructureNodeResponse = zod.object({
+  "id": zod.number().int(),
+  "version": zod.number().int()
+})
+
+
+
+
+
+export const EnrollSalesManagerBody = zod.object({
+  "employee_id": zod.number().int().min(1),
+  "level": zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT'])
+})
+
+export const EnrollSalesManagerResponse = zod.object({
+  "id": zod.number().int(),
+  "version": zod.number().int()
+})
+
+
+
+
+
+export const UpdateSalesManagerEnrollmentParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+
+
+
+export const UpdateSalesManagerEnrollmentBody = zod.object({
+  "is_active": zod.boolean(),
+  "version": zod.number().int().min(1)
+})
+
+export const UpdateSalesManagerEnrollmentResponse = zod.object({
+  "id": zod.number().int(),
+  "version": zod.number().int()
+})
+
+
 export const ImportIntermediariesResponse = zod.object({
   "imported": zod.number().int(),
   "skipped": zod.number().int(),

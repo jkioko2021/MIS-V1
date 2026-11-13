@@ -11,6 +11,75 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /admin/sales-structure:
+    get:
+      operationId: getSalesStructure
+      responses:
+        "200":
+          description: Administrator-only sales hierarchy, manager enrollments and eligible staff
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SalesStructure" }
+  /admin/sales-structure/nodes:
+    post:
+      operationId: createSalesStructureNode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SalesNodeInput" }
+      responses:
+        "201":
+          description: Structure category created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SalesSetupSaved" }
+  /admin/sales-structure/nodes/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    patch:
+      operationId: updateSalesStructureNode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SalesNodeUpdate" }
+      responses:
+        "200":
+          description: Structure category updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SalesSetupSaved" }
+  /admin/sales-structure/managers:
+    post:
+      operationId: enrollSalesManager
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SalesManagerInput" }
+      responses:
+        "201":
+          description: Existing user enrolled without changing their login profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SalesSetupSaved" }
+  /admin/sales-structure/managers/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    patch:
+      operationId: updateSalesManagerEnrollment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SalesManagerUpdate" }
+      responses:
+        "200":
+          description: Enrollment activated or deactivated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SalesSetupSaved" }
   /intermediary/import:
     post:
       operationId: importIntermediaries
@@ -755,6 +824,84 @@ paths:
           description: Allocation changed before the upload could be saved
 components:
   schemas:
+    SalesLevel:
+      type: string
+      enum: [NATIONAL, REGION, BRANCH, UNIT]
+    SalesSetupSaved:
+      type: object
+      required: [id, version]
+      properties:
+        id: { type: integer }
+        version: { type: integer }
+    SalesStaff:
+      type: object
+      required: [employee_id, employee_name, username]
+      properties:
+        employee_id: { type: integer }
+        employee_name: { type: string }
+        username: { type: string }
+    SalesManager:
+      type: object
+      required: [id, employee_id, level, is_active, version, employee_name, username, user_eligible]
+      properties:
+        id: { type: integer }
+        employee_id: { type: integer }
+        level: { $ref: "#/components/schemas/SalesLevel" }
+        is_active: { type: boolean }
+        version: { type: integer }
+        employee_name: { type: string }
+        username: { type: string }
+        user_eligible: { type: boolean }
+    SalesNode:
+      type: object
+      required: [id, code, name, level, parent_id, manager_id, is_active, version]
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        name: { type: string }
+        level: { $ref: "#/components/schemas/SalesLevel" }
+        parent_id: { type: [integer, "null"] }
+        manager_id: { type: [integer, "null"] }
+        is_active: { type: boolean }
+        version: { type: integer }
+    SalesStructure:
+      type: object
+      required: [nodes, managers, users]
+      properties:
+        nodes: { type: array, items: { $ref: "#/components/schemas/SalesNode" } }
+        managers: { type: array, items: { $ref: "#/components/schemas/SalesManager" } }
+        users: { type: array, items: { $ref: "#/components/schemas/SalesStaff" } }
+    SalesNodeInput:
+      type: object
+      required: [code, name, level, parent_id, manager_id, is_active]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 40, pattern: "^[A-Za-z0-9_-]+$" }
+        name: { type: string, minLength: 1, maxLength: 150 }
+        level: { $ref: "#/components/schemas/SalesLevel" }
+        parent_id: { type: [integer, "null"], minimum: 1 }
+        manager_id: { type: [integer, "null"], minimum: 1 }
+        is_active: { type: boolean }
+    SalesNodeUpdate:
+      type: object
+      required: [name, parent_id, manager_id, is_active, version]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 150 }
+        parent_id: { type: [integer, "null"], minimum: 1 }
+        manager_id: { type: [integer, "null"], minimum: 1 }
+        is_active: { type: boolean }
+        version: { type: integer, minimum: 1 }
+    SalesManagerInput:
+      type: object
+      required: [employee_id, level]
+      properties:
+        employee_id: { type: integer, minimum: 1 }
+        level: { $ref: "#/components/schemas/SalesLevel" }
+    SalesManagerUpdate:
+      type: object
+      required: [is_active, version]
+      properties:
+        is_active: { type: boolean }
+        version: { type: integer, minimum: 1 }
     IntermediaryImportResult:
       type: object
       required: [imported, skipped, message]

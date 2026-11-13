@@ -43,6 +43,8 @@ export const MENU_MASTER = [
   { main: "Reports",    sub: "Risk Reports",            url: "/reports/risk",          order: 20 },
   { main: "Admin",      sub: "User Management",         url: "/admin/users",           order: 10 },
   { main: "Admin",      sub: "Profile Management",      url: "/admin/profiles",        order: 20 },
+  { main: "Admin",      sub: "Sales Structure setup",   url: "/admin/sales-structure", order: 21 },
+  { main: "Admin",      sub: "Sales Manager Enrollment", url: "/admin/sales-structure/managers", order: 22 },
   { main: "Admin",      sub: "Audit Trail",             url: "/admin/audit",           order: 30 },
   { main: "Admin",      sub: "Password Config",         url: "/admin/password-config", order: 40 },
   { main: "Parameter Settings", sub: "Configure Business Req", url: "/admin/business-requirements", order: 10 },

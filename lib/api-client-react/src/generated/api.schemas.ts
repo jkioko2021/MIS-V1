@@ -5,6 +5,116 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type SalesLevel = typeof SalesLevel[keyof typeof SalesLevel];
+
+
+export const SalesLevel = {
+  NATIONAL: 'NATIONAL',
+  REGION: 'REGION',
+  BRANCH: 'BRANCH',
+  UNIT: 'UNIT',
+} as const;
+
+export interface SalesSetupSaved {
+  id: number;
+  version: number;
+}
+
+export interface SalesStaff {
+  employee_id: number;
+  employee_name: string;
+  username: string;
+}
+
+export interface SalesManager {
+  id: number;
+  employee_id: number;
+  level: SalesLevel;
+  is_active: boolean;
+  version: number;
+  employee_name: string;
+  username: string;
+  user_eligible: boolean;
+}
+
+export interface SalesNode {
+  id: number;
+  code: string;
+  name: string;
+  level: SalesLevel;
+  /** @nullable */
+  parent_id: number | null;
+  /** @nullable */
+  manager_id: number | null;
+  is_active: boolean;
+  version: number;
+}
+
+export interface SalesStructure {
+  nodes: SalesNode[];
+  managers: SalesManager[];
+  users: SalesStaff[];
+}
+
+export interface SalesNodeInput {
+  /**
+     * @minLength 1
+     * @maxLength 40
+     * @pattern ^[A-Za-z0-9_-]+$
+     */
+  code: string;
+  /**
+     * @minLength 1
+     * @maxLength 150
+     */
+  name: string;
+  level: SalesLevel;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  parent_id: number | null;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  manager_id: number | null;
+  is_active: boolean;
+}
+
+export interface SalesNodeUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 150
+     */
+  name: string;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  parent_id: number | null;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  manager_id: number | null;
+  is_active: boolean;
+  /** @minimum 1 */
+  version: number;
+}
+
+export interface SalesManagerInput {
+  /** @minimum 1 */
+  employee_id: number;
+  level: SalesLevel;
+}
+
+export interface SalesManagerUpdate {
+  is_active: boolean;
+  /** @minimum 1 */
+  version: number;
+}
+
 export interface IntermediaryImportResult {
   imported: number;
   skipped: number;

@@ -17,8 +17,10 @@ import riskRegisterRouter from "./risk-register";
 import clientRatingsRouter from "./client-ratings";
 import riskAdministrationRouter from "./risk-administration";
 import intermediaryRouter from "./intermediary";
+import salesStructureRouter from "./sales-structure";
 
 const router: IRouter = Router();
+router.use(salesStructureRouter);
 router.use(intermediaryRouter);
 router.use(riskRegisterRouter);
 router.use(clientRatingsRouter);

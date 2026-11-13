@@ -5,6 +5,7 @@ import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { applyDocumentMetadata, checkDocumentMetadata } from "./document-metadata.mjs";
 import { applyIntermediaryMetadata } from "./intermediary-metadata.mjs";
+import { applySalesStructureMetadata } from "./sales-structure-metadata.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const require = createRequire(path.join(root, "artifacts/api-server/package.json"));
@@ -66,6 +67,7 @@ export async function bootstrapDatabase(env) {
     await client.query(sessions.replace(/^BEGIN;\s*$/m, "").replace(/^COMMIT;\s*$/m, ""));
     await client.query(await readFile(path.join(root, "lib/db/migrations/local-baseline/002_reference_data.sql"), "utf8"));
     await applyIntermediaryMetadata(client);
+    await applySalesStructureMetadata(client);
   });
 }
 

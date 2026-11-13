@@ -33,6 +33,7 @@
 - [SQL boundary contracts](typed-sql-parameters.md) — Binding casts and output scalars need real database checks; typed query wrappers cannot validate either.
 - [Cashier Review routing](cashier-review-rules.md) — Invoiced allocations enter Finance review; partial receipts stay actionable; legacy nonmedical Filing must not override returns.
 - [Sales intermediary compatibility](sales-intermediary-compatibility.md) — New selections use the intermediary master; historical agent assignments remain readable without bulk remapping.
+- [Sales manager enrollment](sales-manager-enrollment.md) — Managers remain normal MIS users and receive separate level-specific designations, not replacement login profiles.
 - [Record Filing rules](record-filing-rules.md) — DPU receives receipted or Allocation-Closed files; legacy policy-stage flags are not modern prerequisites.
 - [GI workflow rules](gi-workflow-rules.md) — Nonmedical forward goes to GI; assigned GI staff return to Register or forward Cashier; preserve NONMEDICAL team compatibility.
 - [Workspace preview diagnostics](workspace-preview-diagnostics.md) — A healthy MIS preview does not prove the containing Replit Build view works; distinguish workspace, pane and menus.

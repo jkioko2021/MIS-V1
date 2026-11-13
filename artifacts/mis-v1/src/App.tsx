@@ -18,6 +18,8 @@ import LoginPage from '@/pages/login';
 import UsersPage from '@/pages/admin/users';
 import ProfilesPage from '@/pages/admin/profiles';
 import BusinessRequirementsPage from '@/pages/admin/business-requirements';
+import SalesStructurePage from '@/pages/admin/sales-structure';
+import SalesStructureManagersPage from '@/pages/admin/sales-structure/managers';
 import MedicalUnderwritingPage from '@/pages/medical-underwriting';
 import CashierPage from '@/pages/cashier';
 import PricingReviewPage from '@/pages/pricing-review';
@@ -39,7 +41,7 @@ import {
   Home, FileText, Shield, Database, Bell, Banknote, ClipboardCheck, FilePlus2,
   ChevronRight, LogOut, User, Users, Settings, SlidersHorizontal, Menu, X,
   Workflow, BadgeCheck, CalendarDays, LockKeyhole, History, UsersRound, SearchCheck, Target, Tags, ListChecks, Gauge,
-  Fingerprint, ShieldAlert, FileCheck2,
+  Fingerprint, ShieldAlert, FileCheck2, Network,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -148,6 +150,13 @@ const NAV_SECTIONS: Array<{
     items: [
       { href: '/admin/users',    label: 'User Enrollment',    icon: Users },
       { href: '/admin/profiles', label: 'Profiles & Access',  icon: Settings },
+      {
+        href: '/admin/sales-structure', label: 'Sales Structure setup', icon: Network,
+        children: [
+          { href: '/admin/sales-structure', label: 'Structure setup', icon: Network },
+          { href: '/admin/sales-structure/managers', label: 'Manager enrollment', icon: UsersRound },
+        ],
+      },
     ],
   },
   {
@@ -492,6 +501,8 @@ function ProtectedRouter() {
           <Route path="/discovery"        component={DiscoveryPage} />
           <Route path="/admin/users"      component={UsersPage} />
           <Route path="/admin/profiles"   component={ProfilesPage} />
+           <Route path="/admin/sales-structure/managers" component={SalesStructureManagersPage} />
+           <Route path="/admin/sales-structure" component={SalesStructurePage} />
           <Route path="/admin/business-requirements" component={BusinessRequirementsPage} />
           <Route path="/admin">
             {() => <Redirect to="/admin/users" />}
