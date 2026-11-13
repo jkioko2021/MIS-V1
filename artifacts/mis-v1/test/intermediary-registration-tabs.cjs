@@ -100,6 +100,32 @@ const agent = {
   region_code: 'QA_REGION', receive_date: '2026-11-01', contract_date: '2026-11-01', mobile_no: '0700000000',
 };
 const detail = { agent, licences: [], directors: [], documents: [], events: [], mappings: [] };
+const emptyPage = mount('agent-registration.tsx', 'AgentRegistration', {
+  code: '', username: 'synthetic', detailLoading: false,
+  options: { import_available: false, agent_types: ['INDEPENDENT'] },
+  pendingList: { data: { items: [], total: 0 }, refetch: async () => {} },
+  search: '', searchBy: 'all', pageNo: 1, setPage() {}, setSearch() {}, setSearchBy() {},
+  onSelect() {}, onInvalidate: async () => {}, onReload: async () => undefined, onNavigate() {},
+});
+let emptyTree = emptyPage.render();
+walk(emptyTree).filter(node => node.props.role === 'tab')[1].props.onClick();
+emptyTree = emptyPage.render();
+const emptyPanel = walk(emptyTree).find(node => node.props.id === 'registration-panel-2');
+assert.equal(emptyPanel.props.hidden, false);
+const emptyMessage = walk(emptyPanel).find(node => node.props.className === 'im-empty');
+assert(!walk(emptyMessage).some(node => node.type?.name === 'RegistrationProfileFields'),
+  'The no-selection form must not inherit the empty-state icon dimensions');
+const emptyProfile = walk(emptyPanel).find(node => node.type?.name === 'RegistrationProfileFields');
+assert(emptyProfile, 'All profile sections remain mounted without a selected agent');
+assert.equal(emptyProfile.props.disabled, true);
+const emptyFields = walk(emptyProfile.type(emptyProfile.props));
+for (const label of ['App Number', 'Receive Date', 'Agent No', 'Intermediary Name', 'Agent Type',
+  'Region Name', 'Sales Manager', 'GI Manager', 'PIN', 'ID / Reg No', 'Contract Date', 'Payroll No',
+  'Pri Mobile No', 'Sec Mobile No', 'Email', 'Commission Rate (%)']) {
+  assert(emptyFields.some(node => node.props.label === label), `Step 02 retains ${label}`);
+}
+assert.match(text(emptyProfile.type(emptyProfile.props)), /Pay Frequency/);
+assert.match(text(emptyProfile.type(emptyProfile.props)), /eTIMS Integrated/);
 const page = mount('agent-registration.tsx', 'AgentRegistration', {
   code: agent.agent_code, username: 'synthetic', detail, detailLoading: false,
   options: { import_available: false, import_reason: 'SQL deferred', agent_types: ['INDEPENDENT'] },

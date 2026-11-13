@@ -261,7 +261,10 @@ export function AgentRegistration({
               <div className="im-form-footer"><span>Save explicitly against initialized version {form.version ?? selectedAgent.version}. Moving to another step does not save.</span><Button type="submit" disabled={isPending || !saveNote.trim()}>{update.isPending ? 'Saving…' : 'Save MIS profile'} <Check size={15} /></Button></div>
             </>}
           </form>
-        </> : <div className="im-empty"><div><UserRound size={21} /></div><h3>Select/import first</h3><p>Stage fields are available to inspect but disabled until a core-registered identity is selected.</p><RegistrationProfileFields value={EMPTY_FORM} onChange={() => undefined} sourceRef="" disabled agentTypes={options?.agent_types} codeCatalog={options} /></div>}
+        </> : <>
+          <div className="im-empty"><div><UserRound size={21} /></div><h3>Select/import first</h3><p>All fields are shown below. Import and select a core-registered identity in Step 01 to enable editing.</p></div>
+          <RegistrationProfileFields value={EMPTY_FORM} onChange={() => undefined} sourceRef="" disabled agentTypes={options?.agent_types} codeCatalog={options} />
+        </>}
       </section>
 
       <section role="tabpanel" id="registration-panel-5" aria-labelledby="registration-tab-5" hidden={activeStep !== 4} className="im-workflow-stage">

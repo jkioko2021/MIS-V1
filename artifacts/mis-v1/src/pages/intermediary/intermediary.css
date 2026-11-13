@@ -468,7 +468,7 @@
 .im-workflow-stage > form > .im-note-field { margin-top: 13px; }
 .im-workflow-stage > form > .im-form-footer { padding-top: 14px; }
 .im-workflow-stage .im-empty { padding: 24px 15px; }
-.im-workflow-stage .im-empty .im-registration-fields { width: 100%; text-align: left; }
+.im-workflow-stage > .im-registration-fields { width: 100%; min-width: 0; height: auto; text-align: left; }
 .im-workflow-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-top: 1px solid #edf1ed; background: #fafcf8; }
 .im-workflow-controls > span { color: #819087; font-size: 9px; text-align: center; }
 .im-workflow-controls .im-button { min-width: 91px; }

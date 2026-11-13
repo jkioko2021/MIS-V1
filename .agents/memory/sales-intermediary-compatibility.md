@@ -38,3 +38,14 @@ separation between the person entering a licence and the person approving it.
 **How to apply:** Show waiver reasons explicitly to reviewers, require their
 acceptance, and retain current licence dates and confirmed supporting documents
 as completion requirements.
+
+Agent Registration's Agent Details stage must show all fields in a single,
+full-width pane, including before an imported identity is selected.
+
+**Why:** The user repeatedly reported incomplete fields after the workflow was
+converted to tabs. Checks using only a selected synthetic identity missed the
+initial state the user was actually viewing.
+
+**How to apply:** Keep the unselected form inspectable but disabled. Include that
+state when checking field visibility, rather than validating only populated
+records or relying on the outer page width.
