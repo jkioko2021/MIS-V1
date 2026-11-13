@@ -34,6 +34,7 @@ paths:
       operationId: listIntermediaries
       parameters:
         - { name: search, in: query, schema: { type: string } }
+        - { name: search_by, in: query, schema: { type: string, enum: [all, name, agent_code, payroll] } }
         - { name: status, in: query, schema: { type: string } }
         - { name: agent_type, in: query, schema: { type: string } }
         - { name: registration_status, in: query, schema: { type: string, enum: [PENDING, COMPLETED] } }
@@ -835,6 +836,8 @@ components:
         ira_compliant: { type: boolean }
         kyc_compliant: { type: boolean }
         contract_signed: { type: boolean }
+        waiver: { type: boolean }
+        waiver_reason: { type: ["string", "null"] }
     IntermediaryDirector:
       type: object
       required: [director_id, name, version]
@@ -865,6 +868,7 @@ components:
         file_size: { type: integer }
         uploaded_by: { type: string }
         created_at: { type: string }
+        document_type: { type: string, enum: [C001, C002] }
     IntermediaryMapping:
       type: object
       required: [from_code, to_code, to_name, mapped_by]
@@ -898,6 +902,8 @@ components:
         ira_compliant: { type: boolean }
         kyc_compliant: { type: boolean }
         contract_signed: { type: boolean }
+        waiver: { type: boolean }
+        waiver_reason: { type: ["string", "null"], maxLength: 4000 }
         director_id: { type: integer }
         director_version: { type: integer }
         name: { type: string, maxLength: 250 }
@@ -911,8 +917,9 @@ components:
       properties:
         title: { type: string, minLength: 1, maxLength: 120 }
         file_name: { type: string, minLength: 1, maxLength: 255 }
-        content_type: { type: string, enum: [application/pdf, image/jpeg, image/png] }
+        content_type: { type: string, enum: [application/pdf, image/jpeg, image/png, image/gif, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/zip, application/vnd.rar, application/x-rar-compressed] }
         file_size: { type: integer, minimum: 1, maximum: 26214400 }
+        document_type: { type: string, enum: [C001, C002] }
     RiskReferenceCatalog:
       type: string
       enum: [action-statuses, categories, control-effectiveness, objectives, exposure, impact, likelihood, reasons]

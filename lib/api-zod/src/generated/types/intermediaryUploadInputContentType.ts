@@ -13,4 +13,12 @@ export const IntermediaryUploadInputContentType = {
   'application/pdf': 'application/pdf',
   'image/jpeg': 'image/jpeg',
   'image/png': 'image/png',
+  'image/gif': 'image/gif',
+  'application/msword': 'application/msword',
+  'application/vndopenxmlformats-officedocumentwordprocessingmldocument': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vndms-excel': 'application/vnd.ms-excel',
+  'application/vndopenxmlformats-officedocumentspreadsheetmlsheet': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/zip': 'application/zip',
+  'application/vndrar': 'application/vnd.rar',
+  'application/x-rar-compressed': 'application/x-rar-compressed',
 } as const;

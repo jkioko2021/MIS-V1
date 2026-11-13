@@ -41,11 +41,14 @@ router.get("/intermediary/options", wrap(async (req, res) => {
     units: values("unit_code"), branches: values("branch_code"), regions: values("region_code"), gi_codes: values("gi_code") }));
 }));
 router.get("/intermediary/agents", wrap(async (req, res) => {
-  const p = z.object({ search: z.string().max(200).optional(), status: z.string().max(50).optional(),
+  const p = z.object({ search: z.string().max(200).optional(), search_by: z.enum(["all", "name", "agent_code", "payroll"]).default("all"),
+    status: z.string().max(50).optional(),
     agent_type: z.string().max(50).optional(), registration_status: z.enum(["PENDING", "COMPLETED"]).optional(),
     page: z.coerce.number().int().min(1).max(100000).default(1) }).parse(req.query);
   const params = [`%${p.search?.trim() ?? ""}%`, p.status || null, p.agent_type || null, p.registration_status || null];
-  const where = `(agent_name ILIKE $1 OR agent_code ILIKE $1 OR hrmis_code ILIKE $1 OR email ILIKE $1)
+  const searchColumns = { all: ["agent_name", "agent_code", "hrmis_code", "email", "user_id", "source_ref"],
+    name: ["agent_name"], agent_code: ["agent_code"], payroll: ["hrmis_code"] } as const;
+  const where = `(${searchColumns[p.search_by].map(col => `${col} ILIKE $1`).join(" OR ")})
     AND ($2::text IS NULL OR agent_status=$2) AND ($3::text IS NULL OR agent_type=$3)
     AND ($4::text IS NULL OR registration_status=$4)`;
   const count = await queryOne<{ total: number }>(`SELECT count(*)::int AS total FROM crm.tbl_mis_sales_intermediary WHERE ${where}`, params);
@@ -81,8 +84,9 @@ router.post("/intermediary/agents/:code/uploads", wrap(async (req, res) => {
   const url = await storage.getObjectEntityUploadURL(req.user!.username, data.file_size, data.content_type);
   const objectPath = storage.normalizeObjectEntityPath(url);
   const r = await queryOne<{ document_id: number }>(`INSERT INTO crm.intermediary_documents
-    (agent_code,title,file_name,content_type,file_size,object_path,uploaded_by) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING document_id`,
-    [code, data.title.trim(), data.file_name, data.content_type, data.file_size, objectPath, req.user!.username]);
+    (agent_code,title,file_name,content_type,file_size,object_path,uploaded_by,document_type)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING document_id`,
+    [code, data.title.trim(), data.file_name, data.content_type, data.file_size, objectPath, req.user!.username, data.document_type ?? "C002"]);
   res.json(RequestIntermediaryUploadResponse.parse({ document_id: r!.document_id, upload_url: url }));
 }));
 router.post("/intermediary/agents/:code/documents/:id/confirm", wrap(async (req, res) => {

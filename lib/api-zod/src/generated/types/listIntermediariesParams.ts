@@ -6,9 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ListIntermediariesRegistrationStatus } from './listIntermediariesRegistrationStatus';
+import type { ListIntermediariesSearchBy } from './listIntermediariesSearchBy';
 
 export type ListIntermediariesParams = {
 search?: string;
+search_by?: ListIntermediariesSearchBy;
 status?: string;
 agent_type?: string;
 registration_status?: ListIntermediariesRegistrationStatus;

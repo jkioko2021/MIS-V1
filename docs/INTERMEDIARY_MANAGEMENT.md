@@ -52,13 +52,43 @@ Assign the new profile through User Management.
   business agent codes or merge agent identities. Existing date/status mismatches
   are preserved unless a deliberate status action is taken.
 * Licence verification is a separate action on submitted data, not automatic
-  approval on upload. Verification requires compliant IRA/KYC and signed contract.
-  A second authorized user must verify; no legacy waiver is inferred.
+  approval on upload. Verification requires compliant IRA/KYC and signed contract,
+  or an explicitly justified waiver accepted by a second authorized user.
+  Waiver requests retain their justification and audit history; the reviewer sees
+  the exceptions and confirms acceptance. Waivers never bypass current licence
+  dates, confirmed documents or independent review.
+
+## Registration field parity
+
+The modern Agent Registration page follows `P_Agent_Registration.aspx` and its
+code-behind, with all registration sections on the same page:
+
+* Personal Details: App Number (source reference), Receive Date, immutable Agent
+  No and Intermediary Name, Agent Type, Region, Sales Manager (unit code), GI
+  Manager (GI code), PIN, ID/Reg No, Contract Date and Payroll No.
+* Contact Details: primary/secondary mobile and email.
+* Commission Details: rate, pay frequency and eTIMS Integrated. Stored frequency
+  values match legacy: Daily `1`, Weekly `7`, Bi-Weekly `14`, Monthly `30`.
+* IRA/Contract Details: document name (`C001` New Application/Licence, `C002`
+  Others), licence number, year-driven date boundaries, Valid From/To,
+  Contract Signed, IRA and KYC compliance, comments and justified waiver.
+* Documentation: private uploads, confirmed evidence listing and downloads;
+  PDF, JPEG/PNG/GIF, Word, Excel, ZIP and RAR are accepted, up to 25 MiB.
+* Directors: full name, ID, mobile, email, PIN and add/edit history.
+* Retained comments show author/date; Is Complete requires the saved profile,
+  verified current licence, supporting documents and completion note.
+
+The complete form remains visible but disabled without an imported identity.
+Completed records are read-only here; the existing authorized changes workflow
+handles later corrections. Manager/region names are not fabricated while their
+source catalogs and core SQL connection are deferred. Core import, commission
+updates and registration email integration are not simulated.
 
 ## Setup
 
-Apply `lib/db/migrations/0052_intermediary_management.sql` and
-`lib/db/migrations/0053_intermediary_core_import.sql` to a development/local PostgreSQL
+Apply `lib/db/migrations/0052_intermediary_management.sql`,
+`lib/db/migrations/0053_intermediary_core_import.sql` and
+`lib/db/migrations/0054_intermediary_registration_fields.sql` to a development/local PostgreSQL
 database before using the module. It adds columns/tables and the National Sales
 Admin profile/menu grants without deleting or recoding existing agents.
 The local development initializer also applies this additive migration.

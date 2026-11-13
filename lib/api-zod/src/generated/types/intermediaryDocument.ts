@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { IntermediaryDocumentDocumentType } from './intermediaryDocumentDocumentType';
 
 export interface IntermediaryDocument {
   document_id: number;
@@ -13,4 +14,5 @@ export interface IntermediaryDocument {
   file_size: number;
   uploaded_by: string;
   created_at: string;
+  document_type?: IntermediaryDocumentDocumentType;
 }

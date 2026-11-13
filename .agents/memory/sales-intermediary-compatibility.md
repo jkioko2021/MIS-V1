@@ -26,3 +26,15 @@ agent identities; MIS is the subsequent import and details-capture workflow.
 **How to apply:** Keep import and MIS details capture separate, preserve core
 identity/provenance, make repeated imports safe, and report a disconnected or
 unconfirmed core source explicitly instead of creating placeholder agents.
+
+When reproducing the legacy registration form, retain the modern independent
+licence review boundary. A waiver is a documented request for compliance
+exceptions, not automatic verification or permission to skip evidence.
+
+**Why:** The legacy upload/completion handlers combine compliance capture with
+approval. Replicating their fields should not silently remove the existing
+separation between the person entering a licence and the person approving it.
+
+**How to apply:** Show waiver reasons explicitly to reviewers, require their
+acceptance, and retain current licence dates and confirmed supporting documents
+as completion requirements.

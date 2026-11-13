@@ -109,6 +109,27 @@ try {
   first=await action(a,"VERIFY_LICENCE",{licence_id:lid},"fixture_checker");
   assert.equal(first.licences[0].status,"VERIFIED");
   assert.equal(first.licences[0].reviewed_by,"fixture_checker");
+  await assert.rejects(action(a,"SAVE_LICENCE",{
+    licence_no:`WAIVER_${prefix}`,valid_from:dates.f,valid_to:dates.t,
+    waiver:true,ira_compliant:false,kyc_compliant:false,contract_signed:false
+  }),e=>e.status===400);
+  first=await action(a,"SAVE_LICENCE",{
+    licence_no:`WAIVER_${prefix}`,valid_from:dates.f,valid_to:dates.t,
+    waiver:true,waiver_reason:"Synthetic documented compliance exception",
+    ira_compliant:false,kyc_compliant:false,contract_signed:false
+  });
+  const waiverId=first.licences[0].licence_id;
+  assert.equal(first.licences[0].waiver,true);
+  assert.equal(first.licences[0].waiver_reason,"Synthetic documented compliance exception");
+  assert(first.events.some(e=>e.action==="WAIVER_REQUESTED"));
+  // Older licence editors omit waiver fields; omission must preserve justification.
+  first=await action(a,"SAVE_LICENCE",{licence_id:waiverId,licence_no:`WAIVER_${prefix}`,
+    valid_from:dates.f,valid_to:dates.t,ira_compliant:false,kyc_compliant:false,contract_signed:false});
+  assert.equal(first.licences[0].waiver,true);
+  await action(a,"SUBMIT_LICENCE",{licence_id:waiverId});
+  await assert.rejects(action(a,"VERIFY_LICENCE",{licence_id:waiverId}),e=>e.status===403);
+  first=await action(a,"VERIFY_LICENCE",{licence_id:waiverId},"fixture_checker");
+  assert.equal(first.licences[0].status,"VERIFIED");
   await assert.rejects(action(a,"SAVE_LICENCE",{licence_id:lid,licence_no:"bad",valid_from:dates.f,valid_to:dates.t}),e=>e.status===409);
   first=await lib.saveMaster({...first.agent,notes:"Complete complementary MIS details",unit_code:"UNIT-QA",region_code:"REG-QA",
     receive_date:dates.f,contract_date:dates.f},"fixture_maker",a);

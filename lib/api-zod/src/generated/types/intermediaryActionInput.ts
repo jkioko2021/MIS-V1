@@ -24,6 +24,12 @@ export interface IntermediaryActionInput {
   ira_compliant?: boolean;
   kyc_compliant?: boolean;
   contract_signed?: boolean;
+  waiver?: boolean;
+  /**
+     * @maxLength 4000
+     * @nullable
+     */
+  waiver_reason?: string | null;
   director_id?: number;
   director_version?: number;
   /** @maxLength 250 */

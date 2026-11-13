@@ -33,6 +33,7 @@ export const GetIntermediaryOptionsResponse = zod.object({
 
 export const ListIntermediariesQueryParams = zod.object({
   "search": zod.coerce.string().optional(),
+  "search_by": zod.enum(['all', 'name', 'agent_code', 'payroll']).optional(),
   "status": zod.coerce.string().optional(),
   "agent_type": zod.coerce.string().optional(),
   "registration_status": zod.enum(['PENDING', 'COMPLETED']).optional(),
@@ -207,7 +208,9 @@ export const GetIntermediaryResponse = zod.object({
   "reviewed_by": zod.string().nullish(),
   "ira_compliant": zod.boolean(),
   "kyc_compliant": zod.boolean(),
-  "contract_signed": zod.boolean()
+  "contract_signed": zod.boolean(),
+  "waiver": zod.boolean().optional(),
+  "waiver_reason": zod.string().nullish()
 })),
   "directors": zod.array(zod.object({
   "director_id": zod.number().int(),
@@ -231,7 +234,8 @@ export const GetIntermediaryResponse = zod.object({
   "file_name": zod.string(),
   "file_size": zod.number().int(),
   "uploaded_by": zod.string(),
-  "created_at": zod.string()
+  "created_at": zod.string(),
+  "document_type": zod.enum(['C001', 'C002']).optional()
 })),
   "mappings": zod.array(zod.object({
   "from_code": zod.string(),
@@ -397,7 +401,9 @@ export const UpdateIntermediaryResponse = zod.object({
   "reviewed_by": zod.string().nullish(),
   "ira_compliant": zod.boolean(),
   "kyc_compliant": zod.boolean(),
-  "contract_signed": zod.boolean()
+  "contract_signed": zod.boolean(),
+  "waiver": zod.boolean().optional(),
+  "waiver_reason": zod.string().nullish()
 })),
   "directors": zod.array(zod.object({
   "director_id": zod.number().int(),
@@ -421,7 +427,8 @@ export const UpdateIntermediaryResponse = zod.object({
   "file_name": zod.string(),
   "file_size": zod.number().int(),
   "uploaded_by": zod.string(),
-  "created_at": zod.string()
+  "created_at": zod.string(),
+  "document_type": zod.enum(['C001', 'C002']).optional()
 })),
   "mappings": zod.array(zod.object({
   "from_code": zod.string(),
@@ -439,6 +446,8 @@ export const ActionIntermediaryParams = zod.object({
 export const actionIntermediaryBodyNotesMax = 4000;
 
 export const actionIntermediaryBodyLicenceNoMax = 100;
+
+export const actionIntermediaryBodyWaiverReasonMax = 4000;
 
 export const actionIntermediaryBodyNameMax = 250;
 
@@ -464,6 +473,8 @@ export const ActionIntermediaryBody = zod.object({
   "ira_compliant": zod.boolean().optional(),
   "kyc_compliant": zod.boolean().optional(),
   "contract_signed": zod.boolean().optional(),
+  "waiver": zod.boolean().optional(),
+  "waiver_reason": zod.string().max(actionIntermediaryBodyWaiverReasonMax).nullish(),
   "director_id": zod.number().int().optional(),
   "director_version": zod.number().int().optional(),
   "name": zod.string().max(actionIntermediaryBodyNameMax).optional(),
@@ -557,7 +568,9 @@ export const ActionIntermediaryResponse = zod.object({
   "reviewed_by": zod.string().nullish(),
   "ira_compliant": zod.boolean(),
   "kyc_compliant": zod.boolean(),
-  "contract_signed": zod.boolean()
+  "contract_signed": zod.boolean(),
+  "waiver": zod.boolean().optional(),
+  "waiver_reason": zod.string().nullish()
 })),
   "directors": zod.array(zod.object({
   "director_id": zod.number().int(),
@@ -581,7 +594,8 @@ export const ActionIntermediaryResponse = zod.object({
   "file_name": zod.string(),
   "file_size": zod.number().int(),
   "uploaded_by": zod.string(),
-  "created_at": zod.string()
+  "created_at": zod.string(),
+  "document_type": zod.enum(['C001', 'C002']).optional()
 })),
   "mappings": zod.array(zod.object({
   "from_code": zod.string(),
@@ -607,8 +621,9 @@ export const requestIntermediaryUploadBodyFileSizeMax = 26214400;
 export const RequestIntermediaryUploadBody = zod.object({
   "title": zod.string().min(1).max(requestIntermediaryUploadBodyTitleMax),
   "file_name": zod.string().min(1).max(requestIntermediaryUploadBodyFileNameMax),
-  "content_type": zod.enum(['application/pdf', 'image/jpeg', 'image/png']),
-  "file_size": zod.number().int().min(1).max(requestIntermediaryUploadBodyFileSizeMax)
+  "content_type": zod.enum(['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip', 'application/vnd.rar', 'application/x-rar-compressed']),
+  "file_size": zod.number().int().min(1).max(requestIntermediaryUploadBodyFileSizeMax),
+  "document_type": zod.enum(['C001', 'C002']).optional()
 })
 
 export const RequestIntermediaryUploadResponse = zod.object({
@@ -706,7 +721,9 @@ export const ConfirmIntermediaryUploadResponse = zod.object({
   "reviewed_by": zod.string().nullish(),
   "ira_compliant": zod.boolean(),
   "kyc_compliant": zod.boolean(),
-  "contract_signed": zod.boolean()
+  "contract_signed": zod.boolean(),
+  "waiver": zod.boolean().optional(),
+  "waiver_reason": zod.string().nullish()
 })),
   "directors": zod.array(zod.object({
   "director_id": zod.number().int(),
@@ -730,7 +747,8 @@ export const ConfirmIntermediaryUploadResponse = zod.object({
   "file_name": zod.string(),
   "file_size": zod.number().int(),
   "uploaded_by": zod.string(),
-  "created_at": zod.string()
+  "created_at": zod.string(),
+  "document_type": zod.enum(['C001', 'C002']).optional()
 })),
   "mappings": zod.array(zod.object({
   "from_code": zod.string(),

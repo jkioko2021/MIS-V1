@@ -70,6 +70,7 @@ export default function IntermediaryPage() {
   const params = new URLSearchParams(searchString);
   const routeCode = params.get('code') ?? '';
   const [search, setSearch] = useState('');
+  const [registrationSearchBy, setRegistrationSearchBy] = useState<'all' | 'name' | 'agent_code' | 'payroll'>('all');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -119,11 +120,12 @@ export default function IntermediaryPage() {
 
   const listParams = useMemo(() => ({
     search: debouncedSearch || undefined,
+    search_by: page.path === '/intermediary/registration' ? registrationSearchBy : undefined,
     status: statusFilter || undefined,
     agent_type: typeFilter || undefined,
     registration_status: page.path === '/intermediary/registration' ? 'PENDING' as const : undefined,
     page: pageNo,
-  }), [debouncedSearch, statusFilter, typeFilter, pageNo, page.path]);
+  }), [debouncedSearch, statusFilter, typeFilter, pageNo, page.path, registrationSearchBy]);
   const list = useListIntermediaries(listParams, {
     query: { queryKey: [...getListIntermediariesQueryKey(listParams), username], staleTime: 15_000, refetchOnMount: true, retry: false },
   });
@@ -252,6 +254,7 @@ export default function IntermediaryPage() {
       {page.path === '/intermediary/registration' && <AgentRegistration
         code={agentCode} username={username} options={catalog} detail={detail.data} detailError={detail.error} detailLoading={detail.isLoading}
         pendingList={list} pageNo={pageNo} setPage={setPageNo} search={search} setSearch={setSearch}
+        searchBy={registrationSearchBy} setSearchBy={setRegistrationSearchBy}
         onSelect={code => { setAgentCode(code); setLocation(`/intermediary/registration?code=${encodeURIComponent(code)}`); }}
         onInvalidate={invalidate} onNavigate={path => setLocation(path)}
         onReload={async () => { const latest = await detail.refetch(); return latest.isError ? undefined : latest.data; }}
@@ -408,7 +411,7 @@ function AgentWorkspace({ page, agent, detail, catalog, master, setMaster, note,
 
     {page === '/intermediary/licences' && <div className="im-two-col im-licence-layout">
       <section className="im-card"><div className="im-card-head compact"><div><div className="im-section-index">05 / LICENCE RECORD</div><h2>{licence.licence_id ? 'Edit licence draft' : 'Add licence draft'}</h2><p>Compliance must be complete and dates current before independent verification.</p></div><FileCheck2 size={20} /></div>
-        {detail.licences.length > 0 && <div className="im-licence-list">{detail.licences.map(item => <div key={item.licence_id} className="im-licence-row"><span className="im-licence-icon"><FileText size={17} /></span><div><b>{item.licence_no}</b><small>{item.valid_from} — {item.valid_to}</small></div><StatusPill status={item.status} /><button title="Edit licence draft" disabled={!['DRAFT', 'DECLINED'].includes(item.status)} onClick={() => setLicence({ licence_id: String(item.licence_id), licence_no: item.licence_no, valid_from: item.valid_from, valid_to: item.valid_to, ira_compliant: item.ira_compliant, kyc_compliant: item.kyc_compliant, contract_signed: item.contract_signed })}><ChevronDown size={15} /></button>
+        {detail.licences.length > 0 && <div className="im-licence-list">{detail.licences.map(item => <div key={item.licence_id} className="im-licence-row"><span className="im-licence-icon"><FileText size={17} /></span><div><b>{item.licence_no}</b><small>{item.valid_from} — {item.valid_to}</small><small className="im-flags">{item.ira_compliant ? 'IRA compliant' : 'IRA exception'} · {item.kyc_compliant ? 'KYC compliant' : 'KYC exception'} · {item.contract_signed ? 'Contract signed' : 'Contract missing'}{item.waiver ? ` · WAIVER REQUESTED: ${item.waiver_reason || 'Reason not supplied'}` : ''}</small></div><StatusPill status={item.status} /><button title="Edit licence draft" disabled={!['DRAFT', 'DECLINED'].includes(item.status)} onClick={() => setLicence({ licence_id: String(item.licence_id), licence_no: item.licence_no, valid_from: item.valid_from, valid_to: item.valid_to, ira_compliant: item.ira_compliant, kyc_compliant: item.kyc_compliant, contract_signed: item.contract_signed })}><ChevronDown size={15} /></button>
           {['DRAFT', 'DECLINED'].includes(item.status) && <button className="im-text-button" onClick={() => submit(item.licence_id)} disabled={suspended || isPending || !note.trim() || detail.documents.length === 0}>Submit for verification</button>}</div>)}</div>}
         {detail.documents.length === 0 && <div className="im-alert im-alert-warn im-licence-required"><AlertCircle size={15} /><span>At least one supporting document must be uploaded and confirmed before a licence can be submitted.</span></div>}
         <div className="im-form-grid"><Field label="Licence number" required value={licence.licence_no} onChange={v => setLicence({ ...licence, licence_no: v })} />
@@ -455,7 +458,7 @@ function AgentWorkspace({ page, agent, detail, catalog, master, setMaster, note,
 function RecordPanels({ agent, detail, downloadUrl }: { agent: Intermediary; detail: IntermediaryDetail; downloadUrl: (id: number) => string }) {
   return <div className="im-record-panels">
     <section className="im-card im-mini-card"><div className="im-card-head compact"><div><div className="im-section-index">COMPLIANCE</div><h2>Licences <span className="im-count">{detail.licences.length}</span></h2></div><FileCheck2 size={18} /></div>
-      {detail.licences.length ? detail.licences.map(item => <div className="im-licence-row" key={item.licence_id}><span className="im-licence-icon"><FileCheck2 size={16} /></span><div><b>{item.licence_no}</b><small>{item.valid_from} — {item.valid_to}</small><small className="im-flags">{item.ira_compliant ? 'IRA' : 'IRA missing'} · {item.kyc_compliant ? 'KYC' : 'KYC missing'} · {item.contract_signed ? 'Contract signed' : 'Contract missing'}{item.reviewed_by ? ` · Reviewed by ${item.reviewed_by}` : ''}</small></div><StatusPill status={item.status} /></div>) : <div className="im-quiet-empty">No licence record retained.</div>}
+      {detail.licences.length ? detail.licences.map(item => <div className="im-licence-row" key={item.licence_id}><span className="im-licence-icon"><FileCheck2 size={16} /></span><div><b>{item.licence_no}</b><small>{item.valid_from} — {item.valid_to}</small><small className="im-flags">{item.ira_compliant ? 'IRA' : 'IRA missing'} · {item.kyc_compliant ? 'KYC' : 'KYC missing'} · {item.contract_signed ? 'Contract signed' : 'Contract missing'}{item.waiver ? ` · WAIVER REQUESTED: ${item.waiver_reason || 'Reason not supplied'}` : ''}{item.reviewed_by ? ` · Reviewed by ${item.reviewed_by}` : ''}</small></div><StatusPill status={item.status} /></div>) : <div className="im-quiet-empty">No licence record retained.</div>}
     </section>
     <section className="im-card im-mini-card"><div className="im-card-head compact"><div><div className="im-section-index">OWNERSHIP</div><h2>Directors <span className="im-count">{detail.directors.length}</span></h2></div><Users size={18} /></div>
       {detail.directors.length ? detail.directors.map(d => <div key={d.director_id} className="im-director-view"><span className="im-avatar">{d.name.slice(0, 1)}</span><span><b>{d.name}</b><small>{d.email || d.mobile_no || d.pin_no || 'No contact supplied'}</small></span></div>) : <div className="im-quiet-empty">No directors listed.</div>}
@@ -497,16 +500,29 @@ function VerificationAgent({ item, username, selected, onSelect, mutateAction, a
     {submitted.map(licence => {
       const ownSubmission = licence.entered_by.trim().toLowerCase() === username.trim().toLowerCase();
       const today = new Date().toISOString().slice(0, 10);
-      const allCompliant = licence.ira_compliant && licence.kyc_compliant && licence.contract_signed && licence.valid_from <= today && licence.valid_to >= today;
-      const canVerify = !ownSubmission && allCompliant && !!note.trim() && !isPending;
+      const currentDates = licence.valid_from <= today && licence.valid_to >= today;
+      const hasDocuments = (detail.data?.documents.length ?? 0) > 0;
+      const waiverRequested = licence.waiver === true;
+      const allComplianceFlags = licence.ira_compliant && licence.kyc_compliant && licence.contract_signed;
+      const waiverDocumented = waiverRequested && Boolean(licence.waiver_reason?.trim());
+      const canVerify = !ownSubmission && currentDates && hasDocuments && (allComplianceFlags || waiverDocumented) && !!note.trim() && !isPending;
+      const verifyLicence = () => {
+        if (waiverRequested) {
+          const accepted = window.confirm(`Accept the documented compliance exceptions for licence ${licence.licence_no}?\n\nWaiver reason: ${licence.waiver_reason || 'No reason supplied'}\n\nThis explicitly accepts the exceptions for independent verification. Confirm current dates and supporting documents before proceeding.`);
+          if (!accepted) return;
+        }
+        mutateAction({ action: 'VERIFY_LICENCE', licence_id: licence.licence_id }, 'Licence verified.', item.agent_code, detail.data?.agent);
+      };
       return <div key={licence.licence_id} className="im-review-licence">
         <div className="im-review-licence-head"><span className="im-licence-icon"><FileCheck2 size={16} /></span><div><b>{licence.licence_no}</b><small>Valid {licence.valid_from} to {licence.valid_to} · Submitted by {licence.entered_by}</small></div><StatusPill status={licence.status} /></div>
-        <div className="im-review-flags"><span className={licence.ira_compliant ? 'pass' : 'fail'}><i /> IRA {licence.ira_compliant ? 'compliant' : 'not compliant'}</span><span className={licence.kyc_compliant ? 'pass' : 'fail'}><i /> KYC {licence.kyc_compliant ? 'compliant' : 'not compliant'}</span><span className={licence.contract_signed ? 'pass' : 'fail'}><i /> Contract {licence.contract_signed ? 'signed' : 'missing'}</span><span className={licence.valid_from <= new Date().toISOString().slice(0, 10) && licence.valid_to >= new Date().toISOString().slice(0, 10) ? 'pass' : 'fail'}><i /> {licence.valid_from <= new Date().toISOString().slice(0, 10) && licence.valid_to >= new Date().toISOString().slice(0, 10) ? 'Current' : 'Not currently valid'}</span></div>
+        <div className="im-review-flags"><span className={licence.ira_compliant ? 'pass' : 'fail'}><i /> IRA {licence.ira_compliant ? 'compliant' : 'not compliant'}</span><span className={licence.kyc_compliant ? 'pass' : 'fail'}><i /> KYC {licence.kyc_compliant ? 'compliant' : 'not compliant'}</span><span className={licence.contract_signed ? 'pass' : 'fail'}><i /> Contract {licence.contract_signed ? 'signed' : 'missing'}</span><span className={currentDates ? 'pass' : 'fail'}><i /> {currentDates ? 'Current' : 'Not currently valid'}</span></div>
+        {waiverRequested && <div className="im-alert im-alert-warn im-waiver-review"><ShieldAlert size={16} /><span><strong>WAIVER REQUESTED — independent acceptance required</strong><p>{licence.waiver_reason || 'No waiver reason was recorded.'}</p></span></div>}
         {ownSubmission && <div className="im-alert im-alert-warn"><AlertCircle size={16} /><span>You submitted this licence. A different authorized user must verify it.</span></div>}
-        {!allCompliant && !ownSubmission && <div className="im-alert im-alert-warn"><AlertCircle size={16} /><span>All three compliance flags and a valid-from / valid-to range covering today are required before verification.</span></div>}
-        {detail.data?.documents.length ? <div className="im-review-documents"><b>Supporting evidence</b>{detail.data.documents.map(document => <a href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/api/intermediary/agents/${encodeURIComponent(item.agent_code)}/documents/${document.document_id}/download`} target="_blank" rel="noreferrer" key={document.document_id}><FileText size={14} /><span>{document.title}<small>{document.file_name}</small></span><ArrowDownToLine size={14} /></a>)}</div> : <div className="im-review-no-docs"><AlertCircle size={14} /> No confirmed supporting documents on this agent record.</div>}
+        {!allComplianceFlags && !waiverDocumented && !ownSubmission && <div className="im-alert im-alert-warn"><AlertCircle size={16} /><span>All compliance flags are required unless a documented waiver request is present. A waiver is not acceptance.</span></div>}
+        {!currentDates && !ownSubmission && <div className="im-alert im-alert-warn"><AlertCircle size={16} /><span>Valid From and Valid To must cover today. Waiver requests do not waive current-date requirements.</span></div>}
+        {detail.data?.documents.length ? <div className="im-review-documents"><b>Supporting evidence</b>{detail.data.documents.map(document => <a href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/api/intermediary/agents/${encodeURIComponent(item.agent_code)}/documents/${document.document_id}/download`} target="_blank" rel="noreferrer" key={document.document_id}><FileText size={14} /><span>{document.title}<small>{document.document_type || 'Type not returned'} · {document.file_name}</small></span><ArrowDownToLine size={14} /></a>)}</div> : <div className="im-review-no-docs"><AlertCircle size={14} /> No confirmed supporting documents on this agent record.</div>}
         <NoteField value={note} onChange={setNote} label={licence.status === 'SUBMITTED' ? 'Review note / decline reason' : 'Review note'} />
-        <div className="im-review-actions"><Button variant="quiet" disabled={!note.trim() || isPending} onClick={() => mutateAction({ action: 'DECLINE_LICENCE', licence_id: licence.licence_id }, 'Licence declined with reason.', item.agent_code, detail.data?.agent)}>Decline with reason</Button><Button disabled={!canVerify} onClick={() => mutateAction({ action: 'VERIFY_LICENCE', licence_id: licence.licence_id }, 'Licence verified.', item.agent_code, detail.data?.agent)}><BadgeCheck size={15} /> Verify licence</Button></div>
+        <div className="im-review-actions"><Button variant="quiet" disabled={!note.trim() || isPending} onClick={() => mutateAction({ action: 'DECLINE_LICENCE', licence_id: licence.licence_id }, 'Licence declined with reason.', item.agent_code, detail.data?.agent)}>Decline with reason</Button><Button disabled={!canVerify} onClick={verifyLicence}><BadgeCheck size={15} /> {waiverRequested ? 'Accept waiver & verify' : 'Verify licence'}</Button></div>
       </div>;
     })}
     {!detail.isLoading && !detail.isError && submitted.length === 0 && <p className="im-no-submissions">{detail.data?.licences.length ? 'No licences are awaiting review.' : 'No licence records.'}</p>}

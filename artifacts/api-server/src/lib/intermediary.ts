@@ -63,7 +63,7 @@ export async function detail(code: string) {
     query("SELECT * FROM crm.intermediary_directors WHERE agent_code=$1 ORDER BY director_id", [code]),
     query(`SELECT *,event_id::text AS event_id,created_at::text AS created_at FROM crm.intermediary_events
       WHERE agent_code=$1 ORDER BY crm.intermediary_events.event_id DESC`, [code]),
-    query(`SELECT document_id,title,file_name,file_size,uploaded_by,created_at::text AS created_at
+    query(`SELECT document_id,title,document_type,file_name,file_size,uploaded_by,created_at::text AS created_at
       FROM crm.intermediary_documents WHERE agent_code=$1 AND confirmed ORDER BY document_id DESC`, [code]),
     query(`SELECT m.*,a.agent_name AS to_name FROM crm.intermediary_mappings m
       JOIN ${master} a ON a.agent_code=m.to_code WHERE m.from_code=$1 OR m.to_code=$1`, [code]),
@@ -163,17 +163,26 @@ export async function performAction(code: string, body: unknown, actor: string) 
       const no = required(data.licence_no, "Licence number", 100);
       const from = calendar.parse(data.valid_from), to = calendar.parse(data.valid_to);
       if (to < from) throw new IntermediaryError(400, "Licence expiry must not precede its start date.");
-      const v = [no, from, to, !!data.ira_compliant, !!data.kyc_compliant, !!data.contract_signed, actor, code];
+      const previous = data.licence_id ? (await client.query(
+        "SELECT waiver,waiver_reason FROM crm.intermediary_licences WHERE agent_code=$1 AND licence_id=$2",
+        [code, data.licence_id])).rows[0] : undefined;
+      const waiver = data.waiver ?? previous?.waiver ?? false;
+      const waiverReason = waiver ? required(
+        data.waiver_reason === undefined ? previous?.waiver_reason : data.waiver_reason, "Waiver justification") : null;
+      const v = [no, from, to, !!data.ira_compliant, !!data.kyc_compliant, !!data.contract_signed,
+        actor, code, waiver, waiverReason];
       if (data.licence_id) {
         const r = await client.query(`UPDATE crm.intermediary_licences SET licence_no=$1,valid_from=$2,
           valid_to=$3,ira_compliant=$4,kyc_compliant=$5,contract_signed=$6,entered_by=$7,
-          status='DRAFT',reviewed_by=NULL,reviewed_at=NULL WHERE agent_code=$8 AND licence_id=$9
-          AND status IN ('DRAFT','DECLINED')`, [...v, data.licence_id]);
+          waiver=$9,waiver_reason=$10,status='DRAFT',reviewed_by=NULL,reviewed_at=NULL
+          WHERE agent_code=$8 AND licence_id=$11 AND status IN ('DRAFT','DECLINED')`, [...v, data.licence_id]);
         if (!r.rowCount) throw new IntermediaryError(409, "Only draft or declined licences can be edited.");
       } else {
         await client.query(`INSERT INTO crm.intermediary_licences(licence_no,valid_from,valid_to,
-          ira_compliant,kyc_compliant,contract_signed,entered_by,agent_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, v);
+          ira_compliant,kyc_compliant,contract_signed,entered_by,agent_code,waiver,waiver_reason)
+          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, v);
       }
+      if (waiver) await audit(client, code, "WAIVER_REQUESTED", actor, waiverReason!);
     } else if (["SUBMIT_LICENCE", "VERIFY_LICENCE", "DECLINE_LICENCE"].includes(data.action)) {
       const l = (await client.query(`SELECT *,valid_to < CURRENT_DATE AS expired,valid_from > CURRENT_DATE AS future
         FROM crm.intermediary_licences WHERE agent_code=$1 AND licence_id=$2 FOR UPDATE`, [code, data.licence_id])).rows[0];
@@ -188,8 +197,10 @@ export async function performAction(code: string, body: unknown, actor: string) 
       }
       if (data.action === "VERIFY_LICENCE") {
         if (l.entered_by === actor) throw new IntermediaryError(403, "Another authorized user must verify this licence.");
-        if (!l.ira_compliant || !l.kyc_compliant || !l.contract_signed || l.expired || l.future)
-          throw new IntermediaryError(400, "Verification requires a currently valid licence, IRA/KYC compliance and signed contract.");
+        if (l.expired || l.future)
+          throw new IntermediaryError(400, "Verification requires a currently valid licence.");
+        if ((!l.ira_compliant || !l.kyc_compliant || !l.contract_signed) && !(l.waiver && l.waiver_reason?.trim()))
+          throw new IntermediaryError(400, "Verification requires IRA/KYC compliance and a signed contract, or a documented waiver for independent approval.");
       }
       const status = submitting ? "SUBMITTED" : data.action === "VERIFY_LICENCE" ? "VERIFIED" : "DECLINED";
       await client.query(`UPDATE crm.intermediary_licences SET status=$2,

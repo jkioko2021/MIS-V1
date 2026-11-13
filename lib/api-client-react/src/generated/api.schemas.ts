@@ -188,6 +188,9 @@ export interface IntermediaryLicence {
   ira_compliant: boolean;
   kyc_compliant: boolean;
   contract_signed: boolean;
+  waiver?: boolean;
+  /** @nullable */
+  waiver_reason?: string | null;
 }
 
 export interface IntermediaryDirector {
@@ -212,6 +215,14 @@ export interface IntermediaryEvent {
   created_at: string;
 }
 
+export type IntermediaryDocumentDocumentType = typeof IntermediaryDocumentDocumentType[keyof typeof IntermediaryDocumentDocumentType];
+
+
+export const IntermediaryDocumentDocumentType = {
+  C001: 'C001',
+  C002: 'C002',
+} as const;
+
 export interface IntermediaryDocument {
   document_id: number;
   title: string;
@@ -219,6 +230,7 @@ export interface IntermediaryDocument {
   file_size: number;
   uploaded_by: string;
   created_at: string;
+  document_type?: IntermediaryDocumentDocumentType;
 }
 
 export interface IntermediaryMapping {
@@ -272,6 +284,12 @@ export interface IntermediaryActionInput {
   ira_compliant?: boolean;
   kyc_compliant?: boolean;
   contract_signed?: boolean;
+  waiver?: boolean;
+  /**
+     * @maxLength 4000
+     * @nullable
+     */
+  waiver_reason?: string | null;
   director_id?: number;
   director_version?: number;
   /** @maxLength 250 */
@@ -305,6 +323,22 @@ export const IntermediaryUploadInputContentType = {
   'application/pdf': 'application/pdf',
   'image/jpeg': 'image/jpeg',
   'image/png': 'image/png',
+  'image/gif': 'image/gif',
+  'application/msword': 'application/msword',
+  'application/vndopenxmlformats-officedocumentwordprocessingmldocument': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vndms-excel': 'application/vnd.ms-excel',
+  'application/vndopenxmlformats-officedocumentspreadsheetmlsheet': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/zip': 'application/zip',
+  'application/vndrar': 'application/vnd.rar',
+  'application/x-rar-compressed': 'application/x-rar-compressed',
+} as const;
+
+export type IntermediaryUploadInputDocumentType = typeof IntermediaryUploadInputDocumentType[keyof typeof IntermediaryUploadInputDocumentType];
+
+
+export const IntermediaryUploadInputDocumentType = {
+  C001: 'C001',
+  C002: 'C002',
 } as const;
 
 export interface IntermediaryUploadInput {
@@ -324,6 +358,7 @@ export interface IntermediaryUploadInput {
      * @maximum 26214400
      */
   file_size: number;
+  document_type?: IntermediaryUploadInputDocumentType;
 }
 
 export type RiskReferenceCatalog = typeof RiskReferenceCatalog[keyof typeof RiskReferenceCatalog];
@@ -1292,6 +1327,7 @@ export interface AllocatedDocumentUpload {
 
 export type ListIntermediariesParams = {
 search?: string;
+search_by?: ListIntermediariesSearchBy;
 status?: string;
 agent_type?: string;
 registration_status?: ListIntermediariesRegistrationStatus;
@@ -1300,6 +1336,16 @@ registration_status?: ListIntermediariesRegistrationStatus;
  */
 page?: number;
 };
+
+export type ListIntermediariesSearchBy = typeof ListIntermediariesSearchBy[keyof typeof ListIntermediariesSearchBy];
+
+
+export const ListIntermediariesSearchBy = {
+  all: 'all',
+  name: 'name',
+  agent_code: 'agent_code',
+  payroll: 'payroll',
+} as const;
 
 export type ListIntermediariesRegistrationStatus = typeof ListIntermediariesRegistrationStatus[keyof typeof ListIntermediariesRegistrationStatus];
 

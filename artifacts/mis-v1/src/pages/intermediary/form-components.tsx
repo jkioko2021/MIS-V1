@@ -49,22 +49,25 @@ export type FieldProps = {
   disabled?: boolean;
   hint?: string;
   testId?: string;
+  min?: string;
+  max?: string;
+  step?: string;
 };
 
-export function Field({ label, value, onChange, type = 'text', required, placeholder, list, disabled, hint, testId }: FieldProps) {
+export function Field({ label, value, onChange, type = 'text', required, placeholder, list, disabled, hint, testId, min, max, step }: FieldProps) {
   return <label className="im-field">
     <span>{label}{required && <b className="im-required"> *</b>}</span>
-    <input data-testid={testId} type={type} value={value} onChange={e => onChange(e.target.value)} required={required} placeholder={placeholder} list={list} disabled={disabled} />
+    <input data-testid={testId} type={type} value={value} onChange={e => onChange(e.target.value)} required={required} placeholder={placeholder} list={list} disabled={disabled} min={min} max={max} step={step} />
     {hint && <small>{hint}</small>}
   </label>;
 }
 
-export function SelectField({ label, value, onChange, options, required, emptyLabel = 'Select an option' }: {
-  label: string; value: string; onChange: (value: string) => void; options: string[]; required?: boolean; emptyLabel?: string;
+export function SelectField({ label, value, onChange, options, required, emptyLabel = 'Select an option', disabled = false }: {
+  label: string; value: string; onChange: (value: string) => void; options: string[]; required?: boolean; emptyLabel?: string; disabled?: boolean;
 }) {
   return <label className="im-field">
     <span>{label}{required && <b className="im-required"> *</b>}</span>
-    <select value={value} required={required} onChange={e => onChange(e.target.value)}>
+    <select value={value} required={required} disabled={disabled} onChange={e => onChange(e.target.value)}>
       <option value="">{emptyLabel}</option>
       {options.map(option => <option key={option} value={option}>{option}</option>)}
     </select>

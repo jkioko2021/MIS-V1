@@ -19,4 +19,7 @@ export interface IntermediaryLicence {
   ira_compliant: boolean;
   kyc_compliant: boolean;
   contract_signed: boolean;
+  waiver?: boolean;
+  /** @nullable */
+  waiver_reason?: string | null;
 }

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { IntermediaryUploadInputContentType } from './intermediaryUploadInputContentType';
+import type { IntermediaryUploadInputDocumentType } from './intermediaryUploadInputDocumentType';
 
 export interface IntermediaryUploadInput {
   /**
@@ -24,4 +25,5 @@ export interface IntermediaryUploadInput {
      * @maximum 26214400
      */
   file_size: number;
+  document_type?: IntermediaryUploadInputDocumentType;
 }
