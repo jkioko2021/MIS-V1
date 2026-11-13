@@ -30,6 +30,13 @@ import type {
   GetRiskRegisterReopenScopeParams,
   GetRiskRegisterSummaryParams,
   HealthStatus,
+  IntermediaryActionInput,
+  IntermediaryDetail,
+  IntermediaryImportResult,
+  IntermediaryInput,
+  IntermediaryList,
+  IntermediaryOptions,
+  IntermediaryUploadInput,
   ListAllocatedDocumentUploads200,
   ListClientRatings200,
   ListClientRatingsParams,
@@ -37,6 +44,7 @@ import type {
   ListClosedRiskRegistersParams,
   ListHistoricalDepartmentRisks200,
   ListHistoricalDepartmentRisksParams,
+  ListIntermediariesParams,
   ListRiskAdministrationDepartments200,
   ListRiskAdministrationReferences200,
   ListRiskRegisterRecordsParams,
@@ -45,6 +53,7 @@ import type {
   OpenDepartmentRiskCycleInput,
   RecordAllocatedDocumentUpload201,
   RecordMedicalDocumentUpload201,
+  RequestIntermediaryUpload200,
   RiskAdministrationDepartmentResponse,
   RiskAnalyticsResponse,
   RiskAssessmentInput,
@@ -102,6 +111,632 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getImportIntermediariesUrl = () => {
+
+
+
+
+  return `/api/intermediary/import`
+}
+
+export const importIntermediaries = async ( options?: Parameters<typeof customFetch>[1]): Promise<IntermediaryImportResult> => {
+
+  return customFetch<IntermediaryImportResult>(getImportIntermediariesUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getImportIntermediariesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importIntermediaries>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importIntermediaries>>, TError,void, TContext> => {
+
+const mutationKey = ['importIntermediaries'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importIntermediaries>>, void> = () => {
+
+
+          return  importIntermediaries(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportIntermediariesMutationResult = NonNullable<Awaited<ReturnType<typeof importIntermediaries>>>
+
+    export type ImportIntermediariesMutationError = ErrorType<unknown>
+
+    export const useImportIntermediaries = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importIntermediaries>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importIntermediaries>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getImportIntermediariesMutationOptions(options));
+    }
+
+export const getGetIntermediaryOptionsUrl = () => {
+
+
+
+
+  return `/api/intermediary/options`
+}
+
+export const getIntermediaryOptions = async ( options?: Parameters<typeof customFetch>[1]): Promise<IntermediaryOptions> => {
+
+  return customFetch<IntermediaryOptions>(getGetIntermediaryOptionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetIntermediaryOptionsQueryKey = () => {
+    return [
+    `/api/intermediary/options`
+    ] as const;
+    }
+
+
+export const getGetIntermediaryOptionsQueryOptions = <TData = Awaited<ReturnType<typeof getIntermediaryOptions>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getIntermediaryOptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetIntermediaryOptionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getIntermediaryOptions>>> = ({ signal }) => getIntermediaryOptions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getIntermediaryOptions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetIntermediaryOptionsQueryResult = NonNullable<Awaited<ReturnType<typeof getIntermediaryOptions>>>
+export type GetIntermediaryOptionsQueryError = ErrorType<unknown>
+
+
+
+export function useGetIntermediaryOptions<TData = Awaited<ReturnType<typeof getIntermediaryOptions>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getIntermediaryOptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetIntermediaryOptionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListIntermediariesUrl = (params?: ListIntermediariesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/intermediary/agents?${stringifiedParams}` : `/api/intermediary/agents`
+}
+
+export const listIntermediaries = async (params?: ListIntermediariesParams, options?: Parameters<typeof customFetch>[1]): Promise<IntermediaryList> => {
+
+  return customFetch<IntermediaryList>(getListIntermediariesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListIntermediariesQueryKey = (params?: ListIntermediariesParams,) => {
+    return [
+    `/api/intermediary/agents`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListIntermediariesQueryOptions = <TData = Awaited<ReturnType<typeof listIntermediaries>>, TError = ErrorType<unknown>>(params?: ListIntermediariesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listIntermediaries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListIntermediariesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listIntermediaries>>> = ({ signal }) => listIntermediaries(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listIntermediaries>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListIntermediariesQueryResult = NonNullable<Awaited<ReturnType<typeof listIntermediaries>>>
+export type ListIntermediariesQueryError = ErrorType<unknown>
+
+
+
+export function useListIntermediaries<TData = Awaited<ReturnType<typeof listIntermediaries>>, TError = ErrorType<unknown>>(
+ params?: ListIntermediariesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listIntermediaries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListIntermediariesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetIntermediaryUrl = (code: string,) => {
+
+
+
+
+  return `/api/intermediary/agents/${code}`
+}
+
+export const getIntermediary = async (code: string, options?: Parameters<typeof customFetch>[1]): Promise<IntermediaryDetail> => {
+
+  return customFetch<IntermediaryDetail>(getGetIntermediaryUrl(code),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetIntermediaryQueryKey = (code: string,) => {
+    return [
+    `/api/intermediary/agents/${code}`
+    ] as const;
+    }
+
+
+export const getGetIntermediaryQueryOptions = <TData = Awaited<ReturnType<typeof getIntermediary>>, TError = ErrorType<unknown>>(code: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getIntermediary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetIntermediaryQueryKey(code);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getIntermediary>>> = ({ signal }) => getIntermediary(code, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: code !== null && code !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getIntermediary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetIntermediaryQueryResult = NonNullable<Awaited<ReturnType<typeof getIntermediary>>>
+export type GetIntermediaryQueryError = ErrorType<unknown>
+
+
+
+export function useGetIntermediary<TData = Awaited<ReturnType<typeof getIntermediary>>, TError = ErrorType<unknown>>(
+ code: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getIntermediary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetIntermediaryQueryOptions(code,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateIntermediaryUrl = (code: string,) => {
+
+
+
+
+  return `/api/intermediary/agents/${code}`
+}
+
+export const updateIntermediary = async (code: string,
+    intermediaryInput: IntermediaryInput, options?: Parameters<typeof customFetch>[1]): Promise<IntermediaryDetail> => {
+
+  return customFetch<IntermediaryDetail>(getUpdateIntermediaryUrl(code),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(intermediaryInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateIntermediaryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateIntermediary>>, TError,{code: string;data: BodyType<IntermediaryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateIntermediary>>, TError,{code: string;data: BodyType<IntermediaryInput>}, TContext> => {
+
+const mutationKey = ['updateIntermediary'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateIntermediary>>, {code: string;data: BodyType<IntermediaryInput>}> = (props) => {
+          const {code,data} = props ?? {};
+
+          return  updateIntermediary(code,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateIntermediaryMutationResult = NonNullable<Awaited<ReturnType<typeof updateIntermediary>>>
+    export type UpdateIntermediaryMutationBody = BodyType<IntermediaryInput>
+    export type UpdateIntermediaryMutationError = ErrorType<unknown>
+
+    export const useUpdateIntermediary = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateIntermediary>>, TError,{code: string;data: BodyType<IntermediaryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateIntermediary>>,
+        TError,
+        {code: string;data: BodyType<IntermediaryInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateIntermediaryMutationOptions(options));
+    }
+
+export const getActionIntermediaryUrl = (code: string,) => {
+
+
+
+
+  return `/api/intermediary/agents/${code}/actions`
+}
+
+export const actionIntermediary = async (code: string,
+    intermediaryActionInput: IntermediaryActionInput, options?: Parameters<typeof customFetch>[1]): Promise<IntermediaryDetail> => {
+
+  return customFetch<IntermediaryDetail>(getActionIntermediaryUrl(code),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(intermediaryActionInput)
+  }
+);}
+
+
+
+
+
+export const getActionIntermediaryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof actionIntermediary>>, TError,{code: string;data: BodyType<IntermediaryActionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof actionIntermediary>>, TError,{code: string;data: BodyType<IntermediaryActionInput>}, TContext> => {
+
+const mutationKey = ['actionIntermediary'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof actionIntermediary>>, {code: string;data: BodyType<IntermediaryActionInput>}> = (props) => {
+          const {code,data} = props ?? {};
+
+          return  actionIntermediary(code,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ActionIntermediaryMutationResult = NonNullable<Awaited<ReturnType<typeof actionIntermediary>>>
+    export type ActionIntermediaryMutationBody = BodyType<IntermediaryActionInput>
+    export type ActionIntermediaryMutationError = ErrorType<unknown>
+
+    export const useActionIntermediary = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof actionIntermediary>>, TError,{code: string;data: BodyType<IntermediaryActionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof actionIntermediary>>,
+        TError,
+        {code: string;data: BodyType<IntermediaryActionInput>},
+        TContext
+      > => {
+      return useMutation(getActionIntermediaryMutationOptions(options));
+    }
+
+export const getRequestIntermediaryUploadUrl = (code: string,) => {
+
+
+
+
+  return `/api/intermediary/agents/${code}/uploads`
+}
+
+export const requestIntermediaryUpload = async (code: string,
+    intermediaryUploadInput: IntermediaryUploadInput, options?: Parameters<typeof customFetch>[1]): Promise<RequestIntermediaryUpload200> => {
+
+  return customFetch<RequestIntermediaryUpload200>(getRequestIntermediaryUploadUrl(code),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(intermediaryUploadInput)
+  }
+);}
+
+
+
+
+
+export const getRequestIntermediaryUploadMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestIntermediaryUpload>>, TError,{code: string;data: BodyType<IntermediaryUploadInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestIntermediaryUpload>>, TError,{code: string;data: BodyType<IntermediaryUploadInput>}, TContext> => {
+
+const mutationKey = ['requestIntermediaryUpload'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestIntermediaryUpload>>, {code: string;data: BodyType<IntermediaryUploadInput>}> = (props) => {
+          const {code,data} = props ?? {};
+
+          return  requestIntermediaryUpload(code,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestIntermediaryUploadMutationResult = NonNullable<Awaited<ReturnType<typeof requestIntermediaryUpload>>>
+    export type RequestIntermediaryUploadMutationBody = BodyType<IntermediaryUploadInput>
+    export type RequestIntermediaryUploadMutationError = ErrorType<unknown>
+
+    export const useRequestIntermediaryUpload = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestIntermediaryUpload>>, TError,{code: string;data: BodyType<IntermediaryUploadInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestIntermediaryUpload>>,
+        TError,
+        {code: string;data: BodyType<IntermediaryUploadInput>},
+        TContext
+      > => {
+      return useMutation(getRequestIntermediaryUploadMutationOptions(options));
+    }
+
+export const getConfirmIntermediaryUploadUrl = (code: string,
+    id: number,) => {
+
+
+
+
+  return `/api/intermediary/agents/${code}/documents/${id}/confirm`
+}
+
+export const confirmIntermediaryUpload = async (code: string,
+    id: number, options?: Parameters<typeof customFetch>[1]): Promise<IntermediaryDetail> => {
+
+  return customFetch<IntermediaryDetail>(getConfirmIntermediaryUploadUrl(code,id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getConfirmIntermediaryUploadMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmIntermediaryUpload>>, TError,{code: string;id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof confirmIntermediaryUpload>>, TError,{code: string;id: number}, TContext> => {
+
+const mutationKey = ['confirmIntermediaryUpload'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof confirmIntermediaryUpload>>, {code: string;id: number}> = (props) => {
+          const {code,id} = props ?? {};
+
+          return  confirmIntermediaryUpload(code,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConfirmIntermediaryUploadMutationResult = NonNullable<Awaited<ReturnType<typeof confirmIntermediaryUpload>>>
+
+    export type ConfirmIntermediaryUploadMutationError = ErrorType<unknown>
+
+    export const useConfirmIntermediaryUpload = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmIntermediaryUpload>>, TError,{code: string;id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof confirmIntermediaryUpload>>,
+        TError,
+        {code: string;id: number},
+        TContext
+      > => {
+      return useMutation(getConfirmIntermediaryUploadMutationOptions(options));
+    }
+
+export const getDownloadIntermediaryDocumentUrl = (code: string,
+    id: number,) => {
+
+
+
+
+  return `/api/intermediary/agents/${code}/documents/${id}/download`
+}
+
+export const downloadIntermediaryDocument = async (code: string,
+    id: number, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadIntermediaryDocumentUrl(code,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadIntermediaryDocumentQueryKey = (code: string,
+    id: number,) => {
+    return [
+    `/api/intermediary/agents/${code}/documents/${id}/download`
+    ] as const;
+    }
+
+
+export const getDownloadIntermediaryDocumentQueryOptions = <TData = Awaited<ReturnType<typeof downloadIntermediaryDocument>>, TError = ErrorType<unknown>>(code: string,
+    id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadIntermediaryDocument>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadIntermediaryDocumentQueryKey(code,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadIntermediaryDocument>>> = ({ signal }) => downloadIntermediaryDocument(code,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: code !== null && code !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadIntermediaryDocument>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadIntermediaryDocumentQueryResult = NonNullable<Awaited<ReturnType<typeof downloadIntermediaryDocument>>>
+export type DownloadIntermediaryDocumentQueryError = ErrorType<unknown>
+
+
+
+export function useDownloadIntermediaryDocument<TData = Awaited<ReturnType<typeof downloadIntermediaryDocument>>, TError = ErrorType<unknown>>(
+ code: string,
+    id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadIntermediaryDocument>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadIntermediaryDocumentQueryOptions(code,id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListRiskAdministrationReferencesUrl = (catalog: RiskReferenceCatalog,) => {
 

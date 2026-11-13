@@ -8,6 +8,747 @@
 import * as zod from 'zod';
 
 
+export const ImportIntermediariesResponse = zod.object({
+  "imported": zod.number().int(),
+  "skipped": zod.number().int(),
+  "message": zod.string()
+})
+
+
+export const GetIntermediaryOptionsResponse = zod.object({
+  "import_available": zod.boolean(),
+  "import_reason": zod.string().nullish(),
+  "username": zod.string(),
+  "agent_types": zod.array(zod.string()),
+  "statuses": zod.array(zod.string()),
+  "units": zod.array(zod.string()),
+  "branches": zod.array(zod.string()),
+  "regions": zod.array(zod.string()),
+  "gi_codes": zod.array(zod.string())
+})
+
+
+
+
+
+export const ListIntermediariesQueryParams = zod.object({
+  "search": zod.coerce.string().optional(),
+  "status": zod.coerce.string().optional(),
+  "agent_type": zod.coerce.string().optional(),
+  "registration_status": zod.enum(['PENDING', 'COMPLETED']).optional(),
+  "page": zod.coerce.number().int().min(1).optional()
+})
+
+export const listIntermediariesResponseItemsItemOneAgentCodeMax = 30;
+
+export const listIntermediariesResponseItemsItemOneAgentNameMax = 250;
+
+export const listIntermediariesResponseItemsItemOneAgentTypeMax = 50;
+
+export const listIntermediariesResponseItemsItemOneNotesMax = 4000;
+
+export const listIntermediariesResponseItemsItemOneUserIdMax = 64;
+
+export const listIntermediariesResponseItemsItemOneUnitCodeMax = 30;
+
+export const listIntermediariesResponseItemsItemOneBranchCodeMax = 30;
+
+export const listIntermediariesResponseItemsItemOneRegionCodeMax = 30;
+
+export const listIntermediariesResponseItemsItemOneEmailMax = 254;
+
+export const listIntermediariesResponseItemsItemOneMobileNoMax = 32;
+
+export const listIntermediariesResponseItemsItemOneSecondaryMobileMax = 32;
+
+export const listIntermediariesResponseItemsItemOneHrmisCodeMax = 32;
+
+export const listIntermediariesResponseItemsItemOnePinNoMax = 32;
+
+export const listIntermediariesResponseItemsItemOneNidNoMax = 32;
+
+export const listIntermediariesResponseItemsItemOneRmsCodeCorpMax = 32;
+
+export const listIntermediariesResponseItemsItemOneRmsCodeRetMax = 32;
+
+export const listIntermediariesResponseItemsItemOneGiCodeMax = 30;
+
+export const listIntermediariesResponseItemsItemOneCommissionRateMin = 0;
+export const listIntermediariesResponseItemsItemOneCommissionRateMax = 100;
+
+export const listIntermediariesResponseItemsItemOnePayModeMax = 30;
+
+
+
+export const ListIntermediariesResponse = zod.object({
+  "items": zod.array(zod.object({
+  "agent_code": zod.string().min(1).max(listIntermediariesResponseItemsItemOneAgentCodeMax),
+  "agent_name": zod.string().min(1).max(listIntermediariesResponseItemsItemOneAgentNameMax),
+  "agent_type": zod.string().min(1).max(listIntermediariesResponseItemsItemOneAgentTypeMax),
+  "version": zod.number().int(),
+  "notes": zod.string().min(1).max(listIntermediariesResponseItemsItemOneNotesMax),
+  "receive_date": zod.string().nullish(),
+  "contract_date": zod.string().nullish(),
+  "user_id": zod.string().max(listIntermediariesResponseItemsItemOneUserIdMax).nullish(),
+  "unit_code": zod.string().max(listIntermediariesResponseItemsItemOneUnitCodeMax).nullish(),
+  "branch_code": zod.string().max(listIntermediariesResponseItemsItemOneBranchCodeMax).nullish(),
+  "region_code": zod.string().max(listIntermediariesResponseItemsItemOneRegionCodeMax).nullish(),
+  "email": zod.string().max(listIntermediariesResponseItemsItemOneEmailMax).nullish(),
+  "mobile_no": zod.string().max(listIntermediariesResponseItemsItemOneMobileNoMax).nullish(),
+  "secondary_mobile": zod.string().max(listIntermediariesResponseItemsItemOneSecondaryMobileMax).nullish(),
+  "hrmis_code": zod.string().max(listIntermediariesResponseItemsItemOneHrmisCodeMax).nullish(),
+  "pin_no": zod.string().max(listIntermediariesResponseItemsItemOnePinNoMax).nullish(),
+  "nid_no": zod.string().max(listIntermediariesResponseItemsItemOneNidNoMax).nullish(),
+  "rms_code_corp": zod.string().max(listIntermediariesResponseItemsItemOneRmsCodeCorpMax).nullish(),
+  "rms_code_ret": zod.string().max(listIntermediariesResponseItemsItemOneRmsCodeRetMax).nullish(),
+  "gi_code": zod.string().max(listIntermediariesResponseItemsItemOneGiCodeMax).nullish(),
+  "commission_rate": zod.number().min(listIntermediariesResponseItemsItemOneCommissionRateMin).max(listIntermediariesResponseItemsItemOneCommissionRateMax).nullish(),
+  "pay_mode": zod.string().max(listIntermediariesResponseItemsItemOnePayModeMax).nullish(),
+  "etims_verified": zod.boolean().optional()
+}).and(zod.object({
+  "registration_status": zod.enum(['PENDING', 'COMPLETED']),
+  "source_ref": zod.string().nullish(),
+  "agent_status": zod.string().nullable(),
+  "terminated": zod.number().int(),
+  "suspended": zod.boolean(),
+  "terminate_date": zod.string().nullish()
+}))),
+  "total": zod.number().int(),
+  "page": zod.number().int(),
+  "page_size": zod.number().int()
+})
+
+
+export const GetIntermediaryParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const getIntermediaryResponseAgentOneAgentCodeMax = 30;
+
+export const getIntermediaryResponseAgentOneAgentNameMax = 250;
+
+export const getIntermediaryResponseAgentOneAgentTypeMax = 50;
+
+export const getIntermediaryResponseAgentOneNotesMax = 4000;
+
+export const getIntermediaryResponseAgentOneUserIdMax = 64;
+
+export const getIntermediaryResponseAgentOneUnitCodeMax = 30;
+
+export const getIntermediaryResponseAgentOneBranchCodeMax = 30;
+
+export const getIntermediaryResponseAgentOneRegionCodeMax = 30;
+
+export const getIntermediaryResponseAgentOneEmailMax = 254;
+
+export const getIntermediaryResponseAgentOneMobileNoMax = 32;
+
+export const getIntermediaryResponseAgentOneSecondaryMobileMax = 32;
+
+export const getIntermediaryResponseAgentOneHrmisCodeMax = 32;
+
+export const getIntermediaryResponseAgentOnePinNoMax = 32;
+
+export const getIntermediaryResponseAgentOneNidNoMax = 32;
+
+export const getIntermediaryResponseAgentOneRmsCodeCorpMax = 32;
+
+export const getIntermediaryResponseAgentOneRmsCodeRetMax = 32;
+
+export const getIntermediaryResponseAgentOneGiCodeMax = 30;
+
+export const getIntermediaryResponseAgentOneCommissionRateMin = 0;
+export const getIntermediaryResponseAgentOneCommissionRateMax = 100;
+
+export const getIntermediaryResponseAgentOnePayModeMax = 30;
+
+
+
+export const GetIntermediaryResponse = zod.object({
+  "agent": zod.object({
+  "agent_code": zod.string().min(1).max(getIntermediaryResponseAgentOneAgentCodeMax),
+  "agent_name": zod.string().min(1).max(getIntermediaryResponseAgentOneAgentNameMax),
+  "agent_type": zod.string().min(1).max(getIntermediaryResponseAgentOneAgentTypeMax),
+  "version": zod.number().int(),
+  "notes": zod.string().min(1).max(getIntermediaryResponseAgentOneNotesMax),
+  "receive_date": zod.string().nullish(),
+  "contract_date": zod.string().nullish(),
+  "user_id": zod.string().max(getIntermediaryResponseAgentOneUserIdMax).nullish(),
+  "unit_code": zod.string().max(getIntermediaryResponseAgentOneUnitCodeMax).nullish(),
+  "branch_code": zod.string().max(getIntermediaryResponseAgentOneBranchCodeMax).nullish(),
+  "region_code": zod.string().max(getIntermediaryResponseAgentOneRegionCodeMax).nullish(),
+  "email": zod.string().max(getIntermediaryResponseAgentOneEmailMax).nullish(),
+  "mobile_no": zod.string().max(getIntermediaryResponseAgentOneMobileNoMax).nullish(),
+  "secondary_mobile": zod.string().max(getIntermediaryResponseAgentOneSecondaryMobileMax).nullish(),
+  "hrmis_code": zod.string().max(getIntermediaryResponseAgentOneHrmisCodeMax).nullish(),
+  "pin_no": zod.string().max(getIntermediaryResponseAgentOnePinNoMax).nullish(),
+  "nid_no": zod.string().max(getIntermediaryResponseAgentOneNidNoMax).nullish(),
+  "rms_code_corp": zod.string().max(getIntermediaryResponseAgentOneRmsCodeCorpMax).nullish(),
+  "rms_code_ret": zod.string().max(getIntermediaryResponseAgentOneRmsCodeRetMax).nullish(),
+  "gi_code": zod.string().max(getIntermediaryResponseAgentOneGiCodeMax).nullish(),
+  "commission_rate": zod.number().min(getIntermediaryResponseAgentOneCommissionRateMin).max(getIntermediaryResponseAgentOneCommissionRateMax).nullish(),
+  "pay_mode": zod.string().max(getIntermediaryResponseAgentOnePayModeMax).nullish(),
+  "etims_verified": zod.boolean().optional()
+}).and(zod.object({
+  "registration_status": zod.enum(['PENDING', 'COMPLETED']),
+  "source_ref": zod.string().nullish(),
+  "agent_status": zod.string().nullable(),
+  "terminated": zod.number().int(),
+  "suspended": zod.boolean(),
+  "terminate_date": zod.string().nullish()
+})),
+  "licences": zod.array(zod.object({
+  "licence_id": zod.number().int(),
+  "licence_no": zod.string(),
+  "valid_from": zod.string(),
+  "valid_to": zod.string(),
+  "status": zod.enum(['DRAFT', 'SUBMITTED', 'VERIFIED', 'DECLINED']),
+  "entered_by": zod.string(),
+  "reviewed_by": zod.string().nullish(),
+  "ira_compliant": zod.boolean(),
+  "kyc_compliant": zod.boolean(),
+  "contract_signed": zod.boolean()
+})),
+  "directors": zod.array(zod.object({
+  "director_id": zod.number().int(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "mobile_no": zod.string().nullish(),
+  "pin_no": zod.string().nullish(),
+  "nid_no": zod.string().nullish(),
+  "version": zod.number().int()
+})),
+  "events": zod.array(zod.object({
+  "event_id": zod.string(),
+  "action": zod.string(),
+  "notes": zod.string(),
+  "actor": zod.string(),
+  "created_at": zod.string()
+})),
+  "documents": zod.array(zod.object({
+  "document_id": zod.number().int(),
+  "title": zod.string(),
+  "file_name": zod.string(),
+  "file_size": zod.number().int(),
+  "uploaded_by": zod.string(),
+  "created_at": zod.string()
+})),
+  "mappings": zod.array(zod.object({
+  "from_code": zod.string(),
+  "to_code": zod.string(),
+  "to_name": zod.string(),
+  "mapped_by": zod.string()
+}))
+})
+
+
+export const UpdateIntermediaryParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const updateIntermediaryBodyAgentCodeMax = 30;
+
+export const updateIntermediaryBodyAgentNameMax = 250;
+
+export const updateIntermediaryBodyAgentTypeMax = 50;
+
+export const updateIntermediaryBodyNotesMax = 4000;
+
+export const updateIntermediaryBodyUserIdMax = 64;
+
+export const updateIntermediaryBodyUnitCodeMax = 30;
+
+export const updateIntermediaryBodyBranchCodeMax = 30;
+
+export const updateIntermediaryBodyRegionCodeMax = 30;
+
+export const updateIntermediaryBodyEmailMax = 254;
+
+export const updateIntermediaryBodyMobileNoMax = 32;
+
+export const updateIntermediaryBodySecondaryMobileMax = 32;
+
+export const updateIntermediaryBodyHrmisCodeMax = 32;
+
+export const updateIntermediaryBodyPinNoMax = 32;
+
+export const updateIntermediaryBodyNidNoMax = 32;
+
+export const updateIntermediaryBodyRmsCodeCorpMax = 32;
+
+export const updateIntermediaryBodyRmsCodeRetMax = 32;
+
+export const updateIntermediaryBodyGiCodeMax = 30;
+
+export const updateIntermediaryBodyCommissionRateMin = 0;
+export const updateIntermediaryBodyCommissionRateMax = 100;
+
+export const updateIntermediaryBodyPayModeMax = 30;
+
+
+
+export const UpdateIntermediaryBody = zod.object({
+  "agent_code": zod.string().min(1).max(updateIntermediaryBodyAgentCodeMax),
+  "agent_name": zod.string().min(1).max(updateIntermediaryBodyAgentNameMax),
+  "agent_type": zod.string().min(1).max(updateIntermediaryBodyAgentTypeMax),
+  "version": zod.number().int().optional(),
+  "notes": zod.string().min(1).max(updateIntermediaryBodyNotesMax),
+  "receive_date": zod.string().nullish(),
+  "contract_date": zod.string().nullish(),
+  "user_id": zod.string().max(updateIntermediaryBodyUserIdMax).nullish(),
+  "unit_code": zod.string().max(updateIntermediaryBodyUnitCodeMax).nullish(),
+  "branch_code": zod.string().max(updateIntermediaryBodyBranchCodeMax).nullish(),
+  "region_code": zod.string().max(updateIntermediaryBodyRegionCodeMax).nullish(),
+  "email": zod.string().max(updateIntermediaryBodyEmailMax).nullish(),
+  "mobile_no": zod.string().max(updateIntermediaryBodyMobileNoMax).nullish(),
+  "secondary_mobile": zod.string().max(updateIntermediaryBodySecondaryMobileMax).nullish(),
+  "hrmis_code": zod.string().max(updateIntermediaryBodyHrmisCodeMax).nullish(),
+  "pin_no": zod.string().max(updateIntermediaryBodyPinNoMax).nullish(),
+  "nid_no": zod.string().max(updateIntermediaryBodyNidNoMax).nullish(),
+  "rms_code_corp": zod.string().max(updateIntermediaryBodyRmsCodeCorpMax).nullish(),
+  "rms_code_ret": zod.string().max(updateIntermediaryBodyRmsCodeRetMax).nullish(),
+  "gi_code": zod.string().max(updateIntermediaryBodyGiCodeMax).nullish(),
+  "commission_rate": zod.number().min(updateIntermediaryBodyCommissionRateMin).max(updateIntermediaryBodyCommissionRateMax).nullish(),
+  "pay_mode": zod.string().max(updateIntermediaryBodyPayModeMax).nullish(),
+  "etims_verified": zod.boolean().optional()
+})
+
+export const updateIntermediaryResponseAgentOneAgentCodeMax = 30;
+
+export const updateIntermediaryResponseAgentOneAgentNameMax = 250;
+
+export const updateIntermediaryResponseAgentOneAgentTypeMax = 50;
+
+export const updateIntermediaryResponseAgentOneNotesMax = 4000;
+
+export const updateIntermediaryResponseAgentOneUserIdMax = 64;
+
+export const updateIntermediaryResponseAgentOneUnitCodeMax = 30;
+
+export const updateIntermediaryResponseAgentOneBranchCodeMax = 30;
+
+export const updateIntermediaryResponseAgentOneRegionCodeMax = 30;
+
+export const updateIntermediaryResponseAgentOneEmailMax = 254;
+
+export const updateIntermediaryResponseAgentOneMobileNoMax = 32;
+
+export const updateIntermediaryResponseAgentOneSecondaryMobileMax = 32;
+
+export const updateIntermediaryResponseAgentOneHrmisCodeMax = 32;
+
+export const updateIntermediaryResponseAgentOnePinNoMax = 32;
+
+export const updateIntermediaryResponseAgentOneNidNoMax = 32;
+
+export const updateIntermediaryResponseAgentOneRmsCodeCorpMax = 32;
+
+export const updateIntermediaryResponseAgentOneRmsCodeRetMax = 32;
+
+export const updateIntermediaryResponseAgentOneGiCodeMax = 30;
+
+export const updateIntermediaryResponseAgentOneCommissionRateMin = 0;
+export const updateIntermediaryResponseAgentOneCommissionRateMax = 100;
+
+export const updateIntermediaryResponseAgentOnePayModeMax = 30;
+
+
+
+export const UpdateIntermediaryResponse = zod.object({
+  "agent": zod.object({
+  "agent_code": zod.string().min(1).max(updateIntermediaryResponseAgentOneAgentCodeMax),
+  "agent_name": zod.string().min(1).max(updateIntermediaryResponseAgentOneAgentNameMax),
+  "agent_type": zod.string().min(1).max(updateIntermediaryResponseAgentOneAgentTypeMax),
+  "version": zod.number().int(),
+  "notes": zod.string().min(1).max(updateIntermediaryResponseAgentOneNotesMax),
+  "receive_date": zod.string().nullish(),
+  "contract_date": zod.string().nullish(),
+  "user_id": zod.string().max(updateIntermediaryResponseAgentOneUserIdMax).nullish(),
+  "unit_code": zod.string().max(updateIntermediaryResponseAgentOneUnitCodeMax).nullish(),
+  "branch_code": zod.string().max(updateIntermediaryResponseAgentOneBranchCodeMax).nullish(),
+  "region_code": zod.string().max(updateIntermediaryResponseAgentOneRegionCodeMax).nullish(),
+  "email": zod.string().max(updateIntermediaryResponseAgentOneEmailMax).nullish(),
+  "mobile_no": zod.string().max(updateIntermediaryResponseAgentOneMobileNoMax).nullish(),
+  "secondary_mobile": zod.string().max(updateIntermediaryResponseAgentOneSecondaryMobileMax).nullish(),
+  "hrmis_code": zod.string().max(updateIntermediaryResponseAgentOneHrmisCodeMax).nullish(),
+  "pin_no": zod.string().max(updateIntermediaryResponseAgentOnePinNoMax).nullish(),
+  "nid_no": zod.string().max(updateIntermediaryResponseAgentOneNidNoMax).nullish(),
+  "rms_code_corp": zod.string().max(updateIntermediaryResponseAgentOneRmsCodeCorpMax).nullish(),
+  "rms_code_ret": zod.string().max(updateIntermediaryResponseAgentOneRmsCodeRetMax).nullish(),
+  "gi_code": zod.string().max(updateIntermediaryResponseAgentOneGiCodeMax).nullish(),
+  "commission_rate": zod.number().min(updateIntermediaryResponseAgentOneCommissionRateMin).max(updateIntermediaryResponseAgentOneCommissionRateMax).nullish(),
+  "pay_mode": zod.string().max(updateIntermediaryResponseAgentOnePayModeMax).nullish(),
+  "etims_verified": zod.boolean().optional()
+}).and(zod.object({
+  "registration_status": zod.enum(['PENDING', 'COMPLETED']),
+  "source_ref": zod.string().nullish(),
+  "agent_status": zod.string().nullable(),
+  "terminated": zod.number().int(),
+  "suspended": zod.boolean(),
+  "terminate_date": zod.string().nullish()
+})),
+  "licences": zod.array(zod.object({
+  "licence_id": zod.number().int(),
+  "licence_no": zod.string(),
+  "valid_from": zod.string(),
+  "valid_to": zod.string(),
+  "status": zod.enum(['DRAFT', 'SUBMITTED', 'VERIFIED', 'DECLINED']),
+  "entered_by": zod.string(),
+  "reviewed_by": zod.string().nullish(),
+  "ira_compliant": zod.boolean(),
+  "kyc_compliant": zod.boolean(),
+  "contract_signed": zod.boolean()
+})),
+  "directors": zod.array(zod.object({
+  "director_id": zod.number().int(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "mobile_no": zod.string().nullish(),
+  "pin_no": zod.string().nullish(),
+  "nid_no": zod.string().nullish(),
+  "version": zod.number().int()
+})),
+  "events": zod.array(zod.object({
+  "event_id": zod.string(),
+  "action": zod.string(),
+  "notes": zod.string(),
+  "actor": zod.string(),
+  "created_at": zod.string()
+})),
+  "documents": zod.array(zod.object({
+  "document_id": zod.number().int(),
+  "title": zod.string(),
+  "file_name": zod.string(),
+  "file_size": zod.number().int(),
+  "uploaded_by": zod.string(),
+  "created_at": zod.string()
+})),
+  "mappings": zod.array(zod.object({
+  "from_code": zod.string(),
+  "to_code": zod.string(),
+  "to_name": zod.string(),
+  "mapped_by": zod.string()
+}))
+})
+
+
+export const ActionIntermediaryParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const actionIntermediaryBodyNotesMax = 4000;
+
+export const actionIntermediaryBodyLicenceNoMax = 100;
+
+export const actionIntermediaryBodyNameMax = 250;
+
+export const actionIntermediaryBodyEmailMax = 254;
+
+export const actionIntermediaryBodyMobileNoMax = 32;
+
+export const actionIntermediaryBodyPinNoMax = 32;
+
+export const actionIntermediaryBodyNidNoMax = 32;
+
+
+
+export const ActionIntermediaryBody = zod.object({
+  "action": zod.enum(['NOTE', 'SUSPEND', 'TERMINATE', 'REACTIVATE', 'MAP', 'UNMAP', 'SAVE_LICENCE', 'SUBMIT_LICENCE', 'VERIFY_LICENCE', 'DECLINE_LICENCE', 'SAVE_DIRECTOR', 'COMPLETE_REGISTRATION']),
+  "notes": zod.string().min(1).max(actionIntermediaryBodyNotesMax),
+  "version": zod.number().int(),
+  "to_code": zod.string().optional(),
+  "licence_id": zod.number().int().optional(),
+  "licence_no": zod.string().max(actionIntermediaryBodyLicenceNoMax).optional(),
+  "valid_from": zod.string().optional(),
+  "valid_to": zod.string().optional(),
+  "ira_compliant": zod.boolean().optional(),
+  "kyc_compliant": zod.boolean().optional(),
+  "contract_signed": zod.boolean().optional(),
+  "director_id": zod.number().int().optional(),
+  "director_version": zod.number().int().optional(),
+  "name": zod.string().max(actionIntermediaryBodyNameMax).optional(),
+  "email": zod.string().max(actionIntermediaryBodyEmailMax).nullish(),
+  "mobile_no": zod.string().max(actionIntermediaryBodyMobileNoMax).nullish(),
+  "pin_no": zod.string().max(actionIntermediaryBodyPinNoMax).nullish(),
+  "nid_no": zod.string().max(actionIntermediaryBodyNidNoMax).nullish()
+})
+
+export const actionIntermediaryResponseAgentOneAgentCodeMax = 30;
+
+export const actionIntermediaryResponseAgentOneAgentNameMax = 250;
+
+export const actionIntermediaryResponseAgentOneAgentTypeMax = 50;
+
+export const actionIntermediaryResponseAgentOneNotesMax = 4000;
+
+export const actionIntermediaryResponseAgentOneUserIdMax = 64;
+
+export const actionIntermediaryResponseAgentOneUnitCodeMax = 30;
+
+export const actionIntermediaryResponseAgentOneBranchCodeMax = 30;
+
+export const actionIntermediaryResponseAgentOneRegionCodeMax = 30;
+
+export const actionIntermediaryResponseAgentOneEmailMax = 254;
+
+export const actionIntermediaryResponseAgentOneMobileNoMax = 32;
+
+export const actionIntermediaryResponseAgentOneSecondaryMobileMax = 32;
+
+export const actionIntermediaryResponseAgentOneHrmisCodeMax = 32;
+
+export const actionIntermediaryResponseAgentOnePinNoMax = 32;
+
+export const actionIntermediaryResponseAgentOneNidNoMax = 32;
+
+export const actionIntermediaryResponseAgentOneRmsCodeCorpMax = 32;
+
+export const actionIntermediaryResponseAgentOneRmsCodeRetMax = 32;
+
+export const actionIntermediaryResponseAgentOneGiCodeMax = 30;
+
+export const actionIntermediaryResponseAgentOneCommissionRateMin = 0;
+export const actionIntermediaryResponseAgentOneCommissionRateMax = 100;
+
+export const actionIntermediaryResponseAgentOnePayModeMax = 30;
+
+
+
+export const ActionIntermediaryResponse = zod.object({
+  "agent": zod.object({
+  "agent_code": zod.string().min(1).max(actionIntermediaryResponseAgentOneAgentCodeMax),
+  "agent_name": zod.string().min(1).max(actionIntermediaryResponseAgentOneAgentNameMax),
+  "agent_type": zod.string().min(1).max(actionIntermediaryResponseAgentOneAgentTypeMax),
+  "version": zod.number().int(),
+  "notes": zod.string().min(1).max(actionIntermediaryResponseAgentOneNotesMax),
+  "receive_date": zod.string().nullish(),
+  "contract_date": zod.string().nullish(),
+  "user_id": zod.string().max(actionIntermediaryResponseAgentOneUserIdMax).nullish(),
+  "unit_code": zod.string().max(actionIntermediaryResponseAgentOneUnitCodeMax).nullish(),
+  "branch_code": zod.string().max(actionIntermediaryResponseAgentOneBranchCodeMax).nullish(),
+  "region_code": zod.string().max(actionIntermediaryResponseAgentOneRegionCodeMax).nullish(),
+  "email": zod.string().max(actionIntermediaryResponseAgentOneEmailMax).nullish(),
+  "mobile_no": zod.string().max(actionIntermediaryResponseAgentOneMobileNoMax).nullish(),
+  "secondary_mobile": zod.string().max(actionIntermediaryResponseAgentOneSecondaryMobileMax).nullish(),
+  "hrmis_code": zod.string().max(actionIntermediaryResponseAgentOneHrmisCodeMax).nullish(),
+  "pin_no": zod.string().max(actionIntermediaryResponseAgentOnePinNoMax).nullish(),
+  "nid_no": zod.string().max(actionIntermediaryResponseAgentOneNidNoMax).nullish(),
+  "rms_code_corp": zod.string().max(actionIntermediaryResponseAgentOneRmsCodeCorpMax).nullish(),
+  "rms_code_ret": zod.string().max(actionIntermediaryResponseAgentOneRmsCodeRetMax).nullish(),
+  "gi_code": zod.string().max(actionIntermediaryResponseAgentOneGiCodeMax).nullish(),
+  "commission_rate": zod.number().min(actionIntermediaryResponseAgentOneCommissionRateMin).max(actionIntermediaryResponseAgentOneCommissionRateMax).nullish(),
+  "pay_mode": zod.string().max(actionIntermediaryResponseAgentOnePayModeMax).nullish(),
+  "etims_verified": zod.boolean().optional()
+}).and(zod.object({
+  "registration_status": zod.enum(['PENDING', 'COMPLETED']),
+  "source_ref": zod.string().nullish(),
+  "agent_status": zod.string().nullable(),
+  "terminated": zod.number().int(),
+  "suspended": zod.boolean(),
+  "terminate_date": zod.string().nullish()
+})),
+  "licences": zod.array(zod.object({
+  "licence_id": zod.number().int(),
+  "licence_no": zod.string(),
+  "valid_from": zod.string(),
+  "valid_to": zod.string(),
+  "status": zod.enum(['DRAFT', 'SUBMITTED', 'VERIFIED', 'DECLINED']),
+  "entered_by": zod.string(),
+  "reviewed_by": zod.string().nullish(),
+  "ira_compliant": zod.boolean(),
+  "kyc_compliant": zod.boolean(),
+  "contract_signed": zod.boolean()
+})),
+  "directors": zod.array(zod.object({
+  "director_id": zod.number().int(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "mobile_no": zod.string().nullish(),
+  "pin_no": zod.string().nullish(),
+  "nid_no": zod.string().nullish(),
+  "version": zod.number().int()
+})),
+  "events": zod.array(zod.object({
+  "event_id": zod.string(),
+  "action": zod.string(),
+  "notes": zod.string(),
+  "actor": zod.string(),
+  "created_at": zod.string()
+})),
+  "documents": zod.array(zod.object({
+  "document_id": zod.number().int(),
+  "title": zod.string(),
+  "file_name": zod.string(),
+  "file_size": zod.number().int(),
+  "uploaded_by": zod.string(),
+  "created_at": zod.string()
+})),
+  "mappings": zod.array(zod.object({
+  "from_code": zod.string(),
+  "to_code": zod.string(),
+  "to_name": zod.string(),
+  "mapped_by": zod.string()
+}))
+})
+
+
+export const RequestIntermediaryUploadParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const requestIntermediaryUploadBodyTitleMax = 120;
+
+export const requestIntermediaryUploadBodyFileNameMax = 255;
+
+export const requestIntermediaryUploadBodyFileSizeMax = 26214400;
+
+
+
+export const RequestIntermediaryUploadBody = zod.object({
+  "title": zod.string().min(1).max(requestIntermediaryUploadBodyTitleMax),
+  "file_name": zod.string().min(1).max(requestIntermediaryUploadBodyFileNameMax),
+  "content_type": zod.enum(['application/pdf', 'image/jpeg', 'image/png']),
+  "file_size": zod.number().int().min(1).max(requestIntermediaryUploadBodyFileSizeMax)
+})
+
+export const RequestIntermediaryUploadResponse = zod.object({
+  "document_id": zod.number().int(),
+  "upload_url": zod.string()
+})
+
+
+export const ConfirmIntermediaryUploadParams = zod.object({
+  "code": zod.coerce.string(),
+  "id": zod.coerce.number().int()
+})
+
+export const confirmIntermediaryUploadResponseAgentOneAgentCodeMax = 30;
+
+export const confirmIntermediaryUploadResponseAgentOneAgentNameMax = 250;
+
+export const confirmIntermediaryUploadResponseAgentOneAgentTypeMax = 50;
+
+export const confirmIntermediaryUploadResponseAgentOneNotesMax = 4000;
+
+export const confirmIntermediaryUploadResponseAgentOneUserIdMax = 64;
+
+export const confirmIntermediaryUploadResponseAgentOneUnitCodeMax = 30;
+
+export const confirmIntermediaryUploadResponseAgentOneBranchCodeMax = 30;
+
+export const confirmIntermediaryUploadResponseAgentOneRegionCodeMax = 30;
+
+export const confirmIntermediaryUploadResponseAgentOneEmailMax = 254;
+
+export const confirmIntermediaryUploadResponseAgentOneMobileNoMax = 32;
+
+export const confirmIntermediaryUploadResponseAgentOneSecondaryMobileMax = 32;
+
+export const confirmIntermediaryUploadResponseAgentOneHrmisCodeMax = 32;
+
+export const confirmIntermediaryUploadResponseAgentOnePinNoMax = 32;
+
+export const confirmIntermediaryUploadResponseAgentOneNidNoMax = 32;
+
+export const confirmIntermediaryUploadResponseAgentOneRmsCodeCorpMax = 32;
+
+export const confirmIntermediaryUploadResponseAgentOneRmsCodeRetMax = 32;
+
+export const confirmIntermediaryUploadResponseAgentOneGiCodeMax = 30;
+
+export const confirmIntermediaryUploadResponseAgentOneCommissionRateMin = 0;
+export const confirmIntermediaryUploadResponseAgentOneCommissionRateMax = 100;
+
+export const confirmIntermediaryUploadResponseAgentOnePayModeMax = 30;
+
+
+
+export const ConfirmIntermediaryUploadResponse = zod.object({
+  "agent": zod.object({
+  "agent_code": zod.string().min(1).max(confirmIntermediaryUploadResponseAgentOneAgentCodeMax),
+  "agent_name": zod.string().min(1).max(confirmIntermediaryUploadResponseAgentOneAgentNameMax),
+  "agent_type": zod.string().min(1).max(confirmIntermediaryUploadResponseAgentOneAgentTypeMax),
+  "version": zod.number().int(),
+  "notes": zod.string().min(1).max(confirmIntermediaryUploadResponseAgentOneNotesMax),
+  "receive_date": zod.string().nullish(),
+  "contract_date": zod.string().nullish(),
+  "user_id": zod.string().max(confirmIntermediaryUploadResponseAgentOneUserIdMax).nullish(),
+  "unit_code": zod.string().max(confirmIntermediaryUploadResponseAgentOneUnitCodeMax).nullish(),
+  "branch_code": zod.string().max(confirmIntermediaryUploadResponseAgentOneBranchCodeMax).nullish(),
+  "region_code": zod.string().max(confirmIntermediaryUploadResponseAgentOneRegionCodeMax).nullish(),
+  "email": zod.string().max(confirmIntermediaryUploadResponseAgentOneEmailMax).nullish(),
+  "mobile_no": zod.string().max(confirmIntermediaryUploadResponseAgentOneMobileNoMax).nullish(),
+  "secondary_mobile": zod.string().max(confirmIntermediaryUploadResponseAgentOneSecondaryMobileMax).nullish(),
+  "hrmis_code": zod.string().max(confirmIntermediaryUploadResponseAgentOneHrmisCodeMax).nullish(),
+  "pin_no": zod.string().max(confirmIntermediaryUploadResponseAgentOnePinNoMax).nullish(),
+  "nid_no": zod.string().max(confirmIntermediaryUploadResponseAgentOneNidNoMax).nullish(),
+  "rms_code_corp": zod.string().max(confirmIntermediaryUploadResponseAgentOneRmsCodeCorpMax).nullish(),
+  "rms_code_ret": zod.string().max(confirmIntermediaryUploadResponseAgentOneRmsCodeRetMax).nullish(),
+  "gi_code": zod.string().max(confirmIntermediaryUploadResponseAgentOneGiCodeMax).nullish(),
+  "commission_rate": zod.number().min(confirmIntermediaryUploadResponseAgentOneCommissionRateMin).max(confirmIntermediaryUploadResponseAgentOneCommissionRateMax).nullish(),
+  "pay_mode": zod.string().max(confirmIntermediaryUploadResponseAgentOnePayModeMax).nullish(),
+  "etims_verified": zod.boolean().optional()
+}).and(zod.object({
+  "registration_status": zod.enum(['PENDING', 'COMPLETED']),
+  "source_ref": zod.string().nullish(),
+  "agent_status": zod.string().nullable(),
+  "terminated": zod.number().int(),
+  "suspended": zod.boolean(),
+  "terminate_date": zod.string().nullish()
+})),
+  "licences": zod.array(zod.object({
+  "licence_id": zod.number().int(),
+  "licence_no": zod.string(),
+  "valid_from": zod.string(),
+  "valid_to": zod.string(),
+  "status": zod.enum(['DRAFT', 'SUBMITTED', 'VERIFIED', 'DECLINED']),
+  "entered_by": zod.string(),
+  "reviewed_by": zod.string().nullish(),
+  "ira_compliant": zod.boolean(),
+  "kyc_compliant": zod.boolean(),
+  "contract_signed": zod.boolean()
+})),
+  "directors": zod.array(zod.object({
+  "director_id": zod.number().int(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "mobile_no": zod.string().nullish(),
+  "pin_no": zod.string().nullish(),
+  "nid_no": zod.string().nullish(),
+  "version": zod.number().int()
+})),
+  "events": zod.array(zod.object({
+  "event_id": zod.string(),
+  "action": zod.string(),
+  "notes": zod.string(),
+  "actor": zod.string(),
+  "created_at": zod.string()
+})),
+  "documents": zod.array(zod.object({
+  "document_id": zod.number().int(),
+  "title": zod.string(),
+  "file_name": zod.string(),
+  "file_size": zod.number().int(),
+  "uploaded_by": zod.string(),
+  "created_at": zod.string()
+})),
+  "mappings": zod.array(zod.object({
+  "from_code": zod.string(),
+  "to_code": zod.string(),
+  "to_name": zod.string(),
+  "mapped_by": zod.string()
+}))
+})
+
+
+export const DownloadIntermediaryDocumentParams = zod.object({
+  "code": zod.coerce.string(),
+  "id": zod.coerce.number().int()
+})
+
+export const DownloadIntermediaryDocumentResponse = zod.unknown()
+
+
 export const ListRiskAdministrationReferencesParams = zod.object({
   "catalog": zod.enum(['action-statuses', 'categories', 'control-effectiveness', 'objectives', 'exposure', 'impact', 'likelihood', 'reasons'])
 })

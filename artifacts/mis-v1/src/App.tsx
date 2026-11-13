@@ -25,6 +25,7 @@ import RecordFilingPage from '@/pages/business/record-filing';
 import GiAllocatePage from '@/pages/business/gi-allocate';
 import BusinessStatusPage from '@/pages/business/business-status';
 import NotificationsPage from '@/pages/notifications';
+import IntermediaryPage from '@/pages/intermediary';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import {
   Route,
@@ -38,6 +39,7 @@ import {
   Home, FileText, Shield, Database, Bell, Banknote, ClipboardCheck, FilePlus2,
   ChevronRight, LogOut, User, Users, Settings, SlidersHorizontal, Menu, X,
   Workflow, BadgeCheck, CalendarDays, LockKeyhole, History, UsersRound, SearchCheck, Target, Tags, ListChecks, Gauge,
+  Fingerprint, ShieldAlert, FileCheck2,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -56,6 +58,7 @@ type NavItem = {
   medicalOnly?: boolean;
   pricingOnly?: boolean;
   cashierOnly?: boolean;
+  intermediaryOnly?: boolean;
   dpuOnly?: boolean;
   giOnly?: boolean;
   riskAdminOnly?: boolean;
@@ -66,6 +69,7 @@ const NAV_SECTIONS: Array<{
   label: string | null;
   adminOnly?: boolean;
   cashierOnly?: boolean;
+  intermediaryOnly?: boolean;
   items: NavItem[];
 }> = [
   {
@@ -120,6 +124,20 @@ const NAV_SECTIONS: Array<{
           { href: '/risk-administration/reasons', label: 'Reasons', icon: ListChecks },
         ],
       },
+      {
+        href: '/intermediary/agents', label: 'Intemediary Management', icon: Fingerprint,
+        children: [
+          { href: '/intermediary/registration', label: 'Agent Registration', icon: FilePlus2 },
+          { href: '/intermediary/agents', label: 'Agent Listing', icon: UsersRound },
+          { href: '/intermediary/details', label: 'Agent Details', icon: User },
+          { href: '/intermediary/changes', label: 'Agent Details Change', icon: ClipboardCheck },
+          { href: '/intermediary/licences', label: 'Licence Update', icon: FileCheck2 },
+          { href: '/intermediary/verification', label: 'Licence Verification', icon: BadgeCheck },
+          { href: '/intermediary/suspension', label: 'Agent Suspension', icon: ShieldAlert },
+          { href: '/intermediary/mapping', label: 'Agent Mapping', icon: Workflow },
+        ],
+        intermediaryOnly: true,
+      },
       { href: '/discovery', label: 'DB Discovery',      icon: Database },
       { href: '/notifications', label: 'Notifications', icon: Bell },
     ],
@@ -145,6 +163,7 @@ const NAV_SECTIONS: Array<{
 function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpen: boolean; onNavigate: () => void; onClose: () => void; navigationRef: (element: HTMLElement | null) => void }) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+  const canSeeIntermediary = !!user && (user.profileId === 1 || user.profileId === 2 || user.profileName?.trim().toLowerCase() === 'national sales admin');
 
   // Show admin section only for profile 1 (SuperAdmin) or 2 (System Admin)
   const isAdmin = user && (user.profileId === 1 || user.profileId === 2);
@@ -200,6 +219,7 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
         {NAV_SECTIONS.map((section, si) => {
           if (section.adminOnly && !isAdmin) return null;
           if (section.cashierOnly && !canSeeCashier) return null;
+          if (section.intermediaryOnly && !canSeeIntermediary) return null;
           return (
             <SidebarNavigationGroup
               key={si}
@@ -212,6 +232,7 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
               {section.items.map((item) => {
                 const { href, label, icon: Icon } = item;
                 if (item.riskAdminOnly && !riskActor?.can_manage) return null;
+                if (item.intermediaryOnly && !canSeeIntermediary) return null;
                 const bpoOnly = 'bpoOnly' in item && item.bpoOnly;
                 if (bpoOnly && !canSeeAllocatedFiles) return null;
                 if ('giOnly' in item && item.giOnly && !canSeeGi) return null;
@@ -416,6 +437,17 @@ function ProtectedRouter() {
       <AppLayout>
         <Switch>
           <Route path="/"                 component={HomePage} />
+          <Route path="/intermediary">
+            {() => canAccessIntermediary(user) ? <Redirect to="/intermediary/agents" /> : <IntermediaryDenied />}
+          </Route>
+          <Route path="/intermediary/registration">{() => canAccessIntermediary(user) ? <IntermediaryPage /> : <IntermediaryDenied />}</Route>
+          <Route path="/intermediary/agents">{() => canAccessIntermediary(user) ? <IntermediaryPage /> : <IntermediaryDenied />}</Route>
+          <Route path="/intermediary/details">{() => canAccessIntermediary(user) ? <IntermediaryPage /> : <IntermediaryDenied />}</Route>
+          <Route path="/intermediary/changes">{() => canAccessIntermediary(user) ? <IntermediaryPage /> : <IntermediaryDenied />}</Route>
+          <Route path="/intermediary/licences">{() => canAccessIntermediary(user) ? <IntermediaryPage /> : <IntermediaryDenied />}</Route>
+          <Route path="/intermediary/verification">{() => canAccessIntermediary(user) ? <IntermediaryPage /> : <IntermediaryDenied />}</Route>
+          <Route path="/intermediary/suspension">{() => canAccessIntermediary(user) ? <IntermediaryPage /> : <IntermediaryDenied />}</Route>
+          <Route path="/intermediary/mapping">{() => canAccessIntermediary(user) ? <IntermediaryPage /> : <IntermediaryDenied />}</Route>
           <Route path="/business/allocated">
             {() => <AllocatedFilesPage />}
           </Route>
@@ -469,6 +501,14 @@ function ProtectedRouter() {
       </AppLayout>
     </RoutedErrorBoundary>
   );
+}
+
+function canAccessIntermediary(user: { profileId: number; profileName?: string } | null) {
+  return !!user && (user.profileId === 1 || user.profileId === 2 || user.profileName?.trim().toLowerCase() === 'national sales admin');
+}
+
+function IntermediaryDenied() {
+  return <div className="min-h-[70dvh] p-8 flex items-center justify-center"><div className="max-w-md rounded-xl border bg-card p-7 text-center shadow-sm"><LockKeyhole className="mx-auto mb-4 h-7 w-7 text-muted-foreground" /><h1 className="text-xl font-semibold">Intermediary access restricted</h1><p className="mt-2 text-sm text-muted-foreground">This workspace is available to National Sales Admin and the designated system administrators.</p></div></div>;
 }
 
 function RoutedErrorBoundary({ children }: { children: ReactNode }) {

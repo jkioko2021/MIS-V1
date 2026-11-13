@@ -5,6 +5,327 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface IntermediaryImportResult {
+  imported: number;
+  skipped: number;
+  message: string;
+}
+
+export interface IntermediaryInput {
+  /**
+     * @minLength 1
+     * @maxLength 30
+     */
+  agent_code: string;
+  /**
+     * @minLength 1
+     * @maxLength 250
+     */
+  agent_name: string;
+  /**
+     * @minLength 1
+     * @maxLength 50
+     */
+  agent_type: string;
+  version?: number;
+  /**
+     * @minLength 1
+     * @maxLength 4000
+     */
+  notes: string;
+  /** @nullable */
+  receive_date?: string | null;
+  /** @nullable */
+  contract_date?: string | null;
+  /**
+     * @maxLength 64
+     * @nullable
+     */
+  user_id?: string | null;
+  /**
+     * @maxLength 30
+     * @nullable
+     */
+  unit_code?: string | null;
+  /**
+     * @maxLength 30
+     * @nullable
+     */
+  branch_code?: string | null;
+  /**
+     * @maxLength 30
+     * @nullable
+     */
+  region_code?: string | null;
+  /**
+     * @maxLength 254
+     * @nullable
+     */
+  email?: string | null;
+  /**
+     * @maxLength 32
+     * @nullable
+     */
+  mobile_no?: string | null;
+  /**
+     * @maxLength 32
+     * @nullable
+     */
+  secondary_mobile?: string | null;
+  /**
+     * @maxLength 32
+     * @nullable
+     */
+  hrmis_code?: string | null;
+  /**
+     * @maxLength 32
+     * @nullable
+     */
+  pin_no?: string | null;
+  /**
+     * @maxLength 32
+     * @nullable
+     */
+  nid_no?: string | null;
+  /**
+     * @maxLength 32
+     * @nullable
+     */
+  rms_code_corp?: string | null;
+  /**
+     * @maxLength 32
+     * @nullable
+     */
+  rms_code_ret?: string | null;
+  /**
+     * @maxLength 30
+     * @nullable
+     */
+  gi_code?: string | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  commission_rate?: number | null;
+  /**
+     * @maxLength 30
+     * @nullable
+     */
+  pay_mode?: string | null;
+  etims_verified?: boolean;
+}
+
+export type IntermediaryRegistrationStatus = typeof IntermediaryRegistrationStatus[keyof typeof IntermediaryRegistrationStatus];
+
+
+export const IntermediaryRegistrationStatus = {
+  PENDING: 'PENDING',
+  COMPLETED: 'COMPLETED',
+} as const;
+
+export type Intermediary = IntermediaryInput & ({
+  registration_status: IntermediaryRegistrationStatus;
+  /** @nullable */
+  source_ref?: string | null;
+  /** @nullable */
+  agent_status: string | null;
+  terminated: number;
+  suspended: boolean;
+  /** @nullable */
+  terminate_date?: string | null;
+}) & Required<Pick<IntermediaryInput & ({
+  registration_status: IntermediaryRegistrationStatus;
+  /** @nullable */
+  source_ref?: string | null;
+  /** @nullable */
+  agent_status: string | null;
+  terminated: number;
+  suspended: boolean;
+  /** @nullable */
+  terminate_date?: string | null;
+}), 'version'>>;
+
+export interface IntermediaryOptions {
+  import_available: boolean;
+  /** @nullable */
+  import_reason?: string | null;
+  username: string;
+  agent_types: string[];
+  statuses: string[];
+  units: string[];
+  branches: string[];
+  regions: string[];
+  gi_codes: string[];
+}
+
+export interface IntermediaryList {
+  items: Intermediary[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export type IntermediaryLicenceStatus = typeof IntermediaryLicenceStatus[keyof typeof IntermediaryLicenceStatus];
+
+
+export const IntermediaryLicenceStatus = {
+  DRAFT: 'DRAFT',
+  SUBMITTED: 'SUBMITTED',
+  VERIFIED: 'VERIFIED',
+  DECLINED: 'DECLINED',
+} as const;
+
+export interface IntermediaryLicence {
+  licence_id: number;
+  licence_no: string;
+  valid_from: string;
+  valid_to: string;
+  status: IntermediaryLicenceStatus;
+  entered_by: string;
+  /** @nullable */
+  reviewed_by?: string | null;
+  ira_compliant: boolean;
+  kyc_compliant: boolean;
+  contract_signed: boolean;
+}
+
+export interface IntermediaryDirector {
+  director_id: number;
+  name: string;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  mobile_no?: string | null;
+  /** @nullable */
+  pin_no?: string | null;
+  /** @nullable */
+  nid_no?: string | null;
+  version: number;
+}
+
+export interface IntermediaryEvent {
+  event_id: string;
+  action: string;
+  notes: string;
+  actor: string;
+  created_at: string;
+}
+
+export interface IntermediaryDocument {
+  document_id: number;
+  title: string;
+  file_name: string;
+  file_size: number;
+  uploaded_by: string;
+  created_at: string;
+}
+
+export interface IntermediaryMapping {
+  from_code: string;
+  to_code: string;
+  to_name: string;
+  mapped_by: string;
+}
+
+export interface IntermediaryDetail {
+  agent: Intermediary;
+  licences: IntermediaryLicence[];
+  directors: IntermediaryDirector[];
+  events: IntermediaryEvent[];
+  documents: IntermediaryDocument[];
+  mappings: IntermediaryMapping[];
+}
+
+export type IntermediaryActionInputAction = typeof IntermediaryActionInputAction[keyof typeof IntermediaryActionInputAction];
+
+
+export const IntermediaryActionInputAction = {
+  NOTE: 'NOTE',
+  SUSPEND: 'SUSPEND',
+  TERMINATE: 'TERMINATE',
+  REACTIVATE: 'REACTIVATE',
+  MAP: 'MAP',
+  UNMAP: 'UNMAP',
+  SAVE_LICENCE: 'SAVE_LICENCE',
+  SUBMIT_LICENCE: 'SUBMIT_LICENCE',
+  VERIFY_LICENCE: 'VERIFY_LICENCE',
+  DECLINE_LICENCE: 'DECLINE_LICENCE',
+  SAVE_DIRECTOR: 'SAVE_DIRECTOR',
+  COMPLETE_REGISTRATION: 'COMPLETE_REGISTRATION',
+} as const;
+
+export interface IntermediaryActionInput {
+  action: IntermediaryActionInputAction;
+  /**
+     * @minLength 1
+     * @maxLength 4000
+     */
+  notes: string;
+  version: number;
+  to_code?: string;
+  licence_id?: number;
+  /** @maxLength 100 */
+  licence_no?: string;
+  valid_from?: string;
+  valid_to?: string;
+  ira_compliant?: boolean;
+  kyc_compliant?: boolean;
+  contract_signed?: boolean;
+  director_id?: number;
+  director_version?: number;
+  /** @maxLength 250 */
+  name?: string;
+  /**
+     * @maxLength 254
+     * @nullable
+     */
+  email?: string | null;
+  /**
+     * @maxLength 32
+     * @nullable
+     */
+  mobile_no?: string | null;
+  /**
+     * @maxLength 32
+     * @nullable
+     */
+  pin_no?: string | null;
+  /**
+     * @maxLength 32
+     * @nullable
+     */
+  nid_no?: string | null;
+}
+
+export type IntermediaryUploadInputContentType = typeof IntermediaryUploadInputContentType[keyof typeof IntermediaryUploadInputContentType];
+
+
+export const IntermediaryUploadInputContentType = {
+  'application/pdf': 'application/pdf',
+  'image/jpeg': 'image/jpeg',
+  'image/png': 'image/png',
+} as const;
+
+export interface IntermediaryUploadInput {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  title: string;
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
+  file_name: string;
+  content_type: IntermediaryUploadInputContentType;
+  /**
+     * @minimum 1
+     * @maximum 26214400
+     */
+  file_size: number;
+}
+
 export type RiskReferenceCatalog = typeof RiskReferenceCatalog[keyof typeof RiskReferenceCatalog];
 
 
@@ -968,6 +1289,30 @@ export interface AllocatedDocumentUpload {
   /** @nullable */
   originating_system: string | null;
 }
+
+export type ListIntermediariesParams = {
+search?: string;
+status?: string;
+agent_type?: string;
+registration_status?: ListIntermediariesRegistrationStatus;
+/**
+ * @minimum 1
+ */
+page?: number;
+};
+
+export type ListIntermediariesRegistrationStatus = typeof ListIntermediariesRegistrationStatus[keyof typeof ListIntermediariesRegistrationStatus];
+
+
+export const ListIntermediariesRegistrationStatus = {
+  PENDING: 'PENDING',
+  COMPLETED: 'COMPLETED',
+} as const;
+
+export type RequestIntermediaryUpload200 = {
+  document_id: number;
+  upload_url: string;
+};
 
 export type ListRiskAdministrationReferences200 = {
   ok: boolean;

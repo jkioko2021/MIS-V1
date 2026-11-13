@@ -11,6 +11,124 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /intermediary/import:
+    post:
+      operationId: importIntermediaries
+      responses:
+        "200":
+          description: Core agents pulled into the MIS setup queue
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IntermediaryImportResult" }
+  /intermediary/options:
+    get:
+      operationId: getIntermediaryOptions
+      responses:
+        "200":
+          description: Authorized agent-management options
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IntermediaryOptions" }
+  /intermediary/agents:
+    get:
+      operationId: listIntermediaries
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: agent_type, in: query, schema: { type: string } }
+        - { name: registration_status, in: query, schema: { type: string, enum: [PENDING, COMPLETED] } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IntermediaryList" }
+  /intermediary/agents/{code}:
+    parameters:
+      - { name: code, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getIntermediary
+      responses:
+        "200":
+          description: Agent detail and retained history
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IntermediaryDetail" }
+    patch:
+      operationId: updateIntermediary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IntermediaryInput" }
+      responses:
+        "200":
+          description: Updated agent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IntermediaryDetail" }
+  /intermediary/agents/{code}/actions:
+    parameters:
+      - { name: code, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: actionIntermediary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IntermediaryActionInput" }
+      responses:
+        "200":
+          description: Action saved with audit
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IntermediaryDetail" }
+  /intermediary/agents/{code}/uploads:
+    parameters:
+      - { name: code, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: requestIntermediaryUpload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IntermediaryUploadInput" }
+      responses:
+        "200":
+          description: Owned upload ticket
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [document_id, upload_url]
+                properties:
+                  document_id: { type: integer }
+                  upload_url: { type: string }
+  /intermediary/agents/{code}/documents/{id}/confirm:
+    parameters:
+      - { name: code, in: path, required: true, schema: { type: string } }
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    post:
+      operationId: confirmIntermediaryUpload
+      responses:
+        "200":
+          description: Uploaded bytes confirmed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IntermediaryDetail" }
+  /intermediary/agents/{code}/documents/{id}/download:
+    parameters:
+      - { name: code, in: path, required: true, schema: { type: string } }
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    get:
+      operationId: downloadIntermediaryDocument
+      responses:
+        "200":
+          description: Authorized attachment download
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
   /risk-administration/references/{catalog}:
     parameters:
       - { name: catalog, in: path, required: true, schema: { $ref: "#/components/schemas/RiskReferenceCatalog" } }
@@ -636,6 +754,165 @@ paths:
           description: Allocation changed before the upload could be saved
 components:
   schemas:
+    IntermediaryImportResult:
+      type: object
+      required: [imported, skipped, message]
+      properties:
+        imported: { type: integer }
+        skipped: { type: integer }
+        message: { type: string }
+    IntermediaryInput:
+      type: object
+      required: [agent_code, agent_name, agent_type, notes]
+      properties:
+        agent_code: { type: string, maxLength: 30, minLength: 1 }
+        agent_name: { type: string, maxLength: 250, minLength: 1 }
+        agent_type: { type: string, maxLength: 50, minLength: 1 }
+        version: { type: integer }
+        notes: { type: string, minLength: 1, maxLength: 4000 }
+        receive_date: { type: ["string", "null"] }
+        contract_date: { type: ["string", "null"] }
+        user_id: { type: ["string", "null"], maxLength: 64 }
+        unit_code: { type: ["string", "null"], maxLength: 30 }
+        branch_code: { type: ["string", "null"], maxLength: 30 }
+        region_code: { type: ["string", "null"], maxLength: 30 }
+        email: { type: ["string", "null"], maxLength: 254 }
+        mobile_no: { type: ["string", "null"], maxLength: 32 }
+        secondary_mobile: { type: ["string", "null"], maxLength: 32 }
+        hrmis_code: { type: ["string", "null"], maxLength: 32 }
+        pin_no: { type: ["string", "null"], maxLength: 32 }
+        nid_no: { type: ["string", "null"], maxLength: 32 }
+        rms_code_corp: { type: ["string", "null"], maxLength: 32 }
+        rms_code_ret: { type: ["string", "null"], maxLength: 32 }
+        gi_code: { type: ["string", "null"], maxLength: 30 }
+        commission_rate: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        pay_mode: { type: ["string", "null"], maxLength: 30 }
+        etims_verified: { type: boolean }
+    Intermediary:
+      allOf:
+        - { $ref: "#/components/schemas/IntermediaryInput" }
+        - type: object
+          required: [agent_status, terminated, suspended, version, registration_status]
+          properties:
+            registration_status: { type: string, enum: [PENDING, COMPLETED] }
+            source_ref: { type: ["string", "null"] }
+            agent_status: { type: ["string", "null"] }
+            terminated: { type: integer }
+            suspended: { type: boolean }
+            terminate_date: { type: ["string", "null"] }
+    IntermediaryOptions:
+      type: object
+      required: [username, agent_types, statuses, units, branches, regions, gi_codes, import_available]
+      properties:
+        import_available: { type: boolean }
+        import_reason: { type: ["string", "null"] }
+        username: { type: string }
+        agent_types: { type: array, items: { type: string } }
+        statuses: { type: array, items: { type: string } }
+        units: { type: array, items: { type: string } }
+        branches: { type: array, items: { type: string } }
+        regions: { type: array, items: { type: string } }
+        gi_codes: { type: array, items: { type: string } }
+    IntermediaryList:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Intermediary" } }
+        total: { type: integer }
+        page: { type: integer }
+        page_size: { type: integer }
+    IntermediaryLicence:
+      type: object
+      required: [licence_id, licence_no, valid_from, valid_to, status, entered_by, ira_compliant, kyc_compliant, contract_signed]
+      properties:
+        licence_id: { type: integer }
+        licence_no: { type: string }
+        valid_from: { type: string }
+        valid_to: { type: string }
+        status: { type: string, enum: [DRAFT, SUBMITTED, VERIFIED, DECLINED] }
+        entered_by: { type: string }
+        reviewed_by: { type: ["string", "null"] }
+        ira_compliant: { type: boolean }
+        kyc_compliant: { type: boolean }
+        contract_signed: { type: boolean }
+    IntermediaryDirector:
+      type: object
+      required: [director_id, name, version]
+      properties:
+        director_id: { type: integer }
+        name: { type: string }
+        email: { type: ["string", "null"] }
+        mobile_no: { type: ["string", "null"] }
+        pin_no: { type: ["string", "null"] }
+        nid_no: { type: ["string", "null"] }
+        version: { type: integer }
+    IntermediaryEvent:
+      type: object
+      required: [event_id, action, notes, actor, created_at]
+      properties:
+        event_id: { type: string }
+        action: { type: string }
+        notes: { type: string }
+        actor: { type: string }
+        created_at: { type: string }
+    IntermediaryDocument:
+      type: object
+      required: [document_id, title, file_name, file_size, uploaded_by, created_at]
+      properties:
+        document_id: { type: integer }
+        title: { type: string }
+        file_name: { type: string }
+        file_size: { type: integer }
+        uploaded_by: { type: string }
+        created_at: { type: string }
+    IntermediaryMapping:
+      type: object
+      required: [from_code, to_code, to_name, mapped_by]
+      properties:
+        from_code: { type: string }
+        to_code: { type: string }
+        to_name: { type: string }
+        mapped_by: { type: string }
+    IntermediaryDetail:
+      type: object
+      required: [agent, licences, directors, events, documents, mappings]
+      properties:
+        agent: { $ref: "#/components/schemas/Intermediary" }
+        licences: { type: array, items: { $ref: "#/components/schemas/IntermediaryLicence" } }
+        directors: { type: array, items: { $ref: "#/components/schemas/IntermediaryDirector" } }
+        events: { type: array, items: { $ref: "#/components/schemas/IntermediaryEvent" } }
+        documents: { type: array, items: { $ref: "#/components/schemas/IntermediaryDocument" } }
+        mappings: { type: array, items: { $ref: "#/components/schemas/IntermediaryMapping" } }
+    IntermediaryActionInput:
+      type: object
+      required: [action, notes, version]
+      properties:
+        action: { type: string, enum: [NOTE, SUSPEND, TERMINATE, REACTIVATE, MAP, UNMAP, SAVE_LICENCE, SUBMIT_LICENCE, VERIFY_LICENCE, DECLINE_LICENCE, SAVE_DIRECTOR, COMPLETE_REGISTRATION] }
+        notes: { type: string, minLength: 1, maxLength: 4000 }
+        version: { type: integer }
+        to_code: { type: string }
+        licence_id: { type: integer }
+        licence_no: { type: string, maxLength: 100 }
+        valid_from: { type: string }
+        valid_to: { type: string }
+        ira_compliant: { type: boolean }
+        kyc_compliant: { type: boolean }
+        contract_signed: { type: boolean }
+        director_id: { type: integer }
+        director_version: { type: integer }
+        name: { type: string, maxLength: 250 }
+        email: { type: ["string", "null"], maxLength: 254 }
+        mobile_no: { type: ["string", "null"], maxLength: 32 }
+        pin_no: { type: ["string", "null"], maxLength: 32 }
+        nid_no: { type: ["string", "null"], maxLength: 32 }
+    IntermediaryUploadInput:
+      type: object
+      required: [title, file_name, content_type, file_size]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 120 }
+        file_name: { type: string, minLength: 1, maxLength: 255 }
+        content_type: { type: string, enum: [application/pdf, image/jpeg, image/png] }
+        file_size: { type: integer, minimum: 1, maximum: 26214400 }
     RiskReferenceCatalog:
       type: string
       enum: [action-statuses, categories, control-effectiveness, objectives, exposure, impact, likelihood, reasons]

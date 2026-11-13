@@ -8,6 +8,8 @@ import {
   ObjectStorageService,
 } from '../lib/document-storage';
 import { isLocalRuntime } from '../lib/local-runtime';
+import { queryOne } from '../lib/postgres';
+import { canManageIntermediaries } from '../lib/intermediary';
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -125,6 +127,12 @@ router.get('/storage/objects/*path', requireAuth, async (req: Request, res: Resp
     const raw = req.params.path;
     const wildcardPath = Array.isArray(raw) ? raw.join('/') : raw;
     const objectPath = `/objects/${wildcardPath}`;
+    const intermediaryDoc = await queryOne<{ document_id: number }>(
+      "SELECT document_id FROM crm.intermediary_documents WHERE object_path=$1", [objectPath]);
+    if (intermediaryDoc && !await canManageIntermediaries(req.user!.profileId)) {
+      res.status(403).json({ error: 'National Sales Admin access is required for this document.' });
+      return;
+    }
     const objectFile =
       await objectStorageService.getObjectEntityFile(objectPath);
 

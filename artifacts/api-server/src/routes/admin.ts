@@ -11,6 +11,14 @@ router.use(requireAuth);
 // This is the authoritative list of all pages/items in the system.
 // Access rights for every profile are derived from this list.
 export const MENU_MASTER = [
+  { main: "Intemediary Management", sub: "Agent Registration", url: "/intermediary/registration", order: 10 },
+  { main: "Intemediary Management", sub: "Agent Listing", url: "/intermediary/agents", order: 20 },
+  { main: "Intemediary Management", sub: "Agent Details", url: "/intermediary/details", order: 30 },
+  { main: "Intemediary Management", sub: "Agent Details Change", url: "/intermediary/changes", order: 40 },
+  { main: "Intemediary Management", sub: "Licence Update", url: "/intermediary/licences", order: 50 },
+  { main: "Intemediary Management", sub: "Licence Verification", url: "/intermediary/verification", order: 60 },
+  { main: "Intemediary Management", sub: "Agent Suspension", url: "/intermediary/suspension", order: 70 },
+  { main: "Intemediary Management", sub: "Agent Mapping", url: "/intermediary/mapping", order: 80 },
   { main: "Dashboard", sub: "Overview", url: "/", order: 10 },
   { main: "Dashboard", sub: "Notifications", url: "/notifications", order: 20 },
   { main: "Business", sub: "Register Queue", url: "/business", order: 10 },
