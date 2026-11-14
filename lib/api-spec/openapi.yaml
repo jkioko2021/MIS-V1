@@ -903,6 +903,9 @@ components:
         is_active: { type: boolean }
         version: { type: integer }
         values: { $ref: "#/components/schemas/SalesCatalogValues" }
+        source_reference: { type: boolean }
+        source_file: { type: string }
+        source_issues: { type: array, items: { type: string } }
     SalesCatalogSnapshot:
       type: object
       required: [definitions, entries, users, nationals, branch_managers]

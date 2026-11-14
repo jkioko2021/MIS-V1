@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
+import { importSalesReferences, parseSalesReferenceTsv } from "../scripts/sales-reference-data.mjs";
 
 const root = new URL("../../../", import.meta.url);
 const dir = await mkdtemp(path.join(tmpdir(), "sales-catalog-test-"));
@@ -76,15 +77,15 @@ try {
   const um = await create("unit-managers", { UNIT_CODE: unit.code, EMAIL: "fixture@example.test",
     H_TAX: "0.100", HRMIS_CODE: "000123", APPROVED: "1", IS_BDM: "1" });
   const rm = await create("regional-managers", { R_CODE: region.code, RM_CODE: `${prefix}_RM` });
-  const giUnit = await create("gi-units", { BRANCH_CODE: branch.code, REGION_CODE: region.code });
+  const giCoordinator = await create("gi-coordinators", { BR_CODE: branch.code, GI_CORD_CODE: `${prefix}_GC` });
+  const giBranch = await create("gi-branches", { BR_CODE: branch.code, CORD_MGR_ID: giCoordinator.code });
+  const giUnit = await create("gi-units", { BRANCH_CODE: branch.code, REGION_CODE: giBranch.code });
   const giManager = await create("gi-unit-managers", { GI_UNIT_CODE: giUnit.code,
     EARN_RETAINER: "1", RETAINER_AMT: "25000", JOIN_DATE: "2026-01-01", RET_EFF_UPTO: "2026-12-31" });
-  const giCoordinator = await create("gi-coordinators", { BR_CODE: branch.code, GI_CORD_CODE: `${prefix}_GC` });
-  await create("gi-branches", { BR_CODE: branch.code, CORD_MGR_ID: giCoordinator.code });
   await update("sales-units", { UNIT_MGR_ID: um.code, GI_UNIT: giUnit.code });
   await update("sales-regions", { REGION_MGR_ID: rm.code });
   await update("sales-branches", { GI_BRANCH: states.get("gi-branches").code });
-  await update("gi-units", { CORD_MGR_ID: giCoordinator.code });
+  await update("gi-units", { CORD_MGR_ID: giManager.code });
   assert.equal((await db.query("SELECT profile_id FROM crm.employees WHERE employee_id=$1", [employee])).rows[0].profile_id, 3);
   const savedUM = (await db.query("SELECT data FROM crm.sales_catalog_entries WHERE id=$1", [um.id])).rows[0].data;
   assert.equal(savedUM.H_TAX, "0.100");
@@ -126,7 +127,35 @@ try {
   await update("unit-managers", {}, { is_active: false });
   assert.equal((await db.query("SELECT data->>'ACTIVE' AS active FROM crm.sales_catalog_entries WHERE id=$1", [um.id])).rows[0].active, "0");
   assert.equal((await db.query("SELECT employee_id FROM crm.sales_catalog_entries WHERE id=$1", [giManager.id])).rowCount, 1);
+  const sourceDef = definitions.get("unit-managers");
+  const sourceRows = ["SOURCE_UNIT_A", "SOURCE_UNIT_B"].map((unitCode, i) => ({
+    ID: "42", UM_ID: `${prefix}_SHARED`, UM_NAME: "Source Manager", UNIT_CODE: unitCode,
+    EMAIL: i ? "" : "0", HRMIS_CODE: "000042", ACTIVE: "1", APPROVED: "1",
+    APPROVED_BY: "ORIGINAL_ACTOR", H_TAX: "0.300", MIS_EMP_CODE: "0042 ",
+    IS_BDM: "1", VALID_FROM: "2024-01-01", VALID_TO: "2025-12-31",
+  }));
+  const sourceText = [
+    sourceDef.fields.map(f => f.key).join("\t"),
+    ...sourceRows.map(row => sourceDef.fields.map(f => row[f.key]).join("\t")),
+  ].join("\r\n");
+  const parsed = parseSalesReferenceTsv(sourceText, lib.salesCatalogDefinitions);
+  assert.equal(parsed.rows.length, 2);
+  assert.equal(parsed.rows[0].values.MIS_EMP_CODE, "0042 ", "Preserve source whitespace and leading zeroes");
+  const countBefore = (await db.query("SELECT count(*)::int AS n FROM crm.sales_catalog_entries")).rows[0].n;
+  const loaded = await importSalesReferences(db, sourceText, "synthetic-reference.tsv", prefix, lib.salesCatalogDefinitions);
+  assert.equal(loaded.inserted, 2);
+  assert.equal(loaded.flagged, 2);
+  const again = await importSalesReferences(db, sourceText, "synthetic-reference.tsv", prefix, lib.salesCatalogDefinitions);
+  assert.equal(again.inserted, 0);
+  assert.equal(again.skipped, 2);
+  assert.equal((await db.query("SELECT count(*)::int AS n FROM crm.sales_catalog_entries")).rows[0].n, countBefore);
+  const references = (await db.query("SELECT data,issues FROM crm.sales_catalog_source_records WHERE imported_by=$1 ORDER BY source_line", [prefix])).rows;
+  assert.deepEqual(references.map(r => r.data), sourceRows);
+  assert(references.every(r => r.issues.some(issue => issue.includes("no MIS user account"))));
+  assert(references[0].issues.some(issue => issue.includes("invalid address")));
+  assert.equal((await db.query("SELECT profile_id FROM crm.employees WHERE employee_id=$1", [employee])).rows[0].profile_id, 3);
   console.info("PASS: all nine SELECT field sets, persistent enrollments, ordinary-user linkage, mappings, exact decimals/codes, date validation, stale writes, retained history and safe deactivation.");
+  console.info("PASS: reference loads retain duplicate manager assignments and exact source values, flag missing mappings, remain idempotent and never create enrollments or grant access.");
 } finally {
   if (connected) await db.query("ROLLBACK").catch(() => {});
   await db.end();

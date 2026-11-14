@@ -29,8 +29,10 @@ Manager enrollment. NSM_CODE choices use existing National structures.
 Create Sales Regions, then Sales Branches, then Sales Units. Create units/regions
 initially without a manager, enroll the manager, then return to assign them.
 Optional manager mappings allow this order without fabricated placeholder users.
-GI branch/coordinator BR_CODE and GI unit BRANCH_CODE select Sales Branches;
-GI unit REGION_CODE must match the selected branch. Codes and linked accounts
+GI branch/coordinator BR_CODE and GI unit BRANCH_CODE select Sales Branches.
+The supplied source rows confirm that GI unit REGION_CODE selects the GI Branch
+(CORD_CODE), not a Sales Region, and CORD_MGR_ID selects a GI Unit Manager.
+The selected GI Branch must map to the same Sales Branch. Codes and linked accounts
 cannot be replaced on existing enrollments. Updates are version checked, active
 references block deactivation, and before/after values are retained in history.
 
@@ -44,6 +46,28 @@ Apply `0056_sales_enrollment_catalogs.sql` after the existing Sales Structure
 migration in development/local setup. The local database helper includes both.
 The existing `crm.sales_setup_events` and original structure/manager pages are
 unchanged; catalog-specific snapshots are retained in `crm.sales_catalog_events`.
+
+## Uploaded source references
+
+The user approved loading the supplied rows as **reference records**, not as
+verified user enrollments. Migration `0057_sales_source_references.sql` keeps
+them in `crm.sales_catalog_source_records`, separate from editable enrollments.
+They appear on the corresponding nine pages with read-only details, source file
+and mapping/quality warnings. Repeated manager identifiers and original source
+IDs are preserved per row, along with blank values, NULL markers, leading zeroes,
+historical approvals and dates. They are not silently corrected, deduplicated by
+manager ID, matched to accounts by name/email or made available as operational
+assignment choices. No normal users are created and no account access is granted.
+
+Load a user-approved tab-separated extract with the development-only script:
+
+    node artifacts/api-server/scripts/import-sales-references.mjs <extract.txt>
+    node artifacts/api-server/scripts/import-sales-references.mjs <extract.txt> --apply
+
+The first command previews sections/counts only; `--apply` is atomic and skips
+identical source rows by catalog and row fingerprint. It writes only reference
+storage; it never writes the upstream database or editable enrollments. Source
+validity and unresolved mappings are reported as captured at import time.
 
 # Sales Structure setup
 

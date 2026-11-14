@@ -77,7 +77,7 @@ export function CatalogEditor({ catalog, definition, snapshot, entry, onClose }:
       }));
     }
     return snapshot.entries
-      .filter((item) => item.catalog === reference)
+      .filter((item) => item.catalog === reference && !item.source_reference)
       .map((item) => ({ value: item.code, label: `${item.code} — ${item.name}`, active: item.is_active }));
   };
 
@@ -102,6 +102,7 @@ export function CatalogEditor({ catalog, definition, snapshot, entry, onClose }:
   };
 
   const save = async () => {
+    if (entry?.source_reference) return;
     const issue = validate();
     if (issue) {
       setValidationError(issue);
@@ -142,6 +143,8 @@ export function CatalogEditor({ catalog, definition, snapshot, entry, onClose }:
       });
     }
   };
+
+  if (entry?.source_reference) return null;
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open && !pending) onClose(); }}>
@@ -293,7 +296,7 @@ export function CatalogEditor({ catalog, definition, snapshot, entry, onClose }:
                   />
                 )}
                 {field.reference && matchingValueInactive && (
-                  <p className="text-xs text-amber-800">This saved selection is inactive. It can be retained, but new inactive mappings cannot be selected.</p>
+                  <p className="text-xs text-amber-800">This saved selection is inactive. Choose an active replacement before saving this as an active record.</p>
                 )}
                 {field.key === definition.code_field && entry && (
                   <p className="text-[11px] text-muted-foreground">The catalog code is immutable after creation.</p>

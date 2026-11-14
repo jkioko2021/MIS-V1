@@ -34,7 +34,10 @@ export const GetSalesCatalogsResponse = zod.object({
   "employee_id": zod.number().int().nullable(),
   "is_active": zod.boolean(),
   "version": zod.number().int(),
-  "values": zod.record(zod.string(), zod.string().nullable())
+  "values": zod.record(zod.string(), zod.string().nullable()),
+  "source_reference": zod.boolean().optional(),
+  "source_file": zod.string().optional(),
+  "source_issues": zod.array(zod.string()).optional()
 })),
   "users": zod.array(zod.object({
   "employee_id": zod.number().int(),

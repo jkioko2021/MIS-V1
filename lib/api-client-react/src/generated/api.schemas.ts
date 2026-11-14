@@ -50,6 +50,9 @@ export interface SalesCatalogEntry {
   is_active: boolean;
   version: number;
   values: SalesCatalogValues;
+  source_reference?: boolean;
+  source_file?: string;
+  source_issues?: string[];
 }
 
 export interface SalesStaff {

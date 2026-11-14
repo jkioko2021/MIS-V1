@@ -14,3 +14,15 @@ a page to enroll them as Unit manage,Branch,or regional Managers."
 sales-manager designations separate from authentication and access rights; do not
 grant Administration access or change a user's base profile merely because they
 are enrolled as a manager.
+
+Uploaded sales catalog rows without verified MIS account mappings are **reference
+records**, separate from operational enrollments. Retain repeated manager IDs
+across assignments and the original source values; do not guess account matches
+or create accounts to satisfy an import.
+
+**Why:** When the supplied source data revealed repeated manager identifiers,
+missing relationships and unlinked users, the user chose "Load as reference records."
+
+**How to apply:** Show imported rows read-only with mapping warnings. Do not
+offer them as verified assignment choices or use source approval flags to grant
+access. Future reconciliation must deliberately verify each assignment.

@@ -25,6 +25,10 @@ export async function salesCatalogSnapshot() {
   return withTransaction(async client => {
     await client.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const entries = await client.query<SalesCatalogEntry>(`SELECT ${projection} FROM crm.sales_catalog_entries ORDER BY catalog,name,id`);
+    const sources = await client.query<SalesCatalogEntry>(`SELECT -id AS id,catalog,code,name,
+      NULL::integer AS employee_id,COALESCE(NULLIF(data->>'ACTIVE',''),'1')='1' AS is_active,
+      1 AS version,data AS "values",true AS source_reference,source_file,issues AS source_issues
+      FROM crm.sales_catalog_source_records ORDER BY catalog,name,id`);
     const users = await client.query(`SELECT employee_id,employee_name,username FROM crm.employees
       WHERE NOT is_deleted AND activated AND approved AND NOT employee_locked ORDER BY employee_name,employee_id`);
     const nationals = await client.query(`SELECT id,code,name,level,parent_id,manager_id,is_active,version
@@ -33,7 +37,7 @@ export async function salesCatalogSnapshot() {
       (NOT e.is_deleted AND e.activated AND e.approved AND NOT e.employee_locked) AS user_eligible
       FROM crm.sales_manager_enrollments m JOIN crm.employees e ON e.employee_id=m.employee_id
       WHERE m.level='BRANCH' ORDER BY e.employee_name,m.id`);
-    return { definitions: salesCatalogDefinitions, entries: entries.rows.map(expose),
+    return { definitions: salesCatalogDefinitions, entries: [...entries.rows.map(expose), ...sources.rows],
       users: users.rows, nationals: nationals.rows, branch_managers: managers.rows };
   });
 }
@@ -102,12 +106,20 @@ async function validateLinks(client: PoolClient, entries: SalesCatalogEntry[]) {
         fail(`${entry.name}: select an existing${entry.is_active ? " active" : ""} ${field.label}. It may still be used by another active enrollment.`);
     }
     const v = entry.values;
-    if (["sales-units", "gi-units"].includes(entry.catalog)) {
+    if (entry.catalog === "sales-units") {
       const branch = find("sales-branches", v.BRANCH_CODE);
       if (branch && branch.values.REGION_CODE !== v.REGION_CODE)
         fail(`${entry.name}: the selected branch does not belong to the selected region.`);
       if (v.NSM_CODE && branch?.values.NSM_CODE && v.NSM_CODE !== branch.values.NSM_CODE)
         fail(`${entry.name}: National Sales Code must match the branch.`);
+    }
+    if (entry.catalog === "gi-units") {
+      const giBranch = find("gi-branches", v.REGION_CODE);
+      if (giBranch && giBranch.values.BR_CODE !== v.BRANCH_CODE)
+        fail(`${entry.name}: the selected GI branch does not map to the selected Sales Branch.`);
+      const manager = find("gi-unit-managers", v.CORD_MGR_ID);
+      if (manager?.values.GI_UNIT_CODE && manager.values.GI_UNIT_CODE !== entry.code)
+        fail(`${entry.name}: the selected GI Unit Manager is enrolled for a different GI unit.`);
     }
     if (entry.catalog === "sales-branches") {
       const region = find("sales-regions", v.REGION_CODE);

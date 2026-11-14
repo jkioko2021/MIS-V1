@@ -25,7 +25,9 @@ function define(key: string, title: string, suffix: string, code: string, name: 
     key, title, source_table: `DB_MASTER_AGENTS.dbo.TBL_MIS_SALES_${suffix}`,
     code_field: code, name_field: name, manager,
     fields: fields.split(" ").map(field => ({
-      key: field, label: labels[field] ?? field.toLowerCase().split("_").map(s => s[0].toUpperCase() + s.slice(1)).join(" "),
+      key: field, label: key === "gi-units" && field === "REGION_CODE" ? "GI Branch (REGION_CODE)"
+        : key === "gi-units" && field === "CORD_MGR_ID" ? "GI Unit Manager (CORD_MGR_ID)"
+        : labels[field] ?? field.toLowerCase().split("_").map(s => s[0].toUpperCase() + s.slice(1)).join(" "),
       type: types[field] ?? "text", required: [code, name, ...required].includes(field),
       read_only: ["ID", "ACTIVE", "APPROVED_BY"].includes(field),
       reference: references[field] ?? (field === "NSM_CODE" ? "nationals" : null),
@@ -56,7 +58,7 @@ export const salesCatalogDefinitions: CatalogDefinition[] = [
     { GI_UNIT_CODE: "gi-units" }, [], true),
   define("gi-units", "GI Units", "GI_UNITS", "GI_UNIT_CODE", "GI_UNIT_NAME",
     "ID GI_UNIT_CODE GI_UNIT_NAME BRANCH_CODE REGION_CODE CORD_MGR_ID ACTIVE VALID_FROM VALID_TO",
-    { BRANCH_CODE: "sales-branches", REGION_CODE: "sales-regions", CORD_MGR_ID: "gi-coordinators" },
+    { BRANCH_CODE: "sales-branches", REGION_CODE: "gi-branches", CORD_MGR_ID: "gi-unit-managers" },
     ["BRANCH_CODE", "REGION_CODE"]),
   define("gi-branches", "GI Branches", "GI_BRANCH", "CORD_CODE", "CORD_NAME",
     "ID CORD_CODE CORD_NAME CORD_TYPE CORD_MGR_ID BR_CODE VALID_FROM VALID_TO",
