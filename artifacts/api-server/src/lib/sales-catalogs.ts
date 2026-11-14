@@ -5,6 +5,8 @@ import { withTransaction } from "./postgres";
 import { SalesSetupError, salesSetupTransaction } from "./sales-structure";
 import { salesCatalogDefinitions, type CatalogDefinition } from "./sales-catalog-definitions";
 import { organizationLookups, organizationLookupKey } from "./sales-organization-lookups";
+import { salesTeamManagerAssignments, validateSalesManagerMappingHierarchy } from "./sales-manager-mapping";
+import { mappingManagerFields } from "./sales-mapping-organizations";
 
 const projection = `id,catalog,code,name,employee_id,is_active,version,data AS "values"`;
 const fail = (message: string): never => { throw new SalesSetupError(400, message); };
@@ -42,7 +44,8 @@ export async function salesCatalogSnapshot() {
     return { definitions: salesCatalogDefinitions, entries: [...entries.rows.map(expose), ...sources.rows.map(row => ({
       ...row, organization_choice: lookups.get(organizationLookupKey(row)) === row,
     }))],
-      users: users.rows, nationals: nationals.rows, branch_managers: managers.rows };
+      users: users.rows, nationals: nationals.rows, branch_managers: managers.rows,
+      manager_assignments: await salesTeamManagerAssignments(client) };
   });
 }
 
@@ -169,6 +172,12 @@ export async function saveSalesCatalogEntry(key: string, input: SalesCatalogInpu
       }
     } else if (input.employee_id !== null) fail("Only manager enrollments can be linked to a MIS user.");
     const normalized = normalize(def, input, actor, before);
+    const managerField = mappingManagerFields[key];
+    if (managerField && (normalized.values[managerField] ?? null) !== (before?.values[managerField] ?? null)) {
+      const mapped = await client.query(`SELECT 1 FROM crm.sales_team_manager_assignments
+        WHERE catalog=$1 AND organization_code=$2`, [key, normalized.code]);
+      if (mapped.rowCount) fail("Use Manager Mapping to change this team's current manager. Its original catalog manager reference is retained.");
+    }
     const proposed: SalesCatalogEntry = {
       id: id ?? -1, catalog: key, ...normalized,
       employee_id: input.employee_id, is_active: input.is_active, version: (before?.version ?? 0) + 1,
@@ -189,6 +198,7 @@ export async function saveSalesCatalogEntry(key: string, input: SalesCatalogInpu
           VALUES($1,$2,$3,$4,$5,$6::jsonb,$7,$7) RETURNING ${projection}`,
         [key, normalized.code, normalized.name, input.employee_id, input.is_active, JSON.stringify(normalized.values), actor]);
     const after = expose(saved.rows[0]);
+    await validateSalesManagerMappingHierarchy(client);
     await client.query(`INSERT INTO crm.sales_catalog_events(entry_id,action,before_data,after_data,actor)
       VALUES($1,$2,$3::jsonb,$4::jsonb,$5)`,
     [after.id, before ? "UPDATED" : "CREATED", before ? JSON.stringify(expose(before)) : null, JSON.stringify(after), actor]);

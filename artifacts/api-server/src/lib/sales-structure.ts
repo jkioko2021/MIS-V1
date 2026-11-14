@@ -1,12 +1,14 @@
 import type { PoolClient } from "pg";
 import { withTransaction } from "./postgres";
+import type { SalesManagerDetails, SalesManagerInput, SalesManagerUpdate } from "@workspace/api-zod";
 
 export type SalesLevel = "NATIONAL" | "REGION" | "BRANCH" | "UNIT";
 type NodeValues = {
   name: string; parent_id: number | null; manager_id: number | null; is_active: boolean;
 };
 type NodeRow = NodeValues & { id: number; code: string; level: SalesLevel; version: number };
-type EnrollmentRow = { id: number; employee_id: number; level: SalesLevel; is_active: boolean; version: number };
+type EnrollmentRow = { id: number; employee_id: number; level: SalesLevel; is_active: boolean; version: number;
+  manager_details: SalesManagerDetails | null };
 export class SalesSetupError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -91,27 +93,64 @@ export async function updateSalesNode(id: number, input: NodeValues & { version:
     return { id, version: result.rows[0].version };
   });
 }
-export async function enrollSalesManager(input: { employee_id: number; level: SalesLevel }, actor: string) {
+async function checkedManagerDetails(client: PoolClient, employeeId: number, input: SalesManagerDetails, requireSales = false) {
+  if (!input) fail("Complete the manager enrollment details.");
+  const details = Object.fromEntries(Object.entries(input).map(([key, value]) => [key, value.trim()])) as SalesManagerDetails;
+  for (const [key, value] of Object.entries(details)) if (!value) fail(`${key} is required.`);
+  const { rows } = await client.query<{ employee_name: string; emp_code: string | null; department: string | null }>(
+    `SELECT employee_name,emp_code,department FROM crm.employees WHERE employee_id=$1 AND NOT is_deleted FOR SHARE`, [employeeId]);
+  const user = rows[0];
+  const userCode = user?.emp_code?.trim();
+  if (!userCode) return fail("Select an existing MIS user with a code. Complete the user's enrollment first if their code is missing.");
+  if (requireSales && user.department?.trim().toLowerCase() !== "sales")
+    fail("Select an existing user in the Sales department for manager enrollment.");
+  if (details.code !== userCode || details.mis_emp_code !== userCode
+      || details.name !== user.employee_name.trim())
+    throw new SalesSetupError(409, "Code, MIS_EMP_CODE and Name must match the selected MIS account. Refresh and select the account again.");
+  const duplicateCode = await client.query(`SELECT 1 FROM crm.employees
+    WHERE NOT is_deleted AND lower(btrim(emp_code))=lower($1) AND employee_id<>$2 LIMIT 1`, [details.code, employeeId]);
+  if (duplicateCode.rowCount) fail("This MIS user code is shared by another account. Correct the account codes before enrolling the manager.");
+  const validDate = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+  };
+  if (!validDate(details.valid_from) || !validDate(details.valid_to))
+    fail("Valid From and Valid To must be real calendar dates in YYYY-MM-DD format.");
+  if (details.valid_to < details.valid_from) fail("Valid To cannot be before Valid From.");
+  if (!/^(0|[1-9][0-9]{0,8})(\.[0-9]{1,6})?$/.test(details.h_tax))
+    fail("H_TAX must be a nonnegative decimal with at most six decimal places.");
+  return details;
+}
+export async function enrollSalesManager(input: SalesManagerInput, actor: string) {
   return salesSetupTransaction(async client => {
     await eligibleUser(client, input.employee_id);
+    const details = await checkedManagerDetails(client, input.employee_id, input.details, true);
     const { rows } = await client.query<EnrollmentRow>(`INSERT INTO crm.sales_manager_enrollments
-      (employee_id,level,created_by,updated_by) VALUES($1,$2,$3,$3) RETURNING *`,
-    [input.employee_id, input.level, actor]);
+      (employee_id,level,is_active,manager_details,created_by,updated_by) VALUES($1,$2,$3,$4::jsonb,$5,$5) RETURNING *`,
+    [input.employee_id, input.level, input.is_active, JSON.stringify(details), actor]);
     await audit(client, "MANAGER", rows[0].id, null, rows[0], actor);
     return { id: rows[0].id, version: rows[0].version };
   });
 }
-export async function updateSalesManager(id: number, input: { is_active: boolean; version: number }, actor: string) {
+export async function updateSalesManager(id: number, input: SalesManagerUpdate, actor: string) {
   return salesSetupTransaction(async client => {
     const { rows } = await client.query<EnrollmentRow>("SELECT * FROM crm.sales_manager_enrollments WHERE id=$1 FOR UPDATE", [id]);
     const before = rows[0];
     if (!before) throw new SalesSetupError(404, "Manager enrollment not found.");
     if (before.version !== input.version) throw new SalesSetupError(409, "This enrollment changed. Refresh before trying again.");
+    const details = input.details ? await checkedManagerDetails(client, before.employee_id, input.details) : undefined;
     if (input.is_active) await eligibleUser(client, before.employee_id);
     else {
       const { rowCount } = await client.query(
         "SELECT 1 FROM crm.sales_structure_nodes WHERE manager_id=$1 AND is_active LIMIT 1", [id]);
       if (rowCount) fail("Reassign or unassign this manager from active sales categories before deactivating the enrollment.");
+      const catalog = { UNIT: "sales-units", BRANCH: "sales-branches", REGION: "sales-regions", NATIONAL: null }[before.level];
+      if (catalog) {
+        const mapped = await client.query(`SELECT 1 FROM crm.sales_team_manager_assignments
+          WHERE catalog=$1 AND employee_id=$2 LIMIT 1`, [catalog, before.employee_id]);
+        if (mapped.rowCount) fail("Reassign or unassign this manager's teams in Manager Mapping before deactivating this category.");
+      }
       if (before.level === "BRANCH") {
         const used = await client.query(`SELECT 1 FROM crm.sales_catalog_entries
           WHERE catalog='sales-branches' AND is_active AND data->>'BRANCH_MGR_ID'=$1 LIMIT 1`, [String(id)]);
@@ -119,8 +158,10 @@ export async function updateSalesManager(id: number, input: { is_active: boolean
       }
     }
     const result = await client.query<EnrollmentRow>(`UPDATE crm.sales_manager_enrollments
-      SET is_active=$2,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1 RETURNING *`,
-    [id, input.is_active, actor]);
+      SET is_active=$2,version=version+1,updated_at=now(),updated_by=$3,
+        manager_details=CASE WHEN $4::jsonb IS NULL THEN manager_details ELSE $4::jsonb END
+      WHERE id=$1 RETURNING *`,
+    [id, input.is_active, actor, details ? JSON.stringify(details) : null]);
     await audit(client, "MANAGER", id, before, result.rows[0], actor);
     return { id, version: result.rows[0].version };
   });

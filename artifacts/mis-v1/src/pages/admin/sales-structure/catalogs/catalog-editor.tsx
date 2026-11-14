@@ -63,6 +63,12 @@ export function CatalogEditor({ catalog, definition, snapshot, entry, onClose }:
   const pending = createEntry.isPending || updateEntry.isPending;
   const error = createEntry.error || updateEntry.error;
   const selectedUser = snapshot.users.find((staff) => String(staff.employee_id) === employeeId);
+  const mappedManagerField = catalog === 'sales-units' ? 'UNIT_MGR_ID'
+    : catalog === 'sales-branches' ? 'BRANCH_MGR_ID'
+      : catalog === 'sales-regions' ? 'REGION_MGR_ID' : '';
+  const hasManagerMapping = !!entry && !!mappedManagerField && !!snapshot.manager_assignments?.some(
+    assignment => assignment.catalog === catalog && assignment.organization_code === entry.code,
+  );
   const users = useMemo(() => snapshot.users
     .filter((staff) => `${staff.employee_name} ${staff.username} ${staff.employee_id}`.toLowerCase().includes(userSearch.trim().toLowerCase()))
     .slice(0, 80), [snapshot.users, userSearch]);
@@ -229,6 +235,7 @@ export function CatalogEditor({ catalog, definition, snapshot, entry, onClose }:
             if (field.key === 'ACTIVE') return null;
             const value = values[field.key] ?? '';
             const locked = field.read_only || (entry && field.key === definition.code_field);
+            const mappingLocked = hasManagerMapping && field.key === mappedManagerField;
             const id = `catalog-field-${field.key}`;
             const label = displayFieldLabel(field, catalog);
             const required = field.required && !field.read_only;
@@ -260,7 +267,7 @@ export function CatalogEditor({ catalog, definition, snapshot, entry, onClose }:
                   <select
                     id={id}
                     value={value}
-                    disabled={!!locked}
+                    disabled={!!locked || !!mappingLocked}
                     onChange={(event) => updateValue(field.key, event.target.value)}
                     className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-70"
                     data-testid={`field-${field.key}`}
@@ -301,6 +308,7 @@ export function CatalogEditor({ catalog, definition, snapshot, entry, onClose }:
                 {field.reference && matchingValueInactive && (
                   <p className="text-xs text-amber-800">This saved selection is inactive. Choose an active replacement before saving this as an active record.</p>
                 )}
+                {mappingLocked && <p className="text-xs leading-5 text-[#416b58]">Current ownership is controlled by Manager Mapping. This original source reference is retained unchanged.</p>}
                 {field.key === definition.code_field && entry && (
                   <p className="text-[11px] text-muted-foreground">The catalog code is immutable after creation.</p>
                 )}

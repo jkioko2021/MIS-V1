@@ -15,10 +15,32 @@ sales-manager designations separate from authentication and access rights; do no
 grant Administration access or change a user's base profile merely because they
 are enrolled as a manager.
 
-Uploaded sales catalog rows without verified MIS account mappings are **reference
-records**, separate from operational enrollments. Retain repeated manager IDs
-across assignments and the original source values; do not guess account matches
-or create accounts to satisfy an import.
+Manager enrollment requires an existing MIS user with a code. Both **Code** and
+**MIS_EMP_CODE** use that existing user's code; do not generate a separate manager
+code or substitute an internal numeric record ID. Name comes from the same account.
+
+**Why:** The user selected "Use existing MIS user code" and confirmed "use that
+code" when requesting the manager enrollment details.
+
+**How to apply:** Populate those identity fields from the selected user and
+validate the link when saving. Missing codes must be corrected on the existing
+account, not invented during manager enrollment. Manager contact, payroll, tax,
+active status and validity dates belong to the designation, not the login profile.
+
+Keep normal-user mapping compatible when no formal designation has yet been
+captured, but honor an explicitly inactive designation for its manager category.
+
+**Why:** Adding enrollment details must not retroactively invalidate established
+normal-user assignment workflows; an explicit category deactivation still needs
+to prevent new assignments at that level.
+
+**How to apply:** Do not make the capture form a new login/profile prerequisite.
+Block deactivation while that category has mapped teams, and retain the person's
+other category designations and team assignments.
+
+Uploaded sales catalog rows are **reference records**, separate from operational
+enrollments. Retain repeated manager IDs across assignments and the original
+source values. Source loading alone does not authorize account creation.
 
 **Why:** When the supplied source data revealed repeated manager identifiers,
 missing relationships and unlinked users, the user chose "Load as reference records."
@@ -29,11 +51,43 @@ to grant access. Future manager reconciliation must deliberately verify each
 assignment. Organizational lookup eligibility is a separate user-approved
 exception, described in sales-catalog-presentation.md.
 
-Keep the Sales Structure setup parent menu, but do not expose the separate
-generic Structure setup and Manager enrollment submenu links.
+The user subsequently authorized enrolling the uploaded Unit, Regional and GI
+managers as normal system users under **Sales**, chose **inactive accounts**
+pending individual password setup, and requested a single user record rather
+than duplicate users. Manager Enrollment's existing-user selector is Sales-only.
 
-**Why:** The user explicitly requested their removal as not needed after the
-nine specific sales catalog pages were added.
+**Why:** The user explicitly requested Sales accounts and Sales-only choices,
+then said "remove duplicate users.mantan single record."
 
-**How to apply:** Use the specific catalog pages in navigation. This does not
-authorize deleting historical hierarchy data or changing manager identity rules.
+**How to apply:** Maintain one account per confirmed person across Medical/GI
+assignment rows, without deleting those assignments. Keep new accounts inactive
+and unapproved, with no shared/default password or automatic emails. Display
+pending Sales accounts as unavailable for enrollment until activated/approved.
+Hold ambiguous names, shared emails or unverified existing-account matches for
+review rather than merging or changing another person's account.
+
+Keep Medical and GI structure setup separate. Medical uses one combined Manager
+Enrollment with Unit Manager, Regional Manager, Branch Manager and National Sales
+Manager categories, rather than separate Unit Managers and Regional Managers
+submenu links. Do not restore the old generic Structure setup editor link.
+
+**Why:** The user superseded the earlier removal of Manager enrollment by asking
+to combine the two medical manager submenus into one four-category enrollment
+page and separate GI Structure setup.
+
+**How to apply:** Preserve existing imported references and operational
+designations across the navigation change. Combining a page does not authorize
+deleting history, merging different source identities or changing account access.
+
+One manager may oversee multiple units, branches or regions, while each team has
+one current manager. Explicit reassignment to a different team is a move, not an
+implicit removal of all the person's other assignments.
+
+**Why:** The user chose "Allow multiple teams per manager" and then requested the
+ability to reassign unit, branch and region managers to different teams.
+
+**How to apply:** Keep assignment and move distinct. A confirmed move removes
+only the selected origin, assigns the destination at the same manager level,
+and preserves both histories atomically. Require a reason and explicit review
+of any destination manager being replaced. Never bulk-clear the manager's other
+teams or rewrite their normal user account.

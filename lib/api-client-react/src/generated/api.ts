@@ -29,6 +29,7 @@ import type {
   GetRiskRegisterReopenScope200,
   GetRiskRegisterReopenScopeParams,
   GetRiskRegisterSummaryParams,
+  GetSalesManagerMappingHistoryParams,
   HealthStatus,
   IntermediaryActionInput,
   IntermediaryDetail,
@@ -87,11 +88,15 @@ import type {
   SalesCatalogSnapshot,
   SalesCatalogUpdate,
   SalesManagerInput,
+  SalesManagerMappingEvent,
+  SalesManagerMappingInput,
+  SalesManagerMappingSnapshot,
   SalesManagerUpdate,
   SalesNodeInput,
   SalesNodeUpdate,
   SalesSetupSaved,
-  SalesStructure
+  SalesStructure,
+  SalesTeamManagerAssignment
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -120,6 +125,220 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetSalesManagerMappingsUrl = () => {
+
+
+
+
+  return `/api/admin/sales-structure/manager-mappings`
+}
+
+export const getSalesManagerMappings = async ( options?: Parameters<typeof customFetch>[1]): Promise<SalesManagerMappingSnapshot> => {
+
+  return customFetch<SalesManagerMappingSnapshot>(getGetSalesManagerMappingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSalesManagerMappingsQueryKey = () => {
+    return [
+    `/api/admin/sales-structure/manager-mappings`
+    ] as const;
+    }
+
+
+export const getGetSalesManagerMappingsQueryOptions = <TData = Awaited<ReturnType<typeof getSalesManagerMappings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSalesManagerMappings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSalesManagerMappingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSalesManagerMappings>>> = ({ signal }) => getSalesManagerMappings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSalesManagerMappings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSalesManagerMappingsQueryResult = NonNullable<Awaited<ReturnType<typeof getSalesManagerMappings>>>
+export type GetSalesManagerMappingsQueryError = ErrorType<unknown>
+
+
+
+export function useGetSalesManagerMappings<TData = Awaited<ReturnType<typeof getSalesManagerMappings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSalesManagerMappings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSalesManagerMappingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveSalesManagerMappingUrl = () => {
+
+
+
+
+  return `/api/admin/sales-structure/manager-mappings`
+}
+
+export const saveSalesManagerMapping = async (salesManagerMappingInput: SalesManagerMappingInput, options?: Parameters<typeof customFetch>[1]): Promise<SalesTeamManagerAssignment> => {
+
+  return customFetch<SalesTeamManagerAssignment>(getSaveSalesManagerMappingUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(salesManagerMappingInput)
+  }
+);}
+
+
+
+
+
+export const getSaveSalesManagerMappingMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveSalesManagerMapping>>, TError,{data: BodyType<SalesManagerMappingInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveSalesManagerMapping>>, TError,{data: BodyType<SalesManagerMappingInput>}, TContext> => {
+
+const mutationKey = ['saveSalesManagerMapping'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveSalesManagerMapping>>, {data: BodyType<SalesManagerMappingInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  saveSalesManagerMapping(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveSalesManagerMappingMutationResult = NonNullable<Awaited<ReturnType<typeof saveSalesManagerMapping>>>
+    export type SaveSalesManagerMappingMutationBody = BodyType<SalesManagerMappingInput>
+    export type SaveSalesManagerMappingMutationError = ErrorType<unknown>
+
+    export const useSaveSalesManagerMapping = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveSalesManagerMapping>>, TError,{data: BodyType<SalesManagerMappingInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveSalesManagerMapping>>,
+        TError,
+        {data: BodyType<SalesManagerMappingInput>},
+        TContext
+      > => {
+      return useMutation(getSaveSalesManagerMappingMutationOptions(options));
+    }
+
+export const getGetSalesManagerMappingHistoryUrl = (params: GetSalesManagerMappingHistoryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/sales-structure/manager-mappings/history?${stringifiedParams}` : `/api/admin/sales-structure/manager-mappings/history`
+}
+
+export const getSalesManagerMappingHistory = async (params: GetSalesManagerMappingHistoryParams, options?: Parameters<typeof customFetch>[1]): Promise<SalesManagerMappingEvent[]> => {
+
+  return customFetch<SalesManagerMappingEvent[]>(getGetSalesManagerMappingHistoryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSalesManagerMappingHistoryQueryKey = (params?: GetSalesManagerMappingHistoryParams,) => {
+    return [
+    `/api/admin/sales-structure/manager-mappings/history`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetSalesManagerMappingHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getSalesManagerMappingHistory>>, TError = ErrorType<unknown>>(params: GetSalesManagerMappingHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSalesManagerMappingHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSalesManagerMappingHistoryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSalesManagerMappingHistory>>> = ({ signal }) => getSalesManagerMappingHistory(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSalesManagerMappingHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSalesManagerMappingHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getSalesManagerMappingHistory>>>
+export type GetSalesManagerMappingHistoryQueryError = ErrorType<unknown>
+
+
+
+export function useGetSalesManagerMappingHistory<TData = Awaited<ReturnType<typeof getSalesManagerMappingHistory>>, TError = ErrorType<unknown>>(
+ params: GetSalesManagerMappingHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSalesManagerMappingHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSalesManagerMappingHistoryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetSalesCatalogsUrl = () => {
 

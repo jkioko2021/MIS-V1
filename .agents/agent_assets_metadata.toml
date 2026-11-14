@@ -84,3 +84,17 @@ mtime_ms = 1792090967291
 storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:1d891ef0-d2dd-41b3-b4a9-0f70c8efb7ff/d906118c-2724-4748-b925-a93a1ec5af81/b708f5a8-6cc8-438c-83fe-97c8210b99fe"
 storage_version_token = "1792090993793469"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "vNLitoigXQ7zhfTtepDc2"
+uri = "file://generated-artifacts/sales-manager-users-c44948a6.csv"
+type = "table"
+title = "Sales manager account import report"
+description = "45 unique inactive Sales accounts, their retained source assignments, and six source rows held for identity review. No passwords are included."
+logical_id = "c8713fb1-7ed0-461e-9497-8c5b06554408"
+content_hash = "sha256:427b7bd68527c1b97725881b21a2395f8fbcb106ef5fb3b72eeceecf6189c13b"
+size = 10861
+mtime_ms = 1794646219701
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:1d891ef0-d2dd-41b3-b4a9-0f70c8efb7ff/c8713fb1-7ed0-461e-9497-8c5b06554408/ad918749-60c5-4d40-b93f-d858e378c2b4"
+storage_version_token = "1794646469625210"
+content_type = "text/csv"

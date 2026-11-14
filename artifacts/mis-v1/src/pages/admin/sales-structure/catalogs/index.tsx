@@ -53,6 +53,7 @@ function entrySearchText(entry: SalesCatalogEntry, definition: SalesCatalogDefin
 }
 
 function CatalogContent({ catalog, username }: { catalog: string; username: string }) {
+  const isGiCatalog = catalog.startsWith('gi-');
   const queryKey = [...getGetSalesCatalogsQueryKey(), username];
   const { data, isLoading, isFetching, isError, error, refetch } = useGetSalesCatalogs({
     query: {
@@ -116,7 +117,7 @@ function CatalogContent({ catalog, username }: { catalog: string; username: stri
   return (
     <>
       <SalesStructureHeader
-        eyebrow="Administration / Sales Structure setup"
+        eyebrow={`Administration / ${isGiCatalog ? 'GI' : 'Medical'} Structure setup`}
         title={definition?.title ?? 'Sales catalog'}
         description={DESCRIPTION[catalog] ?? 'Maintain accountable sales organization records and their relationships.'}
       >

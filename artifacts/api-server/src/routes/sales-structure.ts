@@ -4,16 +4,19 @@ import {
   GetSalesStructureResponse, CreateSalesStructureNodeBody, UpdateSalesStructureNodeBody,
   EnrollSalesManagerBody, UpdateSalesManagerEnrollmentBody,
   GetSalesCatalogsResponse, CreateSalesCatalogEntryBody, UpdateSalesCatalogEntryBody,
+  GetSalesManagerMappingsResponse, SaveSalesManagerMappingBody, SaveSalesManagerMappingResponse,
+  GetSalesManagerMappingHistoryResponse, GetSalesManagerMappingHistoryQueryParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth-middleware";
 import { withTransaction } from "../lib/postgres";
 import { createSalesNode, enrollSalesManager, updateSalesManager, updateSalesNode, SalesSetupError } from "../lib/sales-structure";
 import { salesCatalogSnapshot, saveSalesCatalogEntry } from "../lib/sales-catalogs";
+import { salesManagerMappingSnapshot, saveSalesManagerMapping, salesManagerMappingHistory } from "../lib/sales-manager-mapping";
 
 const router = Router();
 router.use("/admin/sales-structure", requireAuth, (req, res, next) => {
   if (req.user?.profileId !== 1 && req.user?.profileId !== 2) {
-    res.status(403).json({ error: "Sales Structure setup requires SuperAdmin or System Admin access." });
+    res.status(403).json({ error: "Medical and GI Structure setup require SuperAdmin or System Admin access." });
     return;
   }
   res.setHeader("Cache-Control", "private, no-store");
@@ -31,12 +34,23 @@ const wrap = (fn: (req: Request, res: Response) => Promise<void>) =>
       if ((err as { code?: string }).code === "23503") {
         res.status(400).json({ error: "A selected user, parent or manager no longer exists. Refresh and select again." }); return;
       }
-      req.log.error({ err }, "Sales Structure setup failed");
-      res.status(500).json({ error: "Unable to complete Sales Structure setup. Please try again." });
+      req.log.error({ err }, "Medical/GI Structure setup failed");
+      res.status(500).json({ error: "Unable to complete structure setup. Please try again." });
     }
   };
 const idFrom = (req: Request) => z.coerce.number().int().positive().parse(req.params.id);
 const catalogFrom = (req: Request) => z.string().max(40).parse(req.params.catalog);
+router.get("/admin/sales-structure/manager-mappings", wrap(async (_req, res) => {
+  res.json(GetSalesManagerMappingsResponse.parse(await salesManagerMappingSnapshot()));
+}));
+router.post("/admin/sales-structure/manager-mappings", wrap(async (req, res) => {
+  res.json(SaveSalesManagerMappingResponse.parse(await saveSalesManagerMapping(
+    SaveSalesManagerMappingBody.parse(req.body), req.user!.username)));
+}));
+router.get("/admin/sales-structure/manager-mappings/history", wrap(async (req, res) => {
+  const params = GetSalesManagerMappingHistoryQueryParams.parse(req.query);
+  res.json(GetSalesManagerMappingHistoryResponse.parse(await salesManagerMappingHistory(params.catalog, params.organization_code)));
+}));
 router.get("/admin/sales-structure/catalogs", wrap(async (_req, res) => {
   res.json(GetSalesCatalogsResponse.parse(await salesCatalogSnapshot()));
 }));
@@ -52,11 +66,16 @@ router.get("/admin/sales-structure", wrap(async (_req, res) => {
     const nodes = await client.query(`SELECT id,code,name,level,parent_id,manager_id,is_active,version
       FROM crm.sales_structure_nodes ORDER BY CASE level WHEN 'NATIONAL' THEN 1 WHEN 'REGION' THEN 2 WHEN 'BRANCH' THEN 3 ELSE 4 END,name,id`);
     const managers = await client.query(`SELECT m.id,m.employee_id,m.level,m.is_active,m.version,e.employee_name,e.username,
+      e.emp_code,e.email AS account_email,m.manager_details AS details,
       (NOT e.is_deleted AND e.activated AND e.approved AND NOT e.employee_locked) AS user_eligible
       FROM crm.sales_manager_enrollments m JOIN crm.employees e ON e.employee_id=m.employee_id
       ORDER BY e.employee_name,m.level,m.id`);
-    const users = await client.query(`SELECT employee_id,employee_name,username FROM crm.employees
-      WHERE NOT is_deleted AND activated AND approved AND NOT employee_locked ORDER BY employee_name,employee_id`);
+    const users = await client.query(`SELECT employee_id,employee_name,username,emp_code,email,
+      (activated AND approved AND NOT employee_locked) AS user_eligible,
+      nullif(concat_ws('; ',CASE WHEN NOT activated THEN 'Inactive' END,
+        CASE WHEN NOT approved THEN 'Not approved' END,CASE WHEN employee_locked THEN 'Locked' END),'') AS eligibility_note
+      FROM crm.employees WHERE NOT is_deleted AND lower(btrim(department))='sales'
+      ORDER BY employee_name,employee_id`);
     return { nodes: nodes.rows, managers: managers.rows, users: users.rows };
   });
   res.json(GetSalesStructureResponse.parse(data));

@@ -10,6 +10,7 @@ import type { SalesCatalogEntry } from './salesCatalogEntry';
 import type { SalesManager } from './salesManager';
 import type { SalesNode } from './salesNode';
 import type { SalesStaff } from './salesStaff';
+import type { SalesTeamManagerAssignment } from './salesTeamManagerAssignment';
 
 export interface SalesCatalogSnapshot {
   definitions: SalesCatalogDefinition[];
@@ -17,4 +18,5 @@ export interface SalesCatalogSnapshot {
   users: SalesStaff[];
   nationals: SalesNode[];
   branch_managers: SalesManager[];
+  manager_assignments?: SalesTeamManagerAssignment[];
 }

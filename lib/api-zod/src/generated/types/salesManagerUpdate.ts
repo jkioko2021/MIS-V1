@@ -5,9 +5,11 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SalesManagerDetails } from './salesManagerDetails';
 
 export interface SalesManagerUpdate {
   is_active: boolean;
   /** @minimum 1 */
   version: number;
+  details?: SalesManagerDetails;
 }

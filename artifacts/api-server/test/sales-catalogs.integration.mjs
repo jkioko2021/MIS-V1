@@ -48,13 +48,16 @@ try {
   }
   await db.connect(); connected = true; await db.query("BEGIN");
   const prefix = `CAT_${randomUUID().slice(0, 8)}`.toUpperCase();
-  const employee = (await db.query(`INSERT INTO crm.employees(username,employee_name,password_hash,
-    profile_id,activated,approved) VALUES($1,$1,'not-a-login-hash',3,true,true) RETURNING employee_id`,
+  const employee = (await db.query(`INSERT INTO crm.employees(username,employee_name,emp_code,password_hash,
+    profile_id,activated,approved,department) VALUES($1,$1,$1,'not-a-login-hash',3,true,true,'Sales') RETURNING employee_id`,
   [prefix])).rows[0].employee_id;
   const national = await lib.createSalesNode({
     code: `${prefix}_N`, name: prefix, level: "NATIONAL", parent_id: null, manager_id: null, is_active: true,
   }, prefix);
-  const bm = await lib.enrollSalesManager({ employee_id: employee, level: "BRANCH" }, prefix);
+  const bm = await lib.enrollSalesManager({ employee_id: employee, level: "BRANCH", is_active: true,
+    details: { code: prefix, mis_emp_code: prefix, name: prefix, email: "fixture@example.test",
+      hrmis_code: "000123", mobile_no: "+254700000000", h_tax: "0.100",
+      valid_from: "2026-01-01", valid_to: "2026-12-31" } }, prefix);
   const definitions = new Map(lib.salesCatalogDefinitions.map(d => [d.key, d]));
   const states = new Map();
   async function create(catalog, extra = {}) {

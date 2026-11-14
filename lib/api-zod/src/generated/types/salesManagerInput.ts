@@ -6,9 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SalesLevel } from './salesLevel';
+import type { SalesManagerDetails } from './salesManagerDetails';
 
 export interface SalesManagerInput {
   /** @minimum 1 */
   employee_id: number;
   level: SalesLevel;
+  is_active: boolean;
+  details: SalesManagerDetails;
 }

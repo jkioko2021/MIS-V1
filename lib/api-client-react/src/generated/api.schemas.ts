@@ -5,6 +5,151 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type SalesMappingCatalog = typeof SalesMappingCatalog[keyof typeof SalesMappingCatalog];
+
+
+export const SalesMappingCatalog = {
+  'sales-regions': 'sales-regions',
+  'sales-branches': 'sales-branches',
+  'sales-units': 'sales-units',
+} as const;
+
+export interface SalesTeamManagerAssignment {
+  id: number;
+  catalog: SalesMappingCatalog;
+  organization_code: string;
+  /** @nullable */
+  employee_id: number | null;
+  /** @nullable */
+  employee_name: string | null;
+  user_eligible: boolean;
+  version: number;
+  updated_at: string;
+  updated_by: string;
+}
+
+export type SalesMappingOrganizationLevel = typeof SalesMappingOrganizationLevel[keyof typeof SalesMappingOrganizationLevel];
+
+
+export const SalesMappingOrganizationLevel = {
+  REGION: 'REGION',
+  BRANCH: 'BRANCH',
+  UNIT: 'UNIT',
+} as const;
+
+export interface SalesMappingOrganization {
+  catalog: SalesMappingCatalog;
+  code: string;
+  name: string;
+  level: SalesMappingOrganizationLevel;
+  /** @nullable */
+  region_code: string | null;
+  /** @nullable */
+  region_name: string | null;
+  /** @nullable */
+  branch_code: string | null;
+  /** @nullable */
+  branch_name: string | null;
+  is_active: boolean;
+  eligible: boolean;
+  issues: string[];
+  hierarchy_version: string;
+  source_reference: boolean;
+}
+
+export type SalesLevel = typeof SalesLevel[keyof typeof SalesLevel];
+
+
+export const SalesLevel = {
+  NATIONAL: 'NATIONAL',
+  REGION: 'REGION',
+  BRANCH: 'BRANCH',
+  UNIT: 'UNIT',
+} as const;
+
+export interface SalesStaff {
+  employee_id: number;
+  employee_name: string;
+  username: string;
+  /** @nullable */
+  emp_code?: string | null;
+  /** @nullable */
+  email?: string | null;
+  inactive_manager_categories?: SalesLevel[];
+  user_eligible?: boolean;
+  /** @nullable */
+  eligibility_note?: string | null;
+}
+
+export interface SalesManagerMappingSnapshot {
+  organizations: SalesMappingOrganization[];
+  users: SalesStaff[];
+  assignments: SalesTeamManagerAssignment[];
+}
+
+export interface SalesManagerMappingSource {
+  /**
+     * @minLength 1
+     * @maxLength 50
+     */
+  organization_code: string;
+  /** @minimum 1 */
+  expected_version: number;
+  /** @pattern ^[a-f0-9]{64}$ */
+  hierarchy_version: string;
+}
+
+export interface SalesManagerMappingInput {
+  catalog: SalesMappingCatalog;
+  /**
+     * @minLength 1
+     * @maxLength 50
+     */
+  organization_code: string;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  employee_id: number | null;
+  /** @minimum 0 */
+  expected_version: number;
+  /** @pattern ^[a-f0-9]{64}$ */
+  hierarchy_version: string;
+  /** @maxLength 1000 */
+  note?: string;
+  move_from?: SalesManagerMappingSource;
+}
+
+export type SalesManagerMappingEventAction = typeof SalesManagerMappingEventAction[keyof typeof SalesManagerMappingEventAction];
+
+
+export const SalesManagerMappingEventAction = {
+  ASSIGNED: 'ASSIGNED',
+  REASSIGNED: 'REASSIGNED',
+  UNASSIGNED: 'UNASSIGNED',
+} as const;
+
+export interface SalesManagerMappingEvent {
+  id: number;
+  action: SalesManagerMappingEventAction;
+  /** @nullable */
+  before_manager_name: string | null;
+  /** @nullable */
+  after_manager_name: string | null;
+  organization_name: string;
+  /** @nullable */
+  region_name: string | null;
+  /** @nullable */
+  branch_name: string | null;
+  note: string;
+  actor: string;
+  created_at: string;
+  /** @nullable */
+  transfer_from_name?: string | null;
+  /** @nullable */
+  transfer_to_name?: string | null;
+}
+
 export interface SalesCatalogValues {[key: string]: string | null}
 
 export type SalesCatalogFieldType = typeof SalesCatalogFieldType[keyof typeof SalesCatalogFieldType];
@@ -57,22 +202,6 @@ export interface SalesCatalogEntry {
   source_issues?: string[];
 }
 
-export interface SalesStaff {
-  employee_id: number;
-  employee_name: string;
-  username: string;
-}
-
-export type SalesLevel = typeof SalesLevel[keyof typeof SalesLevel];
-
-
-export const SalesLevel = {
-  NATIONAL: 'NATIONAL',
-  REGION: 'REGION',
-  BRANCH: 'BRANCH',
-  UNIT: 'UNIT',
-} as const;
-
 export interface SalesNode {
   id: number;
   code: string;
@@ -86,6 +215,46 @@ export interface SalesNode {
   version: number;
 }
 
+export interface SalesManagerDetails {
+  /**
+     * @minLength 1
+     * @maxLength 50
+     * @pattern ^[A-Za-z0-9_-]+$
+     */
+  code: string;
+  /**
+     * @minLength 1
+     * @maxLength 150
+     */
+  name: string;
+  /** @maxLength 254 */
+  email: string;
+  /**
+     * @minLength 1
+     * @maxLength 50
+     */
+  hrmis_code: string;
+  /**
+     * @minLength 1
+     * @maxLength 50
+     */
+  mobile_no: string;
+  /**
+     * @maxLength 16
+     * @pattern ^(0|[1-9][0-9]{0,8})(\.[0-9]{1,6})?$
+     */
+  h_tax: string;
+  /**
+     * @minLength 1
+     * @maxLength 50
+     */
+  mis_emp_code: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  valid_from: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  valid_to: string;
+}
+
 export interface SalesManager {
   id: number;
   employee_id: number;
@@ -94,7 +263,12 @@ export interface SalesManager {
   version: number;
   employee_name: string;
   username: string;
+  /** @nullable */
+  emp_code?: string | null;
+  /** @nullable */
+  account_email?: string | null;
   user_eligible: boolean;
+  details?: SalesManagerDetails | null;
 }
 
 export interface SalesCatalogSnapshot {
@@ -103,6 +277,7 @@ export interface SalesCatalogSnapshot {
   users: SalesStaff[];
   nationals: SalesNode[];
   branch_managers: SalesManager[];
+  manager_assignments?: SalesTeamManagerAssignment[];
 }
 
 export interface SalesCatalogInput {
@@ -189,12 +364,15 @@ export interface SalesManagerInput {
   /** @minimum 1 */
   employee_id: number;
   level: SalesLevel;
+  is_active: boolean;
+  details: SalesManagerDetails;
 }
 
 export interface SalesManagerUpdate {
   is_active: boolean;
   /** @minimum 1 */
   version: number;
+  details?: SalesManagerDetails;
 }
 
 export interface IntermediaryImportResult {
@@ -1516,6 +1694,15 @@ export interface AllocatedDocumentUpload {
   /** @nullable */
   originating_system: string | null;
 }
+
+export type GetSalesManagerMappingHistoryParams = {
+catalog: SalesMappingCatalog;
+/**
+ * @minLength 1
+ * @maxLength 50
+ */
+organization_code: string;
+};
 
 export type ListIntermediariesParams = {
 search?: string;

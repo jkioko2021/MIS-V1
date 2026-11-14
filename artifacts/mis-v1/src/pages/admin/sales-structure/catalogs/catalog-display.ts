@@ -14,6 +14,19 @@ export function displayFieldLabel(field: SalesCatalogField, catalog: string) {
 }
 
 export function displayReference(entry: SalesCatalogEntry, field: SalesCatalogField, snapshot: SalesCatalogSnapshot) {
+  const mappingCatalog = field.key === 'UNIT_MGR_ID' && entry.catalog === 'sales-units'
+    ? 'sales-units'
+    : field.key === 'BRANCH_MGR_ID' && entry.catalog === 'sales-branches'
+      ? 'sales-branches'
+      : field.key === 'REGION_MGR_ID' && entry.catalog === 'sales-regions'
+        ? 'sales-regions'
+        : null;
+  if (mappingCatalog) {
+    const mapping = snapshot.manager_assignments?.find(row =>
+      row.catalog === mappingCatalog && row.organization_code === entry.code,
+    );
+    if (mapping) return mapping.employee_name ?? 'Not assigned';
+  }
   const code = entry.values[field.key]?.trim();
   if (!code || code.toUpperCase() === 'NULL') return 'Not assigned';
   let names: string[];

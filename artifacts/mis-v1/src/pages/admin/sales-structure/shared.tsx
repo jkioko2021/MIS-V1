@@ -1,16 +1,19 @@
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
-import { ArrowRight, Network, ClipboardList } from 'lucide-react';
+import { ArrowRight, ClipboardList, Network, UserRoundCheck } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-export const SALES_CATALOGS = [
+export const MEDICAL_STRUCTURE_LINKS = [
+  { href: '/admin/sales-structure/managers', key: 'managers', title: 'Manager Enrollment', kind: 'page' },
+  { href: '/admin/sales-structure/manager-mapping', key: 'manager-mapping', title: 'Manager Mapping', kind: 'page' },
   { key: 'sales-units', title: 'Sales Units' },
-  { key: 'unit-managers', title: 'Unit Managers' },
   { key: 'sales-branches', title: 'Sales Branches' },
-  { key: 'regional-managers', title: 'Regional Managers' },
   { key: 'sales-regions', title: 'Sales Regions' },
+] as const;
+
+export const GI_STRUCTURE_LINKS = [
   { key: 'gi-unit-managers', title: 'GI Unit Managers' },
   { key: 'gi-units', title: 'GI Units' },
   { key: 'gi-branches', title: 'GI Branches' },
@@ -28,7 +31,7 @@ export function SalesStructureGuard({ children }: { children: ReactNode }) {
           </div>
           <h1 className="mt-4 text-xl font-semibold tracking-tight">Administration access required</h1>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-            Sales Structure setup is restricted to SuperAdmin and System Admin profiles.
+            Medical and GI structure setup is restricted to SuperAdmin and System Admin profiles.
           </p>
         </section>
       </div>
@@ -49,7 +52,11 @@ export function SalesStructureHeader({
   children?: ReactNode;
 }) {
   const [location] = useLocation();
-  const catalogActive = location.startsWith('/admin/sales-structure/catalogs/');
+  const giActive = location.startsWith('/admin/gi-structure');
+  const catalogActive = location.startsWith(giActive ? '/admin/gi-structure/catalogs/' : '/admin/sales-structure/catalogs/');
+  const mappingActive = location === '/admin/sales-structure/manager-mapping';
+  const enrollmentActive = location === '/admin/sales-structure/managers';
+  const links = giActive ? GI_STRUCTURE_LINKS : MEDICAL_STRUCTURE_LINKS;
   return (
     <div className="mx-auto max-w-[1480px] space-y-6 p-4 pb-12 sm:p-6 lg:p-8">
       <div className="relative overflow-hidden rounded-2xl border border-[#c7d8d2] bg-[#edf4ef] px-5 py-6 sm:px-8 sm:py-8">
@@ -69,25 +76,32 @@ export function SalesStructureHeader({
           </div>
         </div>
         <div className="relative mt-7 flex flex-wrap items-center gap-1 border-t border-[#cbdad4] pt-4">
-          {SALES_CATALOGS.map((catalog) => (
+          {links.map((item) => {
+            const href = 'href' in item
+              ? item.href
+              : `${giActive ? '/admin/gi-structure' : '/admin/sales-structure'}/catalogs/${item.key}`;
+            const active = item.key === 'manager-mapping' ? mappingActive
+              : item.key === 'managers' ? enrollmentActive
+                : catalogActive && location.endsWith(`/${item.key}`);
+            return (
             <Link
-              key={catalog.key}
-              href={`/admin/sales-structure/catalogs/${catalog.key}`}
+              key={item.key}
+              href={href}
               className={cn(
                 'inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                catalogActive && location.endsWith(`/${catalog.key}`)
+                active
                   ? 'bg-[#1f5849] text-white shadow-sm'
                   : 'text-[#4d6c62] hover:bg-white/70',
               )}
-              data-testid={`link-catalog-${catalog.key}`}
-              aria-current={catalogActive && location.endsWith(`/${catalog.key}`) ? 'page' : undefined}
+              data-testid={item.key === 'manager-mapping' ? 'link-manager-mapping' : item.key === 'managers' ? 'link-manager-enrollment' : `link-catalog-${item.key}`}
+              aria-current={active ? 'page' : undefined}
             >
-              <ClipboardList className="h-4 w-4" />
-              {catalog.title}
+              {item.key === 'manager-mapping' || item.key === 'managers' ? <UserRoundCheck className="h-4 w-4" /> : <ClipboardList className="h-4 w-4" />}
+              {item.title}
             </Link>
-          ))}
+          );})}
           <span className="ml-auto hidden items-center gap-2 pr-1 text-xs text-[#54766a] md:flex">
-            AAR Insurance <ArrowRight className="h-3.5 w-3.5" /> Sales operations
+            AAR Insurance <ArrowRight className="h-3.5 w-3.5" /> {giActive ? 'GI structure' : 'Medical structure'}
           </span>
         </div>
       </div>

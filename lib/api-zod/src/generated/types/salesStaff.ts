@@ -5,9 +5,18 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SalesLevel } from './salesLevel';
 
 export interface SalesStaff {
   employee_id: number;
   employee_name: string;
   username: string;
+  /** @nullable */
+  emp_code?: string | null;
+  /** @nullable */
+  email?: string | null;
+  inactive_manager_categories?: SalesLevel[];
+  user_eligible?: boolean;
+  /** @nullable */
+  eligibility_note?: string | null;
 }

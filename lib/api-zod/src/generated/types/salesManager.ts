@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SalesLevel } from './salesLevel';
+import type { SalesManagerDetails } from './salesManagerDetails';
 
 export interface SalesManager {
   id: number;
@@ -15,5 +16,10 @@ export interface SalesManager {
   version: number;
   employee_name: string;
   username: string;
+  /** @nullable */
+  emp_code?: string | null;
+  /** @nullable */
+  account_email?: string | null;
   user_eligible: boolean;
+  details?: SalesManagerDetails | null;
 }

@@ -18,9 +18,9 @@ import LoginPage from '@/pages/login';
 import UsersPage from '@/pages/admin/users';
 import ProfilesPage from '@/pages/admin/profiles';
 import BusinessRequirementsPage from '@/pages/admin/business-requirements';
-import SalesStructurePage from '@/pages/admin/sales-structure';
-import SalesStructureManagersPage from '@/pages/admin/sales-structure/managers';
 import SalesCatalogPage from '@/pages/admin/sales-structure/catalogs';
+import SalesStructureManagersPage from '@/pages/admin/sales-structure/managers';
+import ManagerMappingPage from '@/pages/admin/sales-structure/manager-mapping';
 import MedicalUnderwritingPage from '@/pages/medical-underwriting';
 import CashierPage from '@/pages/cashier';
 import PricingReviewPage from '@/pages/pricing-review';
@@ -152,17 +152,22 @@ const NAV_SECTIONS: Array<{
       { href: '/admin/users',    label: 'User Enrollment',    icon: Users },
       { href: '/admin/profiles', label: 'Profiles & Access',  icon: Settings },
       {
-        href: '/admin/sales-structure', label: 'Sales Structure setup', icon: Network,
+        href: '/admin/sales-structure', label: 'Medical Structure setup', icon: Network,
         children: [
+          { href: '/admin/sales-structure/managers', label: 'Manager Enrollment', icon: UsersRound },
+          { href: '/admin/sales-structure/manager-mapping', label: 'Manager Mapping', icon: UsersRound },
           { href: '/admin/sales-structure/catalogs/sales-units', label: 'Sales Units', icon: Database },
-          { href: '/admin/sales-structure/catalogs/unit-managers', label: 'Unit Managers', icon: UsersRound },
           { href: '/admin/sales-structure/catalogs/sales-branches', label: 'Sales Branches', icon: Network },
-          { href: '/admin/sales-structure/catalogs/regional-managers', label: 'Regional Managers', icon: UsersRound },
           { href: '/admin/sales-structure/catalogs/sales-regions', label: 'Sales Regions', icon: Network },
-          { href: '/admin/sales-structure/catalogs/gi-unit-managers', label: 'GI Unit Managers', icon: UsersRound },
-          { href: '/admin/sales-structure/catalogs/gi-units', label: 'GI Units', icon: Database },
-          { href: '/admin/sales-structure/catalogs/gi-branches', label: 'GI Branches', icon: Network },
-          { href: '/admin/sales-structure/catalogs/gi-coordinators', label: 'GI Coordinators', icon: UsersRound },
+        ],
+      },
+      {
+        href: '/admin/gi-structure', label: 'GI Structure setup', icon: Network,
+        children: [
+          { href: '/admin/gi-structure/catalogs/gi-unit-managers', label: 'GI Unit Managers', icon: UsersRound },
+          { href: '/admin/gi-structure/catalogs/gi-units', label: 'GI Units', icon: Database },
+          { href: '/admin/gi-structure/catalogs/gi-branches', label: 'GI Branches', icon: Network },
+          { href: '/admin/gi-structure/catalogs/gi-coordinators', label: 'GI Coordinators', icon: UsersRound },
         ],
       },
     ],
@@ -509,9 +514,34 @@ function ProtectedRouter() {
           <Route path="/discovery"        component={DiscoveryPage} />
           <Route path="/admin/users"      component={UsersPage} />
           <Route path="/admin/profiles"   component={ProfilesPage} />
-           <Route path="/admin/sales-structure/managers" component={SalesStructureManagersPage} />
+            <Route path="/admin/sales-structure/manager-mapping" component={ManagerMappingPage} />
+            <Route path="/admin/sales-structure/managers" component={SalesStructureManagersPage} />
+            <Route path="/admin/sales-structure/catalogs/unit-managers">
+              {() => <Redirect to="/admin/sales-structure/managers?category=UNIT" />}
+            </Route>
+            <Route path="/admin/sales-structure/catalogs/regional-managers">
+              {() => <Redirect to="/admin/sales-structure/managers?category=REGION" />}
+            </Route>
+            <Route path="/admin/sales-structure/catalogs/gi-unit-managers">
+              {() => <Redirect to="/admin/gi-structure/catalogs/gi-unit-managers" />}
+            </Route>
+            <Route path="/admin/sales-structure/catalogs/gi-units">
+              {() => <Redirect to="/admin/gi-structure/catalogs/gi-units" />}
+            </Route>
+            <Route path="/admin/sales-structure/catalogs/gi-branches">
+              {() => <Redirect to="/admin/gi-structure/catalogs/gi-branches" />}
+            </Route>
+            <Route path="/admin/sales-structure/catalogs/gi-coordinators">
+              {() => <Redirect to="/admin/gi-structure/catalogs/gi-coordinators" />}
+            </Route>
+            <Route path="/admin/gi-structure/catalogs/:catalog" component={SalesCatalogPage} />
+            <Route path="/admin/gi-structure">
+              {() => <Redirect to="/admin/gi-structure/catalogs/gi-units" />}
+            </Route>
             <Route path="/admin/sales-structure/catalogs/:catalog" component={SalesCatalogPage} />
-           <Route path="/admin/sales-structure" component={SalesStructurePage} />
+            <Route path="/admin/sales-structure">
+              {() => <Redirect to="/admin/sales-structure/managers" />}
+            </Route>
           <Route path="/admin/business-requirements" component={BusinessRequirementsPage} />
           <Route path="/admin">
             {() => <Redirect to="/admin/users" />}

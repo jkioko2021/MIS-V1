@@ -8,6 +8,135 @@
 import * as zod from 'zod';
 
 
+export const GetSalesManagerMappingsResponse = zod.object({
+  "organizations": zod.array(zod.object({
+  "catalog": zod.enum(['sales-regions', 'sales-branches', 'sales-units']),
+  "code": zod.string(),
+  "name": zod.string(),
+  "level": zod.enum(['REGION', 'BRANCH', 'UNIT']),
+  "region_code": zod.string().nullable(),
+  "region_name": zod.string().nullable(),
+  "branch_code": zod.string().nullable(),
+  "branch_name": zod.string().nullable(),
+  "is_active": zod.boolean(),
+  "eligible": zod.boolean(),
+  "issues": zod.array(zod.string()),
+  "hierarchy_version": zod.string(),
+  "source_reference": zod.boolean()
+})),
+  "users": zod.array(zod.object({
+  "employee_id": zod.number().int(),
+  "employee_name": zod.string(),
+  "username": zod.string(),
+  "emp_code": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "inactive_manager_categories": zod.array(zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT'])).optional(),
+  "user_eligible": zod.boolean().optional(),
+  "eligibility_note": zod.string().nullish()
+})),
+  "assignments": zod.array(zod.object({
+  "id": zod.number().int(),
+  "catalog": zod.enum(['sales-regions', 'sales-branches', 'sales-units']),
+  "organization_code": zod.string(),
+  "employee_id": zod.number().int().nullable(),
+  "employee_name": zod.string().nullable(),
+  "user_eligible": zod.boolean(),
+  "version": zod.number().int(),
+  "updated_at": zod.coerce.date(),
+  "updated_by": zod.string()
+}))
+})
+
+
+export const saveSalesManagerMappingBodyOrganizationCodeMax = 50;
+
+
+export const saveSalesManagerMappingBodyExpectedVersionMin = 0;
+
+export const saveSalesManagerMappingBodyHierarchyVersionRegExp = new RegExp('^[a-f0-9]{64}$');
+export const saveSalesManagerMappingBodyNoteMax = 1000;
+
+export const saveSalesManagerMappingBodyMoveFromOrganizationCodeMax = 50;
+
+
+export const saveSalesManagerMappingBodyMoveFromHierarchyVersionRegExp = new RegExp('^[a-f0-9]{64}$');
+
+
+export const SaveSalesManagerMappingBody = zod.object({
+  "catalog": zod.enum(['sales-regions', 'sales-branches', 'sales-units']),
+  "organization_code": zod.string().min(1).max(saveSalesManagerMappingBodyOrganizationCodeMax),
+  "employee_id": zod.number().int().min(1).nullable(),
+  "expected_version": zod.number().int().min(saveSalesManagerMappingBodyExpectedVersionMin),
+  "hierarchy_version": zod.string().regex(saveSalesManagerMappingBodyHierarchyVersionRegExp),
+  "note": zod.string().max(saveSalesManagerMappingBodyNoteMax).optional(),
+  "move_from": zod.object({
+  "organization_code": zod.string().min(1).max(saveSalesManagerMappingBodyMoveFromOrganizationCodeMax),
+  "expected_version": zod.number().int().min(1),
+  "hierarchy_version": zod.string().regex(saveSalesManagerMappingBodyMoveFromHierarchyVersionRegExp)
+}).optional()
+})
+
+export const SaveSalesManagerMappingResponse = zod.object({
+  "id": zod.number().int(),
+  "catalog": zod.enum(['sales-regions', 'sales-branches', 'sales-units']),
+  "organization_code": zod.string(),
+  "employee_id": zod.number().int().nullable(),
+  "employee_name": zod.string().nullable(),
+  "user_eligible": zod.boolean(),
+  "version": zod.number().int(),
+  "updated_at": zod.coerce.date(),
+  "updated_by": zod.string()
+})
+
+
+export const getSalesManagerMappingHistoryQueryOrganizationCodeMax = 50;
+
+
+
+export const GetSalesManagerMappingHistoryQueryParams = zod.object({
+  "catalog": zod.enum(['sales-regions', 'sales-branches', 'sales-units']),
+  "organization_code": zod.coerce.string().min(1).max(getSalesManagerMappingHistoryQueryOrganizationCodeMax)
+})
+
+export const GetSalesManagerMappingHistoryResponseItem = zod.object({
+  "id": zod.number().int(),
+  "action": zod.enum(['ASSIGNED', 'REASSIGNED', 'UNASSIGNED']),
+  "before_manager_name": zod.string().nullable(),
+  "after_manager_name": zod.string().nullable(),
+  "organization_name": zod.string(),
+  "region_name": zod.string().nullable(),
+  "branch_name": zod.string().nullable(),
+  "note": zod.string(),
+  "actor": zod.string(),
+  "created_at": zod.coerce.date(),
+  "transfer_from_name": zod.string().nullish(),
+  "transfer_to_name": zod.string().nullish()
+})
+export const GetSalesManagerMappingHistoryResponse = zod.array(GetSalesManagerMappingHistoryResponseItem)
+
+
+export const getSalesCatalogsResponseBranchManagersItemDetailsOneCodeMax = 50;
+
+
+export const getSalesCatalogsResponseBranchManagersItemDetailsOneCodeRegExp = new RegExp('^[A-Za-z0-9_-]+$');
+export const getSalesCatalogsResponseBranchManagersItemDetailsOneNameMax = 150;
+
+export const getSalesCatalogsResponseBranchManagersItemDetailsOneEmailMax = 254;
+
+export const getSalesCatalogsResponseBranchManagersItemDetailsOneHrmisCodeMax = 50;
+
+export const getSalesCatalogsResponseBranchManagersItemDetailsOneMobileNoMax = 50;
+
+export const getSalesCatalogsResponseBranchManagersItemDetailsOneHTaxMax = 16;
+
+
+export const getSalesCatalogsResponseBranchManagersItemDetailsOneHTaxRegExp = new RegExp('^(0|[1-9][0-9]{0,8})(\\.[0-9]{1,6})?$');
+export const getSalesCatalogsResponseBranchManagersItemDetailsOneMisEmpCodeMax = 50;
+
+export const getSalesCatalogsResponseBranchManagersItemDetailsOneValidFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getSalesCatalogsResponseBranchManagersItemDetailsOneValidToRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
 export const GetSalesCatalogsResponse = zod.object({
   "definitions": zod.array(zod.object({
   "key": zod.string(),
@@ -43,7 +172,12 @@ export const GetSalesCatalogsResponse = zod.object({
   "users": zod.array(zod.object({
   "employee_id": zod.number().int(),
   "employee_name": zod.string(),
-  "username": zod.string()
+  "username": zod.string(),
+  "emp_code": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "inactive_manager_categories": zod.array(zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT'])).optional(),
+  "user_eligible": zod.boolean().optional(),
+  "eligibility_note": zod.string().nullish()
 })),
   "nationals": zod.array(zod.object({
   "id": zod.number().int(),
@@ -63,8 +197,32 @@ export const GetSalesCatalogsResponse = zod.object({
   "version": zod.number().int(),
   "employee_name": zod.string(),
   "username": zod.string(),
-  "user_eligible": zod.boolean()
-}))
+  "emp_code": zod.string().nullish(),
+  "account_email": zod.string().nullish(),
+  "user_eligible": zod.boolean(),
+  "details": zod.union([zod.object({
+  "code": zod.string().min(1).max(getSalesCatalogsResponseBranchManagersItemDetailsOneCodeMax).regex(getSalesCatalogsResponseBranchManagersItemDetailsOneCodeRegExp),
+  "name": zod.string().min(1).max(getSalesCatalogsResponseBranchManagersItemDetailsOneNameMax),
+  "email": zod.string().email().max(getSalesCatalogsResponseBranchManagersItemDetailsOneEmailMax),
+  "hrmis_code": zod.string().min(1).max(getSalesCatalogsResponseBranchManagersItemDetailsOneHrmisCodeMax),
+  "mobile_no": zod.string().min(1).max(getSalesCatalogsResponseBranchManagersItemDetailsOneMobileNoMax),
+  "h_tax": zod.string().max(getSalesCatalogsResponseBranchManagersItemDetailsOneHTaxMax).regex(getSalesCatalogsResponseBranchManagersItemDetailsOneHTaxRegExp),
+  "mis_emp_code": zod.string().min(1).max(getSalesCatalogsResponseBranchManagersItemDetailsOneMisEmpCodeMax),
+  "valid_from": zod.string().regex(getSalesCatalogsResponseBranchManagersItemDetailsOneValidFromRegExp),
+  "valid_to": zod.string().regex(getSalesCatalogsResponseBranchManagersItemDetailsOneValidToRegExp)
+}),zod.null()]).optional()
+})),
+  "manager_assignments": zod.array(zod.object({
+  "id": zod.number().int(),
+  "catalog": zod.enum(['sales-regions', 'sales-branches', 'sales-units']),
+  "organization_code": zod.string(),
+  "employee_id": zod.number().int().nullable(),
+  "employee_name": zod.string().nullable(),
+  "user_eligible": zod.boolean(),
+  "version": zod.number().int(),
+  "updated_at": zod.coerce.date(),
+  "updated_by": zod.string()
+})).optional()
 })
 
 
@@ -112,6 +270,28 @@ export const UpdateSalesCatalogEntryResponse = zod.object({
 })
 
 
+export const getSalesStructureResponseManagersItemDetailsOneCodeMax = 50;
+
+
+export const getSalesStructureResponseManagersItemDetailsOneCodeRegExp = new RegExp('^[A-Za-z0-9_-]+$');
+export const getSalesStructureResponseManagersItemDetailsOneNameMax = 150;
+
+export const getSalesStructureResponseManagersItemDetailsOneEmailMax = 254;
+
+export const getSalesStructureResponseManagersItemDetailsOneHrmisCodeMax = 50;
+
+export const getSalesStructureResponseManagersItemDetailsOneMobileNoMax = 50;
+
+export const getSalesStructureResponseManagersItemDetailsOneHTaxMax = 16;
+
+
+export const getSalesStructureResponseManagersItemDetailsOneHTaxRegExp = new RegExp('^(0|[1-9][0-9]{0,8})(\\.[0-9]{1,6})?$');
+export const getSalesStructureResponseManagersItemDetailsOneMisEmpCodeMax = 50;
+
+export const getSalesStructureResponseManagersItemDetailsOneValidFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getSalesStructureResponseManagersItemDetailsOneValidToRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
 export const GetSalesStructureResponse = zod.object({
   "nodes": zod.array(zod.object({
   "id": zod.number().int(),
@@ -131,12 +311,30 @@ export const GetSalesStructureResponse = zod.object({
   "version": zod.number().int(),
   "employee_name": zod.string(),
   "username": zod.string(),
-  "user_eligible": zod.boolean()
+  "emp_code": zod.string().nullish(),
+  "account_email": zod.string().nullish(),
+  "user_eligible": zod.boolean(),
+  "details": zod.union([zod.object({
+  "code": zod.string().min(1).max(getSalesStructureResponseManagersItemDetailsOneCodeMax).regex(getSalesStructureResponseManagersItemDetailsOneCodeRegExp),
+  "name": zod.string().min(1).max(getSalesStructureResponseManagersItemDetailsOneNameMax),
+  "email": zod.string().email().max(getSalesStructureResponseManagersItemDetailsOneEmailMax),
+  "hrmis_code": zod.string().min(1).max(getSalesStructureResponseManagersItemDetailsOneHrmisCodeMax),
+  "mobile_no": zod.string().min(1).max(getSalesStructureResponseManagersItemDetailsOneMobileNoMax),
+  "h_tax": zod.string().max(getSalesStructureResponseManagersItemDetailsOneHTaxMax).regex(getSalesStructureResponseManagersItemDetailsOneHTaxRegExp),
+  "mis_emp_code": zod.string().min(1).max(getSalesStructureResponseManagersItemDetailsOneMisEmpCodeMax),
+  "valid_from": zod.string().regex(getSalesStructureResponseManagersItemDetailsOneValidFromRegExp),
+  "valid_to": zod.string().regex(getSalesStructureResponseManagersItemDetailsOneValidToRegExp)
+}),zod.null()]).optional()
 })),
   "users": zod.array(zod.object({
   "employee_id": zod.number().int(),
   "employee_name": zod.string(),
-  "username": zod.string()
+  "username": zod.string(),
+  "emp_code": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "inactive_manager_categories": zod.array(zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT'])).optional(),
+  "user_eligible": zod.boolean().optional(),
+  "eligibility_note": zod.string().nullish()
 }))
 })
 
@@ -195,11 +393,43 @@ export const UpdateSalesStructureNodeResponse = zod.object({
 
 
 
+export const enrollSalesManagerBodyDetailsCodeMax = 50;
+
+
+export const enrollSalesManagerBodyDetailsCodeRegExp = new RegExp('^[A-Za-z0-9_-]+$');
+export const enrollSalesManagerBodyDetailsNameMax = 150;
+
+export const enrollSalesManagerBodyDetailsEmailMax = 254;
+
+export const enrollSalesManagerBodyDetailsHrmisCodeMax = 50;
+
+export const enrollSalesManagerBodyDetailsMobileNoMax = 50;
+
+export const enrollSalesManagerBodyDetailsHTaxMax = 16;
+
+
+export const enrollSalesManagerBodyDetailsHTaxRegExp = new RegExp('^(0|[1-9][0-9]{0,8})(\\.[0-9]{1,6})?$');
+export const enrollSalesManagerBodyDetailsMisEmpCodeMax = 50;
+
+export const enrollSalesManagerBodyDetailsValidFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const enrollSalesManagerBodyDetailsValidToRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
 
 
 export const EnrollSalesManagerBody = zod.object({
   "employee_id": zod.number().int().min(1),
-  "level": zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT'])
+  "level": zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT']),
+  "is_active": zod.boolean(),
+  "details": zod.object({
+  "code": zod.string().min(1).max(enrollSalesManagerBodyDetailsCodeMax).regex(enrollSalesManagerBodyDetailsCodeRegExp),
+  "name": zod.string().min(1).max(enrollSalesManagerBodyDetailsNameMax),
+  "email": zod.string().email().max(enrollSalesManagerBodyDetailsEmailMax),
+  "hrmis_code": zod.string().min(1).max(enrollSalesManagerBodyDetailsHrmisCodeMax),
+  "mobile_no": zod.string().min(1).max(enrollSalesManagerBodyDetailsMobileNoMax),
+  "h_tax": zod.string().max(enrollSalesManagerBodyDetailsHTaxMax).regex(enrollSalesManagerBodyDetailsHTaxRegExp),
+  "mis_emp_code": zod.string().min(1).max(enrollSalesManagerBodyDetailsMisEmpCodeMax),
+  "valid_from": zod.string().regex(enrollSalesManagerBodyDetailsValidFromRegExp),
+  "valid_to": zod.string().regex(enrollSalesManagerBodyDetailsValidToRegExp)
+})
 })
 
 export const EnrollSalesManagerResponse = zod.object({
@@ -216,11 +446,42 @@ export const UpdateSalesManagerEnrollmentParams = zod.object({
 })
 
 
+export const updateSalesManagerEnrollmentBodyDetailsCodeMax = 50;
+
+
+export const updateSalesManagerEnrollmentBodyDetailsCodeRegExp = new RegExp('^[A-Za-z0-9_-]+$');
+export const updateSalesManagerEnrollmentBodyDetailsNameMax = 150;
+
+export const updateSalesManagerEnrollmentBodyDetailsEmailMax = 254;
+
+export const updateSalesManagerEnrollmentBodyDetailsHrmisCodeMax = 50;
+
+export const updateSalesManagerEnrollmentBodyDetailsMobileNoMax = 50;
+
+export const updateSalesManagerEnrollmentBodyDetailsHTaxMax = 16;
+
+
+export const updateSalesManagerEnrollmentBodyDetailsHTaxRegExp = new RegExp('^(0|[1-9][0-9]{0,8})(\\.[0-9]{1,6})?$');
+export const updateSalesManagerEnrollmentBodyDetailsMisEmpCodeMax = 50;
+
+export const updateSalesManagerEnrollmentBodyDetailsValidFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const updateSalesManagerEnrollmentBodyDetailsValidToRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
 
 
 export const UpdateSalesManagerEnrollmentBody = zod.object({
   "is_active": zod.boolean(),
-  "version": zod.number().int().min(1)
+  "version": zod.number().int().min(1),
+  "details": zod.object({
+  "code": zod.string().min(1).max(updateSalesManagerEnrollmentBodyDetailsCodeMax).regex(updateSalesManagerEnrollmentBodyDetailsCodeRegExp),
+  "name": zod.string().min(1).max(updateSalesManagerEnrollmentBodyDetailsNameMax),
+  "email": zod.string().email().max(updateSalesManagerEnrollmentBodyDetailsEmailMax),
+  "hrmis_code": zod.string().min(1).max(updateSalesManagerEnrollmentBodyDetailsHrmisCodeMax),
+  "mobile_no": zod.string().min(1).max(updateSalesManagerEnrollmentBodyDetailsMobileNoMax),
+  "h_tax": zod.string().max(updateSalesManagerEnrollmentBodyDetailsHTaxMax).regex(updateSalesManagerEnrollmentBodyDetailsHTaxRegExp),
+  "mis_emp_code": zod.string().min(1).max(updateSalesManagerEnrollmentBodyDetailsMisEmpCodeMax),
+  "valid_from": zod.string().regex(updateSalesManagerEnrollmentBodyDetailsValidFromRegExp),
+  "valid_to": zod.string().regex(updateSalesManagerEnrollmentBodyDetailsValidToRegExp)
+}).optional()
 })
 
 export const UpdateSalesManagerEnrollmentResponse = zod.object({

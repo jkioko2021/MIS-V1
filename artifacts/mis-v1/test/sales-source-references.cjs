@@ -64,6 +64,21 @@ for (const [value, expected] of [['MISSING', 'Not mapped'], ['NULL', 'Not assign
     { key: 'UNIT_MGR_ID', reference: 'unit-managers' }, snapshot), expected);
 }
 assert.equal(displayExports.displayFieldLabel({ key: 'REGION_CODE' }, 'gi-units'), 'GI Branch');
+for (const [catalog, key, reference] of [
+  ['sales-units', 'UNIT_MGR_ID', 'unit-managers'],
+  ['sales-branches', 'BRANCH_MGR_ID', 'branch-managers'],
+  ['sales-regions', 'REGION_MGR_ID', 'regional-managers'],
+]) {
+  const entry = { ...sourceEntry, catalog, code: 'TEAM-01' };
+  const beforeValues = JSON.stringify(entry.values);
+  const assignment = { catalog, organization_code: entry.code, employee_id: 99, employee_name: 'Verified MIS manager' };
+  const mapped = { ...snapshot, manager_assignments: [assignment] };
+  assert.equal(displayExports.displayReference(entry, { key, reference }, mapped), 'Verified MIS manager');
+  assert.equal(displayExports.displayReference(entry, { key, reference }, {
+    ...mapped, manager_assignments: [{ ...assignment, employee_id: null, employee_name: null }],
+  }), 'Not assigned', 'Explicit unassignment must not restore an old imported manager');
+  assert.equal(JSON.stringify(entry.values), beforeValues, 'Current ownership display must not rewrite source values');
+}
 let closed = false;
 const tree = exportsObject.SourceReferenceDetails({
   entry: { id: -91, catalog: 'unit-managers', code: values.UM_ID, name: values.UM_NAME,

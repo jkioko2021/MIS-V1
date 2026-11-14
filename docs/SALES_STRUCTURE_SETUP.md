@@ -1,9 +1,109 @@
-# Script-based enrollment submenus
+# Medical and GI structure setup
 
-The nine user-supplied SQL SELECT definitions are available under Administration
-→ Sales Structure setup:
+The Administration menu separates the two structures:
 
-| Submenu | Source definition |
+- **Medical Structure setup:** Manager Enrollment, Manager Mapping, Sales Units,
+  Sales Branches and Sales Regions.
+- **GI Structure setup:** GI Unit Managers, GI Units, GI Branches and GI
+  Coordinators.
+
+**Manager Enrollment** combines the former medical Unit Managers and Regional
+Managers pages. New designations use an existing MIS user and one of four
+categories: Unit Manager, Regional Manager, Branch Manager or National Sales
+Manager. The page retains the existing Unit/Regional catalog records and
+read-only uploaded references, with their original details accessible. A source
+person is not automatically linked to a MIS account. Existing verified catalog
+records and category designations remain distinct records, rather than being
+silently merged by name or email.
+
+Enrollment captures **Code, Name, Email, HRMIS_CODE, MOBILE_NO, Active, H_TAX,
+MIS_EMP_CODE, Valid From, Valid To and Category**. Code and MIS_EMP_CODE are the
+selected existing user's MIS code; Name is populated from that account as well.
+Those identity fields are read-only and checked again by the API. An account
+without a MIS code cannot be enrolled until its user record is completed.
+Email may be edited as the manager's contact address without changing the login
+account. Payroll/mobile/tax values remain text so leading zeroes and values such
+as `0.100` are retained. Both validity dates are required and the end cannot
+precede the start. Active refers to the manager designation, not account access.
+Existing incomplete designations remain visibly incomplete until explicitly
+edited; status-only changes preserve their stored details.
+
+Migration `0059_sales_manager_details.sql` adds the designation details without
+backfilling guessed data. All edits retain version checks and before/after audit
+snapshots; deactivation is blocked until existing team assignments are cleared.
+An explicitly inactive designation is excluded from new assignments at that
+category. Existing normal-user mapping remains supported where no designation
+has yet been captured; this form does not retroactively create or replace user
+permissions.
+
+### Imported manager system users
+
+Manager Enrollment's existing-user list contains **Sales** department users only.
+Pending Sales users remain visible with a disabled option and their inactive,
+unapproved or locked status. The API independently rejects new manager
+enrollments for non-Sales users. Older designation details/history remain intact.
+
+The uploaded Medical Unit/Regional and GI manager assignments may be enrolled as
+normal Sales system users through `node scripts/src/import-sales-manager-users.mjs`.
+The default is a read-only plan/report; `--apply` is an explicit development-only
+import. It creates inactive, unapproved **Business Entry** users, generates normal
+MIS user codes, and never distributes a password or sends emails. Individual
+password setup and account activation/approval are separate administrator actions.
+
+Repeated assignments across Medical/GI use one confirmed user identity. Ambiguous
+names/emails and uncertain existing-account matches are held for review, not
+merged or deleted. Account/source provenance makes reruns idempotent; migration
+`0060_sales_manager_user_import.sql` also enforces unique nonempty Sales emails.
+Original source rows, other users' accounts and login profiles are preserved.
+Reports are saved outside version control under `generated-artifacts/`.
+
+Medical URLs and underlying API/catalog names remain compatible. GI pages use
+`/admin/gi-structure/catalogs/…`; old GI catalog links continue to reach the same
+records. This menu reorganization does not migrate data or change access rights.
+
+## Manager Mapping and reassignment
+
+Use **Administration → Medical Structure setup → Manager Mapping** to maintain
+current ownership of Sales Regions, Sales Branches and Sales Units. This
+workflow replaces the need to visit the old generic manager enrollment page.
+
+1. Select the manager level and organization by name, following Region → Branch
+   → Unit. Check the displayed hierarchy and resolve any missing, inactive or
+   conflicting parent references before assigning.
+2. Select an existing active, approved, unlocked MIS user. Review the team,
+   previous manager and new manager, then confirm.
+3. To replace or remove a current manager, provide a reason. Each team has one
+   current manager; the same person can manage multiple teams at the same level.
+4. To reassign a manager to a **different** team, select their current team and
+   choose **Move manager**. Pick a different destination at the same level,
+   enter a reason, review the source and destination and any manager being
+   replaced, then confirm. Both changes commit together: the selected source
+   becomes unassigned and the destination receives the manager. Their other
+   team assignments are left unchanged. Assigning an additional team is not a
+   move and does not clear existing assignments.
+5. View assignment history on either team. Moves retain linked source and
+   destination history, the administrator, reason and previous ownership.
+
+Changes require a fresh review if either assignment or hierarchy changed after
+selection. Removing an assignment remains possible when its source organization
+has become inactive or unavailable; a move still requires an eligible manager
+and a valid destination hierarchy. Imported manager names are not verified MIS
+accounts and are never matched automatically. Existing accounts, login profiles,
+permissions, source rows and agent assignments are not rewritten.
+
+Migration `0058_sales_team_manager_mapping.sql` adds current team ownership and
+append-only assignment history, separately from source manager-reference
+columns. The local metadata setup helper includes it. Manager Mapping takes
+precedence for current-manager display in the three organizational catalogs;
+their original manager-reference fields are retained and locked when a mapping
+exists. The new API is `/api/admin/sales-structure/manager-mappings` (GET/POST)
+and `/manager-mappings/history` (GET with `catalog` and `organization_code`).
+Only SuperAdmin and System Admin can access these endpoints.
+
+The nine user-supplied SQL SELECT definitions remain available through the
+organizational pages and combined enrollment view:
+
+| Original catalog | Source definition |
 |---|---|
 | Sales Units | TBL_MIS_SALES_UNITS |
 | Unit Managers | TBL_MIS_SALES_UM |
@@ -38,15 +138,17 @@ references block deactivation, and before/after values are retained in history.
 
 The enrollment catalogs are stored separately from the pre-existing general
 hierarchy in `crm.sales_catalog_entries`; they do not automatically rewrite
-existing agent assignments or create duplicate hierarchy nodes. Source SELECTs
-identify field names but contain no records, so no sales catalog data is seeded.
+existing agent assignments or create duplicate hierarchy nodes. The source
+SELECT definitions do not fabricate data; approved uploaded extracts are loaded
+separately as reference records, described below.
 SQL Server extraction, connections and synchronization remain deferred.
 
 Apply `0056_sales_enrollment_catalogs.sql` after the existing Sales Structure
 migration in development/local setup. The local database helper includes both.
-The separate **Structure setup** and **Manager enrollment** links have been
-removed from the sidebar, catalog header navigation and access-rights menu list.
-The **Sales Structure setup** parent menu retains the nine catalog pages.
+The old generic **Structure setup** editor is not exposed in navigation.
+**Manager Enrollment** was subsequently requested again as a combined
+four-category page; Unit Managers and Regional Managers are no longer separate
+submenu links. The Medical/GI parent menus and current links are listed above.
 Existing general hierarchy data, enrollments, audit history and compatibility
 routes remain intact; no data was deleted. Catalog-specific snapshots are
 retained in `crm.sales_catalog_events`.

@@ -51,6 +51,22 @@ export function SourceReferenceDetails({
           </div>
         )}
 
+        {(() => {
+          const managerField = entry.catalog === 'sales-units' ? 'UNIT_MGR_ID'
+            : entry.catalog === 'sales-branches' ? 'BRANCH_MGR_ID'
+              : entry.catalog === 'sales-regions' ? 'REGION_MGR_ID' : '';
+          const assignment = managerField ? snapshot.manager_assignments?.find(row =>
+            row.catalog === entry.catalog && row.organization_code === entry.code,
+          ) : undefined;
+          return assignment ? (
+            <div className="rounded-lg border border-[#cbdcd1] bg-[#f1f6f2] p-3" data-testid="source-current-manager">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-[#547666]">Current manager</p>
+              <p className="mt-1 text-sm font-semibold text-[#244b3b]">{assignment.employee_name ?? 'Not assigned'}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Verified ownership is maintained in Manager Mapping; original imported manager data remains unchanged.</p>
+            </div>
+          ) : null;
+        })()}
+
         {!!entry.source_issues?.length && (
           <section className="rounded-lg border border-amber-300 bg-amber-50/70 p-4" data-testid="source-issues">
             <div className="flex items-center gap-2 text-sm font-semibold text-amber-950">

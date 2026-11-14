@@ -11,6 +11,40 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /admin/sales-structure/manager-mappings:
+    get:
+      operationId: getSalesManagerMappings
+      responses:
+        "200":
+          description: Organizational hierarchy, eligible MIS users and current team manager assignments
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SalesManagerMappingSnapshot" }
+    post:
+      operationId: saveSalesManagerMapping
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SalesManagerMappingInput" }
+      responses:
+        "200":
+          description: Manager assigned, replaced or unassigned without changing account permissions
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SalesTeamManagerAssignment" }
+  /admin/sales-structure/manager-mappings/history:
+    get:
+      operationId: getSalesManagerMappingHistory
+      parameters:
+        - { name: catalog, in: query, required: true, schema: { $ref: "#/components/schemas/SalesMappingCatalog" } }
+        - { name: organization_code, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 50 } }
+      responses:
+        "200":
+          description: Retained history for a team's manager assignments
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/SalesManagerMappingEvent" } }
   /admin/sales-structure/catalogs:
     get:
       operationId: getSalesCatalogs
@@ -866,6 +900,80 @@ paths:
           description: Allocation changed before the upload could be saved
 components:
   schemas:
+    SalesMappingCatalog:
+      type: string
+      enum: [sales-regions, sales-branches, sales-units]
+    SalesTeamManagerAssignment:
+      type: object
+      required: [id, catalog, organization_code, employee_id, employee_name, user_eligible, version, updated_at, updated_by]
+      properties:
+        id: { type: integer }
+        catalog: { $ref: "#/components/schemas/SalesMappingCatalog" }
+        organization_code: { type: string }
+        employee_id: { type: [integer, "null"] }
+        employee_name: { type: [string, "null"] }
+        user_eligible: { type: boolean }
+        version: { type: integer }
+        updated_at: { type: string, format: date-time }
+        updated_by: { type: string }
+    SalesMappingOrganization:
+      type: object
+      required: [catalog, code, name, level, region_code, region_name, branch_code, branch_name, is_active, eligible, issues, hierarchy_version, source_reference]
+      properties:
+        catalog: { $ref: "#/components/schemas/SalesMappingCatalog" }
+        code: { type: string }
+        name: { type: string }
+        level: { type: string, enum: [REGION, BRANCH, UNIT] }
+        region_code: { type: [string, "null"] }
+        region_name: { type: [string, "null"] }
+        branch_code: { type: [string, "null"] }
+        branch_name: { type: [string, "null"] }
+        is_active: { type: boolean }
+        eligible: { type: boolean }
+        issues: { type: array, items: { type: string } }
+        hierarchy_version: { type: string }
+        source_reference: { type: boolean }
+    SalesManagerMappingSnapshot:
+      type: object
+      required: [organizations, users, assignments]
+      properties:
+        organizations: { type: array, items: { $ref: "#/components/schemas/SalesMappingOrganization" } }
+        users: { type: array, items: { $ref: "#/components/schemas/SalesStaff" } }
+        assignments: { type: array, items: { $ref: "#/components/schemas/SalesTeamManagerAssignment" } }
+    SalesManagerMappingInput:
+      type: object
+      required: [catalog, organization_code, employee_id, expected_version, hierarchy_version]
+      properties:
+        catalog: { $ref: "#/components/schemas/SalesMappingCatalog" }
+        organization_code: { type: string, minLength: 1, maxLength: 50 }
+        employee_id: { type: [integer, "null"], minimum: 1 }
+        expected_version: { type: integer, minimum: 0 }
+        hierarchy_version: { type: string, pattern: "^[a-f0-9]{64}$" }
+        note: { type: string, maxLength: 1000 }
+        move_from: { $ref: "#/components/schemas/SalesManagerMappingSource" }
+    SalesManagerMappingSource:
+      type: object
+      required: [organization_code, expected_version, hierarchy_version]
+      properties:
+        organization_code: { type: string, minLength: 1, maxLength: 50 }
+        expected_version: { type: integer, minimum: 1 }
+        hierarchy_version: { type: string, pattern: "^[a-f0-9]{64}$" }
+    SalesManagerMappingEvent:
+      type: object
+      required: [id, action, before_manager_name, after_manager_name, organization_name, region_name, branch_name, note, actor, created_at]
+      properties:
+        id: { type: integer }
+        action: { type: string, enum: [ASSIGNED, REASSIGNED, UNASSIGNED] }
+        before_manager_name: { type: [string, "null"] }
+        after_manager_name: { type: [string, "null"] }
+        organization_name: { type: string }
+        region_name: { type: [string, "null"] }
+        branch_name: { type: [string, "null"] }
+        note: { type: string }
+        actor: { type: string }
+        created_at: { type: string, format: date-time }
+        transfer_from_name: { type: [string, "null"] }
+        transfer_to_name: { type: [string, "null"] }
     SalesCatalogValues:
       type: object
       additionalProperties: { type: [string, "null"] }
@@ -916,6 +1024,7 @@ components:
         users: { type: array, items: { $ref: "#/components/schemas/SalesStaff" } }
         nationals: { type: array, items: { $ref: "#/components/schemas/SalesNode" } }
         branch_managers: { type: array, items: { $ref: "#/components/schemas/SalesManager" } }
+        manager_assignments: { type: array, items: { $ref: "#/components/schemas/SalesTeamManagerAssignment" } }
     SalesCatalogInput:
       type: object
       required: [values, employee_id, is_active]
@@ -947,6 +1056,26 @@ components:
         employee_id: { type: integer }
         employee_name: { type: string }
         username: { type: string }
+        emp_code: { type: [string, "null"] }
+        email: { type: [string, "null"] }
+        inactive_manager_categories:
+          type: array
+          items: { $ref: "#/components/schemas/SalesLevel" }
+        user_eligible: { type: boolean }
+        eligibility_note: { type: [string, "null"] }
+    SalesManagerDetails:
+      type: object
+      required: [code, name, email, hrmis_code, mobile_no, h_tax, mis_emp_code, valid_from, valid_to]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 50, pattern: "^[A-Za-z0-9_-]+$" }
+        name: { type: string, minLength: 1, maxLength: 150 }
+        email: { type: string, format: email, maxLength: 254 }
+        hrmis_code: { type: string, minLength: 1, maxLength: 50 }
+        mobile_no: { type: string, minLength: 1, maxLength: 50 }
+        h_tax: { type: string, maxLength: 16, pattern: "^(0|[1-9][0-9]{0,8})(\\.[0-9]{1,6})?$" }
+        mis_emp_code: { type: string, minLength: 1, maxLength: 50 }
+        valid_from: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        valid_to: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
     SalesManager:
       type: object
       required: [id, employee_id, level, is_active, version, employee_name, username, user_eligible]
@@ -958,7 +1087,13 @@ components:
         version: { type: integer }
         employee_name: { type: string }
         username: { type: string }
+        emp_code: { type: [string, "null"] }
+        account_email: { type: [string, "null"] }
         user_eligible: { type: boolean }
+        details:
+          oneOf:
+            - { $ref: "#/components/schemas/SalesManagerDetails" }
+            - { type: "null" }
     SalesNode:
       type: object
       required: [id, code, name, level, parent_id, manager_id, is_active, version]
@@ -999,16 +1134,19 @@ components:
         version: { type: integer, minimum: 1 }
     SalesManagerInput:
       type: object
-      required: [employee_id, level]
+      required: [employee_id, level, is_active, details]
       properties:
         employee_id: { type: integer, minimum: 1 }
         level: { $ref: "#/components/schemas/SalesLevel" }
+        is_active: { type: boolean }
+        details: { $ref: "#/components/schemas/SalesManagerDetails" }
     SalesManagerUpdate:
       type: object
       required: [is_active, version]
       properties:
         is_active: { type: boolean }
         version: { type: integer, minimum: 1 }
+        details: { $ref: "#/components/schemas/SalesManagerDetails" }
     IntermediaryImportResult:
       type: object
       required: [imported, skipped, message]
