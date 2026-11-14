@@ -24,8 +24,10 @@ or create accounts to satisfy an import.
 missing relationships and unlinked users, the user chose "Load as reference records."
 
 **How to apply:** Show imported rows read-only with mapping warnings. Do not
-offer them as verified assignment choices or use source approval flags to grant
-access. Future reconciliation must deliberately verify each assignment.
+offer imported managers as verified manager choices or use source approval flags
+to grant access. Future manager reconciliation must deliberately verify each
+assignment. Organizational lookup eligibility is a separate user-approved
+exception, described in sales-catalog-presentation.md.
 
 Keep the Sales Structure setup parent menu, but do not expose the separate
 generic Structure setup and Manager enrollment submenu links.

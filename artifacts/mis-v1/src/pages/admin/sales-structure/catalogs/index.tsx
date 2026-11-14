@@ -143,7 +143,7 @@ function CatalogContent({ catalog, username }: { catalog: string; username: stri
           <div className="rounded-xl border border-amber-200 bg-amber-50/55 p-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-amber-900">Reference rows</p>
             <p className="mt-2 text-2xl font-semibold tracking-tight text-amber-950">{isLoading ? '—' : referenceEntries.length}</p>
-            <p className="mt-1 text-xs text-amber-900/75">Read-only imports; not eligible for mapping</p>
+            <p className="mt-1 text-xs text-amber-900/75">Read-only imports; organizations available as lookup choices</p>
           </div>
         </div>
 

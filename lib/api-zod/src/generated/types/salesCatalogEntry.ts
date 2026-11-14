@@ -18,6 +18,8 @@ export interface SalesCatalogEntry {
   version: number;
   values: SalesCatalogValues;
   source_reference?: boolean;
+  /** Read-only imported organizational record allowed as a relationship lookup. Does not verify or enroll a manager. */
+  organization_choice?: boolean;
   source_file?: string;
   source_issues?: string[];
 }

@@ -65,8 +65,20 @@ Source provenance and exact identifiers remain stored unchanged.
 Repeated manager identifiers and original source
 IDs are preserved per row, along with blank values, NULL markers, leading zeroes,
 historical approvals and dates. They are not silently corrected, deduplicated by
-manager ID, matched to accounts by name/email or made available as operational
-assignment choices. No normal users are created and no account access is granted.
+manager ID or matched to accounts by name/email. Imported managers remain
+unavailable as manager assignment choices until deliberately linked to verified
+MIS accounts. No normal users are created and no account access is granted.
+
+The user subsequently approved **imported organizational choices**. Imported
+Sales Units, Sales Branches, Sales Regions, GI Units and GI Branches can therefore
+be selected by name in catalog relationship dropdowns while remaining read-only
+source rows. The API marks eligible rows with `organization_choice`; saving uses
+the original code and validates the target's active status and branch/region
+relationships. It does not copy legacy manager assignments into the new record.
+Operational entries take precedence over imported rows sharing a code (including
+inactive operational entries). Ambiguous imported organization codes are withheld
+instead of choosing one arbitrarily. Source manager catalogs and unknown National
+codes do not become eligible through this organizational exception.
 
 Load a user-approved tab-separated extract with the development-only script:
 

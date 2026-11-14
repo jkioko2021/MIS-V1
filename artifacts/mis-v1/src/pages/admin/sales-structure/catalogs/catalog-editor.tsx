@@ -78,7 +78,7 @@ export function CatalogEditor({ catalog, definition, snapshot, entry, onClose }:
       }));
     }
     return snapshot.entries
-      .filter((item) => item.catalog === reference && !item.source_reference)
+      .filter((item) => item.catalog === reference && (!item.source_reference || item.organization_choice))
       .map((item) => ({ value: item.code, label: item.name, active: item.is_active }))
       .sort((a, b) => a.label.localeCompare(b.label));
   };

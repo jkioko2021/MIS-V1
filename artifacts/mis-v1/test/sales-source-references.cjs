@@ -94,7 +94,7 @@ assert.equal(walk(tree).filter(node => node.type === 'Button').length, 1);
 walk(tree).find(node => node.props['data-testid'] === 'button-close-source-reference').props.onClick();
 assert.equal(closed, true);
 const editor = fs.readFileSync(path.join(directory, 'catalog-editor.tsx'), 'utf8');
-assert.match(editor, /item\.catalog === reference && !item\.source_reference/);
+assert.match(editor, /item\.catalog === reference && \(!item\.source_reference \|\| item\.organization_choice\)/);
 assert.match(editor, /if \(entry\?\.source_reference\) return null/);
 const catalog = fs.readFileSync(path.join(directory, 'index.tsx'), 'utf8');
 assert.match(catalog, /useState\('all'\)/);
@@ -104,7 +104,7 @@ assert(!catalog.includes('>Record ID<'));
 assert(!catalog.includes('>Catalog record<'));
 assert(!catalog.includes('{entry.code}'));
 assert.match(catalog, /displayReference\(entry, field, snapshot!\)/);
-console.info('PASS: sales relationships show specific names, unknown/conflicting mappings are explicit, codes and record IDs are hidden, and reference data remains read-only.');
+console.info('PASS: sales relationships show names, missing/conflicting mappings are explicit, identifiers are hidden and source data remains read-only.');
 
 const editorExports = {};
 const draft = { UNIT_CODE: 'NEW_UNIT_CODE', UNIT_NAME: 'New Unit',
@@ -115,6 +115,10 @@ const editorSnapshot = {
     { catalog: 'sales-branches', code: 'SAVED_BRANCH_CODE', name: 'Named Branch', is_active: true },
     { catalog: 'sales-regions', code: 'SAVED_REGION_CODE', name: 'Named Region', is_active: true },
     { catalog: 'sales-branches', code: 'SOURCE_ONLY', name: 'Unverified Source Branch', is_active: true, source_reference: true },
+    { catalog: 'sales-branches', code: 'IMPORTED_BRANCH', name: 'Imported Branch Name', is_active: true, source_reference: true, organization_choice: true },
+    { catalog: 'sales-regions', code: 'IMPORTED_REGION', name: 'Imported Region Name', is_active: true, source_reference: true, organization_choice: true },
+    { catalog: 'sales-units', code: 'IMPORTED_UNIT', name: 'Imported Unit Name', is_active: true, source_reference: true, organization_choice: true },
+    { catalog: 'unit-managers', code: 'UNLINKED_MANAGER', name: 'Unlinked Manager', is_active: true, source_reference: true, organization_choice: false },
   ],
   nationals: [{ code: 'SAVED_NATIONAL_CODE', name: 'Named National Office', is_active: true }],
   branch_managers: [{ id: 12, employee_name: 'Named Branch Manager', username: 'manager_account', is_active: true, user_eligible: true }],
@@ -144,8 +148,8 @@ const editorTree = editorExports.CatalogEditor({
   catalog: 'sales-units',
   snapshot: editorSnapshot,
   definition: { title: 'Sales Units', code_field: 'UNIT_CODE', name_field: 'UNIT_NAME', manager: false,
-    fields: Object.keys(draft).map(key => ({ key, label: key, type: 'text', required: true, max_length: 100,
-      reference: ({ BRANCH_CODE: 'sales-branches', REGION_CODE: 'sales-regions', NSM_CODE: 'nationals', BRANCH_MGR_ID: 'branch-managers' })[key] ?? null })) },
+    fields: [...Object.keys(draft), 'RELATED_UNIT', 'UNIT_MGR_ID'].map(key => ({ key, label: key, type: 'text', required: key in draft, max_length: 100,
+      reference: ({ BRANCH_CODE: 'sales-branches', REGION_CODE: 'sales-regions', NSM_CODE: 'nationals', BRANCH_MGR_ID: 'branch-managers', RELATED_UNIT: 'sales-units', UNIT_MGR_ID: 'unit-managers' })[key] ?? null })) },
   onClose: () => {},
 });
 for (const [key, expected] of Object.entries({
@@ -157,7 +161,19 @@ for (const [key, expected] of Object.entries({
   assert(!text(select).includes(draft[key]), 'The stored code must not appear as option text');
 }
 assert(!text(editorTree).includes('Unverified Source Branch'));
+assert(!text(editorTree).includes('Unlinked Manager'));
+for (const [key, code, label] of [
+  ['BRANCH_CODE', 'IMPORTED_BRANCH', 'Imported Branch Name'],
+  ['REGION_CODE', 'IMPORTED_REGION', 'Imported Region Name'],
+  ['RELATED_UNIT', 'IMPORTED_UNIT', 'Imported Unit Name'],
+]) {
+  const select = walk(editorTree).find(node => node.props['data-testid'] === `field-${key}`);
+  const option = walk(select).find(node => node.type === 'option' && node.props.value === code);
+  assert(option, `Imported ${key} should be selectable`);
+  assert.equal(option.props.disabled, false);
+  assert.equal(text(option).trim(), label);
+}
 walk(editorTree).find(node => node.props['data-testid'] === 'button-save-catalog-entry').props.onClick();
 assert(created, 'Create should still submit valid selections');
 for (const key of Object.keys(draft)) assert.equal(created.data.values[key], draft[key], 'Names must not replace stored codes in the save payload');
-console.info('PASS: Add Record dropdowns display names while saving original codes and excluding unverified source references.');
+console.info('PASS: Add Record dropdowns offer approved imported organizations by name, retain saved codes, and exclude unlinked source managers.');

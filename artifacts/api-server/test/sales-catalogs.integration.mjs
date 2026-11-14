@@ -19,6 +19,7 @@ try {
     stdin: { contents: `export * from './artifacts/api-server/src/lib/sales-catalogs.ts';
       export * from './artifacts/api-server/src/lib/sales-catalog-definitions.ts';
       export * from './artifacts/api-server/src/lib/sales-structure.ts';
+      export * from './artifacts/api-server/src/lib/sales-organization-lookups.ts';
       export {CreateSalesCatalogEntryBody,UpdateSalesCatalogEntryBody} from './lib/api-zod/src/index.ts';`,
       resolveDir: path.resolve(new URL("../../..", import.meta.url).pathname), loader: "ts" },
     outfile: path.join(dir, "lib.mjs"), bundle: true, platform: "node", format: "esm", packages: "bundle",
@@ -154,8 +155,55 @@ try {
   assert(references.every(r => r.issues.some(issue => issue.includes("no MIS user account"))));
   assert(references[0].issues.some(issue => issue.includes("invalid address")));
   assert.equal((await db.query("SELECT profile_id FROM crm.employees WHERE employee_id=$1", [employee])).rows[0].profile_id, 3);
+  const src = { region: `${prefix}_SR`, branch: `${prefix}_SB`, unit: `${prefix}_SU`,
+    giBranch: `${prefix}_SGB`, giUnit: `${prefix}_SGU`, ambiguous: `${prefix}_DUP`, shadow: `${prefix}_SHADOW` };
+  const orgSections = [
+    ["sales-regions", [
+      { REGION_CODE: src.region, REGION_NAME: "Imported Region", REGION_MGR_ID: `${prefix}_SHARED` },
+      { REGION_CODE: src.ambiguous, REGION_NAME: "Conflicting Region A" },
+      { REGION_CODE: src.ambiguous, REGION_NAME: "Conflicting Region B" },
+      { REGION_CODE: src.shadow, REGION_NAME: "Imported Shadow Region" },
+    ]],
+    ["sales-branches", [{ BRANCH_CODE: src.branch, BRANCH_NAME: "Imported Branch", REGION_CODE: src.region }]],
+    ["sales-units", [{ UNIT_CODE: src.unit, UNIT_NAME: "Imported Unit", BRANCH_CODE: src.branch, REGION_CODE: src.region, ACTIVE: "1", UNIT_MGR_ID: `${prefix}_SHARED` }]],
+    ["gi-branches", [{ CORD_CODE: src.giBranch, CORD_NAME: "Imported GI Branch", BR_CODE: src.branch }]],
+    ["gi-units", [{ GI_UNIT_CODE: src.giUnit, GI_UNIT_NAME: "Imported GI Unit", BRANCH_CODE: src.branch, REGION_CODE: src.giBranch, ACTIVE: "1" }]],
+  ];
+  const orgText = orgSections.map(([catalog, rows]) => {
+    const fields = definitions.get(catalog).fields;
+    return [fields.map(f => f.key).join("\t"), ...rows.map(row => fields.map(f => row[f.key] ?? "").join("\t"))].join("\n");
+  }).join("\n\n");
+  const orgLoad = await importSalesReferences(db, orgText, "synthetic-organizations.tsv", prefix, lib.salesCatalogDefinitions);
+  assert.equal(orgLoad.inserted, 8);
+  const sourceBefore = (await db.query("SELECT id,data FROM crm.sales_catalog_source_records WHERE imported_by=$1 ORDER BY id", [prefix])).rows;
+  const fromSource = (catalog, values) => lib.saveSalesCatalogEntry(catalog, {
+    values, employee_id: null, is_active: true,
+  }, prefix);
+  await fromSource("sales-branches", { BRANCH_CODE: `${prefix}_NEW_B`, BRANCH_NAME: "New Branch", REGION_CODE: src.region });
+  await fromSource("sales-units", { UNIT_CODE: `${prefix}_NEW_U`, UNIT_NAME: "New Unit",
+    BRANCH_CODE: src.branch, REGION_CODE: src.region, GI_UNIT: src.giUnit });
+  await fromSource("gi-units", { GI_UNIT_CODE: `${prefix}_NEW_GU`, GI_UNIT_NAME: "New GI Unit",
+    BRANCH_CODE: src.branch, REGION_CODE: src.giBranch });
+  await update("unit-managers", { UNIT_CODE: src.unit }, { is_active: true });
+  await bad(() => fromSource("sales-units", { UNIT_CODE: `${prefix}_BAD_U`, UNIT_NAME: "Wrong Region",
+    BRANCH_CODE: src.branch, REGION_CODE: `${prefix}_OTHER` }));
+  await bad(() => fromSource("sales-branches", { BRANCH_CODE: `${prefix}_BAD_B`, BRANCH_NAME: "Ambiguous",
+    REGION_CODE: src.ambiguous }));
+  await bad(() => fromSource("sales-units", { UNIT_CODE: `${prefix}_BAD_M`, UNIT_NAME: "Unlinked Manager",
+    BRANCH_CODE: src.branch, REGION_CODE: src.region, UNIT_MGR_ID: `${prefix}_SHARED` }));
+  await lib.saveSalesCatalogEntry("sales-regions", { values: { REGION_CODE: src.shadow, REGION_NAME: "Inactive Enrolled Region" },
+    employee_id: null, is_active: false }, prefix);
+  await bad(() => fromSource("sales-branches", { BRANCH_CODE: `${prefix}_BAD_S`, BRANCH_NAME: "Shadow",
+    REGION_CODE: src.shadow }));
+  await db.query("UPDATE crm.sales_catalog_source_records SET data=jsonb_set(data,'{ACTIVE}','\"0\"') WHERE catalog='sales-units' AND code=$1", [src.unit]);
+  await bad(() => update("unit-managers", { UNIT_CODE: src.unit }));
+  await db.query("UPDATE crm.sales_catalog_source_records SET data=jsonb_set(data,'{ACTIVE}','\"1\"') WHERE catalog='sales-units' AND code=$1", [src.unit]);
+  const sourceAfter = (await db.query("SELECT id,data FROM crm.sales_catalog_source_records WHERE imported_by=$1 ORDER BY id", [prefix])).rows;
+  assert.deepEqual(sourceAfter, sourceBefore, "Selecting organizations must not modify source rows");
+  assert.equal((await db.query("SELECT profile_id FROM crm.employees WHERE employee_id=$1", [employee])).rows[0].profile_id, 3);
   console.info("PASS: all nine SELECT field sets, persistent enrollments, ordinary-user linkage, mappings, exact decimals/codes, date validation, stale writes, retained history and safe deactivation.");
   console.info("PASS: reference loads retain duplicate manager assignments and exact source values, flag missing mappings, remain idempotent and never create enrollments or grant access.");
+  console.info("PASS: imported organizations are selectable and saved by code; invalid regions, ambiguous identities, inactive/shadowed records and unlinked managers remain blocked; source values and user profiles stay unchanged.");
 } finally {
   if (connected) await db.query("ROLLBACK").catch(() => {});
   await db.end();

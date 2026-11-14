@@ -11,5 +11,16 @@ Keep identifiers as the underlying values for saving and relationship matching.
 then explicitly extended that request to Add Record dropdowns.
 
 **How to apply:** Apply name-based labels consistently when adding catalog UI.
-Do not rewrite stored identifiers as names or enable unverified reference
-records merely to populate a dropdown.
+Do not rewrite stored identifiers as names or treat unlinked imported managers
+as verified manager choices.
+
+Imported organizational records may be selected by name while remaining
+read-only references. This covers Sales Units, Sales Branches, Sales Regions,
+GI Units and GI Branches, not imported manager identities or invented Nationals.
+
+**Why:** After being told that the dropdowns excluded read-only imports, the
+user explicitly chose "Allow imported organizational choices."
+
+**How to apply:** Keep original codes in submitted selections and enforce
+active status and consistent hierarchy relationships. Do not create accounts,
+change profiles, auto-assign source managers or modify the original source rows.

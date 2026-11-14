@@ -904,6 +904,7 @@ components:
         version: { type: integer }
         values: { $ref: "#/components/schemas/SalesCatalogValues" }
         source_reference: { type: boolean }
+        organization_choice: { type: boolean, description: "Read-only imported organizational record allowed as a relationship lookup. Does not verify or enroll a manager." }
         source_file: { type: string }
         source_issues: { type: array, items: { type: string } }
     SalesCatalogSnapshot:

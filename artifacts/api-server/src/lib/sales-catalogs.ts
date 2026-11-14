@@ -4,6 +4,7 @@ import type { SalesCatalogEntry, SalesCatalogInput, SalesCatalogUpdate } from "@
 import { withTransaction } from "./postgres";
 import { SalesSetupError, salesSetupTransaction } from "./sales-structure";
 import { salesCatalogDefinitions, type CatalogDefinition } from "./sales-catalog-definitions";
+import { organizationLookups, organizationLookupKey } from "./sales-organization-lookups";
 
 const projection = `id,catalog,code,name,employee_id,is_active,version,data AS "values"`;
 const fail = (message: string): never => { throw new SalesSetupError(400, message); };
@@ -37,7 +38,10 @@ export async function salesCatalogSnapshot() {
       (NOT e.is_deleted AND e.activated AND e.approved AND NOT e.employee_locked) AS user_eligible
       FROM crm.sales_manager_enrollments m JOIN crm.employees e ON e.employee_id=m.employee_id
       WHERE m.level='BRANCH' ORDER BY e.employee_name,m.id`);
-    return { definitions: salesCatalogDefinitions, entries: [...entries.rows.map(expose), ...sources.rows],
+    const lookups = organizationLookups(entries.rows, sources.rows);
+    return { definitions: salesCatalogDefinitions, entries: [...entries.rows.map(expose), ...sources.rows.map(row => ({
+      ...row, organization_choice: lookups.get(organizationLookupKey(row)) === row,
+    }))],
       users: users.rows, nationals: nationals.rows, branch_managers: managers.rows };
   });
 }
@@ -89,11 +93,18 @@ function normalize(def: CatalogDefinition, input: SalesCatalogInput, actor: stri
 }
 
 async function validateLinks(client: PoolClient, entries: SalesCatalogEntry[]) {
+  const sources = (await client.query<SalesCatalogEntry>(`SELECT -id AS id,catalog,code,name,
+    NULL::integer AS employee_id,COALESCE(NULLIF(data->>'ACTIVE',''),'1')='1' AS is_active,
+    1 AS version,data AS "values",true AS source_reference
+    FROM crm.sales_catalog_source_records
+    WHERE catalog IN ('sales-units','sales-branches','sales-regions','gi-units','gi-branches')`)).rows;
+  const lookups = organizationLookups(entries, sources);
   const nationals = (await client.query("SELECT code,is_active FROM crm.sales_structure_nodes WHERE level='NATIONAL'")).rows;
   const branches = (await client.query(`SELECT m.id,m.is_active,
     (NOT e.is_deleted AND e.activated AND e.approved AND NOT e.employee_locked) AS eligible
     FROM crm.sales_manager_enrollments m JOIN crm.employees e ON e.employee_id=m.employee_id WHERE m.level='BRANCH'`)).rows;
-  const find = (catalog: string, code: string | null | undefined) => entries.find(e => e.catalog === catalog && e.code === code);
+  const find = (catalog: string, code: string | null | undefined) =>
+    code ? lookups.get(`${catalog}:${code}`) : undefined;
   for (const entry of entries) {
     const def = catalogDefinition(entry.catalog);
     for (const field of def.fields.filter(f => f.reference)) {

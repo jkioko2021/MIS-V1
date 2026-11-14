@@ -36,6 +36,7 @@ export const GetSalesCatalogsResponse = zod.object({
   "version": zod.number().int(),
   "values": zod.record(zod.string(), zod.string().nullable()),
   "source_reference": zod.boolean().optional(),
+  "organization_choice": zod.boolean().optional().describe('Read-only imported organizational record allowed as a relationship lookup. Does not verify or enroll a manager.'),
   "source_file": zod.string().optional(),
   "source_issues": zod.array(zod.string()).optional()
 })),
