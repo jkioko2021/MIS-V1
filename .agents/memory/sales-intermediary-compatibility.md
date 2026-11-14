@@ -27,6 +27,18 @@ agent identities; MIS is the subsequent import and details-capture workflow.
 identity/provenance, make repeated imports safe, and report a disconnected or
 unconfirmed core source explicitly instead of creating placeholder agents.
 
+The upstream extraction deposits agents in the data repository
+`[DB_MASTER_AGENTS].[dbo].[TBL_MIS_SALES_INTERMEDIARY]`; MIS imports from that
+repository rather than treating upstream extraction as its own responsibility.
+SQL Server connectivity remains deferred until separately requested.
+
+**Why:** The user specified the core → data repository → MIS sequence and
+previously said the SQL connection would be handled later.
+
+**How to apply:** Treat the repository as the import source. Confirm column
+headers for headerless samples instead of guessing positional mappings; do not
+load sample identities or invoke upstream extraction without authorization.
+
 When reproducing the legacy registration form, retain the modern independent
 licence review boundary. A waiver is a documented request for compliance
 exceptions, not automatic verification or permission to skip evidence.
