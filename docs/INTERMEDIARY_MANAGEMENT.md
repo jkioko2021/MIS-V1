@@ -22,13 +22,27 @@ Assign the new profile through User Management.
   button pulls them into a pending setup queue. Repeated imports skip existing
   agent codes and never overwrite MIS details or historical agent assignments.
   Pending core identity fields cannot be changed during registration.
-* The legacy button calls `DB_MASTER_AGENTS.dbo.MIS_SALES_AGEN_EXTRACT` with
-  `ENTRY_BY`, then shows active uncoded master records. The uploaded master SQL
-  contains the table schema but **not** that extraction procedure's definition.
-  The ready SQL adapter uses that exact procedure and existing SQL Server
-  connection only after explicitly selecting `MIS_AGENT_CORE_SOURCE=legacy-sqlserver`.
-  Until the source is confirmed and connected, Import explains the configuration
-  blocker and never claims success. No external procedure is executed during tests.
+* The confirmed flow is **core system → data repository → MIS Import**.
+  Upstream extraction populates
+  `[DB_MASTER_AGENTS].[dbo].[TBL_MIS_SALES_INTERMEDIARY]`. MIS reads this table
+  using SELECT only; it does **not** call the legacy `MIS_SALES_AGEN_EXTRACT`
+  procedure or update repository flags. The user confirmed **uncoded agents only**:
+  the selection remains `COALESCE(CODED,0)=0 AND ACTIVE=1`. All eight supplied
+  example rows have `CODED=1` and are therefore deliberately excluded.
+  SQL Server connectivity remains deferred. The existing configuration selector
+  `MIS_AGENT_CORE_SOURCE=legacy-sqlserver` is retained for compatibility; it
+  enables the repository adapter, not an extraction job. Until configured,
+  Import explains the blocker and never claims success.
+* The supplied SELECT confirms identity, dates, contact/payroll/PIN,
+  `COMMISSION_RATE` and `PAY_MODE` column names. Mapping uses named columns,
+  not sample positions, and keeps identifiers/phone numbers as text.
+  Organization, secondary contact, RMS/GI and eTIMS fields continue to use the
+  additional columns verified in the uploaded full table schema. Source flags
+  (`CODED`, `APPROVED`, `SUBMITTED`, etc.) do not bypass MIS completion or
+  independent licence verification. `LICENCE_NO` alone is not a verified licence
+  with validity dates; `SALES_TAX` and `H_TAX` are not commission rates.
+  No new tax, hierarchy or source-approval fields are added to the local master
+  by this adapter change, and no sample records are loaded.
 * Existing pre-module intermediary records are treated as completed legacy
   records, without assigning invented import provenance. New imports are DRAFT
   and PENDING until MIS organization/contact/contract details, supporting documents

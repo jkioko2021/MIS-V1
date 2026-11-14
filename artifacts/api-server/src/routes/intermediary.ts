@@ -63,7 +63,7 @@ let importInFlight = false;
 router.post("/intermediary/import", wrap(async (req, res) => {
   if (importInFlight) throw new IntermediaryError(409, "An agent import is already running. Please wait.");
   importInFlight = true;
-  try { res.json(await importCoreRows(await pullCoreAgents(req.user!.username), req.user!.username)); }
+  try { res.json(await importCoreRows(await pullCoreAgents(), req.user!.username)); }
   finally { importInFlight = false; }
 }));
 router.get("/intermediary/agents/:code", wrap(async (req, res) => {

@@ -1,24 +1,22 @@
-import { getPool, sql } from "./sqlserver";
+import { getPool } from "./sqlserver";
 import { withTransaction } from "./postgres";
 import { IntermediaryError, parseMaster, masterColumns } from "./intermediary";
 
-/** Explicit source selection avoids guessing which connected database is the core. */
+/** Explicit source selection keeps repository connectivity deferred until configured. */
 export function coreImportConfiguration() {
   if (process.env.MIS_AGENT_CORE_SOURCE !== "legacy-sqlserver")
-    return { import_available: false, import_reason: "Core-system source has not been confirmed. Select and configure the agent import source before importing." };
+    return { import_available: false, import_reason: "The agent data repository connection is deferred. Configure SQL Server access to DB_MASTER_AGENTS.dbo.TBL_MIS_SALES_INTERMEDIARY before importing." };
   if (!process.env.MSSQL_HOST || !process.env.MSSQL_USER || !process.env.MSSQL_PASSWORD)
-    return { import_available: false, import_reason: "The core SQL Server connection is not configured." };
+    return { import_available: false, import_reason: "The agent data repository SQL Server connection is not configured." };
   return { import_available: true, import_reason: null };
 }
 
-/** Uses the exact legacy button procedure; called only by an explicit Import action. */
-export async function pullCoreAgents(actor: string) {
+/** Upstream populates the repository; MIS only reads active, uncoded identities. */
+export async function pullCoreAgents() {
   const config = coreImportConfiguration();
   if (!config.import_available) throw new IntermediaryError(503, config.import_reason!);
-  if (actor.length > 50) throw new IntermediaryError(400, "The legacy import supports usernames up to 50 characters.");
   try {
     const pool = await getPool("DB_MASTER_AGENTS");
-    await pool.request().input("ENTRY_BY", sql.VarChar(50), actor).execute("dbo.MIS_SALES_AGEN_EXTRACT");
     const result = await pool.request().query(`
       SELECT TOP (10001) REF_NO AS source_ref,AGENT_CODE AS agent_code,USER_ID AS user_id,
         AGENT_NAME AS agent_name,AGENT_TYPE AS agent_type,
@@ -29,11 +27,11 @@ export async function pullCoreAgents(actor: string) {
         PIN_NO AS pin_no,NID_NO AS nid_no,RMS_CODE_CORP AS rms_code_corp,RMS_CODE_RET AS rms_code_ret,
         GI_CODE AS gi_code,COMMISSION_RATE AS commission_rate,CONVERT(varchar(30),PAY_MODE) AS pay_mode,
         CAST(COALESCE(ETIMS_VERIFIED,0) AS bit) AS etims_verified
-      FROM dbo.TBL_MIS_SALES_INTERMEDIARY
+      FROM [DB_MASTER_AGENTS].[dbo].[TBL_MIS_SALES_INTERMEDIARY]
       WHERE COALESCE(CODED,0)=0 AND ACTIVE=1 ORDER BY ID`);
     return result.recordset as Record<string, unknown>[];
   } catch {
-    throw new IntermediaryError(503, "Unable to pull agents from the core system. Check SQL Server connectivity and access to DB_MASTER_AGENTS.dbo.MIS_SALES_AGEN_EXTRACT. No MIS records were imported.");
+    throw new IntermediaryError(503, "Unable to read the agent data repository. Check SQL Server connectivity and SELECT access to DB_MASTER_AGENTS.dbo.TBL_MIS_SALES_INTERMEDIARY. No MIS records were imported.");
   }
 }
 

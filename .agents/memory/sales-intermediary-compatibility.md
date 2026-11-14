@@ -39,6 +39,15 @@ previously said the SQL connection would be handled later.
 headers for headerless samples instead of guessing positional mappings; do not
 load sample identities or invoke upstream extraction without authorization.
 
+Only import uncoded agents from the repository; already-coded agents are
+excluded even when they appear in an example.
+
+**Why:** The user explicitly selected "Only import uncoded agents" after being
+shown that every supplied example had CODED = 1.
+
+**How to apply:** Preserve the active, uncoded selection and do not widen it to
+fit sample data. MIS must not reset repository coding flags to make rows eligible.
+
 When reproducing the legacy registration form, retain the modern independent
 licence review boundary. A waiver is a documented request for compliance
 exceptions, not automatic verification or permission to skip evidence.
