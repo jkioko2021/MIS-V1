@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useImportIntermediaries, useUpdateIntermediary, useActionIntermediary } from '@workspace/api-client-react';
 import type { Intermediary, IntermediaryActionInput, IntermediaryDetail, IntermediaryInput, IntermediaryOptions } from '@workspace/api-client-react';
-import { ArrowRight, ArrowLeft, Check, CloudDownload, FileCheck2, Search, ShieldCheck, UserRound, Users, LockKeyhole, Circle, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Check, CloudDownload, FileCheck2, Search, ShieldCheck, UserRound, Users, LockKeyhole, Circle, CheckCircle2, RefreshCw } from 'lucide-react';
 import { Link } from 'wouter';
 import { ApiMessage, Button, Field, NoteField, SelectField, SkeletonRows, StatusPill, SuccessMessage, intermediaryInputFrom } from './form-components';
 import { EmptyRegistrationSupport, RegistrationSupport, type RegistrationSection } from './registration-support';
@@ -235,10 +235,11 @@ export function AgentRegistration({
           </div>
         </section>
         <section className="im-card im-pending-card">
-          <div className="im-card-head im-list-head"><div><div className="im-section-index">PENDING REGISTRATION</div><h2>Imported agents <span className="im-count">{pendingList.data?.total ?? '—'}</span></h2><p>Imported core identities awaiting accountable MIS records.</p></div><span className="im-pending-count"><UserRound size={15} /> {importedCount} pending</span></div>
+          <div className="im-card-head im-list-head"><div><div className="im-section-index">PENDING REGISTRATION · CODED 0</div><h2>Imported agents <span className="im-count">{pendingList.data?.total ?? '—'}</span></h2><p>Uncoded imported agents awaiting MIS registration. This list refreshes automatically.</p></div><span className="im-pending-count"><UserRound size={15} /> {importedCount} pending</span></div>
           <div className="im-filters im-registration-filters">
             <label className="im-search"><Search size={16} /><input aria-label="Search imported pending agents" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder="Search imported agents…" /></label>
             <select aria-label="Search by" value={searchBy} onChange={event => { setSearchBy(event.target.value as typeof searchBy); setPage(1); }}><option value="all">Search by: All</option><option value="name">Name</option><option value="agent_code">Agent Code</option><option value="payroll">Payroll No</option></select>
+            <Button variant="quiet" disabled={pendingList.isFetching} onClick={() => { void pendingList.refetch(); }} testId="button-refresh-imported-agents"><RefreshCw size={15} /> {pendingList.isFetching ? 'Refreshing…' : 'Refresh'}</Button>
           </div>
           {pendingList.isLoading ? <SkeletonRows /> : pendingList.isError ? <ApiMessage error={pendingList.error} onRetry={() => { void pendingList.refetch(); }} /> : (pendingList.data?.items.length ?? 0) === 0 ?
             <div className="im-empty"><div><Users size={21} /></div><h3>No pending agents</h3><p>Import core-registered identities, then select one here to complete its MIS record. Manual identity creation is not available.</p></div> :

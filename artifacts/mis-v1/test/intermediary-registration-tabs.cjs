@@ -126,6 +126,33 @@ for (const label of ['App Number', 'Receive Date', 'Agent No', 'Intermediary Nam
 }
 assert.match(text(emptyProfile.type(emptyProfile.props)), /Pay Frequency/);
 assert.match(text(emptyProfile.type(emptyProfile.props)), /eTIMS Integrated/);
+let refreshes = 0;
+let pickedCode = '';
+const importedAgents = Array.from({ length: 8 }, (_, i) => ({
+  ...agent, agent_code: `QA_IMPORTED_${i}`, agent_name: `Imported Agent ${i}`,
+}));
+const importedTree = emptyPage.render({
+  pendingList: { data: { items: importedAgents, total: 8 }, isFetching: false,
+    refetch: async () => { refreshes++; } },
+  onSelect: code => { pickedCode = code; },
+});
+const importedRows = walk(importedTree).filter(node =>
+  node.props['data-testid']?.startsWith('button-pending-agent-'));
+assert.equal(importedRows.length, 8, 'All eight imported uncoded agents render in the panel');
+assert.match(text(importedTree), /CODED 0/);
+importedRows[0].props.onClick();
+assert.equal(pickedCode, 'QA_IMPORTED_0', 'Selecting an imported agent opens its registration');
+walk(importedTree).find(node => node.props.testId === 'button-refresh-imported-agents').props.onClick();
+assert.equal(refreshes, 1, 'Refresh reloads the pending list without invoking the source import');
+const refreshingTree = emptyPage.render({
+  pendingList: { data: { items: importedAgents, total: 8 }, isFetching: true, refetch: async () => {} },
+});
+assert.equal(walk(refreshingTree).find(node =>
+  node.props.testId === 'button-refresh-imported-agents').props.disabled, true);
+const indexSource = fs.readFileSync(path.join(__dirname, '../src/pages/intermediary/index.tsx'), 'utf8');
+assert.match(indexSource, /refetchInterval:\s*page\.path === '\/intermediary\/registration' \? 15_000 : false/);
+assert.match(indexSource, /status:\s*page\.path === '\/intermediary\/registration' \? undefined : statusFilter/);
+assert.match(indexSource, /agent_type:\s*page\.path === '\/intermediary\/registration' \? undefined : typeFilter/);
 const page = mount('agent-registration.tsx', 'AgentRegistration', {
   code: agent.agent_code, username: 'synthetic', detail, detailLoading: false,
   options: { import_available: false, import_reason: 'SQL deferred', agent_types: ['INDEPENDENT'] },

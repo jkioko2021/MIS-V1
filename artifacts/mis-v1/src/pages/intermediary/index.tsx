@@ -121,13 +121,20 @@ export default function IntermediaryPage() {
   const listParams = useMemo(() => ({
     search: debouncedSearch || undefined,
     search_by: page.path === '/intermediary/registration' ? registrationSearchBy : undefined,
-    status: statusFilter || undefined,
-    agent_type: typeFilter || undefined,
+    status: page.path === '/intermediary/registration' ? undefined : statusFilter || undefined,
+    agent_type: page.path === '/intermediary/registration' ? undefined : typeFilter || undefined,
     registration_status: page.path === '/intermediary/registration' ? 'PENDING' as const : undefined,
     page: pageNo,
   }), [debouncedSearch, statusFilter, typeFilter, pageNo, page.path, registrationSearchBy]);
   const list = useListIntermediaries(listParams, {
-    query: { queryKey: [...getListIntermediariesQueryKey(listParams), username], staleTime: 15_000, refetchOnMount: true, retry: false },
+    query: {
+      queryKey: [...getListIntermediariesQueryKey(listParams), username],
+      staleTime: 15_000,
+      refetchOnMount: 'always',
+      refetchOnWindowFocus: true,
+      refetchInterval: page.path === '/intermediary/registration' ? 15_000 : false,
+      retry: false,
+    },
   });
   const { options, detail } = useIntermediaryData(agentCode, username);
   const update = useUpdateIntermediary();
