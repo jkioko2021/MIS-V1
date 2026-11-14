@@ -154,8 +154,6 @@ const NAV_SECTIONS: Array<{
       {
         href: '/admin/sales-structure', label: 'Sales Structure setup', icon: Network,
         children: [
-          { href: '/admin/sales-structure', label: 'Structure setup', icon: Network },
-          { href: '/admin/sales-structure/managers', label: 'Manager enrollment', icon: UsersRound },
           { href: '/admin/sales-structure/catalogs/sales-units', label: 'Sales Units', icon: Database },
           { href: '/admin/sales-structure/catalogs/unit-managers', label: 'Unit Managers', icon: UsersRound },
           { href: '/admin/sales-structure/catalogs/sales-branches', label: 'Sales Branches', icon: Network },

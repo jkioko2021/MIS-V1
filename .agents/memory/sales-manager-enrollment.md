@@ -26,3 +26,12 @@ missing relationships and unlinked users, the user chose "Load as reference reco
 **How to apply:** Show imported rows read-only with mapping warnings. Do not
 offer them as verified assignment choices or use source approval flags to grant
 access. Future reconciliation must deliberately verify each assignment.
+
+Keep the Sales Structure setup parent menu, but do not expose the separate
+generic Structure setup and Manager enrollment submenu links.
+
+**Why:** The user explicitly requested their removal as not needed after the
+nine specific sales catalog pages were added.
+
+**How to apply:** Use the specific catalog pages in navigation. This does not
+authorize deleting historical hierarchy data or changing manager identity rules.

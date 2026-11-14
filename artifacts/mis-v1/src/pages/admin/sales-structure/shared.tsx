@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
-import { ArrowRight, GitBranch, Network, UsersRound, ClipboardList } from 'lucide-react';
+import { ArrowRight, Network, ClipboardList } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -49,8 +49,6 @@ export function SalesStructureHeader({
   children?: ReactNode;
 }) {
   const [location] = useLocation();
-  const structureActive = location === '/admin/sales-structure';
-  const managerActive = location === '/admin/sales-structure/managers';
   const catalogActive = location.startsWith('/admin/sales-structure/catalogs/');
   return (
     <div className="mx-auto max-w-[1480px] space-y-6 p-4 pb-12 sm:p-6 lg:p-8">
@@ -71,29 +69,6 @@ export function SalesStructureHeader({
           </div>
         </div>
         <div className="relative mt-7 flex flex-wrap items-center gap-1 border-t border-[#cbdad4] pt-4">
-          <Link
-            href="/admin/sales-structure"
-            className={cn(
-              'inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              structureActive ? 'bg-[#1f5849] text-white shadow-sm' : 'text-[#4d6c62] hover:bg-white/70',
-            )}
-            data-testid="link-sales-structure"
-          >
-            <GitBranch className="h-4 w-4" />
-            Structure
-          </Link>
-          <Link
-            href="/admin/sales-structure/managers"
-            className={cn(
-              'inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              managerActive ? 'bg-[#1f5849] text-white shadow-sm' : 'text-[#4d6c62] hover:bg-white/70',
-            )}
-            data-testid="link-manager-enrollment"
-          >
-            <UsersRound className="h-4 w-4" />
-            Manager enrollment
-          </Link>
-          <span className="mx-1 hidden h-6 w-px bg-[#cbdad4] sm:block" />
           {SALES_CATALOGS.map((catalog) => (
             <Link
               key={catalog.key}

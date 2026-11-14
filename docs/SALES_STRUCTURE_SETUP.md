@@ -44,8 +44,12 @@ SQL Server extraction, connections and synchronization remain deferred.
 
 Apply `0056_sales_enrollment_catalogs.sql` after the existing Sales Structure
 migration in development/local setup. The local database helper includes both.
-The existing `crm.sales_setup_events` and original structure/manager pages are
-unchanged; catalog-specific snapshots are retained in `crm.sales_catalog_events`.
+The separate **Structure setup** and **Manager enrollment** links have been
+removed from the sidebar, catalog header navigation and access-rights menu list.
+The **Sales Structure setup** parent menu retains the nine catalog pages.
+Existing general hierarchy data, enrollments, audit history and compatibility
+routes remain intact; no data was deleted. Catalog-specific snapshots are
+retained in `crm.sales_catalog_events`.
 
 ## Uploaded source references
 
@@ -74,7 +78,11 @@ identical source rows by catalog and row fingerprint. It writes only reference
 storage; it never writes the upstream database or editable enrollments. Source
 validity and unresolved mappings are reported as captured at import time.
 
-# Sales Structure setup
+# Earlier general hierarchy (compatibility only)
+
+The following documents the earlier general hierarchy implementation. Its two
+submenu links are no longer exposed; new navigation uses the nine sales catalogs
+described above. Existing records and compatibility routes were not removed.
 
 Administrators (SuperAdmin and System Admin) can maintain **Administration → Sales Structure setup**.
 Manager Enrollment is a separate page within this setup.
