@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { displayFieldLabel } from './catalog-display';
 
 type CatalogEditorProps = {
   catalog: string;
@@ -67,18 +68,19 @@ export function CatalogEditor({ catalog, definition, snapshot, entry, onClose }:
     .slice(0, 80), [snapshot.users, userSearch]);
   const referenceChoices = (reference: string) => {
     if (reference === 'nationals') {
-      return snapshot.nationals.map((node) => ({ value: node.code, label: `${node.code} — ${node.name}`, active: node.is_active }));
+      return snapshot.nationals.map((node) => ({ value: node.code, label: node.name, active: node.is_active }));
     }
     if (reference === 'branch-managers') {
       return snapshot.branch_managers.map((manager) => ({
         value: String(manager.id),
-        label: `${manager.employee_name} · ${manager.username}`,
+        label: manager.employee_name,
         active: manager.is_active && manager.user_eligible,
       }));
     }
     return snapshot.entries
       .filter((item) => item.catalog === reference && !item.source_reference)
-      .map((item) => ({ value: item.code, label: `${item.code} — ${item.name}`, active: item.is_active }));
+      .map((item) => ({ value: item.code, label: item.name, active: item.is_active }))
+      .sort((a, b) => a.label.localeCompare(b.label));
   };
 
   const updateValue = (key: string, value: string) => {
@@ -213,7 +215,7 @@ export function CatalogEditor({ catalog, definition, snapshot, entry, onClose }:
                     data-testid="select-catalog-manager-user"
                   >
                     <option value="">Choose an existing MIS user</option>
-                    {users.map((staff) => <option key={staff.employee_id} value={staff.employee_id}>{staff.employee_name} · {staff.username} · {staff.employee_id}</option>)}
+                    {users.map((staff) => <option key={staff.employee_id} value={staff.employee_id}>{staff.employee_name} · {staff.username}</option>)}
                   </select>
                   <p className="text-xs leading-5 text-muted-foreground">
                     Manager identity stays linked to the existing account; no profile, password or permissions are modified.
@@ -228,6 +230,7 @@ export function CatalogEditor({ catalog, definition, snapshot, entry, onClose }:
             const value = values[field.key] ?? '';
             const locked = field.read_only || (entry && field.key === definition.code_field);
             const id = `catalog-field-${field.key}`;
+            const label = displayFieldLabel(field, catalog);
             const required = field.required && !field.read_only;
             const currentReferenceValue = value;
             if (field.read_only) {
@@ -250,7 +253,7 @@ export function CatalogEditor({ catalog, definition, snapshot, entry, onClose }:
             return (
               <div key={field.key} className="space-y-1.5">
                 <Label htmlFor={id}>
-                  {field.label}{required && <span className="ml-1 text-destructive">*</span>}
+                  {label}{required && <span className="ml-1 text-destructive">*</span>}
                   {locked && <span className="ml-2 text-[10px] font-normal text-muted-foreground">Fixed after creation</span>}
                 </Label>
                 {field.reference ? (
@@ -262,8 +265,8 @@ export function CatalogEditor({ catalog, definition, snapshot, entry, onClose }:
                     className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-70"
                     data-testid={`field-${field.key}`}
                   >
-                    <option value="">Choose {field.label.toLowerCase()}</option>
-                    {existingValueUnavailable && <option value={currentReferenceValue}>{currentReferenceValue} — saved reference unavailable</option>}
+                    <option value="">Choose {label.toLowerCase()}</option>
+                    {existingValueUnavailable && <option value={currentReferenceValue}>Saved selection unavailable — choose a replacement</option>}
                     {referenceOptions.map((option) => (
                       <option key={option.value} value={option.value} disabled={!option.active && option.value !== currentReferenceValue}>
                         {option.label}{!option.active ? ' (inactive)' : ''}

@@ -105,3 +105,59 @@ assert(!catalog.includes('>Catalog record<'));
 assert(!catalog.includes('{entry.code}'));
 assert.match(catalog, /displayReference\(entry, field, snapshot!\)/);
 console.info('PASS: sales relationships show specific names, unknown/conflicting mappings are explicit, codes and record IDs are hidden, and reference data remains read-only.');
+
+const editorExports = {};
+const draft = { UNIT_CODE: 'NEW_UNIT_CODE', UNIT_NAME: 'New Unit',
+  BRANCH_CODE: 'SAVED_BRANCH_CODE', REGION_CODE: 'SAVED_REGION_CODE', NSM_CODE: 'SAVED_NATIONAL_CODE', BRANCH_MGR_ID: '12' };
+let stateIndex = 0, created;
+const editorSnapshot = {
+  entries: [
+    { catalog: 'sales-branches', code: 'SAVED_BRANCH_CODE', name: 'Named Branch', is_active: true },
+    { catalog: 'sales-regions', code: 'SAVED_REGION_CODE', name: 'Named Region', is_active: true },
+    { catalog: 'sales-branches', code: 'SOURCE_ONLY', name: 'Unverified Source Branch', is_active: true, source_reference: true },
+  ],
+  nationals: [{ code: 'SAVED_NATIONAL_CODE', name: 'Named National Office', is_active: true }],
+  branch_managers: [{ id: 12, employee_name: 'Named Branch Manager', username: 'manager_account', is_active: true, user_eligible: true }],
+  users: [],
+};
+vm.runInNewContext(ts.transpileModule(editor, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
+}).outputText, {
+  exports: editorExports,
+  require(name) {
+    if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'Fragment' };
+    if (name === 'react') return {
+      useMemo: fn => fn(),
+      useState: initial => [stateIndex++ === 0 ? draft : typeof initial === 'function' ? initial() : initial, () => {}],
+    };
+    if (name === '@tanstack/react-query') return { useQueryClient: () => ({ invalidateQueries: async () => {} }) };
+    if (name === './catalog-display') return displayExports;
+    if (name === '@workspace/api-client-react') return {
+      useCreateSalesCatalogEntry: () => ({ mutate: args => { created = args; } }),
+      useUpdateSalesCatalogEntry: () => ({}),
+    };
+    if (name.startsWith('@/components/ui/') || name === 'lucide-react') return new Proxy({}, { get: (_, key) => String(key) });
+    throw new Error(`Unexpected editor dependency ${name}`);
+  },
+});
+const editorTree = editorExports.CatalogEditor({
+  catalog: 'sales-units',
+  snapshot: editorSnapshot,
+  definition: { title: 'Sales Units', code_field: 'UNIT_CODE', name_field: 'UNIT_NAME', manager: false,
+    fields: Object.keys(draft).map(key => ({ key, label: key, type: 'text', required: true, max_length: 100,
+      reference: ({ BRANCH_CODE: 'sales-branches', REGION_CODE: 'sales-regions', NSM_CODE: 'nationals', BRANCH_MGR_ID: 'branch-managers' })[key] ?? null })) },
+  onClose: () => {},
+});
+for (const [key, expected] of Object.entries({
+  BRANCH_CODE: 'Named Branch', REGION_CODE: 'Named Region', NSM_CODE: 'Named National Office', BRANCH_MGR_ID: 'Named Branch Manager',
+})) {
+  const select = walk(editorTree).find(node => node.props['data-testid'] === `field-${key}`);
+  const option = walk(select).find(node => node.type === 'option' && node.props.value === draft[key]);
+  assert.equal(text(option).trim(), expected, 'Dropdown labels should show only the specific name');
+  assert(!text(select).includes(draft[key]), 'The stored code must not appear as option text');
+}
+assert(!text(editorTree).includes('Unverified Source Branch'));
+walk(editorTree).find(node => node.props['data-testid'] === 'button-save-catalog-entry').props.onClick();
+assert(created, 'Create should still submit valid selections');
+for (const key of Object.keys(draft)) assert.equal(created.data.values[key], draft[key], 'Names must not replace stored codes in the save payload');
+console.info('PASS: Add Record dropdowns display names while saving original codes and excluding unverified source references.');
