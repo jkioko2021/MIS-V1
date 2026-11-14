@@ -8,6 +8,106 @@
 import * as zod from 'zod';
 
 
+export const GetSalesCatalogsResponse = zod.object({
+  "definitions": zod.array(zod.object({
+  "key": zod.string(),
+  "title": zod.string(),
+  "source_table": zod.string(),
+  "code_field": zod.string(),
+  "name_field": zod.string(),
+  "manager": zod.boolean(),
+  "fields": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "type": zod.enum(['text', 'email', 'date', 'decimal', 'integer', 'flag']),
+  "required": zod.boolean(),
+  "read_only": zod.boolean(),
+  "reference": zod.string().nullable(),
+  "max_length": zod.number().int()
+}))
+})),
+  "entries": zod.array(zod.object({
+  "id": zod.number().int(),
+  "catalog": zod.string(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "employee_id": zod.number().int().nullable(),
+  "is_active": zod.boolean(),
+  "version": zod.number().int(),
+  "values": zod.record(zod.string(), zod.string().nullable())
+})),
+  "users": zod.array(zod.object({
+  "employee_id": zod.number().int(),
+  "employee_name": zod.string(),
+  "username": zod.string()
+})),
+  "nationals": zod.array(zod.object({
+  "id": zod.number().int(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "level": zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT']),
+  "parent_id": zod.number().int().nullable(),
+  "manager_id": zod.number().int().nullable(),
+  "is_active": zod.boolean(),
+  "version": zod.number().int()
+})),
+  "branch_managers": zod.array(zod.object({
+  "id": zod.number().int(),
+  "employee_id": zod.number().int(),
+  "level": zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT']),
+  "is_active": zod.boolean(),
+  "version": zod.number().int(),
+  "employee_name": zod.string(),
+  "username": zod.string(),
+  "user_eligible": zod.boolean()
+}))
+})
+
+
+export const CreateSalesCatalogEntryParams = zod.object({
+  "catalog": zod.coerce.string()
+})
+
+
+
+
+export const CreateSalesCatalogEntryBody = zod.object({
+  "values": zod.record(zod.string(), zod.string().nullable()),
+  "employee_id": zod.number().int().min(1).nullable(),
+  "is_active": zod.boolean()
+})
+
+export const CreateSalesCatalogEntryResponse = zod.object({
+  "id": zod.number().int(),
+  "version": zod.number().int()
+})
+
+
+
+
+
+export const UpdateSalesCatalogEntryParams = zod.object({
+  "catalog": zod.coerce.string(),
+  "id": zod.coerce.number().int().min(1)
+})
+
+
+
+
+
+export const UpdateSalesCatalogEntryBody = zod.object({
+  "values": zod.record(zod.string(), zod.string().nullable()),
+  "employee_id": zod.number().int().min(1).nullable(),
+  "is_active": zod.boolean(),
+  "version": zod.number().int().min(1)
+})
+
+export const UpdateSalesCatalogEntryResponse = zod.object({
+  "id": zod.number().int(),
+  "version": zod.number().int()
+})
+
+
 export const GetSalesStructureResponse = zod.object({
   "nodes": zod.array(zod.object({
   "id": zod.number().int(),

@@ -1,0 +1,135 @@
+// Real development database, one rolled-back transaction; never contacts SQL Server.
+import assert from "node:assert/strict";
+import { build } from "esbuild";
+import pg from "pg";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { randomUUID } from "node:crypto";
+
+const root = new URL("../../../", import.meta.url);
+const dir = await mkdtemp(path.join(tmpdir(), "sales-catalog-test-"));
+const db = new pg.Client({ connectionString: process.env.DATABASE_URL });
+let connected = false;
+globalThis.__salesCatalogTest = db;
+try {
+  await build({
+    stdin: { contents: `export * from './artifacts/api-server/src/lib/sales-catalogs.ts';
+      export * from './artifacts/api-server/src/lib/sales-catalog-definitions.ts';
+      export * from './artifacts/api-server/src/lib/sales-structure.ts';
+      export {CreateSalesCatalogEntryBody,UpdateSalesCatalogEntryBody} from './lib/api-zod/src/index.ts';`,
+      resolveDir: path.resolve(new URL("../../..", import.meta.url).pathname), loader: "ts" },
+    outfile: path.join(dir, "lib.mjs"), bundle: true, platform: "node", format: "esm", packages: "bundle",
+    plugins: [{ name: "rollback", setup(b) {
+      b.onResolve({ filter: /^\.\/postgres$/ }, () => ({ path: "postgres", namespace: "fixture" }));
+      b.onLoad({ filter: /.*/, namespace: "fixture" }, () => ({ contents: `
+        export async function withTransaction(fn){
+          const db=globalThis.__salesCatalogTest;
+          await db.query('SAVEPOINT catalog_check');
+          try {const result=await fn(db);await db.query('RELEASE SAVEPOINT catalog_check');return result;}
+          catch(err){await db.query('ROLLBACK TO SAVEPOINT catalog_check');throw err;}
+        }` }));
+    } }],
+  });
+  const lib = await import(pathToFileURL(path.join(dir, "lib.mjs")).href);
+  // Exact field parity with the supplied SELECTs, without executing those SELECTs.
+  const supplied = await readFile(new URL("attached_assets/Pasted-SELECT-UNIT-CODE-UNIT-NAME-UNIT-TYPE-BRANCH-CODE-REGION_1794640577917.txt", root), "utf8");
+  const selects = supplied.split(/SELECT/i).filter(s => s.includes("FROM"));
+  assert.equal(selects.length, 9);
+  for (const select of selects) {
+    const [columns, from] = select.split(/\bFROM\b/i);
+    const table = from.match(/\[dbo\]\.\[([^\]]+)\]/)[1];
+    const def = lib.salesCatalogDefinitions.find(d => d.source_table.endsWith(`.${table}`));
+    assert(def, `Missing submenu definition for ${table}`);
+    assert.deepEqual(def.fields.map(f => f.key), [...columns.matchAll(/\[([^\]]+)\]/g)].map(m => m[1]));
+  }
+  await db.connect(); connected = true; await db.query("BEGIN");
+  const prefix = `CAT_${randomUUID().slice(0, 8)}`.toUpperCase();
+  const employee = (await db.query(`INSERT INTO crm.employees(username,employee_name,password_hash,
+    profile_id,activated,approved) VALUES($1,$1,'not-a-login-hash',3,true,true) RETURNING employee_id`,
+  [prefix])).rows[0].employee_id;
+  const national = await lib.createSalesNode({
+    code: `${prefix}_N`, name: prefix, level: "NATIONAL", parent_id: null, manager_id: null, is_active: true,
+  }, prefix);
+  const bm = await lib.enrollSalesManager({ employee_id: employee, level: "BRANCH" }, prefix);
+  const definitions = new Map(lib.salesCatalogDefinitions.map(d => [d.key, d]));
+  const states = new Map();
+  async function create(catalog, extra = {}) {
+    const def = definitions.get(catalog);
+    const values = { [def.code_field]: `${prefix}_${states.size}`, [def.name_field]: `${prefix} ${def.title}`, ...extra };
+    const input = { values, employee_id: def.manager ? employee : null, is_active: true };
+    const saved = await lib.saveSalesCatalogEntry(catalog, lib.CreateSalesCatalogEntryBody.parse(input), prefix);
+    const item = { ...input, ...saved, code: values[def.code_field] };
+    states.set(catalog, item); return item;
+  }
+  async function update(catalog, values = {}, options = {}) {
+    const current = states.get(catalog);
+    const input = { values: { ...current.values, ...values }, employee_id: current.employee_id,
+      is_active: current.is_active, version: current.version, ...options };
+    const result = await lib.saveSalesCatalogEntry(catalog, lib.UpdateSalesCatalogEntryBody.parse(input), prefix, current.id);
+    const item = { ...current, ...input, ...result }; states.set(catalog, item); return item;
+  }
+  const region = await create("sales-regions", { NSM_CODE: `${prefix}_N`, VALID_FROM: "2026-01-01", VALID_TO: "2026-12-31" });
+  const branch = await create("sales-branches", { REGION_CODE: region.code, NSM_CODE: `${prefix}_N`, BRANCH_MGR_ID: String(bm.id) });
+  const unit = await create("sales-units", { BRANCH_CODE: branch.code, REGION_CODE: region.code, NSM_CODE: `${prefix}_N` });
+  const um = await create("unit-managers", { UNIT_CODE: unit.code, EMAIL: "fixture@example.test",
+    H_TAX: "0.100", HRMIS_CODE: "000123", APPROVED: "1", IS_BDM: "1" });
+  const rm = await create("regional-managers", { R_CODE: region.code, RM_CODE: `${prefix}_RM` });
+  const giUnit = await create("gi-units", { BRANCH_CODE: branch.code, REGION_CODE: region.code });
+  const giManager = await create("gi-unit-managers", { GI_UNIT_CODE: giUnit.code,
+    EARN_RETAINER: "1", RETAINER_AMT: "25000", JOIN_DATE: "2026-01-01", RET_EFF_UPTO: "2026-12-31" });
+  const giCoordinator = await create("gi-coordinators", { BR_CODE: branch.code, GI_CORD_CODE: `${prefix}_GC` });
+  await create("gi-branches", { BR_CODE: branch.code, CORD_MGR_ID: giCoordinator.code });
+  await update("sales-units", { UNIT_MGR_ID: um.code, GI_UNIT: giUnit.code });
+  await update("sales-regions", { REGION_MGR_ID: rm.code });
+  await update("sales-branches", { GI_BRANCH: states.get("gi-branches").code });
+  await update("gi-units", { CORD_MGR_ID: giCoordinator.code });
+  assert.equal((await db.query("SELECT profile_id FROM crm.employees WHERE employee_id=$1", [employee])).rows[0].profile_id, 3);
+  const savedUM = (await db.query("SELECT data FROM crm.sales_catalog_entries WHERE id=$1", [um.id])).rows[0].data;
+  assert.equal(savedUM.H_TAX, "0.100");
+  assert.equal(savedUM.HRMIS_CODE, "000123");
+  assert.equal(savedUM.APPROVED_BY, prefix);
+  assert.equal(savedUM.ACTIVE, "1");
+  assert.equal((await db.query("SELECT count(*)::int AS count FROM crm.sales_catalog_entries WHERE code LIKE $1", [`${prefix}%`])).rows[0].count, 9);
+  const bad = fn => assert.rejects(fn, err => err.status === 400);
+  await bad(() => update("sales-units", {}, { is_active: false }));
+  await bad(() => update("unit-managers", {}, { is_active: false }));
+  await bad(() => update("sales-branches", {}, { is_active: false }));
+  await bad(() => update("sales-regions", { VALID_TO: "2025-01-01" }));
+  await bad(() => update("sales-regions", { VALID_FROM: "2026-02-30" }));
+  await bad(() => update("unit-managers", { H_TAX: "1.0001" }));
+  await bad(() => update("unit-managers", { APPROVED_BY: "spoofed" }));
+  await bad(() => update("sales-units", { UNKNOWN: "value" }));
+  await bad(() => update("gi-unit-managers", { RETAINER_AMT: "-1" }));
+  await bad(() => update("gi-unit-managers", { RET_EFF_UPTO: "2025-12-31" }));
+  await bad(() => update("unit-managers", { UM_ID: "REPLACED" }));
+  await bad(() => update("unit-managers", {}, { employee_id: null }));
+  await bad(() => update("unit-managers", { UNIT_CODE: "NO_SUCH_UNIT" }));
+  await assert.rejects(() => update("unit-managers", {}, { version: 999 }), e => e.status === 409);
+  await bad(() => lib.updateSalesNode(national.id, { name: prefix, parent_id: null,
+    manager_id: null, is_active: false, version: national.version }, prefix));
+  await bad(() => lib.updateSalesManager(bm.id, { is_active: false, version: bm.version }, prefix));
+  const otherRegion = await lib.saveSalesCatalogEntry("sales-regions", {
+    values: { REGION_CODE: `${prefix}_OTHER`, REGION_NAME: "Other region" }, employee_id: null, is_active: true,
+  }, prefix);
+  await bad(() => update("sales-units", { REGION_CODE: `${prefix}_OTHER` }));
+  assert(otherRegion.id);
+  const beforeVersion = states.get("unit-managers").version;
+  await update("unit-managers", { H_TAX: "0.050", EMAIL: null });
+  await bad(() => update("unit-managers", { EMAIL: "invalid" }));
+  const events = await db.query("SELECT before_data,after_data FROM crm.sales_catalog_events WHERE entry_id=$1 AND action='UPDATED'", [um.id]);
+  assert(events.rows.some(e => e.before_data.values.H_TAX === "0.100" && e.after_data.values.H_TAX === "0.050"));
+  assert(states.get("unit-managers").version > beforeVersion);
+  // Unassign first, then deactivate. Never hard-delete or change the MIS user's profile.
+  await update("sales-units", { UNIT_MGR_ID: null });
+  await update("unit-managers", {}, { is_active: false });
+  assert.equal((await db.query("SELECT data->>'ACTIVE' AS active FROM crm.sales_catalog_entries WHERE id=$1", [um.id])).rows[0].active, "0");
+  assert.equal((await db.query("SELECT employee_id FROM crm.sales_catalog_entries WHERE id=$1", [giManager.id])).rowCount, 1);
+  console.info("PASS: all nine SELECT field sets, persistent enrollments, ordinary-user linkage, mappings, exact decimals/codes, date validation, stale writes, retained history and safe deactivation.");
+} finally {
+  if (connected) await db.query("ROLLBACK").catch(() => {});
+  await db.end();
+  delete globalThis.__salesCatalogTest;
+  await rm(dir, { recursive: true, force: true });
+}

@@ -83,6 +83,9 @@ import type {
   RiskReminderResponse,
   RiskSummaryResponse,
   RiskWorkflowInput,
+  SalesCatalogInput,
+  SalesCatalogSnapshot,
+  SalesCatalogUpdate,
   SalesManagerInput,
   SalesManagerUpdate,
   SalesNodeInput,
@@ -117,6 +120,211 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetSalesCatalogsUrl = () => {
+
+
+
+
+  return `/api/admin/sales-structure/catalogs`
+}
+
+export const getSalesCatalogs = async ( options?: Parameters<typeof customFetch>[1]): Promise<SalesCatalogSnapshot> => {
+
+  return customFetch<SalesCatalogSnapshot>(getGetSalesCatalogsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSalesCatalogsQueryKey = () => {
+    return [
+    `/api/admin/sales-structure/catalogs`
+    ] as const;
+    }
+
+
+export const getGetSalesCatalogsQueryOptions = <TData = Awaited<ReturnType<typeof getSalesCatalogs>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSalesCatalogs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSalesCatalogsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSalesCatalogs>>> = ({ signal }) => getSalesCatalogs({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSalesCatalogs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSalesCatalogsQueryResult = NonNullable<Awaited<ReturnType<typeof getSalesCatalogs>>>
+export type GetSalesCatalogsQueryError = ErrorType<unknown>
+
+
+
+export function useGetSalesCatalogs<TData = Awaited<ReturnType<typeof getSalesCatalogs>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSalesCatalogs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSalesCatalogsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSalesCatalogEntryUrl = (catalog: string,) => {
+
+
+
+
+  return `/api/admin/sales-structure/catalogs/${catalog}`
+}
+
+export const createSalesCatalogEntry = async (catalog: string,
+    salesCatalogInput: SalesCatalogInput, options?: Parameters<typeof customFetch>[1]): Promise<SalesSetupSaved> => {
+
+  return customFetch<SalesSetupSaved>(getCreateSalesCatalogEntryUrl(catalog),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(salesCatalogInput)
+  }
+);}
+
+
+
+
+
+export const getCreateSalesCatalogEntryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSalesCatalogEntry>>, TError,{catalog: string;data: BodyType<SalesCatalogInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSalesCatalogEntry>>, TError,{catalog: string;data: BodyType<SalesCatalogInput>}, TContext> => {
+
+const mutationKey = ['createSalesCatalogEntry'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSalesCatalogEntry>>, {catalog: string;data: BodyType<SalesCatalogInput>}> = (props) => {
+          const {catalog,data} = props ?? {};
+
+          return  createSalesCatalogEntry(catalog,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSalesCatalogEntryMutationResult = NonNullable<Awaited<ReturnType<typeof createSalesCatalogEntry>>>
+    export type CreateSalesCatalogEntryMutationBody = BodyType<SalesCatalogInput>
+    export type CreateSalesCatalogEntryMutationError = ErrorType<unknown>
+
+    export const useCreateSalesCatalogEntry = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSalesCatalogEntry>>, TError,{catalog: string;data: BodyType<SalesCatalogInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSalesCatalogEntry>>,
+        TError,
+        {catalog: string;data: BodyType<SalesCatalogInput>},
+        TContext
+      > => {
+      return useMutation(getCreateSalesCatalogEntryMutationOptions(options));
+    }
+
+export const getUpdateSalesCatalogEntryUrl = (catalog: string,
+    id: number,) => {
+
+
+
+
+  return `/api/admin/sales-structure/catalogs/${catalog}/${id}`
+}
+
+export const updateSalesCatalogEntry = async (catalog: string,
+    id: number,
+    salesCatalogUpdate: SalesCatalogUpdate, options?: Parameters<typeof customFetch>[1]): Promise<SalesSetupSaved> => {
+
+  return customFetch<SalesSetupSaved>(getUpdateSalesCatalogEntryUrl(catalog,id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(salesCatalogUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateSalesCatalogEntryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSalesCatalogEntry>>, TError,{catalog: string;id: number;data: BodyType<SalesCatalogUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSalesCatalogEntry>>, TError,{catalog: string;id: number;data: BodyType<SalesCatalogUpdate>}, TContext> => {
+
+const mutationKey = ['updateSalesCatalogEntry'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSalesCatalogEntry>>, {catalog: string;id: number;data: BodyType<SalesCatalogUpdate>}> = (props) => {
+          const {catalog,id,data} = props ?? {};
+
+          return  updateSalesCatalogEntry(catalog,id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSalesCatalogEntryMutationResult = NonNullable<Awaited<ReturnType<typeof updateSalesCatalogEntry>>>
+    export type UpdateSalesCatalogEntryMutationBody = BodyType<SalesCatalogUpdate>
+    export type UpdateSalesCatalogEntryMutationError = ErrorType<unknown>
+
+    export const useUpdateSalesCatalogEntry = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSalesCatalogEntry>>, TError,{catalog: string;id: number;data: BodyType<SalesCatalogUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSalesCatalogEntry>>,
+        TError,
+        {catalog: string;id: number;data: BodyType<SalesCatalogUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateSalesCatalogEntryMutationOptions(options));
+    }
 
 export const getGetSalesStructureUrl = () => {
 

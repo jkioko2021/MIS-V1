@@ -48,6 +48,11 @@ async function validateNode(client: PoolClient, input: NodeValues, level: SalesL
   if (before && !input.is_active) {
     const { rowCount } = await client.query("SELECT 1 FROM crm.sales_structure_nodes WHERE parent_id=$1 AND is_active LIMIT 1", [before.id]);
     if (rowCount) fail("Deactivate or move active child categories before deactivating this category.");
+    if (level === "NATIONAL") {
+      const used = await client.query(`SELECT 1 FROM crm.sales_catalog_entries
+        WHERE is_active AND data->>'NSM_CODE'=$1 LIMIT 1`, [before.code]);
+      if (used.rowCount) fail("Reassign active sales enrollments using this National Sales Code before deactivating it.");
+    }
   }
   if (input.manager_id !== null) {
     const { rows } = await client.query<EnrollmentRow>(
@@ -107,6 +112,11 @@ export async function updateSalesManager(id: number, input: { is_active: boolean
       const { rowCount } = await client.query(
         "SELECT 1 FROM crm.sales_structure_nodes WHERE manager_id=$1 AND is_active LIMIT 1", [id]);
       if (rowCount) fail("Reassign or unassign this manager from active sales categories before deactivating the enrollment.");
+      if (before.level === "BRANCH") {
+        const used = await client.query(`SELECT 1 FROM crm.sales_catalog_entries
+          WHERE catalog='sales-branches' AND is_active AND data->>'BRANCH_MGR_ID'=$1 LIMIT 1`, [String(id)]);
+        if (used.rowCount) fail("Unassign this manager from active Sales Branch enrollments before deactivating the enrollment.");
+      }
     }
     const result = await client.query<EnrollmentRow>(`UPDATE crm.sales_manager_enrollments
       SET is_active=$2,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1 RETURNING *`,

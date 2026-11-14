@@ -5,6 +5,59 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface SalesCatalogValues {[key: string]: string | null}
+
+export type SalesCatalogFieldType = typeof SalesCatalogFieldType[keyof typeof SalesCatalogFieldType];
+
+
+export const SalesCatalogFieldType = {
+  text: 'text',
+  email: 'email',
+  date: 'date',
+  decimal: 'decimal',
+  integer: 'integer',
+  flag: 'flag',
+} as const;
+
+export interface SalesCatalogField {
+  key: string;
+  label: string;
+  type: SalesCatalogFieldType;
+  required: boolean;
+  read_only: boolean;
+  /** @nullable */
+  reference: string | null;
+  max_length: number;
+}
+
+export interface SalesCatalogDefinition {
+  key: string;
+  title: string;
+  source_table: string;
+  code_field: string;
+  name_field: string;
+  manager: boolean;
+  fields: SalesCatalogField[];
+}
+
+export interface SalesCatalogEntry {
+  id: number;
+  catalog: string;
+  code: string;
+  name: string;
+  /** @nullable */
+  employee_id: number | null;
+  is_active: boolean;
+  version: number;
+  values: SalesCatalogValues;
+}
+
+export interface SalesStaff {
+  employee_id: number;
+  employee_name: string;
+  username: string;
+}
+
 export type SalesLevel = typeof SalesLevel[keyof typeof SalesLevel];
 
 
@@ -15,15 +68,17 @@ export const SalesLevel = {
   UNIT: 'UNIT',
 } as const;
 
-export interface SalesSetupSaved {
+export interface SalesNode {
   id: number;
+  code: string;
+  name: string;
+  level: SalesLevel;
+  /** @nullable */
+  parent_id: number | null;
+  /** @nullable */
+  manager_id: number | null;
+  is_active: boolean;
   version: number;
-}
-
-export interface SalesStaff {
-  employee_id: number;
-  employee_name: string;
-  username: string;
 }
 
 export interface SalesManager {
@@ -37,16 +92,38 @@ export interface SalesManager {
   user_eligible: boolean;
 }
 
-export interface SalesNode {
-  id: number;
-  code: string;
-  name: string;
-  level: SalesLevel;
-  /** @nullable */
-  parent_id: number | null;
-  /** @nullable */
-  manager_id: number | null;
+export interface SalesCatalogSnapshot {
+  definitions: SalesCatalogDefinition[];
+  entries: SalesCatalogEntry[];
+  users: SalesStaff[];
+  nationals: SalesNode[];
+  branch_managers: SalesManager[];
+}
+
+export interface SalesCatalogInput {
+  values: SalesCatalogValues;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  employee_id: number | null;
   is_active: boolean;
+}
+
+export interface SalesCatalogUpdate {
+  values: SalesCatalogValues;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  employee_id: number | null;
+  is_active: boolean;
+  /** @minimum 1 */
+  version: number;
+}
+
+export interface SalesSetupSaved {
+  id: number;
   version: number;
 }
 

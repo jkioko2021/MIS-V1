@@ -3,10 +3,12 @@ import { z, ZodError } from "zod";
 import {
   GetSalesStructureResponse, CreateSalesStructureNodeBody, UpdateSalesStructureNodeBody,
   EnrollSalesManagerBody, UpdateSalesManagerEnrollmentBody,
+  GetSalesCatalogsResponse, CreateSalesCatalogEntryBody, UpdateSalesCatalogEntryBody,
 } from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth-middleware";
 import { withTransaction } from "../lib/postgres";
 import { createSalesNode, enrollSalesManager, updateSalesManager, updateSalesNode, SalesSetupError } from "../lib/sales-structure";
+import { salesCatalogSnapshot, saveSalesCatalogEntry } from "../lib/sales-catalogs";
 
 const router = Router();
 router.use("/admin/sales-structure", requireAuth, (req, res, next) => {
@@ -24,7 +26,7 @@ const wrap = (fn: (req: Request, res: Response) => Promise<void>) =>
       if (err instanceof SalesSetupError) { res.status(err.status).json({ error: err.message }); return; }
       if (err instanceof ZodError) { res.status(400).json({ error: err.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ") }); return; }
       if ((err as { code?: string }).code === "23505") {
-        res.status(409).json({ error: "This code, name within the parent, or user/manager-level enrollment already exists. Edit or reactivate the existing record." }); return;
+        res.status(409).json({ error: "This code, name within the parent, or user enrollment already exists. Edit or reactivate the existing record." }); return;
       }
       if ((err as { code?: string }).code === "23503") {
         res.status(400).json({ error: "A selected user, parent or manager no longer exists. Refresh and select again." }); return;
@@ -34,6 +36,16 @@ const wrap = (fn: (req: Request, res: Response) => Promise<void>) =>
     }
   };
 const idFrom = (req: Request) => z.coerce.number().int().positive().parse(req.params.id);
+const catalogFrom = (req: Request) => z.string().max(40).parse(req.params.catalog);
+router.get("/admin/sales-structure/catalogs", wrap(async (_req, res) => {
+  res.json(GetSalesCatalogsResponse.parse(await salesCatalogSnapshot()));
+}));
+router.post("/admin/sales-structure/catalogs/:catalog", wrap(async (req, res) => {
+  res.status(201).json(await saveSalesCatalogEntry(catalogFrom(req), CreateSalesCatalogEntryBody.parse(req.body), req.user!.username));
+}));
+router.patch("/admin/sales-structure/catalogs/:catalog/:id", wrap(async (req, res) => {
+  res.json(await saveSalesCatalogEntry(catalogFrom(req), UpdateSalesCatalogEntryBody.parse(req.body), req.user!.username, idFrom(req)));
+}));
 router.get("/admin/sales-structure", wrap(async (_req, res) => {
   const data = await withTransaction(async client => {
     await client.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");

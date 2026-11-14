@@ -11,6 +11,48 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /admin/sales-structure/catalogs:
+    get:
+      operationId: getSalesCatalogs
+      responses:
+        "200":
+          description: Administrator-only enrollment definitions, records and mapping choices
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SalesCatalogSnapshot" }
+  /admin/sales-structure/catalogs/{catalog}:
+    parameters:
+      - { name: catalog, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: createSalesCatalogEntry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SalesCatalogInput" }
+      responses:
+        "201":
+          description: Catalog enrollment saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SalesSetupSaved" }
+  /admin/sales-structure/catalogs/{catalog}/{id}:
+    parameters:
+      - { name: catalog, in: path, required: true, schema: { type: string } }
+      - { name: id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    patch:
+      operationId: updateSalesCatalogEntry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SalesCatalogUpdate" }
+      responses:
+        "200":
+          description: Catalog enrollment updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SalesSetupSaved" }
   /admin/sales-structure:
     get:
       operationId: getSalesStructure
@@ -824,6 +866,67 @@ paths:
           description: Allocation changed before the upload could be saved
 components:
   schemas:
+    SalesCatalogValues:
+      type: object
+      additionalProperties: { type: [string, "null"] }
+    SalesCatalogField:
+      type: object
+      required: [key, label, type, required, read_only, reference, max_length]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        type: { type: string, enum: [text, email, date, decimal, integer, flag] }
+        required: { type: boolean }
+        read_only: { type: boolean }
+        reference: { type: [string, "null"] }
+        max_length: { type: integer }
+    SalesCatalogDefinition:
+      type: object
+      required: [key, title, source_table, code_field, name_field, manager, fields]
+      properties:
+        key: { type: string }
+        title: { type: string }
+        source_table: { type: string }
+        code_field: { type: string }
+        name_field: { type: string }
+        manager: { type: boolean }
+        fields: { type: array, items: { $ref: "#/components/schemas/SalesCatalogField" } }
+    SalesCatalogEntry:
+      type: object
+      required: [id, catalog, code, name, employee_id, is_active, version, values]
+      properties:
+        id: { type: integer }
+        catalog: { type: string }
+        code: { type: string }
+        name: { type: string }
+        employee_id: { type: [integer, "null"] }
+        is_active: { type: boolean }
+        version: { type: integer }
+        values: { $ref: "#/components/schemas/SalesCatalogValues" }
+    SalesCatalogSnapshot:
+      type: object
+      required: [definitions, entries, users, nationals, branch_managers]
+      properties:
+        definitions: { type: array, items: { $ref: "#/components/schemas/SalesCatalogDefinition" } }
+        entries: { type: array, items: { $ref: "#/components/schemas/SalesCatalogEntry" } }
+        users: { type: array, items: { $ref: "#/components/schemas/SalesStaff" } }
+        nationals: { type: array, items: { $ref: "#/components/schemas/SalesNode" } }
+        branch_managers: { type: array, items: { $ref: "#/components/schemas/SalesManager" } }
+    SalesCatalogInput:
+      type: object
+      required: [values, employee_id, is_active]
+      properties:
+        values: { $ref: "#/components/schemas/SalesCatalogValues" }
+        employee_id: { type: [integer, "null"], minimum: 1 }
+        is_active: { type: boolean }
+    SalesCatalogUpdate:
+      type: object
+      required: [values, employee_id, is_active, version]
+      properties:
+        values: { $ref: "#/components/schemas/SalesCatalogValues" }
+        employee_id: { type: [integer, "null"], minimum: 1 }
+        is_active: { type: boolean }
+        version: { type: integer, minimum: 1 }
     SalesLevel:
       type: string
       enum: [NATIONAL, REGION, BRANCH, UNIT]

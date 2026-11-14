@@ -1,9 +1,21 @@
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
-import { ArrowRight, GitBranch, Network, UsersRound } from 'lucide-react';
+import { ArrowRight, GitBranch, Network, UsersRound, ClipboardList } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
+export const SALES_CATALOGS = [
+  { key: 'sales-units', title: 'Sales Units' },
+  { key: 'unit-managers', title: 'Unit Managers' },
+  { key: 'sales-branches', title: 'Sales Branches' },
+  { key: 'regional-managers', title: 'Regional Managers' },
+  { key: 'sales-regions', title: 'Sales Regions' },
+  { key: 'gi-unit-managers', title: 'GI Unit Managers' },
+  { key: 'gi-units', title: 'GI Units' },
+  { key: 'gi-branches', title: 'GI Branches' },
+  { key: 'gi-coordinators', title: 'GI Coordinators' },
+] as const;
 
 export function SalesStructureGuard({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -38,6 +50,8 @@ export function SalesStructureHeader({
 }) {
   const [location] = useLocation();
   const structureActive = location === '/admin/sales-structure';
+  const managerActive = location === '/admin/sales-structure/managers';
+  const catalogActive = location.startsWith('/admin/sales-structure/catalogs/');
   return (
     <div className="mx-auto max-w-[1480px] space-y-6 p-4 pb-12 sm:p-6 lg:p-8">
       <div className="relative overflow-hidden rounded-2xl border border-[#c7d8d2] bg-[#edf4ef] px-5 py-6 sm:px-8 sm:py-8">
@@ -72,13 +86,31 @@ export function SalesStructureHeader({
             href="/admin/sales-structure/managers"
             className={cn(
               'inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              !structureActive ? 'bg-[#1f5849] text-white shadow-sm' : 'text-[#4d6c62] hover:bg-white/70',
+              managerActive ? 'bg-[#1f5849] text-white shadow-sm' : 'text-[#4d6c62] hover:bg-white/70',
             )}
             data-testid="link-manager-enrollment"
           >
             <UsersRound className="h-4 w-4" />
             Manager enrollment
           </Link>
+          <span className="mx-1 hidden h-6 w-px bg-[#cbdad4] sm:block" />
+          {SALES_CATALOGS.map((catalog) => (
+            <Link
+              key={catalog.key}
+              href={`/admin/sales-structure/catalogs/${catalog.key}`}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                catalogActive && location.endsWith(`/${catalog.key}`)
+                  ? 'bg-[#1f5849] text-white shadow-sm'
+                  : 'text-[#4d6c62] hover:bg-white/70',
+              )}
+              data-testid={`link-catalog-${catalog.key}`}
+              aria-current={catalogActive && location.endsWith(`/${catalog.key}`) ? 'page' : undefined}
+            >
+              <ClipboardList className="h-4 w-4" />
+              {catalog.title}
+            </Link>
+          ))}
           <span className="ml-auto hidden items-center gap-2 pr-1 text-xs text-[#54766a] md:flex">
             AAR Insurance <ArrowRight className="h-3.5 w-3.5" /> Sales operations
           </span>

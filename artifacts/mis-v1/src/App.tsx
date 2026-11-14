@@ -20,6 +20,7 @@ import ProfilesPage from '@/pages/admin/profiles';
 import BusinessRequirementsPage from '@/pages/admin/business-requirements';
 import SalesStructurePage from '@/pages/admin/sales-structure';
 import SalesStructureManagersPage from '@/pages/admin/sales-structure/managers';
+import SalesCatalogPage from '@/pages/admin/sales-structure/catalogs';
 import MedicalUnderwritingPage from '@/pages/medical-underwriting';
 import CashierPage from '@/pages/cashier';
 import PricingReviewPage from '@/pages/pricing-review';
@@ -155,6 +156,15 @@ const NAV_SECTIONS: Array<{
         children: [
           { href: '/admin/sales-structure', label: 'Structure setup', icon: Network },
           { href: '/admin/sales-structure/managers', label: 'Manager enrollment', icon: UsersRound },
+          { href: '/admin/sales-structure/catalogs/sales-units', label: 'Sales Units', icon: Database },
+          { href: '/admin/sales-structure/catalogs/unit-managers', label: 'Unit Managers', icon: UsersRound },
+          { href: '/admin/sales-structure/catalogs/sales-branches', label: 'Sales Branches', icon: Network },
+          { href: '/admin/sales-structure/catalogs/regional-managers', label: 'Regional Managers', icon: UsersRound },
+          { href: '/admin/sales-structure/catalogs/sales-regions', label: 'Sales Regions', icon: Network },
+          { href: '/admin/sales-structure/catalogs/gi-unit-managers', label: 'GI Unit Managers', icon: UsersRound },
+          { href: '/admin/sales-structure/catalogs/gi-units', label: 'GI Units', icon: Database },
+          { href: '/admin/sales-structure/catalogs/gi-branches', label: 'GI Branches', icon: Network },
+          { href: '/admin/sales-structure/catalogs/gi-coordinators', label: 'GI Coordinators', icon: UsersRound },
         ],
       },
     ],
@@ -502,6 +512,7 @@ function ProtectedRouter() {
           <Route path="/admin/users"      component={UsersPage} />
           <Route path="/admin/profiles"   component={ProfilesPage} />
            <Route path="/admin/sales-structure/managers" component={SalesStructureManagersPage} />
+            <Route path="/admin/sales-structure/catalogs/:catalog" component={SalesCatalogPage} />
            <Route path="/admin/sales-structure" component={SalesStructurePage} />
           <Route path="/admin/business-requirements" component={BusinessRequirementsPage} />
           <Route path="/admin">
