@@ -52,8 +52,13 @@ unchanged; catalog-specific snapshots are retained in `crm.sales_catalog_events`
 The user approved loading the supplied rows as **reference records**, not as
 verified user enrollments. Migration `0057_sales_source_references.sql` keeps
 them in `crm.sales_catalog_source_records`, separate from editable enrollments.
-They appear on the corresponding nine pages with read-only details, source file
-and mapping/quality warnings. Repeated manager identifiers and original source
+They appear on the corresponding nine pages with read-only details and
+mapping/quality warnings. Lists and reference details display relationship names,
+not internal codes or record IDs. Missing names are marked "Not mapped", blank
+relationships "Not assigned", and ambiguous matches "Needs mapping"; no code
+fallback or guessed manager is displayed. Search also matches related names.
+Source provenance and exact identifiers remain stored unchanged.
+Repeated manager identifiers and original source
 IDs are preserved per row, along with blank values, NULL markers, leading zeroes,
 historical approvals and dates. They are not silently corrected, deduplicated by
 manager ID, matched to accounts by name/email or made available as operational

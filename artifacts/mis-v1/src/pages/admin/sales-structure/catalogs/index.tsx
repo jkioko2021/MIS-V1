@@ -10,7 +10,7 @@ import {
   useGetSalesCatalogs,
   useUpdateSalesCatalogEntry,
 } from '@workspace/api-client-react';
-import type { SalesCatalogDefinition, SalesCatalogEntry, SalesCatalogValues } from '@workspace/api-client-react';
+import type { SalesCatalogDefinition, SalesCatalogEntry, SalesCatalogSnapshot, SalesCatalogValues } from '@workspace/api-client-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { SalesStructureGuard, SalesStructureHeader } from '../shared';
 import { CatalogEditor } from './catalog-editor';
 import { SourceReferenceDetails } from './source-reference-details';
+import { displayFieldLabel, displayReference } from './catalog-display';
 
 const DESCRIPTION: Record<string, string> = {
   'sales-units': 'Maintain sales-unit identity, branch and region placement, manager assignment and operating details.',
@@ -38,7 +39,7 @@ function errorText(error: unknown) {
   return error instanceof Error && error.message ? error.message : 'The catalog could not be loaded. Please try again.';
 }
 
-function entrySearchText(entry: SalesCatalogEntry, definition: SalesCatalogDefinition) {
+function entrySearchText(entry: SalesCatalogEntry, definition: SalesCatalogDefinition, snapshot: SalesCatalogSnapshot) {
   return [
     entry.id,
     entry.code,
@@ -47,6 +48,7 @@ function entrySearchText(entry: SalesCatalogEntry, definition: SalesCatalogDefin
     entry.source_file ?? '',
     ...(entry.source_issues ?? []),
     ...definition.fields.map((field) => entry.values[field.key] ?? ''),
+    ...definition.fields.filter(field => field.reference).map(field => displayReference(entry, field, snapshot)),
   ].join(' ').toLowerCase();
 }
 
@@ -82,8 +84,8 @@ function CatalogContent({ catalog, username }: { catalog: string; username: stri
   const referenceEntries = useMemo(() => entries.filter((entry) => entry.source_reference), [entries]);
   const filtered = useMemo(() => entries
     .filter((entry) => status === 'all' || (status === 'active' ? entry.is_active : !entry.is_active))
-    .filter((entry) => !definition || entrySearchText(entry, definition).includes(search.trim().toLowerCase()))
-    .sort((a, b) => Number(!!b.source_reference) - Number(!!a.source_reference) || a.name.localeCompare(b.name) || a.code.localeCompare(b.code) || a.id - b.id), [entries, status, definition, search]);
+    .filter((entry) => !definition || !snapshot || entrySearchText(entry, definition, snapshot).includes(search.trim().toLowerCase()))
+    .sort((a, b) => Number(!!b.source_reference) - Number(!!a.source_reference) || a.name.localeCompare(b.name) || a.code.localeCompare(b.code) || a.id - b.id), [entries, status, definition, search, snapshot]);
   const activeCount = operationalEntries.filter((entry) => entry.is_active).length;
   const mappingFields = definition?.fields.filter((field) => field.reference && field.key !== definition.code_field) ?? [];
 
@@ -114,7 +116,7 @@ function CatalogContent({ catalog, username }: { catalog: string; username: stri
   return (
     <>
       <SalesStructureHeader
-        eyebrow="Administration / Sales operations / Catalogs"
+        eyebrow="Administration / Sales Structure setup"
         title={definition?.title ?? 'Sales catalog'}
         description={DESCRIPTION[catalog] ?? 'Maintain accountable sales organization records and their relationships.'}
       >
@@ -127,9 +129,9 @@ function CatalogContent({ catalog, username }: { catalog: string; username: stri
       </SalesStructureHeader>
 
       <main className="mx-auto -mt-1 max-w-[1480px] space-y-5 px-4 pb-10 sm:px-6 lg:px-8">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl border bg-card p-4">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Catalog records</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total records</p>
             <p className="mt-2 text-2xl font-semibold tracking-tight">{isLoading ? '—' : entries.length}</p>
             <p className="mt-1 text-xs text-muted-foreground">Operational rows and preserved source references</p>
           </div>
@@ -142,11 +144,6 @@ function CatalogContent({ catalog, username }: { catalog: string; username: stri
             <p className="text-xs font-semibold uppercase tracking-wider text-amber-900">Reference rows</p>
             <p className="mt-2 text-2xl font-semibold tracking-tight text-amber-950">{isLoading ? '—' : referenceEntries.length}</p>
             <p className="mt-1 text-xs text-amber-900/75">Read-only imports; not eligible for mapping</p>
-          </div>
-          <div className="rounded-xl border border-[#d2dfd9] bg-[#edf4ef] p-4">
-            <div className="flex items-center gap-2 text-[#28614f]"><ShieldCheck className="h-4 w-4" /><p className="text-xs font-semibold uppercase tracking-wider">Data stewardship</p></div>
-            <p className="mt-2 text-sm font-semibold text-[#244b3f]">Deactivate, never delete</p>
-            <p className="mt-1 text-xs leading-5 text-[#5b746a]">Saved history and existing relationships remain accountable.</p>
           </div>
         </div>
 
@@ -173,16 +170,16 @@ function CatalogContent({ catalog, username }: { catalog: string; username: stri
               <div>
                 <h2 className="font-semibold tracking-tight">Records</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Operational entries and approved reference rows appear together. Search every source and catalog field.
+                  View names, organizational assignments and status. Open a record for further details.
                 </p>
               </div>
               <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_155px] lg:w-[480px]">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search code, name, mappings…" className="pl-9" data-testid="input-search-catalog" />
+                  <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search names and assignments…" className="pl-9" data-testid="input-search-catalog" />
                 </div>
                 <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Filter catalog by status" className="h-10 rounded-md border border-input bg-background px-3 text-sm" data-testid="select-catalog-status">
-                  <option value="all">All rows · default</option><option value="active">Active status</option><option value="inactive">Inactive status</option>
+                  <option value="all">All statuses</option><option value="active">Active status</option><option value="inactive">Inactive status</option>
                 </select>
               </div>
             </div>
@@ -203,33 +200,26 @@ function CatalogContent({ catalog, username }: { catalog: string; username: stri
             ) : (
               <>
                 <div className="hidden overflow-x-auto md:block">
-                  <table className="w-full min-w-[900px] text-sm">
+                  <table className="w-full min-w-[740px] text-sm">
                     <thead className="bg-[#f6f8f6] text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                       <tr>
-                        <th className="px-5 py-3">Record ID</th><th className="px-5 py-3">Catalog record</th>
-                        {mappingFields.slice(0, 2).map((field) => <th key={field.key} className="px-5 py-3">{field.label}</th>)}
+                        <th className="px-5 py-3">Name</th>
+                        {mappingFields.slice(0, 2).map((field) => <th key={field.key} className="px-5 py-3">{displayFieldLabel(field, catalog)}</th>)}
                         <th className="px-5 py-3">Status</th><th className="px-5 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filtered.map((entry, index) => (
                         <tr key={entry.id} className={cn('border-t transition-colors hover:bg-[#f5f8f5]', entry.source_reference && 'bg-amber-50/35 hover:bg-amber-50/70', !entry.source_reference && index % 2 === 1 && 'bg-muted/[0.12]')} data-testid={`row-catalog-entry-${entry.id}`}>
-                          <td className="px-5 py-3.5 font-mono text-xs text-muted-foreground">{entry.source_reference ? entry.values.ID ?? '(source ID unavailable)' : entry.id}</td>
                           <td className="px-5 py-3.5">
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="font-medium">{entry.name}</p>
-                              {entry.source_reference && <Badge variant="outline" className="border-amber-300 bg-amber-50 text-[10px] text-amber-900">Reference source</Badge>}
+                              {entry.source_reference && <Badge variant="outline" className="border-amber-300 bg-amber-50 text-[10px] text-amber-900">Reference</Badge>}
                             </div>
-                            <p className="mt-1 font-mono text-xs text-muted-foreground">{entry.code}{!entry.source_reference && entry.employee_id != null && ` · Staff ${entry.employee_id}`}</p>
-                            {entry.source_reference && (
-                              <div className="mt-1.5 space-y-1">
-                                <p className="text-[11px] text-amber-900/80">{entry.source_file || 'Source file not recorded'}{definition.manager ? ' · Unlinked to MIS user' : ''}</p>
-                                {!!entry.source_issues?.length && <p className="max-w-xl text-xs font-medium text-amber-900">{entry.source_issues.length} source issue{entry.source_issues.length === 1 ? '' : 's'}: {entry.source_issues.join(' · ')}</p>}
-                              </div>
-                            )}
+                            {!!entry.source_issues?.length && <p className="mt-1 text-xs text-amber-800">{entry.source_issues.length} review note{entry.source_issues.length === 1 ? '' : 's'}</p>}
                           </td>
                           {mappingFields.slice(0, 2).map((field) => (
-                            <td key={field.key} className="max-w-[220px] px-5 py-3.5 text-xs text-muted-foreground">{entry.values[field.key] || '—'}</td>
+                            <td key={field.key} className="max-w-[240px] break-words px-5 py-3.5 text-xs text-muted-foreground">{displayReference(entry, field, snapshot!)}</td>
                           ))}
                           <td className="px-5 py-3.5">
                             <Badge variant="outline" className={entry.is_active ? 'border-emerald-200 bg-emerald-50/60 text-emerald-800' : 'border-slate-200 text-slate-500'}>
@@ -260,25 +250,23 @@ function CatalogContent({ catalog, username }: { catalog: string; username: stri
                         <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="font-medium">{entry.name}</p>
-                          <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{entry.code} <span className="px-1">·</span> ID {entry.source_reference ? entry.values.ID ?? '(source ID unavailable)' : entry.id}</p>
-                          {entry.source_reference && <Badge variant="outline" className="mt-2 border-amber-300 bg-amber-50 text-[10px] text-amber-900">Reference source · not operational</Badge>}
+                          {entry.source_reference && <Badge variant="outline" className="mt-2 border-amber-300 bg-amber-50 text-[10px] text-amber-900">Reference</Badge>}
                         </div>
                         <Badge variant="outline" className={entry.is_active ? 'shrink-0 border-emerald-200 bg-emerald-50/60 text-emerald-800' : 'shrink-0 border-slate-200 text-slate-500'}>{entry.source_reference ? (entry.is_active ? 'Active in source' : 'Inactive in source') : (entry.is_active ? 'Active enrollment' : 'Inactive enrollment')}</Badge>
                       </div>
                       {entry.source_reference && (
                         <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-950">
-                          <p className="break-all font-medium">Source file: {entry.source_file || 'Not recorded'}</p>
                           {definition.manager && <p>Not linked to a verified MIS user.</p>}
-                          {!!entry.source_issues?.length && <ul className="list-disc space-y-1 pl-4">{entry.source_issues.map((issue, issueIndex) => <li key={`${issueIndex}-${issue}`}>{issue}</li>)}</ul>}
+                          {!!entry.source_issues?.length && <p>{entry.source_issues.length} review note{entry.source_issues.length === 1 ? '' : 's'} · Open details to review.</p>}
                         </div>
                       )}
                       {mappingFields.length > 0 && (
                         <dl className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg bg-muted/25 p-3">
-                          {mappingFields.map((field) => <div key={field.key} className="min-w-0"><dt className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{field.label}</dt><dd className="mt-0.5 truncate text-xs">{entry.values[field.key] || '—'}</dd></div>)}
+                          {mappingFields.map((field) => <div key={field.key} className="min-w-0"><dt className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{displayFieldLabel(field, catalog)}</dt><dd className="mt-0.5 break-words text-xs">{displayReference(entry, field, snapshot!)}</dd></div>)}
                         </dl>
                       )}
                       {entry.source_reference ? (
-                        <Button variant="outline" size="sm" onClick={() => setSourceView(entry)} className="w-full bg-card" data-testid={`button-view-source-mobile-${entry.id}`}>View all source fields</Button>
+                        <Button variant="outline" size="sm" onClick={() => setSourceView(entry)} className="w-full bg-card" data-testid={`button-view-source-mobile-${entry.id}`}>View reference</Button>
                       ) : (
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => setEditor(entry)} className="flex-1 bg-card" data-testid={`button-edit-catalog-mobile-${entry.id}`}>Edit record</Button>
@@ -308,7 +296,7 @@ function CatalogContent({ catalog, username }: { catalog: string; username: stri
       {definition && editor !== undefined && (
         <CatalogEditor key={editor?.id ?? 'new'} catalog={catalog} definition={definition} snapshot={snapshot!} entry={editor ?? undefined} onClose={() => setEditor(undefined)} />
       )}
-      {definition && sourceView && <SourceReferenceDetails entry={sourceView} definition={definition} onClose={() => setSourceView(null)} />}
+      {definition && sourceView && <SourceReferenceDetails entry={sourceView} definition={definition} snapshot={snapshot!} onClose={() => setSourceView(null)} />}
       {statusChange && (
         <Dialog open onOpenChange={(open) => { if (!open && !updateEntry.isPending) setStatusChange(null); }}>
           <DialogContent className="max-w-md">
