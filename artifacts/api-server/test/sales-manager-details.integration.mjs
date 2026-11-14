@@ -35,14 +35,14 @@ try {
   await db.connect(); connected = true; await db.query("BEGIN");
   const prefix = `MDET_${randomUUID().slice(0, 8)}`.toUpperCase();
   const staff = [];
-  for (const suffix of ["A", "B", "NO_CODE", "NOT_SALES"]) {
+  for (const suffix of ["A", "B", "NO_CODE", "NOT_SALES", "PENDING"]) {
     const name = `${prefix} ${suffix}`;
     staff.push((await db.query(`INSERT INTO crm.employees
       (username,employee_name,emp_code,email,password_hash,profile_id,activated,approved,department)
-      VALUES($1,$1,$2,$4,'not-a-login-hash',3,true,true,$3)
+      VALUES($1,$1,$2,$4,'not-a-login-hash',3,$5,$5,$3)
       RETURNING employee_id,employee_name,emp_code`,
     [name, suffix === "NO_CODE" ? null : `${prefix}_${suffix}`, suffix === "NOT_SALES" ? "Finance" : "Sales",
-      `${prefix}_${suffix}@example.test`])).rows[0]);
+      `${prefix}_${suffix}@example.test`, suffix !== "PENDING"])).rows[0]);
   }
   const ids = staff.map(row => row.employee_id);
   const accountSnapshot = (await db.query("SELECT * FROM crm.employees WHERE employee_id=ANY($1::int[]) ORDER BY employee_id", [ids])).rows;
@@ -62,6 +62,12 @@ try {
   await assert.rejects(enroll({ ...base, employee_id: 2147483647 }), e => e.status === 400);
   await assert.rejects(enroll({ ...base, employee_id: staff[3].employee_id, details: details(staff[3]) }),
     e => e.status === 400 && /Sales department/.test(e.message));
+  const pendingInput = { ...base, employee_id: staff[4].employee_id, details: details(staff[4]) };
+  await assert.rejects(enroll(pendingInput), e => e.status === 400);
+  const pendingManager = await enroll({ ...pendingInput, is_active: false });
+  assert.equal((await stored(pendingManager.id)).is_active, false);
+  await assert.rejects(lib.updateSalesManager(pendingManager.id, { is_active: true, version: 1 }, prefix), e => e.status === 400);
+  assert.equal((await stored(pendingManager.id)).version, 1, "Capturing a designation must not approve or activate its user");
   for (const value of ["-0.1", "1e-3", "0.1234567"])
     assert(!lib.EnrollSalesManagerBody.safeParse({ ...base, details: { ...base.details, h_tax: value } }).success);
   for (const dates of [

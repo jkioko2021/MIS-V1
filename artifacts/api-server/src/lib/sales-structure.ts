@@ -124,7 +124,8 @@ async function checkedManagerDetails(client: PoolClient, employeeId: number, inp
 }
 export async function enrollSalesManager(input: SalesManagerInput, actor: string) {
   return salesSetupTransaction(async client => {
-    await eligibleUser(client, input.employee_id);
+    // Capturing an inactive designation does not activate or approve a login.
+    if (input.is_active) await eligibleUser(client, input.employee_id);
     const details = await checkedManagerDetails(client, input.employee_id, input.details, true);
     const { rows } = await client.query<EnrollmentRow>(`INSERT INTO crm.sales_manager_enrollments
       (employee_id,level,is_active,manager_details,created_by,updated_by) VALUES($1,$2,$3,$4::jsonb,$5,$5) RETURNING *`,

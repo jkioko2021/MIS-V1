@@ -28,7 +28,6 @@ function hasUsableMisCode(code?: string | null) {
 
 function enrollmentUnavailableReason(staff: SalesStaff, duplicate: boolean) {
   const reasons = [
-    staff.user_eligible === false ? staff.eligibility_note?.trim() || 'Not eligible for manager enrollment' : '',
     !hasUsableMisCode(staff.emp_code) ? 'MIS code missing or invalid' : '',
     duplicate ? 'Already enrolled in this category' : '',
   ].filter(Boolean);
@@ -179,9 +178,22 @@ export function ManagerDetailsForm({
   const [rebaseNotice, setRebaseNotice] = useState('');
   const isEditing = !!editManager;
   const pending = enroll.isPending || update.isPending;
-  const matchingUsers = useMemo(() => users.filter(staff =>
-    `${staff.employee_name} ${staff.username}`.toLowerCase().includes(search.trim().toLowerCase()),
-  ).sort((a, b) => a.employee_name.localeCompare(b.employee_name)), [users, search]);
+  const matchingUsers = useMemo(() => {
+    // Deduplicate the visible names, never the underlying accounts or assignments.
+    // Prefer a usable account deterministically; do not guess or merge identities.
+    const byName = new Map<string, SalesStaff>();
+    const ordered = [...users].sort((a, b) =>
+      Number(a.user_eligible === false) - Number(b.user_eligible === false)
+      || Number(!hasUsableMisCode(a.emp_code)) - Number(!hasUsableMisCode(b.emp_code))
+      || a.employee_id - b.employee_id);
+    for (const staff of ordered) {
+      const name = staff.employee_name.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
+      if (!byName.has(name)) byName.set(name, staff);
+    }
+    return [...byName.values()].filter(staff =>
+      `${staff.employee_name} ${staff.email ?? ''}`.toLowerCase().includes(search.trim().toLowerCase()),
+    ).sort((a, b) => a.employee_name.localeCompare(b.employee_name));
+  }, [users, search]);
   const selectedUser = users.find(staff => String(staff.employee_id) === employeeId);
   const duplicate = !isEditing && managers.some(item => item.employee_id === Number(employeeId) && item.level === level);
   const missingCodeCount = users.filter(staff => !hasUsableMisCode(staff.emp_code)).length;
@@ -189,6 +201,7 @@ export function ManagerDetailsForm({
     ? hasUsableMisCode(editManager?.emp_code)
     : hasUsableMisCode(selectedUser?.emp_code);
   const selectedUserEligible = !selectedUser || selectedUser.user_eligible !== false;
+  const accountCanBeActive = isEditing ? editManager?.user_eligible !== false : selectedUserEligible;
   const latestIdentityChanged = !!latestManager && !!editManager && (
     latestManager.employee_id !== editManager.employee_id
     || latestManager.level !== editManager.level
@@ -196,7 +209,8 @@ export function ManagerDetailsForm({
     || latestManager.employee_name !== editManager.employee_name
   );
   const canSubmit = !pending && !staleConflict && !duplicate
-    && (isEditing || (!!selectedUser && selectedUserEligible && hasValidAccountCode));
+    && (!isActive || accountCanBeActive)
+    && (isEditing || (!!selectedUser && hasValidAccountCode));
 
   const updateDetails = (key: keyof ManagerDetailsDraft, value: string) => {
     setDetails(previous => ({ ...previous, [key]: value }));
@@ -241,8 +255,8 @@ export function ManagerDetailsForm({
         setValidationError('Choose an eligible Sales user.');
         return;
       }
-      if (selectedUser.user_eligible === false) {
-        setValidationError(selectedUser.eligibility_note?.trim() || 'This Sales user is not eligible yet. Complete activation and approval in User Enrollment first.');
+      if (selectedUser.user_eligible === false && isActive) {
+        setValidationError('This account is not active and approved. Save an inactive designation; its login account will remain unchanged.');
         return;
       }
       if (!hasUsableMisCode(selectedUser.emp_code)) {
@@ -308,7 +322,7 @@ export function ManagerDetailsForm({
   const handleAccountChange = (id: string) => {
     const account = users.find(staff => String(staff.employee_id) === id);
     const alreadyEnrolled = !!account && managers.some(item => item.employee_id === account.employee_id && item.level === level);
-    if (id && account && (account.user_eligible === false || !hasUsableMisCode(account.emp_code) || alreadyEnrolled)) {
+    if (id && account && (!hasUsableMisCode(account.emp_code) || alreadyEnrolled)) {
       setEmployeeId('');
       setDetails(detailsFromStaff());
       setValidationError(enrollmentUnavailableReason(account, alreadyEnrolled)
@@ -318,7 +332,7 @@ export function ManagerDetailsForm({
     }
     setEmployeeId(id);
     setDetails(detailsFromStaff(account));
-    setIsActive(true);
+    setIsActive(account?.user_eligible !== false);
     setValidationError('');
     setSaveError('');
     setRebaseNotice('');
@@ -341,7 +355,7 @@ export function ManagerDetailsForm({
           {isEditing ? (
             <>
               <div className="space-y-1.5"><Label>Manager category (CATEGORY)</Label><div className="flex h-10 items-center rounded-md border bg-muted/45 px-3 text-sm">{LEVEL_LABEL[level]}</div><p className="text-[11px] text-muted-foreground">Category is fixed to preserve existing assignments.</p></div>
-              <div className="space-y-1.5"><Label>Linked MIS user</Label><div className="flex h-10 items-center rounded-md border bg-muted/45 px-3 text-sm">{editManager?.employee_name} · {editManager?.username}</div></div>
+              <div className="space-y-1.5"><Label>Linked MIS user</Label><div className="flex min-h-10 items-center break-words rounded-md border bg-muted/45 px-3 py-2 text-sm">{[editManager?.employee_name, editManager?.account_email].filter(Boolean).join(' · ')}</div></div>
             </>
           ) : (
             <>
@@ -361,17 +375,17 @@ export function ManagerDetailsForm({
               </div>
               <div className="space-y-1.5 sm:row-span-2">
                 <Label htmlFor="staff-search">Existing Sales user</Label>
-                <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input id="staff-search" value={search} disabled={pending} onChange={event => setSearch(event.target.value)} placeholder="Search by name or username" className="pl-9" data-testid="input-search-staff" /></div>
+                <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input id="staff-search" value={search} disabled={pending} onChange={event => setSearch(event.target.value)} placeholder="Search by name or email" className="pl-9" data-testid="input-search-staff" /></div>
                 <select value={employeeId} disabled={pending} onChange={event => handleAccountChange(event.target.value)} size={Math.min(Math.max(matchingUsers.length, 2), 6)} className="w-full rounded-md border border-input bg-background p-1 text-sm disabled:opacity-60" aria-label="Choose existing staff account" data-testid="select-manager-staff">
                   {matchingUsers.length ? <option value="">Choose Sales user</option> : <option value="">{users.length === 0 ? 'No Sales users available' : 'No matching Sales users'}</option>}
                   {matchingUsers.map(staff => {
                     const alreadyEnrolled = managers.some(item => item.employee_id === staff.employee_id && item.level === level);
                     const unavailableReason = enrollmentUnavailableReason(staff, alreadyEnrolled);
-                    return <option key={staff.employee_id} value={staff.employee_id} disabled={!!unavailableReason}>{staff.employee_name} · {staff.username}{unavailableReason ? ` · ${unavailableReason}` : ''}</option>;
+                    return <option key={staff.employee_id} value={staff.employee_id} disabled={!!unavailableReason} title={unavailableReason || staff.eligibility_note || undefined}>{[staff.employee_name, staff.email].filter(Boolean).join(' · ')}</option>;
                   })}
                 </select>
-                {selectedUser && <p className="text-xs text-muted-foreground">Selected account: {selectedUser.employee_name} · {selectedUser.username}</p>}
-                <p className="text-xs leading-5 text-muted-foreground">Sales-only user list. Unready Sales users remain visible with their status note but cannot be selected; complete activation and approval through User Enrollment before manager enrollment.</p>
+                {selectedUser && <p className="break-words text-xs text-muted-foreground">Selected account: {[selectedUser.employee_name, selectedUser.email].filter(Boolean).join(' · ')}</p>}
+                <p className="text-xs leading-5 text-muted-foreground">Sales-only user list. Inactive users can be selected to prepare an inactive manager designation. Their login remains disabled; activate and approve the account through User Enrollment before enabling the designation.</p>
                 {users.length === 0 && <p className="text-xs text-amber-800">No Sales users are available for manager enrollment.</p>}
                 {missingCodeCount > 0 && <p className="text-xs leading-5 text-amber-800">{missingCodeCount} Sales user{missingCodeCount === 1 ? ' has' : 's have'} no usable MIS code and cannot be enrolled. Codes must come from the existing user record.</p>}
               </div>
@@ -389,7 +403,7 @@ export function ManagerDetailsForm({
           <DetailsField id="manager-detail-valid-to" label="VALID_TO" type="date" value={details.valid_to} onChange={value => updateDetails('valid_to', value)} disabled={pending} />
 
           <label className="flex min-h-10 items-center gap-3 rounded-md border bg-muted/15 px-3 py-2 sm:col-span-2">
-            <input type="checkbox" checked={isActive} disabled={pending} onChange={event => setIsActive(event.target.checked)} className="h-4 w-4 accent-[#28614f]" data-testid="checkbox-manager-designation-active" />
+            <input type="checkbox" checked={isActive} disabled={pending || (!accountCanBeActive && !isActive)} onChange={event => setIsActive(event.target.checked)} className="h-4 w-4 accent-[#28614f]" data-testid="checkbox-manager-designation-active" />
             <span><span className="block text-sm font-medium">ACTIVE · {isActive ? 'Active designation' : 'Inactive designation'}</span><span className="text-xs text-muted-foreground">This changes manager designation availability only, not employee account activation.</span></span>
           </label>
         </div>

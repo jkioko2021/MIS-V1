@@ -39,9 +39,12 @@ permissions.
 ### Imported manager system users
 
 Manager Enrollment's existing-user list contains **Sales** department users only.
-Pending Sales users remain visible with a disabled option and their inactive,
-unapproved or locked status. The API independently rejects new manager
-enrollments for non-Sales users. Older designation details/history remain intact.
+The selector displays name and email only, with normalized duplicate names
+collapsed for display, not merged or deleted in the database. Pending Sales users
+can be selected to save an inactive manager designation without changing their
+login account. Enabling a designation still requires an active, approved and
+unlocked account. The API independently enforces these rules and rejects new
+manager enrollments for non-Sales users. Older details/history remain intact.
 
 The uploaded Medical Unit/Regional and GI manager assignments may be enrolled as
 normal Sales system users through `node scripts/src/import-sales-manager-users.mjs`.

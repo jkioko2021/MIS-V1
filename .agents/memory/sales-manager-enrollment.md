@@ -54,15 +54,19 @@ exception, described in sales-catalog-presentation.md.
 The user subsequently authorized enrolling the uploaded Unit, Regional and GI
 managers as normal system users under **Sales**, chose **inactive accounts**
 pending individual password setup, and requested a single user record rather
-than duplicate users. Manager Enrollment's existing-user selector is Sales-only.
+than duplicate users. Manager Enrollment's existing-user selector is Sales-only,
+shows name and email only, and deduplicates names for display.
 
 **Why:** The user explicitly requested Sales accounts and Sales-only choices,
 then said "remove duplicate users.mantan single record."
 
 **How to apply:** Maintain one account per confirmed person across Medical/GI
 assignment rows, without deleting those assignments. Keep new accounts inactive
-and unapproved, with no shared/default password or automatic emails. Display
-pending Sales accounts as unavailable for enrollment until activated/approved.
+and unapproved, with no shared/default password or automatic emails. Pending Sales
+accounts must still be selectable to capture **inactive** manager designations;
+only an active, approved and unlocked account can have an active designation.
+This resolves the user's follow-up that existing users could not be selected
+without changing their prior decision to leave login accounts inactive.
 Hold ambiguous names, shared emails or unverified existing-account matches for
 review rather than merging or changing another person's account.
 

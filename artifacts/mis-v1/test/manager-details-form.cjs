@@ -41,6 +41,8 @@ const staff = [
   { employee_id: 3, employee_name: 'No code user', username: 'no-code', emp_code: null, email: null },
   { employee_id: 4, employee_name: 'Pending Sales user', username: 'pending-sales', emp_code: 'EMP_PENDING',
     email: 'pending@example.test', user_eligible: false, eligibility_note: 'Inactive; Not approved' },
+  { employee_id: 5, employee_name: ' FIRST   NORMAL user ', username: 'duplicate-login', emp_code: 'EMP_DUPLICATE',
+    email: 'duplicate@example.test', user_eligible: false },
 ];
 const original = JSON.stringify(staff);
 let currentProps = { users: staff, managers: [], initialLevel: 'UNIT', onClose() {}, onSaved() {},
@@ -56,10 +58,19 @@ const optionText = value => typeof value === 'string' ? value
 (async () => {
   const choices = walk(render()).filter(item => item.type === 'option');
   assert(choices.find(item => optionText(item).includes('No code user')).props.disabled);
-  assert(choices.find(item => optionText(item).includes('Pending Sales user')).props.disabled);
+  assert(!choices.find(item => optionText(item).includes('Pending Sales user')).props.disabled);
+  const staffChoices = walk(node('select-manager-staff')).filter(item => item.type === 'option');
+  assert.equal(staffChoices.filter(item => optionText(item).toLowerCase().replace(/\s+/g, ' ').includes('first normal user')).length, 1);
+  assert(staffChoices.some(item => optionText(item) === 'First normal user · first@example.test'));
+  assert(!staffChoices.some(item => /first-user|EMP_FIRST|Inactive|Not approved|duplicate-login/.test(optionText(item))));
+  node('input-search-staff').props.onChange({ target: { value: 'first@example.test' } });
+  assert(walk(node('select-manager-staff')).some(item => item.type === 'option' && optionText(item) === 'First normal user · first@example.test'));
+  assert(!walk(node('select-manager-staff')).some(item => item.type === 'option' && optionText(item).includes('Second normal user')));
+  node('input-search-staff').props.onChange({ target: { value: '' } });
   account(4);
-  assert.equal(field('code').props.value, '', 'Pending Sales users must not be selected programmatically');
-  assert.equal(node('button-save-manager-details').props.disabled, true);
+  assert.equal(field('code').props.value, 'EMP_PENDING', 'Pending Sales users can prepare inactive designations');
+  assert.equal(node('checkbox-manager-designation-active').props.checked, false);
+  assert.equal(node('checkbox-manager-designation-active').props.disabled, true);
   for (const label of ['Unit Manager', 'Regional Manager', 'Branch Manager', 'National Sales Manager'])
     assert(choices.some(item => optionText(item) === label));
   account(1);
@@ -91,6 +102,15 @@ const optionText = value => typeof value === 'string' ? value
   assert.equal(field('email').props.value, 'second@example.test');
   for (const key of ['hrmis-code', 'mobile-no', 'h-tax', 'valid-from', 'valid-to'])
     assert.equal(field(key).props.value, '', 'Changing account must not carry another manager’s details');
+  account(4);
+  for (const [key, value] of Object.entries({
+    email: 'pending-contact@example.test', 'hrmis-code': '000456', 'mobile-no': '0700000002',
+    'h-tax': '0.100', 'valid-from': '2026-01-01', 'valid-to': '2026-12-31',
+  })) change(key, value);
+  node('button-save-manager-details').props.onClick();
+  assert.equal(writes.at(-1).data.data.employee_id, 4);
+  assert.equal(writes.at(-1).data.data.is_active, false);
+  assert.equal(writes.at(-1).data.data.details.code, 'EMP_PENDING');
 
   const manager = { id: 8, employee_id: 1, employee_name: staff[0].employee_name,
     emp_code: staff[0].emp_code, account_email: staff[0].email, username: staff[0].username,
