@@ -25,12 +25,6 @@ const LEVEL_ROUTES: Record<string, SalesLevel | undefined> = {
   branches: 'BRANCH',
   units: 'UNIT',
 };
-const LEVEL_HREF: Record<SalesLevel, string> = {
-  NATIONAL: 'national',
-  REGION: 'regions',
-  BRANCH: 'branches',
-  UNIT: 'units',
-};
 function IconForLevel({ level }: { level: SalesLevel }) {
   const Icon = level === 'NATIONAL' ? ShieldCheck : level === 'REGION' ? GitBranch : level === 'BRANCH' ? Building2 : Layers3;
   return <Icon className="h-5 w-5" />;
@@ -63,7 +57,11 @@ export default function OrganisationPage() {
   const [editor, setEditor] = useState<OrganisationNode | 'new' | null>(null);
   const [initialCandidate, setInitialCandidate] = useState<OrganisationCandidate | undefined>(undefined);
   const route = location.split('?')[0].replace(/\/+$/, '').split('/').at(-1) ?? 'dashboard';
-  const level = LEVEL_ROUTES[route];
+  const isHierarchy = route === 'hierarchy';
+  const requestedLevel = new URLSearchParams(querySearch).get('level') as SalesLevel | null;
+  const level = LEVEL_ROUTES[route] ?? (isHierarchy
+    ? (requestedLevel && LEVELS.includes(requestedLevel) ? requestedLevel : 'NATIONAL')
+    : undefined);
   const isAgents = route === 'agents';
   const isManagers = route === 'managers';
   const managerLink = '/admin/sales-structure/managers';
@@ -79,7 +77,8 @@ export default function OrganisationPage() {
     .sort((a, b) => a.name.localeCompare(b.name));
   const pageTitle = isAgents ? 'Agent unit mapping'
     : isManagers ? 'Manager assignment'
-      : level ? `${LEVEL_LABEL[level]} management`
+      : isHierarchy ? 'Hierachy Setup'
+        : level ? `${LEVEL_LABEL[level]} management`
         : 'Organisation hierarchy';
   const pageDescription = isAgents
     ? 'Initial mapping, controlled transfers and date-aware, server-scoped reporting for existing agent identities.'
@@ -105,13 +104,31 @@ export default function OrganisationPage() {
     <main className="mx-auto max-w-[1500px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
       <nav aria-label="Organization structure pages" className="flex gap-1 overflow-x-auto rounded-xl border bg-card p-1">
         {[
-          ['dashboard', 'Dashboard'], ['national', 'National'], ['regions', 'Regions'],
-          ['branches', 'Branches'], ['units', 'Units'], ['managers', 'Manager assignment'], ['agents', 'Agents'],
+          ['dashboard', 'Dashboard'], ['hierarchy', 'Hierachy Setup'],
+          ['managers', 'Manager assignment'], ['agents', 'Agents'],
         ].map(([slug, label]) => <Link key={slug} href={`/admin/organisation/${slug}`} className={cn(
           'shrink-0 rounded-lg px-3 py-2 text-xs font-medium transition-colors',
           route === slug ? 'bg-[#e7f0e9] text-[#1f5849]' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
         )}>{label}</Link>)}
       </nav>
+
+      {isHierarchy && <section className="space-y-2 rounded-xl border bg-card p-3">
+        <nav aria-label="Hierarchy setup levels" className="flex flex-wrap gap-2">
+          {LEVELS.map(item => <Link key={item} href={`/admin/organisation/hierarchy?level=${item}`}
+            aria-current={level === item ? 'page' : undefined}
+            aria-disabled={!!editor}
+            onClick={event => {
+              if (editor) { event.preventDefault(); return; }
+              setSearch(''); setStatusFilter('active');
+            }}
+            className={cn('rounded-lg px-4 py-2 text-sm font-medium',
+              level === item ? 'bg-[#1f5849] text-white' : 'bg-muted text-muted-foreground hover:text-foreground',
+              editor && 'cursor-not-allowed opacity-60')}>
+            {item === 'NATIONAL' ? 'National' : item === 'REGION' ? 'Regions' : item === 'BRANCH' ? 'Branches' : 'Units'}
+          </Link>)}
+        </nav>
+        {editor && <p className="text-xs text-muted-foreground">Save or cancel the current entry before switching levels.</p>}
+      </section>}
 
       {!user && <div className="rounded-xl border bg-card p-5 text-sm">Sign in to view the organisation structure.</div>}
       {isError && <ErrorNotice error={error} retry={() => { void refetch(); }} />}
@@ -126,6 +143,7 @@ export default function OrganisationPage() {
           managers={data.managers}
           catalogSnapshot={catalogs}
           initialCandidate={initialCandidate}
+          initialLevel={level}
           onCancel={() => { setEditor(null); setInitialCandidate(undefined); }}
           onRefresh={async () => {
             const refreshed = await refetch();
@@ -141,7 +159,7 @@ export default function OrganisationPage() {
         {!isAgents && !isManagers && !level && <>
           <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border bg-card p-4"><p className="text-[11px] font-bold uppercase tracking-[.14em] text-muted-foreground">Structure records</p><p className="mt-2 text-3xl font-semibold">{nodes.length}</p><p className="mt-1 text-xs text-muted-foreground">{nodes.filter((node) => node.is_active).length} active across all levels</p></div>
-            {counts.map((item) => <Link key={item.level} href={`/admin/organisation/${LEVEL_HREF[item.level]}`} className="group flex items-center justify-between rounded-xl border bg-card p-4 transition-transform hover:-translate-y-0.5 hover:border-[#b8cec0]">
+            {counts.map((item) => <Link key={item.level} href={`/admin/organisation/hierarchy?level=${item.level}`} className="group flex items-center justify-between rounded-xl border bg-card p-4 transition-transform hover:-translate-y-0.5 hover:border-[#b8cec0]">
               <div><p className="text-[11px] font-bold uppercase tracking-[.14em] text-muted-foreground">{LEVEL_LABEL[item.level]} entries</p><p className="mt-2 text-3xl font-semibold">{item.active}</p><p className="mt-1 text-xs text-muted-foreground">{item.total - item.active} inactive</p></div>
               <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#eaf2ec] text-[#28614f]"><IconForLevel level={item.level} /></span>
             </Link>)}

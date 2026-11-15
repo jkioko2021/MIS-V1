@@ -154,4 +154,9 @@ for(const [field,length] of Object.entries({
 
 const page=fs.readFileSync(path.join(__dirname,'../src/pages/admin/organisation/index.tsx'),'utf8');
 assert.match(page,/if \(current\) setEditor\(current\)/,'Explicit version refresh must replace the editor snapshot, not just the query cache');
-console.log('PASS: parent changes retain source drafts; Medical defaults, GI name choices, sparse create overrides and explicit update clearing are covered.');
+for(const initialLevel of ['NATIONAL','REGION','BRANCH','UNIT']){
+  state=[];
+  props={...props,node:undefined,initialCandidate:undefined,initialLevel,candidates:[]};
+  assert.equal(find('org-level').props.value,initialLevel,'Add entry must start at the selected hierarchy level');
+}
+console.log('PASS: selected hierarchy level, retained source drafts, Medical defaults, GI names, sparse create overrides and explicit clearing.');

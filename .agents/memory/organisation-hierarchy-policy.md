@@ -40,6 +40,15 @@ previously loaded Medical regions, branches and units. GI setup remains separate
 The previous **Medical Structure setup** menu and its submenus are retired;
 Manager Enrollment belongs to the new Medical menu.
 
+National, Regions, Branches and Units belong to one **Hierachy Setup** menu item
+within Organization structure-Medical, rather than four separate sidebar items.
+
+**Why:** The user explicitly asked to combine those four items under that name.
+
+**How to apply:** Retain all four setup categories within the combined page and
+preserve old links and existing records. Keep Manager Enrollment, manager/agent
+mapping and GI setup separate.
+
 **Why:** The user asked to update the new organisation structure from the earlier
 Medical Structure pages and rename it specifically for Medical.
 The user subsequently asked to delete the previous Medical Structure setup menu,

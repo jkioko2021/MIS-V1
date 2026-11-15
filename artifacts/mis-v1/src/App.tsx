@@ -164,10 +164,7 @@ const NAV_SECTIONS: Array<{
         href: '/admin/organisation', label: 'Organization structure-Medical', icon: Network,
         children: [
       { href: '/admin/organisation/dashboard', label: 'Hierarchy dashboard', icon: Network },
-      { href: '/admin/organisation/national', label: 'National', icon: Shield },
-      { href: '/admin/organisation/regions', label: 'Regions', icon: GitBranch },
-      { href: '/admin/organisation/branches', label: 'Branches', icon: Network },
-      { href: '/admin/organisation/units', label: 'Units', icon: Database },
+      { href: '/admin/organisation/hierarchy', label: 'Hierachy Setup', icon: GitBranch },
       { href: '/admin/organisation/managers', label: 'Manager assignment', icon: UsersRound },
        { href: '/admin/sales-structure/managers', label: 'Manager Enrollment', icon: UsersRound },
       { href: '/admin/organisation/agents', label: 'Agent unit mapping', icon: Fingerprint },
@@ -519,6 +516,10 @@ function ProtectedRouter() {
           <Route path="/admin/users"      component={UsersPage} />
           <Route path="/admin/profiles"   component={ProfilesPage} />
           <Route path="/admin/organisation" component={() => <Redirect to="/admin/organisation/dashboard" />} />
+          <Route path="/admin/organisation/national" component={() => <Redirect to="/admin/organisation/hierarchy?level=NATIONAL" />} />
+          <Route path="/admin/organisation/regions" component={() => <Redirect to="/admin/organisation/hierarchy?level=REGION" />} />
+          <Route path="/admin/organisation/branches" component={() => <Redirect to="/admin/organisation/hierarchy?level=BRANCH" />} />
+          <Route path="/admin/organisation/units" component={() => <Redirect to="/admin/organisation/hierarchy?level=UNIT" />} />
           <Route path="/admin/organisation/:view" component={OrganisationPage} />
             <Route path="/admin/sales-structure/manager-mapping">
               {() => <Redirect to="/admin/organisation/managers" />}

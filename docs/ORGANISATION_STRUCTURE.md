@@ -1,5 +1,11 @@
 # Organization structure-Medical and Agent Unit Mapping
 
+National, Regions, Branches and Units are combined under **Hierachy Setup** in
+Organization structure-Medical. Four level tabs retain the existing setup and
+imported-reference views; Add entry defaults to the selected level. Old level
+URLs redirect to the corresponding tab. Other Medical and GI menu items remain
+separate. This navigation change does not alter records or account permissions.
+
 ## Implementation assessment
 
 MIS V1 already uses a React/Vite frontend, Express API, PostgreSQL persistence and

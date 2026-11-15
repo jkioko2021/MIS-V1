@@ -63,13 +63,14 @@ function changedMedicalDetails(fields: Array<{ key: string }>, values: MedicalVa
   })) as MedicalValues;
 }
 
-export function NodeEditor({ node, nodes, candidates, managers, catalogSnapshot, initialCandidate, onCancel, onSaved, onRefresh }: {
+export function NodeEditor({ node, nodes, candidates, managers, catalogSnapshot, initialCandidate, initialLevel, onCancel, onSaved, onRefresh }: {
   node?: OrganisationNode;
   nodes: OrganisationNode[];
   candidates: OrganisationCandidate[];
   managers: SalesManager[];
   catalogSnapshot?: SalesCatalogSnapshot;
   initialCandidate?: OrganisationCandidate;
+  initialLevel?: SalesLevel;
   onCancel: () => void;
   onSaved: () => Promise<void>;
   onRefresh: () => Promise<unknown>;
@@ -79,7 +80,7 @@ export function NodeEditor({ node, nodes, candidates, managers, catalogSnapshot,
   const update = useUpdateSalesStructureNode();
   const initialMedicalCandidate = initialCandidate as CandidateWithMedical | undefined;
   const initialMedicalNode = node as NodeWithMedical | undefined;
-  const [level, setLevel] = useState<SalesLevel>(node?.level ?? initialCandidate?.level ?? 'NATIONAL');
+  const [level, setLevel] = useState<SalesLevel>(node?.level ?? initialCandidate?.level ?? initialLevel ?? 'NATIONAL');
   const [candidateId, setCandidateId] = useState(initialCandidate ? String(initialCandidate.source_reference_id) : '');
   const selectedCandidate = (candidates.find((candidate) => candidate.source_reference_id === Number(candidateId))
     ?? (initialMedicalCandidate?.source_reference_id === Number(candidateId) ? initialMedicalCandidate : undefined)) as CandidateWithMedical | undefined;

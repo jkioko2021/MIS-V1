@@ -12,10 +12,7 @@ router.use(requireAuth);
 // Access rights for every profile are derived from this list.
 export const MENU_MASTER = [
   { main: "Organization structure-Medical", sub: "Organisation Hierarchy", url: "/admin/organisation/dashboard", order: 10 },
-  { main: "Organization structure-Medical", sub: "National Management", url: "/admin/organisation/national", order: 20 },
-  { main: "Organization structure-Medical", sub: "Region Management", url: "/admin/organisation/regions", order: 30 },
-  { main: "Organization structure-Medical", sub: "Branch Management", url: "/admin/organisation/branches", order: 40 },
-  { main: "Organization structure-Medical", sub: "Unit Management", url: "/admin/organisation/units", order: 50 },
+  { main: "Organization structure-Medical", sub: "Hierachy Setup", url: "/admin/organisation/hierarchy", order: 20 },
   { main: "Organization structure-Medical", sub: "Manager Assignment", url: "/admin/organisation/managers", order: 60 },
   { main: "Organization structure-Medical", sub: "Agent Unit Mapping", url: "/admin/organisation/agents", order: 70 },
   { main: "Intemediary Management", sub: "Agent Registration", url: "/intermediary/registration", order: 10 },
