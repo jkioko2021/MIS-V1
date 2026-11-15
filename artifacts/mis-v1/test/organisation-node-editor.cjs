@@ -72,7 +72,7 @@ change('org-parent','4');
 assert.equal(find('org-source-candidate').props.value,'','Incompatible source link is cleared');
 assert.equal(find('org-code').props.value,'B_SOURCE','Source-derived draft text is retained for explicit correction');
 assert.equal(find('org-name').props.value,'Source branch');
-assert.equal(find('medical-gi_branch').props.value,'GB1','Parent changes preserve remaining source-derived medical draft values');
+assert.equal(find('medical-gi_branch'),undefined,'GI branch remains hidden after parent changes');
 assert.equal(find('medical-branch_type'),undefined);
 assert.equal(find('medical-speciality'),undefined);
 state=[];
@@ -129,11 +129,7 @@ assert.equal(find('org-parent').props.options.find(item=>item.value==='3').label
   'Parent dropdown labels use names only');
 assert.equal(find('medical-branch_type'),undefined,'Branch type is not shown on hierarchy forms');
 assert.equal(find('medical-speciality'),undefined,'Speciality is not shown on hierarchy forms');
-assert.equal(find('medical-gi_branch').props.value,'GB1','Imported GI reference code is retained as the value');
-const giOptions=find('medical-gi_branch').props.options;
-assert.equal(giOptions.filter(item=>item.value==='GB1').length,1,'GI choices with the same code are deduplicated');
-assert.equal(giOptions.find(item=>item.value==='GB1').label,'Central GI','GI dropdown labels use names only');
-assert.equal(giOptions.some(item=>item.value==='GB2'),false,'Unapproved imported GI references are excluded');
+assert.equal(find('medical-gi_branch'),undefined,'GI branch is not shown for imported Branch records');
 change('org-manager','32');
 const preloadedSave=save();
 assert.equal(preloadedSave.data.source_reference_id,22);
@@ -148,27 +144,30 @@ props={nodes,candidates:[],managers:[
 }};
 assert.equal(find('medical-branch_type'),undefined,'Branch type is also hidden when editing');
 assert.equal(find('medical-speciality'),undefined,'Speciality is also hidden when editing');
-change('medical-gi_branch','');
+assert.equal(find('medical-gi_branch'),undefined,'GI branch is hidden when editing');
+assert(!walk(render()).some(item=>item.type==='h3'&&item.props.children==='Medical organisation details'),
+  'Do not leave an empty details section on Branch forms');
+change('org-name','Updated Branch name');
 const updateSave=save();
-assert.deepEqual(plain(updateSave.data.medical_details),{GI_BRANCH:null},
-  'Update clears an editable value without clearing or overwriting removed fields');
+assert.equal(updateSave.data.medical_details,undefined,'Renaming a Branch must preserve hidden GI branch and other metadata');
 
 state=[];props={nodes,candidates:[],managers:[]};change('org-level','UNIT');
 for(const [field,length] of Object.entries({
-  'medical-year':4,
   'medical-valid_from':10,'medical-valid_to':10,'medical-mis_no':20,
 }))assert.equal(find(field).props.maxLength,length,`${field} matches the backend limit`);
-for (const field of ['medical-unit_type','medical-speciality','medical-gi_unit']) {
+for (const field of ['medical-unit_type','medical-speciality','medical-gi_unit','medical-year']) {
   assert.equal(find(field),undefined,`${field} must not appear on Unit creation`);
 }
 state=[];props={nodes:[...nodes,{id:5,level:'BRANCH',name:'Branch parent',code:'BRANCH_KEEP',is_active:true,available:true,parent_id:3}],
   candidates:[],managers:[{id:33,level:'UNIT',is_active:true,user_eligible:true,employee_name:'Unit Manager'}],
   node:{id:20,level:'UNIT',version:1,code:'UNIT_KEEP',name:'Unit with retained source values',
     parent_id:5,manager_id:33,is_active:true,
-    medical_details:{UNIT_TYPE:'Existing',SPECIALITY:'GEN',GI_UNIT:'OLD_GI',YEAR:'2026'}}};
-for (const field of ['medical-unit_type','medical-speciality','medical-gi_unit']) assert.equal(find(field),undefined);
-change('medical-year','2027');
-assert.deepEqual(plain(save().data.medical_details),{YEAR:'2027'},'Unit edits preserve all hidden metadata');
+    medical_details:{UNIT_TYPE:'Existing',SPECIALITY:'GEN',GI_UNIT:'OLD_GI',YEAR:'2026',MIS_NO:'OLD_MIS'}}};
+for (const field of ['medical-unit_type','medical-speciality','medical-gi_unit','medical-year']) assert.equal(find(field),undefined);
+change('medical-mis_no','MIS_2027');
+assert.deepEqual(plain(save().data.medical_details),{MIS_NO:'MIS_2027'},'Unit edits preserve Year and all other hidden metadata');
+change('medical-mis_no','');
+assert.deepEqual(plain(save().data.medical_details),{MIS_NO:null},'Editable fields can still be explicitly cleared');
 
 const page=fs.readFileSync(path.join(__dirname,'../src/pages/admin/organisation/index.tsx'),'utf8');
 assert.match(page,/if \(current\) setEditor\(current\)/,'Explicit version refresh must replace the editor snapshot, not just the query cache');
@@ -177,7 +176,7 @@ for(const initialLevel of ['NATIONAL','REGION','BRANCH','UNIT']){
   props={...props,node:undefined,initialCandidate:undefined,initialLevel,candidates:[]};
   assert.equal(find('org-level').props.value,initialLevel,'Add entry must start at the selected hierarchy level');
 }
-console.log('PASS: selected hierarchy level, retained source drafts, Medical defaults, GI names, sparse create overrides and explicit clearing.');
+console.log('PASS: hierarchy levels, source drafts, hidden Year/GI branch and other removed fields, preserved metadata, sparse updates and explicit clearing.');
 
 (async()=>{
   const staff={employee_id:101,employee_name:'Visible Sales Manager',email:'manager@example.test',

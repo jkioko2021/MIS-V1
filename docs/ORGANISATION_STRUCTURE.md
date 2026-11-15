@@ -22,9 +22,10 @@ at the selected level; changing the entry form's level updates the table.
 During editing, use the entry form's level control or close the form before
 changing the list filter, so draft fields are not silently discarded.
 
-Hierarchy create/edit forms omit Speciality, Unit type, Branch type and GI unit.
+Hierarchy create/edit forms omit Speciality, Unit type, Branch type, GI unit,
+Year and GI branch.
 Existing source and saved metadata remains intact and is not cleared on save.
-GI branch, validity dates, Year and MIS number retain their existing behaviour.
+Validity dates and MIS number retain their existing behaviour.
 
 Hierarchy lookups use searchable, viewport-bounded popups with wrapping labels
 and scrollable results. Assigned manager searches names and email addresses,

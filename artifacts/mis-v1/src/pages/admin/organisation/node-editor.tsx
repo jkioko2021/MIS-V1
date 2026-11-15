@@ -25,11 +25,8 @@ const MEDICAL_FIELDS: Record<'REGION' | 'BRANCH' | 'UNIT', Array<{ key: string; 
     { key: 'VALID_FROM', label: 'Valid from', input: 'date' },
     { key: 'VALID_TO', label: 'Valid to', input: 'date' },
   ],
-  BRANCH: [
-    { key: 'GI_BRANCH', label: 'GI branch', input: 'select' },
-  ],
+  BRANCH: [],
   UNIT: [
-    { key: 'YEAR', label: 'Year', input: 'text' },
     { key: 'VALID_FROM', label: 'Valid from', input: 'date' },
     { key: 'VALID_TO', label: 'Valid to', input: 'date' },
     { key: 'MIS_NO', label: 'MIS number', input: 'text' },
@@ -39,7 +36,6 @@ const MEDICAL_FIELDS: Record<'REGION' | 'BRANCH' | 'UNIT', Array<{ key: string; 
 const MEDICAL_MAX_LENGTH: Record<string, number> = {
   VALID_FROM: 10,
   VALID_TO: 10,
-  YEAR: 4,
   MIS_NO: 20,
 };
 
@@ -251,7 +247,7 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
         <Label htmlFor="org-name">Display name <span className="text-destructive">*</span></Label>
         <Input id="org-name" value={name} disabled={!!selectedCandidate} onChange={(event) => setName(event.target.value)} maxLength={150} placeholder="Name shown in reporting" />
       </div>
-      {level !== 'NATIONAL' && <section className="space-y-3 rounded-lg border border-[#d6e3da] bg-card p-4 sm:col-span-2">
+      {(MEDICAL_FIELDS[level as 'REGION' | 'BRANCH' | 'UNIT']?.length ?? 0) > 0 && <section className="space-y-3 rounded-lg border border-[#d6e3da] bg-card p-4 sm:col-span-2">
         <div>
           <h3 className="text-sm font-semibold text-[#244b3b]">Medical organisation details</h3>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">Source values are prefilled when available. Parent and region are derived from the hierarchy; manager assignment remains a separate eligibility-checked choice.</p>
