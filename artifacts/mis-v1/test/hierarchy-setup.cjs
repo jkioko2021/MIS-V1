@@ -156,16 +156,22 @@ const matchedManagerTree=walk(rowOutput.PendingManagerDetails({candidate:{...pen
   linked_manager_name:'Verified Unit Manager',manager_link_status:'MATCHED',
   setup_note:'Linked account; operational setup pending.'}}));
 assert(JSON.stringify(matchedManagerTree).includes('Verified Unit Manager'));
-assert(JSON.stringify(matchedManagerTree).includes('operational setup pending'));
+assert(!JSON.stringify(matchedManagerTree).includes('operational setup pending'),'Manager remarks must not be displayed');
 const unresolvedTree=walk(rowOutput.PendingManagerDetails({candidate:{...pendingUnit,
   manager_link_status:'UNRESOLVED',setup_note:'The uploaded manager reference is missing.'}}));
-assert(JSON.stringify(unresolvedTree).includes('Manager match needs attention'));
-assert(JSON.stringify(unresolvedTree).includes('uploaded manager reference is missing'));
+assert(JSON.stringify(unresolvedTree).includes('—'));
+assert(!JSON.stringify(unresolvedTree).includes('uploaded manager reference is missing'));
 const approvedBranch={...candidates.find(item=>item.level==='BRANCH'),branch_approved:true,manager_link_status:'NOT_REQUIRED'};
 const branchTree=walk(rowOutput.PendingHierarchyRow({candidate:approvedBranch,nodes,candidates,onSetup(){}}));
 assert(branchTree.some(node=>node.type==='Badge'&&node.props.children==='Approved for setup'));
 assert(branchTree.some(node=>node.type==='Badge'&&node.props.children==='Pending Setup'),'Branch approval must not activate the hierarchy');
-assert(JSON.stringify(walk(rowOutput.PendingManagerDetails({candidate:approvedBranch}))).includes('No manager required'));
+assert.equal(walk(rowOutput.PendingManagerDetails({candidate:approvedBranch}))[0].props.children,'—');
+for(const level of ['REGION','BRANCH','UNIT']){
+  const mapped={...candidates.find(item=>item.level===level),linked_national_name:'Mapped National'};
+  const mappedTree=walk(rowOutput.PendingHierarchyRow({candidate:mapped,nodes,candidates,onSetup(){}}));
+  assert(JSON.stringify(mappedTree).includes('Mapped National'),`${level} must display its mapped National`);
+  assert(mappedTree.some(node=>node.type==='Badge'&&node.props.children==='Pending Setup'),'Mapping must not activate imported records');
+}
 const app = fs.readFileSync(path.join(root, 'src/App.tsx'), 'utf8');
 assert.equal((app.match(/label: 'Hierachy Setup'/g) || []).length, 1);
 for (const [slug, level] of Object.entries({ national: 'NATIONAL', regions: 'REGION', branches: 'BRANCH', units: 'UNIT' })) {

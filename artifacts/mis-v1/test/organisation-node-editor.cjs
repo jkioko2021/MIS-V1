@@ -45,6 +45,12 @@ const change=(id,value)=>{
   const field=find(id).props;
   return field.onValueChange ? field.onValueChange(value) : field.onChange({target:{value}});
 };
+state=[];
+const mappedRegion={source_reference_id:999,code:'IMPORTED_REGION',name:'Mapped Region',level:'REGION',
+  parent_code:'N001',linked_national_node_id:1,linked_national_name:'National One'};
+props={...props,candidates:[mappedRegion],initialCandidate:mappedRegion};
+assert.equal(find('org-parent').props.value,'1','Completing a mapped Region must prefill its confirmed National');
+state=[];props={nodes,candidates:[],managers:[],onCancel(){},onSaved:async()=>{},onRefresh:async()=>{}};
 let changedLevel;
 props.onLevelChange = level => { changedLevel = level; };
 change('org-level','REGION');

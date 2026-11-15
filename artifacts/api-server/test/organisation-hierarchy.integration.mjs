@@ -95,8 +95,8 @@ try {
     VALUES($1,$2::text,$2::text,$2::text,$3,1,$3,$4::jsonb,'[]'::jsonb,$5) RETURNING *`,
     [catalog,code,hash(code),JSON.stringify(data),prefix])).rows[0];
   const managerSource=await insertSource("regional-managers",`${prefix}_RM`,{RM_ID:`${prefix}_RM`});
-  const sourceRegion=await insertSource("sales-regions",`${prefix}_SOURCE_REGION`,{REGION_MGR_ID:managerSource.code});
-  const sourceBranch=await insertSource("sales-branches",`${prefix}_SOURCE_BRANCH`,{REGION_CODE:sourceRegion.code});
+  const sourceRegion=await insertSource("sales-regions",`${prefix}_SOURCE_REGION`,{REGION_MGR_ID:managerSource.code,NSM_CODE:"SOURCE_NATIONAL"});
+  const sourceBranch=await insertSource("sales-branches",`${prefix}_SOURCE_BRANCH`,{REGION_CODE:sourceRegion.code,NSM_CODE:"SOURCE_NATIONAL"});
   const identityKey=hash(`${prefix}_identity`);
   await db.query(`INSERT INTO crm.sales_manager_user_identities(identity_key,employee_id,created_by) VALUES($1,$2,$3)`,
     [identityKey,staff[9].employee_id,prefix]);
@@ -115,6 +115,25 @@ try {
   assert.equal((await sourceCandidate(sourceRegion.id)).manager_link_status,"MATCHED");
   assert.equal((await sourceCandidate(sourceBranch.id)).branch_approved,true);
   assert.equal((await sourceCandidate(sourceBranch.id)).linked_manager_employee_id,null);
+  await db.query(`UPDATE crm.organisation_source_setup SET national_node_id=$1,national_source_code='SOURCE_NATIONAL'
+    WHERE source_reference_id=ANY($2::integer[])`,[nodes[0].id,[sourceRegion.id,sourceBranch.id]]);
+  assert.equal((await sourceCandidate(sourceRegion.id)).linked_national_node_id,nodes[0].id);
+  assert.equal((await sourceCandidate(sourceRegion.id)).parent_code,input(0).code,"Region setup must use the explicitly mapped canonical National");
+  assert.equal((await sourceCandidate(sourceBranch.id)).linked_national_name,input(0).name);
+  const adoptRegion=parent_id=>lib.createSalesNode({...input(1,parent_id),code:sourceRegion.code,
+    name:sourceRegion.name,source_reference_id:sourceRegion.id},prefix);
+  await assert.rejects(adoptRegion(nodes[4].id),e=>e.status===400&&/mapped National/.test(e.message),
+    "A source mapping cannot be adopted under another National");
+  await db.query(`UPDATE crm.organisation_source_setup SET national_source_code='STALE_MAPPING' WHERE source_reference_id=$1`,[sourceRegion.id]);
+  assert.equal((await sourceCandidate(sourceRegion.id)).linked_national_node_id,null,"A stale National mapping must fail closed");
+  await assert.rejects(adoptRegion(nodes[0].id),e=>e.status===400&&/mapped National/.test(e.message));
+  await db.query(`UPDATE crm.organisation_source_setup SET national_source_code='SOURCE_NATIONAL' WHERE source_reference_id=$1`,[sourceRegion.id]);
+  await db.query("SAVEPOINT mapped_national_adoption");
+  const adoptedRegion=await adoptRegion(nodes[0].id);
+  assert.equal((await db.query("SELECT parent_id FROM crm.sales_structure_nodes WHERE id=$1",[adoptedRegion.id])).rows[0].parent_id,
+    nodes[0].id,"Validated adoption must retain the approved National");
+  await db.query("ROLLBACK TO SAVEPOINT mapped_national_adoption");
+  await db.query("RELEASE SAVEPOINT mapped_national_adoption");
   assert.equal((await db.query("SELECT count(*)::int count FROM crm.sales_structure_nodes WHERE code=ANY($1)",[[sourceRegion.code,sourceBranch.code]])).rows[0].count,0);
   await assert.rejects(lib.organisationSnapshot(user(9)),e=>e.status===403,"Pending links cannot grant reporting scope");
   await db.query("UPDATE crm.employees SET employee_locked=true WHERE employee_id=$1",[staff[9].employee_id]);
@@ -124,6 +143,7 @@ try {
   assert.equal((await sourceCandidate(sourceRegion.id)).linked_manager_employee_id,null,"Stale identity provenance must not be reused");
   await db.query("UPDATE crm.sales_catalog_source_records SET row_sha256=$2 WHERE id=$1",[sourceBranch.id,hash("changed Branch source")]);
   assert.equal((await sourceCandidate(sourceBranch.id)).branch_approved,false,"Changed source rows require renewed approval");
+  assert.equal((await sourceCandidate(sourceBranch.id)).linked_national_node_id,null,"Changed source rows must invalidate their National mapping");
   await db.query("ROLLBACK TO SAVEPOINT pending_source_fixture");
   await db.query("RELEASE SAVEPOINT pending_source_fixture");
   // Medical operating details are separate from authoritative identity/ancestry.

@@ -21,6 +21,10 @@ export interface OrganisationCandidate {
   linked_manager_employee_id?: number | null;
   /** @nullable */
   linked_manager_name?: string | null;
+  /** @nullable */
+  linked_national_node_id?: number | null;
+  /** @nullable */
+  linked_national_name?: string | null;
   manager_link_status?: OrganisationCandidateManagerLinkStatus;
   branch_approved?: boolean;
   /** @nullable */

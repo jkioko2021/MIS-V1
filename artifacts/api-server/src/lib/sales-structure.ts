@@ -121,6 +121,18 @@ export async function createSalesNode(input: NodeValues & { code: string; level:
       if (refs.length !== 1 || refs[0].id !== input.source_reference_id)
         fail("Select the existing imported reference for this code; ambiguous source records require reconciliation.");
       if (refs[0].name.trim() !== input.name.trim()) fail("Use the imported name when adopting this reference. You can edit the name after adoption.");
+      const nationalMapping = (await client.query(`SELECT ss.national_node_id,
+        ss.source_row_sha256=s.row_sha256 AND ss.national_source_code=upper(btrim(s.data->>'NSM_CODE'))
+          AND n.level='NATIONAL' AND n.is_active AS current_mapping,
+        (SELECT node_ids[1] FROM crm.organisation_paths WHERE id=$2) AS parent_national_id
+        FROM crm.organisation_source_setup ss
+        JOIN crm.sales_catalog_source_records s ON s.id=ss.source_reference_id
+        JOIN crm.sales_structure_nodes n ON n.id=ss.national_node_id
+        WHERE ss.source_reference_id=$1 AND ss.national_node_id IS NOT NULL`,
+      [refs[0].id,input.parent_id])).rows[0];
+      if (nationalMapping && (!nationalMapping.current_mapping
+        || nationalMapping.parent_national_id !== nationalMapping.national_node_id))
+        fail("Use the mapped National hierarchy. Review the National mapping if its source or National record changed.");
       const parentCode = input.level === "UNIT" ? refs[0].data.BRANCH_CODE : input.level === "BRANCH" ? refs[0].data.REGION_CODE : null;
       if (parentCode && String(parentCode).trim().toUpperCase() !== "NULL") {
         const parent = (await client.query("SELECT code FROM crm.sales_structure_nodes WHERE id=$1", [input.parent_id])).rows[0];

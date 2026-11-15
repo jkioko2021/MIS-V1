@@ -92,7 +92,7 @@ export default function OrganisationPage() {
   const levelPendingSources = pendingSources.filter(candidate => !displayLevel || candidate.level === displayLevel);
   const pendingRows = levelPendingSources.filter(candidate =>
     (statusFilter === 'all' || statusFilter === 'pending')
-    && `${candidate.code} ${candidate.name} ${LEVEL_LABEL[candidate.level]} ${candidate.parent_code ?? ''} ${candidate.linked_manager_name ?? ''} ${candidate.setup_note ?? ''} ${candidate.branch_approved ? 'Approved for setup' : ''} Pending Setup`
+    && `${candidate.code} ${candidate.name} ${LEVEL_LABEL[candidate.level]} ${candidate.parent_code ?? ''} ${candidate.linked_national_name ?? ''} ${candidate.linked_manager_name ?? ''} ${candidate.branch_approved ? 'Approved for setup' : ''} Pending Setup`
       .toLowerCase().includes(search.toLowerCase().trim()));
   const tableRecords: Array<{ kind: 'node'; record: OrganisationNode } | { kind: 'pending'; record: OrganisationCandidate }> = [
     ...rows.map(record => ({ kind: 'node' as const, record })),

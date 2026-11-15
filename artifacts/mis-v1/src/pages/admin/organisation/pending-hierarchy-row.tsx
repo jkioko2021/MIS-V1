@@ -8,14 +8,9 @@ const PARENT_LEVEL: Partial<Record<SalesLevel, SalesLevel>> = {
 };
 
 export function PendingManagerDetails({ candidate }: { candidate: OrganisationCandidate }) {
-  if (candidate.level === 'BRANCH') return <div><span>—</span>
-    <p className="mt-1 text-xs text-muted-foreground">No manager required for Branches</p></div>;
-  return <div>
-    <span className={candidate.linked_manager_name ? 'font-medium text-foreground' : 'text-amber-900'}>
-      {candidate.linked_manager_name ?? (candidate.manager_link_status === 'UNRESOLVED' ? 'Manager match needs attention' : 'Manager assignment pending')}
-    </span>
-    {candidate.setup_note && <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">{candidate.setup_note}</p>}
-  </div>;
+  return <span className={candidate.linked_manager_name && candidate.level !== 'BRANCH' ? 'font-medium text-foreground' : ''}>
+    {candidate.level === 'BRANCH' ? '—' : candidate.linked_manager_name ?? '—'}
+  </span>;
 }
 
 export function PendingHierarchyRow({ candidate, nodes, candidates, onSetup }: {
@@ -39,7 +34,10 @@ export function PendingHierarchyRow({ candidate, nodes, candidates, onSetup }: {
       </div>
     </td>
     <td className="px-5 py-3.5">
-      {importedParent ? `Imported parent: ${importedParent}` : expected === 'NATIONAL' ? 'National mapping required' : 'Parent mapping required'}
+      {candidate.level === 'REGION' && candidate.linked_national_name ? `National: ${candidate.linked_national_name}`
+        : importedParent ? `Imported parent: ${importedParent}` : expected === 'NATIONAL' ? 'National mapping required' : 'Parent mapping required'}
+      {candidate.level !== 'REGION' && candidate.linked_national_name
+        && <p className="mt-1 text-xs text-muted-foreground">National: {candidate.linked_national_name}</p>}
       <p className="mt-1 text-xs text-muted-foreground">Not yet an operational link</p>
     </td>
     <td className="px-5 py-3.5"><PendingManagerDetails candidate={candidate} /></td>

@@ -3,7 +3,9 @@ import type { PoolClient } from "pg";
 // Pending links are account references, never operational manager designations.
 // Recheck provenance and current account eligibility on every admin snapshot.
 export async function pendingSourceSetups(client: PoolClient) {
-  const { rows } = await client.query(`SELECT ss.*,s.catalog,
+  const { rows } = await client.query(`SELECT ss.*,s.catalog,n.name AS national_name,n.code AS national_code,
+    coalesce(n.level='NATIONAL' AND n.is_active
+      AND ss.national_source_code=upper(btrim(s.data->>'NSM_CODE')),false) AS national_current,
     ss.source_row_sha256=s.row_sha256 AS source_current,e.employee_name,
     coalesce(NOT e.is_deleted AND e.activated AND e.approved AND NOT e.employee_locked
       AND lower(btrim(e.department))='sales' AND p.is_active
@@ -26,12 +28,17 @@ export async function pendingSourceSetups(client: PoolClient) {
     FROM crm.organisation_source_setup ss
     JOIN crm.sales_catalog_source_records s ON s.id=ss.source_reference_id
     LEFT JOIN crm.employees e ON e.employee_id=ss.manager_employee_id
+    LEFT JOIN crm.sales_structure_nodes n ON n.id=ss.national_node_id
     LEFT JOIN crm.profiles p ON p.profile_id=e.profile_id`);
   return new Map(rows.map(row => {
     const branchApproved = row.source_current && row.catalog === "sales-branches" && row.branch_approved;
     const matched = row.source_current && row.manager_current && row.manager_link_status === "MATCHED"
       && row.catalog !== "sales-branches";
     return [row.source_reference_id, {
+      linked_national_node_id: row.source_current && row.national_current ? row.national_node_id : null,
+      linked_national_name: row.source_current && row.national_current ? row.national_name : null,
+      ...(row.source_current && row.national_current && row.catalog === "sales-regions"
+        ? { parent_code: row.national_code } : {}),
       linked_manager_employee_id: matched ? row.manager_employee_id : null,
       linked_manager_name: matched ? row.employee_name : null,
       manager_link_status: branchApproved ? "NOT_REQUIRED" : matched ? "MATCHED" : "UNRESOLVED",

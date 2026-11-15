@@ -1176,6 +1176,8 @@ components:
         medical_details: { $ref: "#/components/schemas/MedicalOrganisationDetails" }
         linked_manager_employee_id: { type: [integer, "null"] }
         linked_manager_name: { type: [string, "null"] }
+        linked_national_node_id: { type: [integer, "null"] }
+        linked_national_name: { type: [string, "null"] }
         manager_link_status: { type: string, enum: [PENDING, MATCHED, UNRESOLVED, NOT_REQUIRED] }
         branch_approved: { type: boolean }
         setup_note: { type: [string, "null"] }

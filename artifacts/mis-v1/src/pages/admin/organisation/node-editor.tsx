@@ -79,7 +79,9 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
     ?? (initialMedicalCandidate?.source_reference_id === Number(candidateId) ? initialMedicalCandidate : undefined)) as CandidateWithMedical | undefined;
   const [code, setCode] = useState(node?.code ?? initialCandidate?.code ?? '');
   const [name, setName] = useState(node?.name ?? initialCandidate?.name ?? '');
-  const [parentId, setParentId] = useState(node?.parent_id == null ? '' : String(node.parent_id));
+  const [parentId, setParentId] = useState(node?.parent_id != null ? String(node.parent_id)
+    : initialCandidate?.level === 'REGION' && initialCandidate.linked_national_node_id
+      ? String(initialCandidate.linked_national_node_id) : '');
   const candidateManager = (candidate?: OrganisationCandidate) => {
     const employeeId = candidate?.linked_manager_employee_id;
     if (!employeeId || candidate?.level === 'BRANCH') return '';
@@ -238,6 +240,8 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
           const candidate = candidates.find((item) => item.source_reference_id === Number(value));
           const medicalCandidate = candidate as CandidateWithMedical | undefined;
           if (candidate) {
+            if (candidate.level === 'REGION' && candidate.linked_national_node_id)
+              setParentId(String(candidate.linked_national_node_id));
             const defaults = medicalCandidate?.medical_details ?? {};
             setCode(candidate.code); setName(candidate.name); setMedicalDetails(defaults); originalMedicalDetails.current = defaults;
             setManagerId(candidateManager(candidate));

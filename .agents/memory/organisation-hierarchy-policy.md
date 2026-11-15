@@ -112,3 +112,16 @@ account provenance. Leave unmatched or conflicting identities unresolved.
 Show managerless Branches as approved for setup while retaining Pending Setup.
 Do not create operational nodes, manager enrollments or agent assignments as a
 side effect of this import.
+
+The uploaded National code `N_0001` is explicitly mapped to the existing
+**NATIONAL** record, canonical code `NSM-0001`, for Medical Regions, Branches
+and Units. This is a setup mapping, not activation or source-code replacement.
+Manager cells show the manager's name only, or a dash when absent; omit remarks.
+
+**Why:** The user confirmed “Map to existing NATIONAL” and requested removal of
+remarks from the manager field.
+
+**How to apply:** Preserve uploaded codes and Pending Setup status. Derive Region
+setup's National parent from this explicit mapping and retain Branch/Unit source
+parents. Do not silently route records into a different National, activate draft
+manager enrollments, or alter agent assignments.

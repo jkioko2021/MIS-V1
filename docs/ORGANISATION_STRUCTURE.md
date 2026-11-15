@@ -30,12 +30,22 @@ Validity dates and MIS number retain their existing behaviour.
 Imported Region/Unit manager accounts can be linked before operational adoption.
 These links use exact uploaded manager codes and verified account provenance,
 not name-only matching. Missing, unverified or ambiguous references remain
-unresolved with an explanation in Hierachy Setup. Manager names are searchable.
+unresolved. Manager cells show names only, or a dash when absent; resolution
+remarks are retained in setup metadata rather than shown in the manager field.
+Manager names are searchable.
 Branches are approved **for setup** with a blank manager. All these rows remain
 **Pending Setup** and unavailable for agent assignments until explicit operational
 adoption. Links do not create users or manager designations and grant no access.
 Setup decisions are audited separately from immutable source records. Source
 changes or loss of account eligibility invalidate the displayed link/approval.
+
+The user-approved Medical National mapping connects uploaded `N_0001` to the
+existing `NATIONAL` node (`NSM-0001`). Region, Branch and Unit pending rows display
+that National without changing their original codes or activation state.
+Completing a Region preselects its mapped National; Branches and Units retain
+their immediate source parents and must belong to the mapped National on
+adoption. Stale source or National mappings fail closed. Mapping changes are
+recorded in the existing setup audit history.
 
 Uploaded manager records may be captured separately as **inactive draft**
 enrollments. Missing contact, payroll, tax and validity fields remain empty, and
