@@ -36,7 +36,7 @@ export function PendingHierarchyRow({ candidate, nodes, candidates, onSetup, onR
     </td>
     <td className="px-5 py-3.5">
       {candidate.level === 'REGION' && candidate.linked_national_name ? `National: ${candidate.linked_national_name}`
-        : importedParent ? `Imported parent: ${importedParent}` : expected === 'NATIONAL' ? 'National mapping required' : 'Parent mapping required'}
+        : importedParent ? `${candidate.level === 'BRANCH' ? 'Region' : 'Imported parent'}: ${importedParent}` : expected === 'NATIONAL' ? 'National mapping required' : 'Parent mapping required'}
       {candidate.level !== 'REGION' && candidate.linked_national_name
         && <p className="mt-1 text-xs text-muted-foreground">National: {candidate.linked_national_name}</p>}
       <p className="mt-1 text-xs text-muted-foreground">Not yet an operational link</p>

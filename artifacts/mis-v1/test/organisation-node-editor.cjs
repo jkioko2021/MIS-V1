@@ -4,6 +4,11 @@ const vm = require('node:vm');
 const ts = require('typescript');
 const path = require('node:path');
 const output = {};
+const parentReference={};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,
+  '../src/pages/admin/organisation/parent-reference.ts'),'utf8'),{
+  compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},
+}).outputText,{exports:parentReference});
 let state = [], cursor = 0, effects = [];
 const writes=[];
 const jsx = (type,props) => ({type,props:props||{}});
@@ -25,6 +30,7 @@ vm.runInNewContext(ts.transpileModule(source,{
     if(name==='@workspace/api-client-react')return new Proxy({},{get:(_,key)=>String(key).startsWith('get')?()=>[]:()=>({isPending:false,reset(){},mutate(input){writes.push(input)}})});
     if(name==='lucide-react'||name.startsWith('@/components/ui/'))return new Proxy({},{get:(_,key)=>String(key)});
     if(name==='../sales-structure/manager-details')return {ManagerDetailsForm:'ManagerDetailsForm'};
+    if(name==='./parent-reference')return parentReference;
     if(name==='./shared')return {INPUT_CLASS:'input',LEVELS:['NATIONAL','REGION','BRANCH','UNIT'],
       LEVEL_LABEL:{NATIONAL:'National',REGION:'Region',BRANCH:'Branch',UNIT:'Unit'},errorStatus:()=>0,errorMessage:()=>''};
     throw Error(`Unexpected import ${name}`);
@@ -50,6 +56,28 @@ const mappedRegion={source_reference_id:999,code:'IMPORTED_REGION',name:'Mapped 
   parent_code:'N001',linked_national_node_id:1,linked_national_name:'National One'};
 props={...props,candidates:[mappedRegion],initialCandidate:mappedRegion};
 assert.equal(find('org-parent').props.value,'1','Completing a mapped Region must prefill its confirmed National');
+state=[];props={nodes,candidates:[],managers:[],onCancel(){},onSaved:async()=>{},onRefresh:async()=>{}};
+const importedRegion={source_reference_id:80,code:'REG_PARENT',name:'Imported Region Name',level:'REGION',
+  linked_national_name:'Mapped National',linked_manager_name:'Regional Manager Name'};
+const importedBranch={source_reference_id:81,code:'BRANCH_CHILD',name:'Imported Branch',level:'BRANCH',
+  parent_code:'reg_parent',linked_national_name:'Mapped National'};
+state=[];props={...props,initialCandidate:importedBranch,candidates:[importedRegion,importedBranch]};
+assert.equal(find('org-parent').props.value,'pending:80','Branch setup must prefill its uploaded Region relationship');
+assert.equal(find('org-parent').props.options.find(option=>option.value==='pending:80').label,'Imported Region Name');
+assert.equal(find('org-parent').props.options.find(option=>option.value==='pending:80').disabled,true);
+const branchDetails=walk(render()).find(item=>item.props?.['data-testid']==='branch-region-details');
+assert(JSON.stringify(branchDetails).includes('Imported Region Name'));
+assert(JSON.stringify(branchDetails).includes('Mapped National'));
+assert(JSON.stringify(branchDetails).includes('Regional Manager Name'));
+assert.equal(walk(render()).find(item=>item.type==='Button'&&JSON.stringify(item.props.children).includes('"Create entry"')).props.disabled,true,
+  'A prefilled imported Region must not activate or become an operational parent');
+assert.equal(parentReference.importedParentReference(importedBranch,[],[importedRegion,{...importedRegion,source_reference_id:82}]),null,
+  'Ambiguous source Regions must not be guessed');
+const resolved=parentReference.importedParentReference(importedBranch,[{
+  id:45,code:'REG_PARENT',name:'Operational Region',level:'REGION',manager_name:'Current Regional Manager',
+  path:[{level:'NATIONAL',name:'National One'}],
+}],[importedRegion]);
+assert.equal(resolved.value,'45');assert.equal(resolved.name,'Operational Region');assert.equal(resolved.pending,false);
 state=[];props={nodes,candidates:[],managers:[],onCancel(){},onSaved:async()=>{},onRefresh:async()=>{}};
 let changedLevel;
 state=[];

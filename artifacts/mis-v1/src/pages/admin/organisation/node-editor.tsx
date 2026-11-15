@@ -15,6 +15,7 @@ import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/s
 import { AlertCircle, Check, RefreshCw } from 'lucide-react';
 import { errorMessage, errorStatus, LEVELS, LEVEL_LABEL } from './shared';
 import { ManagerDetailsForm } from '../sales-structure/manager-details';
+import { importedParentReference } from './parent-reference';
 
 type MedicalValues = Record<string, string | null>;
 type CandidateWithMedical = OrganisationCandidate & { medical_details?: MedicalValues };
@@ -81,7 +82,8 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
   const [name, setName] = useState(node?.name ?? initialCandidate?.name ?? '');
   const [parentId, setParentId] = useState(node?.parent_id != null ? String(node.parent_id)
     : initialCandidate?.level === 'REGION' && initialCandidate.linked_national_node_id
-      ? String(initialCandidate.linked_national_node_id) : '');
+      ? String(initialCandidate.linked_national_node_id)
+      : importedParentReference(initialCandidate,nodes,candidates)?.value ?? '');
   const candidateManager = (candidate?: OrganisationCandidate) => {
     const employeeId = candidate?.linked_manager_employee_id;
     if (!employeeId) return '';
@@ -112,17 +114,22 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
   const parentLevel: SalesLevel | null = level === 'REGION' ? 'NATIONAL' : level === 'BRANCH' ? 'REGION' : level === 'UNIT' ? 'BRANCH' : null;
   const currentParent = nodes.find((entry) => entry.id === node?.parent_id);
   const parentOptions = parentLevel ? nodes.filter((entry) => entry.level === parentLevel && entry.id !== node?.id
-    && (parentLevel === 'BRANCH' || entry.available || entry.id === node?.parent_id)) : [];
-  const pendingBranchParents = parentLevel === 'BRANCH' ? candidates.filter(candidate =>
-    candidate.level === 'BRANCH' && !nodes.some(entry => entry.level === 'BRANCH'
+    && (parentLevel === 'BRANCH' || parentLevel === 'REGION' || entry.available || entry.id === node?.parent_id)) : [];
+  const pendingParentOptions = parentLevel === 'BRANCH' || parentLevel === 'REGION' ? candidates.filter(candidate =>
+    candidate.level === parentLevel && !nodes.some(entry => entry.level === parentLevel
       && entry.code.trim().toUpperCase() === candidate.code.trim().toUpperCase())) : [];
   const parentChoices: SearchableSelectOption[] = [
     ...parentOptions.map(parent => ({ value: String(parent.id), label: parent.name,
       disabled: !parent.available && parent.id !== node?.parent_id,
       description: !parent.available ? parent.id === node?.parent_id ? 'Retained current parent' : 'Hierarchy not yet available' : undefined })),
-    ...pendingBranchParents.map(parent => ({ value: `pending:${parent.source_reference_id}`, label: parent.name,
-      disabled: true, description: 'Pending Setup — complete the Branch hierarchy first' })),
+    ...pendingParentOptions.map(parent => ({ value: `pending:${parent.source_reference_id}`, label: parent.name,
+      disabled: true, description: `Pending Setup — complete the ${LEVEL_LABEL[parent.level]} hierarchy first` })),
   ].sort((a,b)=>a.label.localeCompare(b.label));
+  const sourceParent = importedParentReference(selectedCandidate,nodes,candidates);
+  const selectedParentNode=nodes.find(parent=>String(parent.id)===parentId);
+  const branchRegionDetails=selectedParentNode ? {name:selectedParentNode.name,pending:false,
+    national:selectedParentNode.path?.find(part=>part.level==='NATIONAL')?.name??null,
+    manager:selectedParentNode.manager_name??null} : sourceParent;
   const managerOptions = managers.filter((manager) =>
     manager.level === level && ((manager.is_active && manager.user_eligible) || manager.id === node?.manager_id));
   const readyDesignation = (employeeId: number) => managerOptions.find(manager =>
@@ -152,6 +159,7 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
   const sourceCandidates = candidates.filter((candidate) => {
     if (candidate.level !== level) return false;
     if (candidate.source_reference_id === Number(candidateId)) return true;
+    if (!parentId || parentId.startsWith('pending:')) return true;
     if (level === 'NATIONAL') return missingSourceParent(candidate.parent_code);
     return missingSourceParent(candidate.parent_code) || candidate.parent_code === parentCode;
   });
@@ -256,6 +264,11 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
           if (candidate) {
             if (candidate.level === 'REGION' && candidate.linked_national_node_id)
               setParentId(String(candidate.linked_national_node_id));
+            else {
+              const parent=importedParentReference(candidate,nodes,candidates);
+              if(parent)setParentId(parent.value);
+              else if(candidate.parent_code?.trim()&&candidate.parent_code.trim().toUpperCase()!=='NULL')setParentId('');
+            }
             const defaults = medicalCandidate?.medical_details ?? {};
             setCode(candidate.code); setName(candidate.name); setMedicalDetails(defaults); originalMedicalDetails.current = defaults;
             setManagerId(candidateManager(candidate));
@@ -321,10 +334,20 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
           placeholder={`Choose an available ${LEVEL_LABEL[parentLevel].toLowerCase()}`}
           searchPlaceholder={`Search ${LEVEL_LABEL[parentLevel].toLowerCase()} names…`}
           options={parentChoices} />
-        {!!pendingBranchParents.length && <p className="text-xs text-muted-foreground">{pendingBranchParents.length} imported Branches are listed by name. Pending Setup Branches become selectable after their parent hierarchy is completed.</p>}
+        {!!pendingParentOptions.length && <p className="text-xs text-muted-foreground">{pendingParentOptions.length} imported {LEVEL_LABEL[parentLevel]} records are listed by name. Pending Setup parents become selectable after their hierarchy is completed.</p>}
         {!parentOptions.some(parent=>parent.available || parent.id===node?.parent_id) && <p className="text-xs text-amber-800">Complete an available {LEVEL_LABEL[parentLevel].toLowerCase()} first. A missing operational parent cannot be inferred or fabricated.</p>}
         {currentParent && !currentParent.available && currentParent.id === Number(parentId) && <p className="text-xs text-amber-800">The current unavailable parent is retained for historical context. Choose an available parent to reparent this entry.</p>}
       </div>}
+      {level==='BRANCH'&&(selectedCandidate||node||branchRegionDetails)&&<section
+        className="rounded-lg border bg-card p-4 sm:col-span-2" data-testid="branch-region-details">
+        <h3 className="text-sm font-semibold">Region details</h3>
+        <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+          <div><dt className="text-xs text-muted-foreground">Region</dt><dd className="mt-1">{branchRegionDetails?.name??'Region mapping needs review'}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">National</dt><dd className="mt-1">{branchRegionDetails?.national??selectedCandidate?.linked_national_name??'—'}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Regional manager</dt><dd className="mt-1">{branchRegionDetails?.manager??'—'}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Relationship</dt><dd className="mt-1">{branchRegionDetails?branchRegionDetails.pending?'Imported — Pending Setup':'Operational':'Not matched'}</dd></div>
+        </dl>
+      </section>}
       {<div className="space-y-1.5 sm:col-span-2">
         <Label htmlFor="org-manager">Assigned manager {level !== 'BRANCH' && <span className="text-destructive">*</span>}</Label>
         <SearchableSelect id="org-manager" value={managerId} onValueChange={setManagerId}
