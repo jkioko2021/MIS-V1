@@ -11,6 +11,85 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /gi-structure:
+    get:
+      operationId: getGiStructure
+      responses:
+        "200":
+          description: GI setup and Medical unit mapping snapshot for authorised administrators
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GiStructureSnapshot" }
+  /gi-structure/nodes:
+    post:
+      operationId: saveGiStructureNode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GiNodeInput" }
+      responses:
+        "200":
+          description: GI hierarchy entry saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganisationAssignmentResult" }
+  /gi-structure/managers:
+    post:
+      operationId: saveGiManager
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GiManagerInput" }
+      responses:
+        "200":
+          description: GI category enrollment saved without modifying the MIS account
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganisationAssignmentResult" }
+  /gi-structure/mappings:
+    post:
+      operationId: saveGiMedicalMappings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GiMappingInput" }
+      responses:
+        "200":
+          description: Selected Medical units mapped atomically to one GI unit
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganisationAssignmentResult" }
+  /gi-structure/mappings/remove:
+    post:
+      operationId: removeGiMedicalMapping
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GiMappingRemoval" }
+      responses:
+        "200":
+          description: Current mapping removed; history retained
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganisationAssignmentResult" }
+  /gi-structure/history:
+    get:
+      operationId: getGiStructureHistory
+      parameters:
+        - { name: entity_type, in: query, required: true, schema: { type: string, enum: [NODE, MANAGER, MAPPING] } }
+        - { name: entity_key, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 50 } }
+      responses:
+        "200":
+          description: Latest 100 recorded changes with preserved before and after details
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/GiStructureEvent" }
   /organisation:
     get:
       operationId: getOrganisation
@@ -967,6 +1046,157 @@ paths:
           description: Allocation changed before the upload could be saved
 components:
   schemas:
+    GiLevel:
+      type: string
+      enum: [BRANCH, UNIT]
+    GiNodeStatus:
+      type: string
+      enum: [PENDING, ACTIVE, INACTIVE]
+    GiNode:
+      type: object
+      required: [id,code,name,level,status,parent_id,parent_name,manager_id,manager_name,available,version,source_reference_id,source_parent_code]
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        name: { type: string }
+        level: { $ref: "#/components/schemas/GiLevel" }
+        status: { $ref: "#/components/schemas/GiNodeStatus" }
+        parent_id: { type: [integer, "null"] }
+        parent_name: { type: [string, "null"] }
+        manager_id: { type: [integer, "null"] }
+        manager_name: { type: [string, "null"] }
+        available: { type: boolean }
+        version: { type: integer }
+        source_reference_id: { type: [integer, "null"] }
+        source_parent_code: { type: [string, "null"] }
+    GiNodeInput:
+      type: object
+      required: [id,version,code,name,level,status,parent_id,manager_id,reason]
+      properties:
+        id: { type: [integer, "null"], minimum: 1 }
+        version: { type: integer, minimum: 0 }
+        code: { type: string, pattern: '^[A-Za-z0-9_-]{1,50}$' }
+        name: { type: string, minLength: 1, maxLength: 150 }
+        level: { $ref: "#/components/schemas/GiLevel" }
+        status: { $ref: "#/components/schemas/GiNodeStatus" }
+        parent_id: { type: [integer, "null"], minimum: 1 }
+        manager_id: { type: [integer, "null"], minimum: 1 }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
+    GiManager:
+      type: object
+      required: [id,employee_id,employee_name,emp_code,email,level,is_active,user_eligible,version,details]
+      properties:
+        id: { type: integer }
+        employee_id: { type: integer }
+        employee_name: { type: string }
+        emp_code: { type: [string, "null"] }
+        email: { type: [string, "null"] }
+        level: { $ref: "#/components/schemas/GiLevel" }
+        is_active: { type: boolean }
+        user_eligible: { type: boolean }
+        version: { type: integer }
+        details: { $ref: "#/components/schemas/GiManagerDetails" }
+        source_notes: { type: array, items: { type: string } }
+        source_unit_codes: { type: array, items: { type: string } }
+    GiManagerInput:
+      type: object
+      required: [id,version,employee_id,level,is_active,details,reason]
+      properties:
+        id: { type: [integer, "null"], minimum: 1 }
+        version: { type: integer, minimum: 0 }
+        employee_id: { type: integer, minimum: 1 }
+        level: { $ref: "#/components/schemas/GiLevel" }
+        is_active: { type: boolean }
+        details: { $ref: "#/components/schemas/GiManagerDetails" }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
+    GiManagerDetails:
+      type: object
+      required: [GI_UM_ID,GI_UM_NAME,GI_UNIT_CODE,EMAIL,HRMIS_CODE,MIS_EMP_CODE,EARN_RETAINER,NSM_CODE,VALID_FROM,VALID_TO,JOIN_DATE,RET_EFF_UPTO,RETAINER_AMT]
+      properties:
+        GI_UM_ID: { type: string, minLength: 1, maxLength: 50, pattern: '^[A-Za-z0-9_-]+$' }
+        GI_UM_NAME: { type: string, minLength: 1, maxLength: 150 }
+        GI_UNIT_CODE: { type: string, maxLength: 50 }
+        EMAIL: { type: string, maxLength: 254, pattern: '^($|[^\s@]+@[^\s@]+\.[^\s@]+)$' }
+        HRMIS_CODE: { type: string, maxLength: 50 }
+        MIS_EMP_CODE: { type: string, maxLength: 50 }
+        EARN_RETAINER: { type: boolean }
+        NSM_CODE: { type: string, maxLength: 50 }
+        VALID_FROM: { type: string, pattern: '^($|\d{4}-\d{2}-\d{2})$' }
+        VALID_TO: { type: string, pattern: '^($|\d{4}-\d{2}-\d{2})$' }
+        JOIN_DATE: { type: string, pattern: '^($|\d{4}-\d{2}-\d{2})$' }
+        RET_EFF_UPTO: { type: string, pattern: '^($|\d{4}-\d{2}-\d{2})$' }
+        RETAINER_AMT: { type: string, maxLength: 25, pattern: '^($|\d{1,18}(\.\d{1,6})?)$' }
+    GiMedicalUnit:
+      type: object
+      required: [code,name,branch_name,available,gi_unit_id,gi_unit_name,mapping_version,mapping_available]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        branch_name: { type: [string, "null"] }
+        available: { type: boolean }
+        gi_unit_id: { type: [integer, "null"] }
+        gi_unit_name: { type: [string, "null"] }
+        mapping_version: { type: integer }
+        mapping_available: { type: boolean }
+    GiManagerReference:
+      type: object
+      required: [id,code,name,level,enrollment_id,source_active,review_note]
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        name: { type: string }
+        level: { $ref: "#/components/schemas/GiLevel" }
+        enrollment_id: { type: [integer, "null"] }
+        source_active: { type: boolean }
+        review_note: { type: [string, "null"] }
+    GiNationalChoice:
+      type: object
+      required: [code,name]
+      properties:
+        code: { type: string }
+        name: { type: string }
+    GiStructureSnapshot:
+      type: object
+      required: [nodes,managers,manager_users,medical_units,manager_references,nationals]
+      properties:
+        nodes: { type: array, items: { $ref: "#/components/schemas/GiNode" } }
+        managers: { type: array, items: { $ref: "#/components/schemas/GiManager" } }
+        manager_users: { type: array, items: { $ref: "#/components/schemas/SalesStaff" } }
+        medical_units: { type: array, items: { $ref: "#/components/schemas/GiMedicalUnit" } }
+        manager_references: { type: array, items: { $ref: "#/components/schemas/GiManagerReference" } }
+        nationals: { type: array, items: { $ref: "#/components/schemas/GiNationalChoice" } }
+    GiMedicalMappingSelection:
+      type: object
+      required: [medical_unit_code,version]
+      properties:
+        medical_unit_code: { type: string, pattern: '^[A-Za-z0-9_-]{1,50}$' }
+        version: { type: integer, minimum: 0 }
+    GiMappingInput:
+      type: object
+      required: [gi_unit_id,units,reason]
+      properties:
+        gi_unit_id: { type: integer, minimum: 1 }
+        units: { type: array, minItems: 1, maxItems: 200, items: { $ref: "#/components/schemas/GiMedicalMappingSelection" } }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
+    GiMappingRemoval:
+      type: object
+      required: [medical_unit_code,version,reason]
+      properties:
+        medical_unit_code: { type: string, pattern: '^[A-Za-z0-9_-]{1,50}$' }
+        version: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
+    GiStructureEvent:
+      type: object
+      required: [id,entity_type,entity_key,actor,reason,created_at,before_details,after_details]
+      properties:
+        id: { type: string }
+        entity_type: { type: string }
+        entity_key: { type: string }
+        actor: { type: string }
+        reason: { type: string }
+        created_at: { type: string }
+        before_details: { type: [string, "null"] }
+        after_details: { type: string }
     SalesMappingCatalog:
       type: string
       enum: [sales-regions, sales-branches, sales-units]

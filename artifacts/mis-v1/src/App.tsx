@@ -18,9 +18,9 @@ import LoginPage from '@/pages/login';
 import UsersPage from '@/pages/admin/users';
 import ProfilesPage from '@/pages/admin/profiles';
 import BusinessRequirementsPage from '@/pages/admin/business-requirements';
-import SalesCatalogPage from '@/pages/admin/sales-structure/catalogs';
 import SalesStructureManagersPage from '@/pages/admin/sales-structure/managers';
 import OrganisationPage from '@/pages/admin/organisation';
+import GiStructurePage from '@/pages/admin/gi-structure';
 import MedicalUnderwritingPage from '@/pages/medical-underwriting';
 import CashierPage from '@/pages/cashier';
 import PricingReviewPage from '@/pages/pricing-review';
@@ -65,6 +65,7 @@ type NavItem = {
   intermediaryOnly?: boolean;
   dpuOnly?: boolean;
   giOnly?: boolean;
+  giStructureOnly?: boolean;
   riskAdminOnly?: boolean;
   children?: NavItem[];
 };
@@ -152,12 +153,12 @@ const NAV_SECTIONS: Array<{
       { href: '/admin/users',    label: 'User Enrollment',    icon: Users, adminOnly: true },
       { href: '/admin/profiles', label: 'Profiles & Access',  icon: Settings, adminOnly: true },
       {
-        href: '/admin/gi-structure', label: 'GI Structure setup', icon: Network, adminOnly: true,
+        href: '/admin/gi-structure', label: 'Organization structure-GI', icon: Network, giStructureOnly: true,
         children: [
-          { href: '/admin/gi-structure/catalogs/gi-unit-managers', label: 'GI Unit Managers', icon: UsersRound },
-          { href: '/admin/gi-structure/catalogs/gi-units', label: 'GI Units', icon: Database },
-          { href: '/admin/gi-structure/catalogs/gi-branches', label: 'GI Branches', icon: Network },
-          { href: '/admin/gi-structure/catalogs/gi-coordinators', label: 'GI Coordinators', icon: UsersRound },
+          { href: '/admin/gi-structure/dashboard', label: 'GI overview', icon: Network, giStructureOnly: true },
+          { href: '/admin/gi-structure/hierarchy', label: 'Branch & Unit setup', icon: GitBranch, giStructureOnly: true },
+          { href: '/admin/gi-structure/managers', label: 'GI Manager Enrollment', icon: UsersRound, giStructureOnly: true },
+          { href: '/admin/gi-structure/medical-units', label: 'Medical Unit mapping', icon: Workflow, giStructureOnly: true },
         ],
       },
       {
@@ -186,6 +187,7 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const canSeeIntermediary = !!user && (user.profileId === 1 || user.profileId === 2 || user.profileName?.trim().toLowerCase() === 'national sales admin');
+  const canSeeGiStructure = canSeeIntermediary;
 
   // Show admin section only for profile 1 (SuperAdmin) or 2 (System Admin)
   const isAdmin = user && (user.profileId === 1 || user.profileId === 2);
@@ -254,6 +256,7 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
               {section.items.map((item) => {
                 const { href, label, icon: Icon } = item;
                 if (item.adminOnly && !isAdmin) return null;
+                if (item.giStructureOnly && !canSeeGiStructure) return null;
                 if (item.riskAdminOnly && !riskActor?.can_manage) return null;
                 if (item.intermediaryOnly && !canSeeIntermediary) return null;
                 const bpoOnly = 'bpoOnly' in item && item.bpoOnly;
@@ -269,7 +272,8 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
                   && (!child.pricingOnly || canSeePricing)
                   && (!child.cashierOnly || canSeeCashier)
                    && (!child.dpuOnly || canSeeRecordFiling)
-                   && (!child.giOnly || canSeeGi),
+                  && (!child.giOnly || canSeeGi)
+                  && (!child.giStructureOnly || canSeeGiStructure),
                 ) ?? [];
                 if (visibleChildren.length === 0) return (
                     <Link
@@ -515,6 +519,33 @@ function ProtectedRouter() {
           <Route path="/discovery"        component={DiscoveryPage} />
           <Route path="/admin/users"      component={UsersPage} />
           <Route path="/admin/profiles"   component={ProfilesPage} />
+          <Route path="/admin/gi-structure">
+            {() => canAccessIntermediary(user) ? <Redirect to="/admin/gi-structure/dashboard" /> : <IntermediaryDenied />}
+          </Route>
+          <Route path="/admin/gi-structure/dashboard">
+            {() => canAccessIntermediary(user) ? <GiStructurePage /> : <IntermediaryDenied />}
+          </Route>
+          <Route path="/admin/gi-structure/hierarchy">
+            {() => canAccessIntermediary(user) ? <GiStructurePage /> : <IntermediaryDenied />}
+          </Route>
+          <Route path="/admin/gi-structure/managers">
+            {() => canAccessIntermediary(user) ? <GiStructurePage /> : <IntermediaryDenied />}
+          </Route>
+          <Route path="/admin/gi-structure/medical-units">
+            {() => canAccessIntermediary(user) ? <GiStructurePage /> : <IntermediaryDenied />}
+          </Route>
+          <Route path="/admin/gi-structure/catalogs/gi-units">
+            {() => <Redirect to="/admin/gi-structure/hierarchy" />}
+          </Route>
+          <Route path="/admin/gi-structure/catalogs/gi-branches">
+            {() => <Redirect to="/admin/gi-structure/hierarchy" />}
+          </Route>
+          <Route path="/admin/gi-structure/catalogs/gi-unit-managers">
+            {() => <Redirect to="/admin/gi-structure/managers" />}
+          </Route>
+          <Route path="/admin/gi-structure/catalogs/gi-coordinators">
+            {() => <Redirect to="/admin/gi-structure/managers" />}
+          </Route>
           <Route path="/admin/organisation" component={() => <Redirect to="/admin/organisation/dashboard" />} />
           <Route path="/admin/organisation/national" component={() => <Redirect to="/admin/organisation/hierarchy?level=NATIONAL" />} />
           <Route path="/admin/organisation/regions" component={() => <Redirect to="/admin/organisation/hierarchy?level=REGION" />} />
@@ -542,10 +573,6 @@ function ProtectedRouter() {
             </Route>
             <Route path="/admin/sales-structure/catalogs/gi-coordinators">
               {() => <Redirect to="/admin/gi-structure/catalogs/gi-coordinators" />}
-            </Route>
-            <Route path="/admin/gi-structure/catalogs/:catalog" component={SalesCatalogPage} />
-            <Route path="/admin/gi-structure">
-              {() => <Redirect to="/admin/gi-structure/catalogs/gi-units" />}
             </Route>
             <Route path="/admin/sales-structure/catalogs/sales-units">
               {() => <Redirect to="/admin/organisation/units" />}

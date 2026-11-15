@@ -19,10 +19,12 @@ import riskAdministrationRouter from "./risk-administration";
 import intermediaryRouter from "./intermediary";
 import salesStructureRouter from "./sales-structure";
 import organisationRouter from "./organisation";
+import giStructureRouter from "./gi-structure";
 
 const router: IRouter = Router();
 router.use(salesStructureRouter);
 router.use(organisationRouter);
+router.use(giStructureRouter);
 router.use(intermediaryRouter);
 router.use(riskRegisterRouter);
 router.use(clientRatingsRouter);

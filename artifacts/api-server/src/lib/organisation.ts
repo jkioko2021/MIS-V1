@@ -5,6 +5,7 @@ import { withTransaction } from "./postgres";
 import { salesSetupTransaction, SalesSetupError } from "./sales-structure";
 import { sourceMedicalDetails } from "./medical-organisation-details";
 import { pendingSourceSetups } from "./organisation-source-setup";
+import { medicalManagerSql, medicalUserSql } from "./medical-manager-scope";
 
 export const organisationAdmin = (user: Pick<JwtPayload, "profileId">) => [1, 2].includes(user.profileId);
 type PathRow = { id: number; level: string; node_ids: number[]; path: OrganisationPathItem[]; available: boolean };
@@ -48,7 +49,7 @@ export async function organisationSnapshot(user: JwtPayload) {
           AND m.manager_details->>'valid_to'>=CURRENT_DATE::text))) AS user_eligible
       FROM crm.sales_manager_enrollments m JOIN crm.employees e ON e.employee_id=m.employee_id
       JOIN crm.profiles p ON p.profile_id=e.profile_id
-      WHERE p.is_active AND lower(btrim(p.profile_name))='sales manager' AND NOT e.is_deleted
+      WHERE p.is_active AND lower(btrim(p.profile_name))='sales manager' AND NOT e.is_deleted AND ${medicalManagerSql('m')}
       ORDER BY e.employee_name,m.level`)).rows : [];
     const managerUsers = scope.global ? (await client.query(`SELECT e.employee_id,e.employee_name,e.username,
       e.emp_code,e.email,(e.activated AND e.approved AND NOT e.employee_locked
@@ -57,7 +58,7 @@ export async function organisationSnapshot(user: JwtPayload) {
         CASE WHEN NOT e.approved THEN 'Not approved' END,CASE WHEN e.employee_locked THEN 'Locked' END,
         CASE WHEN lower(btrim(coalesce(e.department,'')))<>'sales' THEN 'Sales department required' END),'') AS eligibility_note
       FROM crm.employees e JOIN crm.profiles p ON p.profile_id=e.profile_id
-      WHERE NOT e.is_deleted AND p.is_active AND lower(btrim(p.profile_name))='sales manager'
+      WHERE NOT e.is_deleted AND p.is_active AND lower(btrim(p.profile_name))='sales manager' AND ${medicalUserSql('e')}
       ORDER BY e.employee_name,e.employee_id`)).rows : [];
     const sourceSetups = scope.global ? await pendingSourceSetups(client) : new Map();
     const candidates = scope.global ? (await client.query(`SELECT s.id AS source_reference_id,s.code,s.name,s.data,

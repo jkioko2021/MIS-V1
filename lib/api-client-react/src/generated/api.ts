@@ -24,6 +24,7 @@ import type {
   AmlOriginatingSystemsResponse,
   GetClientRatingOptions200,
   GetClientRatingsReportParams,
+  GetGiStructureHistoryParams,
   GetOrganisationAgentsParams,
   GetRiskAnalyticsParams,
   GetRiskRegisterHistoryParams,
@@ -31,6 +32,12 @@ import type {
   GetRiskRegisterReopenScopeParams,
   GetRiskRegisterSummaryParams,
   GetSalesManagerMappingHistoryParams,
+  GiManagerInput,
+  GiMappingInput,
+  GiMappingRemoval,
+  GiNodeInput,
+  GiStructureEvent,
+  GiStructureSnapshot,
   HealthStatus,
   IntermediaryActionInput,
   IntermediaryDetail,
@@ -132,6 +139,415 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetGiStructureUrl = () => {
+
+
+
+
+  return `/api/gi-structure`
+}
+
+export const getGiStructure = async ( options?: Parameters<typeof customFetch>[1]): Promise<GiStructureSnapshot> => {
+
+  return customFetch<GiStructureSnapshot>(getGetGiStructureUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGiStructureQueryKey = () => {
+    return [
+    `/api/gi-structure`
+    ] as const;
+    }
+
+
+export const getGetGiStructureQueryOptions = <TData = Awaited<ReturnType<typeof getGiStructure>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGiStructure>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGiStructureQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGiStructure>>> = ({ signal }) => getGiStructure({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGiStructure>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGiStructureQueryResult = NonNullable<Awaited<ReturnType<typeof getGiStructure>>>
+export type GetGiStructureQueryError = ErrorType<unknown>
+
+
+
+export function useGetGiStructure<TData = Awaited<ReturnType<typeof getGiStructure>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGiStructure>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGiStructureQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveGiStructureNodeUrl = () => {
+
+
+
+
+  return `/api/gi-structure/nodes`
+}
+
+export const saveGiStructureNode = async (giNodeInput: GiNodeInput, options?: Parameters<typeof customFetch>[1]): Promise<OrganisationAssignmentResult> => {
+
+  return customFetch<OrganisationAssignmentResult>(getSaveGiStructureNodeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(giNodeInput)
+  }
+);}
+
+
+
+
+
+export const getSaveGiStructureNodeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveGiStructureNode>>, TError,{data: BodyType<GiNodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveGiStructureNode>>, TError,{data: BodyType<GiNodeInput>}, TContext> => {
+
+const mutationKey = ['saveGiStructureNode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveGiStructureNode>>, {data: BodyType<GiNodeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  saveGiStructureNode(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveGiStructureNodeMutationResult = NonNullable<Awaited<ReturnType<typeof saveGiStructureNode>>>
+    export type SaveGiStructureNodeMutationBody = BodyType<GiNodeInput>
+    export type SaveGiStructureNodeMutationError = ErrorType<unknown>
+
+    export const useSaveGiStructureNode = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveGiStructureNode>>, TError,{data: BodyType<GiNodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveGiStructureNode>>,
+        TError,
+        {data: BodyType<GiNodeInput>},
+        TContext
+      > => {
+      return useMutation(getSaveGiStructureNodeMutationOptions(options));
+    }
+
+export const getSaveGiManagerUrl = () => {
+
+
+
+
+  return `/api/gi-structure/managers`
+}
+
+export const saveGiManager = async (giManagerInput: GiManagerInput, options?: Parameters<typeof customFetch>[1]): Promise<OrganisationAssignmentResult> => {
+
+  return customFetch<OrganisationAssignmentResult>(getSaveGiManagerUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(giManagerInput)
+  }
+);}
+
+
+
+
+
+export const getSaveGiManagerMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveGiManager>>, TError,{data: BodyType<GiManagerInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveGiManager>>, TError,{data: BodyType<GiManagerInput>}, TContext> => {
+
+const mutationKey = ['saveGiManager'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveGiManager>>, {data: BodyType<GiManagerInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  saveGiManager(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveGiManagerMutationResult = NonNullable<Awaited<ReturnType<typeof saveGiManager>>>
+    export type SaveGiManagerMutationBody = BodyType<GiManagerInput>
+    export type SaveGiManagerMutationError = ErrorType<unknown>
+
+    export const useSaveGiManager = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveGiManager>>, TError,{data: BodyType<GiManagerInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveGiManager>>,
+        TError,
+        {data: BodyType<GiManagerInput>},
+        TContext
+      > => {
+      return useMutation(getSaveGiManagerMutationOptions(options));
+    }
+
+export const getSaveGiMedicalMappingsUrl = () => {
+
+
+
+
+  return `/api/gi-structure/mappings`
+}
+
+export const saveGiMedicalMappings = async (giMappingInput: GiMappingInput, options?: Parameters<typeof customFetch>[1]): Promise<OrganisationAssignmentResult> => {
+
+  return customFetch<OrganisationAssignmentResult>(getSaveGiMedicalMappingsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(giMappingInput)
+  }
+);}
+
+
+
+
+
+export const getSaveGiMedicalMappingsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveGiMedicalMappings>>, TError,{data: BodyType<GiMappingInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveGiMedicalMappings>>, TError,{data: BodyType<GiMappingInput>}, TContext> => {
+
+const mutationKey = ['saveGiMedicalMappings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveGiMedicalMappings>>, {data: BodyType<GiMappingInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  saveGiMedicalMappings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveGiMedicalMappingsMutationResult = NonNullable<Awaited<ReturnType<typeof saveGiMedicalMappings>>>
+    export type SaveGiMedicalMappingsMutationBody = BodyType<GiMappingInput>
+    export type SaveGiMedicalMappingsMutationError = ErrorType<unknown>
+
+    export const useSaveGiMedicalMappings = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveGiMedicalMappings>>, TError,{data: BodyType<GiMappingInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveGiMedicalMappings>>,
+        TError,
+        {data: BodyType<GiMappingInput>},
+        TContext
+      > => {
+      return useMutation(getSaveGiMedicalMappingsMutationOptions(options));
+    }
+
+export const getRemoveGiMedicalMappingUrl = () => {
+
+
+
+
+  return `/api/gi-structure/mappings/remove`
+}
+
+export const removeGiMedicalMapping = async (giMappingRemoval: GiMappingRemoval, options?: Parameters<typeof customFetch>[1]): Promise<OrganisationAssignmentResult> => {
+
+  return customFetch<OrganisationAssignmentResult>(getRemoveGiMedicalMappingUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(giMappingRemoval)
+  }
+);}
+
+
+
+
+
+export const getRemoveGiMedicalMappingMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeGiMedicalMapping>>, TError,{data: BodyType<GiMappingRemoval>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeGiMedicalMapping>>, TError,{data: BodyType<GiMappingRemoval>}, TContext> => {
+
+const mutationKey = ['removeGiMedicalMapping'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeGiMedicalMapping>>, {data: BodyType<GiMappingRemoval>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  removeGiMedicalMapping(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveGiMedicalMappingMutationResult = NonNullable<Awaited<ReturnType<typeof removeGiMedicalMapping>>>
+    export type RemoveGiMedicalMappingMutationBody = BodyType<GiMappingRemoval>
+    export type RemoveGiMedicalMappingMutationError = ErrorType<unknown>
+
+    export const useRemoveGiMedicalMapping = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeGiMedicalMapping>>, TError,{data: BodyType<GiMappingRemoval>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeGiMedicalMapping>>,
+        TError,
+        {data: BodyType<GiMappingRemoval>},
+        TContext
+      > => {
+      return useMutation(getRemoveGiMedicalMappingMutationOptions(options));
+    }
+
+export const getGetGiStructureHistoryUrl = (params: GetGiStructureHistoryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/gi-structure/history?${stringifiedParams}` : `/api/gi-structure/history`
+}
+
+export const getGiStructureHistory = async (params: GetGiStructureHistoryParams, options?: Parameters<typeof customFetch>[1]): Promise<GiStructureEvent[]> => {
+
+  return customFetch<GiStructureEvent[]>(getGetGiStructureHistoryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGiStructureHistoryQueryKey = (params?: GetGiStructureHistoryParams,) => {
+    return [
+    `/api/gi-structure/history`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetGiStructureHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getGiStructureHistory>>, TError = ErrorType<unknown>>(params: GetGiStructureHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGiStructureHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGiStructureHistoryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGiStructureHistory>>> = ({ signal }) => getGiStructureHistory(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGiStructureHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGiStructureHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getGiStructureHistory>>>
+export type GetGiStructureHistoryQueryError = ErrorType<unknown>
+
+
+
+export function useGetGiStructureHistory<TData = Awaited<ReturnType<typeof getGiStructureHistory>>, TError = ErrorType<unknown>>(
+ params: GetGiStructureHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGiStructureHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGiStructureHistoryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetOrganisationUrl = () => {
 

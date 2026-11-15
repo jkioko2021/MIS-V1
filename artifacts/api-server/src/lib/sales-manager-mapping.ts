@@ -1,4 +1,5 @@
 import type { PoolClient } from "pg";
+import { medicalUserSql } from "./medical-manager-scope";
 import { randomUUID } from "node:crypto";
 import type {
   SalesManagerMappingInput, SalesMappingCatalog, SalesMappingOrganization,
@@ -39,7 +40,7 @@ export async function salesManagerMappingSnapshot() {
     const users = (await client.query(`SELECT e.employee_id,e.employee_name,e.username,
       ARRAY(SELECT m.level FROM crm.sales_manager_enrollments m
         WHERE m.employee_id=e.employee_id AND NOT m.is_active ORDER BY m.level) AS inactive_manager_categories
-      FROM crm.employees e WHERE NOT e.is_deleted AND e.activated AND e.approved AND NOT e.employee_locked
+      FROM crm.employees e WHERE NOT e.is_deleted AND e.activated AND e.approved AND NOT e.employee_locked AND ${medicalUserSql('e')}
       ORDER BY e.employee_name,e.employee_id`)).rows;
     return { organizations, users, assignments: assignments.map(expose) };
   });

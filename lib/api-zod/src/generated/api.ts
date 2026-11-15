@@ -8,6 +8,273 @@
 import * as zod from 'zod';
 
 
+export const getGiStructureResponseManagersItemDetailsGIUMIDMax = 50;
+
+
+export const getGiStructureResponseManagersItemDetailsGIUMIDRegExp = new RegExp('^[A-Za-z0-9_-]+$');
+export const getGiStructureResponseManagersItemDetailsGIUMNAMEMax = 150;
+
+export const getGiStructureResponseManagersItemDetailsGIUNITCODEMax = 50;
+
+export const getGiStructureResponseManagersItemDetailsEMAILMax = 254;
+
+
+export const getGiStructureResponseManagersItemDetailsEMAILRegExp = new RegExp('^($|[^\\s@]+@[^\\s@]+\\.[^\\s@]+)$');
+export const getGiStructureResponseManagersItemDetailsHRMISCODEMax = 50;
+
+export const getGiStructureResponseManagersItemDetailsMISEMPCODEMax = 50;
+
+export const getGiStructureResponseManagersItemDetailsNSMCODEMax = 50;
+
+export const getGiStructureResponseManagersItemDetailsVALIDFROMRegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
+export const getGiStructureResponseManagersItemDetailsVALIDTORegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
+export const getGiStructureResponseManagersItemDetailsJOINDATERegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
+export const getGiStructureResponseManagersItemDetailsRETEFFUPTORegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
+export const getGiStructureResponseManagersItemDetailsRETAINERAMTMax = 25;
+
+
+export const getGiStructureResponseManagersItemDetailsRETAINERAMTRegExp = new RegExp('^($|\\d{1,18}(\\.\\d{1,6})?)$');
+
+
+export const GetGiStructureResponse = zod.object({
+  "nodes": zod.array(zod.object({
+  "id": zod.number().int(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "level": zod.enum(['BRANCH', 'UNIT']),
+  "status": zod.enum(['PENDING', 'ACTIVE', 'INACTIVE']),
+  "parent_id": zod.number().int().nullable(),
+  "parent_name": zod.string().nullable(),
+  "manager_id": zod.number().int().nullable(),
+  "manager_name": zod.string().nullable(),
+  "available": zod.boolean(),
+  "version": zod.number().int(),
+  "source_reference_id": zod.number().int().nullable(),
+  "source_parent_code": zod.string().nullable()
+})),
+  "managers": zod.array(zod.object({
+  "id": zod.number().int(),
+  "employee_id": zod.number().int(),
+  "employee_name": zod.string(),
+  "emp_code": zod.string().nullable(),
+  "email": zod.string().nullable(),
+  "level": zod.enum(['BRANCH', 'UNIT']),
+  "is_active": zod.boolean(),
+  "user_eligible": zod.boolean(),
+  "version": zod.number().int(),
+  "details": zod.object({
+  "GI_UM_ID": zod.string().min(1).max(getGiStructureResponseManagersItemDetailsGIUMIDMax).regex(getGiStructureResponseManagersItemDetailsGIUMIDRegExp),
+  "GI_UM_NAME": zod.string().min(1).max(getGiStructureResponseManagersItemDetailsGIUMNAMEMax),
+  "GI_UNIT_CODE": zod.string().max(getGiStructureResponseManagersItemDetailsGIUNITCODEMax),
+  "EMAIL": zod.string().max(getGiStructureResponseManagersItemDetailsEMAILMax).regex(getGiStructureResponseManagersItemDetailsEMAILRegExp),
+  "HRMIS_CODE": zod.string().max(getGiStructureResponseManagersItemDetailsHRMISCODEMax),
+  "MIS_EMP_CODE": zod.string().max(getGiStructureResponseManagersItemDetailsMISEMPCODEMax),
+  "EARN_RETAINER": zod.boolean(),
+  "NSM_CODE": zod.string().max(getGiStructureResponseManagersItemDetailsNSMCODEMax),
+  "VALID_FROM": zod.string().regex(getGiStructureResponseManagersItemDetailsVALIDFROMRegExp),
+  "VALID_TO": zod.string().regex(getGiStructureResponseManagersItemDetailsVALIDTORegExp),
+  "JOIN_DATE": zod.string().regex(getGiStructureResponseManagersItemDetailsJOINDATERegExp),
+  "RET_EFF_UPTO": zod.string().regex(getGiStructureResponseManagersItemDetailsRETEFFUPTORegExp),
+  "RETAINER_AMT": zod.string().max(getGiStructureResponseManagersItemDetailsRETAINERAMTMax).regex(getGiStructureResponseManagersItemDetailsRETAINERAMTRegExp)
+}),
+  "source_notes": zod.array(zod.string()).optional(),
+  "source_unit_codes": zod.array(zod.string()).optional()
+})),
+  "manager_users": zod.array(zod.object({
+  "employee_id": zod.number().int(),
+  "employee_name": zod.string(),
+  "username": zod.string(),
+  "emp_code": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "inactive_manager_categories": zod.array(zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT'])).optional(),
+  "user_eligible": zod.boolean().optional(),
+  "eligibility_note": zod.string().nullish()
+})),
+  "medical_units": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "branch_name": zod.string().nullable(),
+  "available": zod.boolean(),
+  "gi_unit_id": zod.number().int().nullable(),
+  "gi_unit_name": zod.string().nullable(),
+  "mapping_version": zod.number().int(),
+  "mapping_available": zod.boolean()
+})),
+  "manager_references": zod.array(zod.object({
+  "id": zod.number().int(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "level": zod.enum(['BRANCH', 'UNIT']),
+  "enrollment_id": zod.number().int().nullable(),
+  "source_active": zod.boolean(),
+  "review_note": zod.string().nullable()
+})),
+  "nationals": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string()
+}))
+})
+
+
+
+export const saveGiStructureNodeBodyVersionMin = 0;
+
+export const saveGiStructureNodeBodyCodeRegExp = new RegExp('^[A-Za-z0-9_-]{1,50}$');
+export const saveGiStructureNodeBodyNameMax = 150;
+
+
+
+export const saveGiStructureNodeBodyReasonMin = 3;
+export const saveGiStructureNodeBodyReasonMax = 1000;
+
+
+
+export const SaveGiStructureNodeBody = zod.object({
+  "id": zod.number().int().min(1).nullable(),
+  "version": zod.number().int().min(saveGiStructureNodeBodyVersionMin),
+  "code": zod.string().regex(saveGiStructureNodeBodyCodeRegExp),
+  "name": zod.string().min(1).max(saveGiStructureNodeBodyNameMax),
+  "level": zod.enum(['BRANCH', 'UNIT']),
+  "status": zod.enum(['PENDING', 'ACTIVE', 'INACTIVE']),
+  "parent_id": zod.number().int().min(1).nullable(),
+  "manager_id": zod.number().int().min(1).nullable(),
+  "reason": zod.string().min(saveGiStructureNodeBodyReasonMin).max(saveGiStructureNodeBodyReasonMax)
+})
+
+export const SaveGiStructureNodeResponse = zod.object({
+  "version": zod.number().int()
+})
+
+
+
+export const saveGiManagerBodyVersionMin = 0;
+
+
+export const saveGiManagerBodyDetailsGIUMIDMax = 50;
+
+
+export const saveGiManagerBodyDetailsGIUMIDRegExp = new RegExp('^[A-Za-z0-9_-]+$');
+export const saveGiManagerBodyDetailsGIUMNAMEMax = 150;
+
+export const saveGiManagerBodyDetailsGIUNITCODEMax = 50;
+
+export const saveGiManagerBodyDetailsEMAILMax = 254;
+
+
+export const saveGiManagerBodyDetailsEMAILRegExp = new RegExp('^($|[^\\s@]+@[^\\s@]+\\.[^\\s@]+)$');
+export const saveGiManagerBodyDetailsHRMISCODEMax = 50;
+
+export const saveGiManagerBodyDetailsMISEMPCODEMax = 50;
+
+export const saveGiManagerBodyDetailsNSMCODEMax = 50;
+
+export const saveGiManagerBodyDetailsVALIDFROMRegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
+export const saveGiManagerBodyDetailsVALIDTORegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
+export const saveGiManagerBodyDetailsJOINDATERegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
+export const saveGiManagerBodyDetailsRETEFFUPTORegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
+export const saveGiManagerBodyDetailsRETAINERAMTMax = 25;
+
+
+export const saveGiManagerBodyDetailsRETAINERAMTRegExp = new RegExp('^($|\\d{1,18}(\\.\\d{1,6})?)$');
+export const saveGiManagerBodyReasonMin = 3;
+export const saveGiManagerBodyReasonMax = 1000;
+
+
+
+export const SaveGiManagerBody = zod.object({
+  "id": zod.number().int().min(1).nullable(),
+  "version": zod.number().int().min(saveGiManagerBodyVersionMin),
+  "employee_id": zod.number().int().min(1),
+  "level": zod.enum(['BRANCH', 'UNIT']),
+  "is_active": zod.boolean(),
+  "details": zod.object({
+  "GI_UM_ID": zod.string().min(1).max(saveGiManagerBodyDetailsGIUMIDMax).regex(saveGiManagerBodyDetailsGIUMIDRegExp),
+  "GI_UM_NAME": zod.string().min(1).max(saveGiManagerBodyDetailsGIUMNAMEMax),
+  "GI_UNIT_CODE": zod.string().max(saveGiManagerBodyDetailsGIUNITCODEMax),
+  "EMAIL": zod.string().max(saveGiManagerBodyDetailsEMAILMax).regex(saveGiManagerBodyDetailsEMAILRegExp),
+  "HRMIS_CODE": zod.string().max(saveGiManagerBodyDetailsHRMISCODEMax),
+  "MIS_EMP_CODE": zod.string().max(saveGiManagerBodyDetailsMISEMPCODEMax),
+  "EARN_RETAINER": zod.boolean(),
+  "NSM_CODE": zod.string().max(saveGiManagerBodyDetailsNSMCODEMax),
+  "VALID_FROM": zod.string().regex(saveGiManagerBodyDetailsVALIDFROMRegExp),
+  "VALID_TO": zod.string().regex(saveGiManagerBodyDetailsVALIDTORegExp),
+  "JOIN_DATE": zod.string().regex(saveGiManagerBodyDetailsJOINDATERegExp),
+  "RET_EFF_UPTO": zod.string().regex(saveGiManagerBodyDetailsRETEFFUPTORegExp),
+  "RETAINER_AMT": zod.string().max(saveGiManagerBodyDetailsRETAINERAMTMax).regex(saveGiManagerBodyDetailsRETAINERAMTRegExp)
+}),
+  "reason": zod.string().min(saveGiManagerBodyReasonMin).max(saveGiManagerBodyReasonMax)
+})
+
+export const SaveGiManagerResponse = zod.object({
+  "version": zod.number().int()
+})
+
+
+
+export const saveGiMedicalMappingsBodyUnitsItemMedicalUnitCodeRegExp = new RegExp('^[A-Za-z0-9_-]{1,50}$');
+export const saveGiMedicalMappingsBodyUnitsItemVersionMin = 0;
+
+export const saveGiMedicalMappingsBodyUnitsMax = 200;
+
+export const saveGiMedicalMappingsBodyReasonMin = 3;
+export const saveGiMedicalMappingsBodyReasonMax = 1000;
+
+
+
+export const SaveGiMedicalMappingsBody = zod.object({
+  "gi_unit_id": zod.number().int().min(1),
+  "units": zod.array(zod.object({
+  "medical_unit_code": zod.string().regex(saveGiMedicalMappingsBodyUnitsItemMedicalUnitCodeRegExp),
+  "version": zod.number().int().min(saveGiMedicalMappingsBodyUnitsItemVersionMin)
+})).min(1).max(saveGiMedicalMappingsBodyUnitsMax),
+  "reason": zod.string().min(saveGiMedicalMappingsBodyReasonMin).max(saveGiMedicalMappingsBodyReasonMax)
+})
+
+export const SaveGiMedicalMappingsResponse = zod.object({
+  "version": zod.number().int()
+})
+
+
+export const removeGiMedicalMappingBodyMedicalUnitCodeRegExp = new RegExp('^[A-Za-z0-9_-]{1,50}$');
+
+export const removeGiMedicalMappingBodyReasonMin = 3;
+export const removeGiMedicalMappingBodyReasonMax = 1000;
+
+
+
+export const RemoveGiMedicalMappingBody = zod.object({
+  "medical_unit_code": zod.string().regex(removeGiMedicalMappingBodyMedicalUnitCodeRegExp),
+  "version": zod.number().int().min(1),
+  "reason": zod.string().min(removeGiMedicalMappingBodyReasonMin).max(removeGiMedicalMappingBodyReasonMax)
+})
+
+export const RemoveGiMedicalMappingResponse = zod.object({
+  "version": zod.number().int()
+})
+
+
+export const getGiStructureHistoryQueryEntityKeyMax = 50;
+
+
+
+export const GetGiStructureHistoryQueryParams = zod.object({
+  "entity_type": zod.enum(['NODE', 'MANAGER', 'MAPPING']),
+  "entity_key": zod.coerce.string().min(1).max(getGiStructureHistoryQueryEntityKeyMax)
+})
+
+export const GetGiStructureHistoryResponseItem = zod.object({
+  "id": zod.string(),
+  "entity_type": zod.string(),
+  "entity_key": zod.string(),
+  "actor": zod.string(),
+  "reason": zod.string(),
+  "created_at": zod.string(),
+  "before_details": zod.string().nullable(),
+  "after_details": zod.string()
+})
+export const GetGiStructureHistoryResponse = zod.array(GetGiStructureHistoryResponseItem)
+
+
 export const getOrganisationResponseManagersItemDetailsOneCodeMax = 50;
 
 

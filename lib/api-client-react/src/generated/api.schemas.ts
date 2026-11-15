@@ -5,6 +5,267 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type GiLevel = typeof GiLevel[keyof typeof GiLevel];
+
+
+export const GiLevel = {
+  BRANCH: 'BRANCH',
+  UNIT: 'UNIT',
+} as const;
+
+export type GiNodeStatus = typeof GiNodeStatus[keyof typeof GiNodeStatus];
+
+
+export const GiNodeStatus = {
+  PENDING: 'PENDING',
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+} as const;
+
+export interface GiNode {
+  id: number;
+  code: string;
+  name: string;
+  level: GiLevel;
+  status: GiNodeStatus;
+  /** @nullable */
+  parent_id: number | null;
+  /** @nullable */
+  parent_name: string | null;
+  /** @nullable */
+  manager_id: number | null;
+  /** @nullable */
+  manager_name: string | null;
+  available: boolean;
+  version: number;
+  /** @nullable */
+  source_reference_id: number | null;
+  /** @nullable */
+  source_parent_code: string | null;
+}
+
+export interface GiNodeInput {
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  id: number | null;
+  /** @minimum 0 */
+  version: number;
+  /** @pattern ^[A-Za-z0-9_-]{1,50}$ */
+  code: string;
+  /**
+     * @minLength 1
+     * @maxLength 150
+     */
+  name: string;
+  level: GiLevel;
+  status: GiNodeStatus;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  parent_id: number | null;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  manager_id: number | null;
+  /**
+     * @minLength 3
+     * @maxLength 1000
+     */
+  reason: string;
+}
+
+export interface GiManagerDetails {
+  /**
+     * @minLength 1
+     * @maxLength 50
+     * @pattern ^[A-Za-z0-9_-]+$
+     */
+  GI_UM_ID: string;
+  /**
+     * @minLength 1
+     * @maxLength 150
+     */
+  GI_UM_NAME: string;
+  /** @maxLength 50 */
+  GI_UNIT_CODE: string;
+  /**
+     * @maxLength 254
+     * @pattern ^($|[^\s@]+@[^\s@]+\.[^\s@]+)$
+     */
+  EMAIL: string;
+  /** @maxLength 50 */
+  HRMIS_CODE: string;
+  /** @maxLength 50 */
+  MIS_EMP_CODE: string;
+  EARN_RETAINER: boolean;
+  /** @maxLength 50 */
+  NSM_CODE: string;
+  /** @pattern ^($|\d{4}-\d{2}-\d{2})$ */
+  VALID_FROM: string;
+  /** @pattern ^($|\d{4}-\d{2}-\d{2})$ */
+  VALID_TO: string;
+  /** @pattern ^($|\d{4}-\d{2}-\d{2})$ */
+  JOIN_DATE: string;
+  /** @pattern ^($|\d{4}-\d{2}-\d{2})$ */
+  RET_EFF_UPTO: string;
+  /**
+     * @maxLength 25
+     * @pattern ^($|\d{1,18}(\.\d{1,6})?)$
+     */
+  RETAINER_AMT: string;
+}
+
+export interface GiManager {
+  id: number;
+  employee_id: number;
+  employee_name: string;
+  /** @nullable */
+  emp_code: string | null;
+  /** @nullable */
+  email: string | null;
+  level: GiLevel;
+  is_active: boolean;
+  user_eligible: boolean;
+  version: number;
+  details: GiManagerDetails;
+  source_notes?: string[];
+  source_unit_codes?: string[];
+}
+
+export interface GiManagerInput {
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  id: number | null;
+  /** @minimum 0 */
+  version: number;
+  /** @minimum 1 */
+  employee_id: number;
+  level: GiLevel;
+  is_active: boolean;
+  details: GiManagerDetails;
+  /**
+     * @minLength 3
+     * @maxLength 1000
+     */
+  reason: string;
+}
+
+export interface GiMedicalUnit {
+  code: string;
+  name: string;
+  /** @nullable */
+  branch_name: string | null;
+  available: boolean;
+  /** @nullable */
+  gi_unit_id: number | null;
+  /** @nullable */
+  gi_unit_name: string | null;
+  mapping_version: number;
+  mapping_available: boolean;
+}
+
+export interface GiManagerReference {
+  id: number;
+  code: string;
+  name: string;
+  level: GiLevel;
+  /** @nullable */
+  enrollment_id: number | null;
+  source_active: boolean;
+  /** @nullable */
+  review_note: string | null;
+}
+
+export interface GiNationalChoice {
+  code: string;
+  name: string;
+}
+
+export type SalesLevel = typeof SalesLevel[keyof typeof SalesLevel];
+
+
+export const SalesLevel = {
+  NATIONAL: 'NATIONAL',
+  REGION: 'REGION',
+  BRANCH: 'BRANCH',
+  UNIT: 'UNIT',
+} as const;
+
+export interface SalesStaff {
+  employee_id: number;
+  employee_name: string;
+  username: string;
+  /** @nullable */
+  emp_code?: string | null;
+  /** @nullable */
+  email?: string | null;
+  inactive_manager_categories?: SalesLevel[];
+  user_eligible?: boolean;
+  /** @nullable */
+  eligibility_note?: string | null;
+}
+
+export interface GiStructureSnapshot {
+  nodes: GiNode[];
+  managers: GiManager[];
+  manager_users: SalesStaff[];
+  medical_units: GiMedicalUnit[];
+  manager_references: GiManagerReference[];
+  nationals: GiNationalChoice[];
+}
+
+export interface GiMedicalMappingSelection {
+  /** @pattern ^[A-Za-z0-9_-]{1,50}$ */
+  medical_unit_code: string;
+  /** @minimum 0 */
+  version: number;
+}
+
+export interface GiMappingInput {
+  /** @minimum 1 */
+  gi_unit_id: number;
+  /**
+     * @minItems 1
+     * @maxItems 200
+     */
+  units: GiMedicalMappingSelection[];
+  /**
+     * @minLength 3
+     * @maxLength 1000
+     */
+  reason: string;
+}
+
+export interface GiMappingRemoval {
+  /** @pattern ^[A-Za-z0-9_-]{1,50}$ */
+  medical_unit_code: string;
+  /** @minimum 1 */
+  version: number;
+  /**
+     * @minLength 3
+     * @maxLength 1000
+     */
+  reason: string;
+}
+
+export interface GiStructureEvent {
+  id: string;
+  entity_type: string;
+  entity_key: string;
+  actor: string;
+  reason: string;
+  created_at: string;
+  /** @nullable */
+  before_details: string | null;
+  after_details: string;
+}
+
 export type SalesMappingCatalog = typeof SalesMappingCatalog[keyof typeof SalesMappingCatalog];
 
 
@@ -55,30 +316,6 @@ export interface SalesMappingOrganization {
   issues: string[];
   hierarchy_version: string;
   source_reference: boolean;
-}
-
-export type SalesLevel = typeof SalesLevel[keyof typeof SalesLevel];
-
-
-export const SalesLevel = {
-  NATIONAL: 'NATIONAL',
-  REGION: 'REGION',
-  BRANCH: 'BRANCH',
-  UNIT: 'UNIT',
-} as const;
-
-export interface SalesStaff {
-  employee_id: number;
-  employee_name: string;
-  username: string;
-  /** @nullable */
-  emp_code?: string | null;
-  /** @nullable */
-  email?: string | null;
-  inactive_manager_categories?: SalesLevel[];
-  user_eligible?: boolean;
-  /** @nullable */
-  eligibility_note?: string | null;
 }
 
 export interface SalesManagerMappingSnapshot {
@@ -1826,6 +2063,24 @@ export interface AllocatedDocumentUpload {
   /** @nullable */
   originating_system: string | null;
 }
+
+export type GetGiStructureHistoryParams = {
+entity_type: GetGiStructureHistoryEntityType;
+/**
+ * @minLength 1
+ * @maxLength 50
+ */
+entity_key: string;
+};
+
+export type GetGiStructureHistoryEntityType = typeof GetGiStructureHistoryEntityType[keyof typeof GetGiStructureHistoryEntityType];
+
+
+export const GetGiStructureHistoryEntityType = {
+  NODE: 'NODE',
+  MANAGER: 'MANAGER',
+  MAPPING: 'MAPPING',
+} as const;
 
 export type GetOrganisationAgentsParams = {
 /**

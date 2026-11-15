@@ -156,6 +156,7 @@ async function validateLinks(client: PoolClient, entries: SalesCatalogEntry[]) {
 export async function saveSalesCatalogEntry(key: string, input: SalesCatalogInput | SalesCatalogUpdate,
   actor: string, id?: number) {
   const def = catalogDefinition(key);
+  if(key.startsWith("gi-"))throw new SalesSetupError(400,"GI setup is now maintained in Organization structure-GI. Use its hierarchy and manager enrollment pages; original catalog references are retained.");
   return salesSetupTransaction(async client => {
     const entries = (await client.query<SalesCatalogEntry>(`SELECT ${projection} FROM crm.sales_catalog_entries ORDER BY id FOR UPDATE`)).rows;
     const before = id ? entries.find(e => e.id === id && e.catalog === key) : undefined;

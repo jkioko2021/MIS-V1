@@ -13,6 +13,7 @@ import { createSalesNode, enrollSalesManager, updateSalesManager, updateSalesNod
 import { salesCatalogSnapshot, saveSalesCatalogEntry } from "../lib/sales-catalogs";
 import { salesManagerMappingSnapshot, saveSalesManagerMapping, salesManagerMappingHistory } from "../lib/sales-manager-mapping";
 import { canManageIntermediaries } from "../lib/intermediary";
+import { medicalManagerSql, medicalUserSql } from "../lib/medical-manager-scope";
 
 const router = Router();
 router.use("/admin/sales-structure", requireAuth, async (req, res, next) => {
@@ -76,12 +77,13 @@ router.get("/admin/sales-structure", wrap(async (_req, res) => {
       e.emp_code,e.email AS account_email,m.manager_details AS details,
       (NOT e.is_deleted AND e.activated AND e.approved AND NOT e.employee_locked) AS user_eligible
       FROM crm.sales_manager_enrollments m JOIN crm.employees e ON e.employee_id=m.employee_id
+      WHERE ${medicalManagerSql('m')}
       ORDER BY e.employee_name,m.level,m.id`);
     const users = await client.query(`SELECT employee_id,employee_name,username,emp_code,email,
       (activated AND approved AND NOT employee_locked) AS user_eligible,
       nullif(concat_ws('; ',CASE WHEN NOT activated THEN 'Inactive' END,
         CASE WHEN NOT approved THEN 'Not approved' END,CASE WHEN employee_locked THEN 'Locked' END),'') AS eligibility_note
-      FROM crm.employees WHERE NOT is_deleted AND lower(btrim(department))='sales'
+      FROM crm.employees e WHERE NOT is_deleted AND lower(btrim(department))='sales' AND ${medicalUserSql('e')}
       ORDER BY employee_name,employee_id`);
     return { nodes: nodes.rows, managers: managers.rows, users: users.rows };
   });

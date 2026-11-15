@@ -13,4 +13,6 @@ export async function applySalesStructureMetadata(client) {
   await client.query(await readFile(new URL("../../lib/db/migrations/0064_manager_enrollment_drafts.sql", import.meta.url), "utf8"));
   await client.query(await readFile(new URL("../../lib/db/migrations/0065_source_national_mapping.sql", import.meta.url), "utf8"));
   await client.query(await readFile(new URL("../../lib/db/migrations/0066_optional_branch_managers.sql", import.meta.url), "utf8"));
+  await client.query(await readFile(new URL("../../lib/db/migrations/0067_gi_organisation_structure.sql", import.meta.url), "utf8"));
+  await client.query(await readFile(new URL("../../lib/db/migrations/0068_gi_manager_enrollment_fields.sql", import.meta.url), "utf8"));
 }
