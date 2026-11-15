@@ -349,6 +349,7 @@ export interface OrganisationCandidate {
   linked_national_node_id?: number | null;
   /** @nullable */
   linked_national_name?: string | null;
+  setup_version?: number;
   manager_link_status?: OrganisationCandidateManagerLinkStatus;
   branch_approved?: boolean;
   /** @nullable */
@@ -381,6 +382,21 @@ export interface OrganisationAgentList {
   total: number;
   page: number;
   page_size: number;
+}
+
+export interface OrganisationSourceManagerInput {
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  employee_id: number | null;
+  /** @minimum 1 */
+  version: number;
+  /**
+     * @minLength 1
+     * @maxLength 1000
+     */
+  reason: string;
 }
 
 export interface OrganisationAssignmentInput {

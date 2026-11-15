@@ -41,7 +41,7 @@ export async function organisationSnapshot(user: JwtPayload) {
       WHERE n.id=ANY($1::int[]) ORDER BY cardinality(p.node_ids),n.name,n.id`, [scope.ids])).rows.map(({source_details,...node})=>({
         ...node,medical_details:{...sourceMedicalDetails(node.level,source_details),...node.medical_details},
       }));
-    const managers = organisationAdmin(user) ? (await client.query(`SELECT m.id,m.employee_id,m.level,m.is_active,m.version,
+    const managers = scope.global ? (await client.query(`SELECT m.id,m.employee_id,m.level,m.is_active,m.version,
       e.employee_name,e.username,e.emp_code,e.email AS account_email,m.manager_details AS details,
       (NOT e.is_deleted AND e.activated AND e.approved AND NOT e.employee_locked
         AND (m.manager_details IS NULL OR (m.manager_details->>'valid_from'<=CURRENT_DATE::text
@@ -50,7 +50,7 @@ export async function organisationSnapshot(user: JwtPayload) {
       JOIN crm.profiles p ON p.profile_id=e.profile_id
       WHERE p.is_active AND lower(btrim(p.profile_name))='sales manager' AND NOT e.is_deleted
       ORDER BY e.employee_name,m.level`)).rows : [];
-    const managerUsers = organisationAdmin(user) ? (await client.query(`SELECT e.employee_id,e.employee_name,e.username,
+    const managerUsers = scope.global ? (await client.query(`SELECT e.employee_id,e.employee_name,e.username,
       e.emp_code,e.email,(e.activated AND e.approved AND NOT e.employee_locked
         AND lower(btrim(coalesce(e.department,'')))='sales') AS user_eligible,
       nullif(concat_ws('; ',CASE WHEN NOT e.activated THEN 'Inactive' END,
@@ -59,8 +59,8 @@ export async function organisationSnapshot(user: JwtPayload) {
       FROM crm.employees e JOIN crm.profiles p ON p.profile_id=e.profile_id
       WHERE NOT e.is_deleted AND p.is_active AND lower(btrim(p.profile_name))='sales manager'
       ORDER BY e.employee_name,e.employee_id`)).rows : [];
-    const sourceSetups = organisationAdmin(user) ? await pendingSourceSetups(client) : new Map();
-    const candidates = organisationAdmin(user) ? (await client.query(`SELECT s.id AS source_reference_id,s.code,s.name,s.data,
+    const sourceSetups = scope.global ? await pendingSourceSetups(client) : new Map();
+    const candidates = scope.global ? (await client.query(`SELECT s.id AS source_reference_id,s.code,s.name,s.data,
       CASE s.catalog WHEN 'sales-regions' THEN 'REGION' WHEN 'sales-branches' THEN 'BRANCH' ELSE 'UNIT' END AS level,
       CASE s.catalog WHEN 'sales-branches' THEN s.data->>'REGION_CODE'
         WHEN 'sales-units' THEN s.data->>'BRANCH_CODE' ELSE NULL END AS parent_code
@@ -70,7 +70,7 @@ export async function organisationSnapshot(user: JwtPayload) {
         ...candidate,medical_details:sourceMedicalDetails(candidate.level,data),
         ...sourceSetups.get(candidate.source_reference_id),
       })) : [];
-    return { can_manage: organisationAdmin(user), nodes, managers, manager_users: managerUsers, candidates };
+    return { can_manage: scope.global, nodes, managers, manager_users: managerUsers, candidates };
   });
 }
 
@@ -107,8 +107,9 @@ export async function assignAgentUnit(client: PoolClient, row: Record<string, an
     VALUES($1,$2,$3,$4)`,[row.agent_code,row.organisation_unit_id ? "UNIT_TRANSFERRED" : "UNIT_ASSIGNED",actor,reason.trim()]);
 }
 export async function saveOrganisationAssignment(code: string, input: OrganisationAssignmentInput, user: JwtPayload) {
-  if (!organisationAdmin(user)) throw new SalesSetupError(403, "Only System Administrators can approve Unit assignments and transfers.");
   return salesSetupTransaction(async client => {
+    if (!(await organisationScope(client,user)).global)
+      throw new SalesSetupError(403,"Only Sales Administrators and System Administrators can approve Unit assignments and transfers.");
     const row = (await client.query("SELECT * FROM crm.tbl_mis_sales_intermediary WHERE agent_code=$1 FOR UPDATE", [code])).rows[0];
     if (!row) throw new SalesSetupError(404, "Agent not found.");
     if (row.version !== input.version) throw new SalesSetupError(409, "The agent changed. Refresh before assigning.");
@@ -124,7 +125,7 @@ export async function organisationAgents(user: JwtPayload, params: GetOrganisati
     await client.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const scope = await organisationScope(client, user);
     if (params.node_id && !scope.ids.includes(params.node_id)) throw new SalesSetupError(403, "This organisation is outside your assigned scope.");
-    if (params.unmapped && !organisationAdmin(user)) throw new SalesSetupError(403, "Only administrators can view unmapped agents.");
+    if (params.unmapped && !scope.global) throw new SalesSetupError(403, "Only administrators can view unmapped agents.");
     if (params.as_of) {
       const date = new Date(`${params.as_of}T00:00:00Z`);
       if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0,10) !== params.as_of)

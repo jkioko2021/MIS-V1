@@ -136,11 +136,15 @@ assert.equal(find('org-parent').props.options.find(item=>item.value==='3').label
 assert.equal(find('medical-branch_type'),undefined,'Branch type is not shown on hierarchy forms');
 assert.equal(find('medical-speciality'),undefined,'Speciality is not shown on hierarchy forms');
 assert.equal(find('medical-gi_branch'),undefined,'GI branch is not shown for imported Branch records');
-assert.equal(find('org-manager'),undefined,'Branches have no Assigned manager control');
+assert.equal(find('org-manager').props.value,'','Branch manager defaults to blank');
 const preloadedSave=save();
 assert.equal(preloadedSave.data.manager_id,null);
 assert.equal(preloadedSave.data.source_reference_id,22);
 assert.equal(preloadedSave.data.medical_details,undefined,'Unchanged source defaults are inherited rather than resent as overrides');
+change('org-manager','32');
+assert.equal(save().data.manager_id,32,'An optional eligible Branch manager must be saved');
+change('org-manager','');
+assert.equal(save().data.manager_id,null,'An optional Branch manager can be cleared');
 
 state=[];writes.length=0;
 props={nodes,candidates:[],managers:[
@@ -206,7 +210,7 @@ console.log('PASS: hierarchy levels, source drafts, hidden Year/GI branch and ot
     props={nodes:parents,candidates:[],managers:[],managerUsers:[staff],initialLevel,onCancel(){},onSaved:async()=>{},
       onRefresh:async()=>({data:{can_manage:true,nodes:parents,candidates:[],managers:[ready],manager_users:[staff]}})};
     if(initialLevel==='BRANCH'){
-      assert.equal(find('org-manager'),undefined);
+      assert.equal(find('org-manager').props.value,'');
       change('org-code','TEST_BRANCH');change('org-name','Test Branch');change('org-parent','2');
       assert.equal(save().data.manager_id,null,'A Branch can be explicitly saved without a manager');
       continue;

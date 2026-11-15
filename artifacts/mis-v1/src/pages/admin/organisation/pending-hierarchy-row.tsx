@@ -8,16 +8,17 @@ const PARENT_LEVEL: Partial<Record<SalesLevel, SalesLevel>> = {
 };
 
 export function PendingManagerDetails({ candidate }: { candidate: OrganisationCandidate }) {
-  return <span className={candidate.linked_manager_name && candidate.level !== 'BRANCH' ? 'font-medium text-foreground' : ''}>
-    {candidate.level === 'BRANCH' ? '—' : candidate.linked_manager_name ?? '—'}
+  return <span className={candidate.linked_manager_name ? 'font-medium text-foreground' : ''}>
+    {candidate.linked_manager_name ?? '—'}
   </span>;
 }
 
-export function PendingHierarchyRow({ candidate, nodes, candidates, onSetup }: {
+export function PendingHierarchyRow({ candidate, nodes, candidates, onSetup, onReassign }: {
   candidate: OrganisationCandidate;
   nodes: OrganisationNode[];
   candidates: OrganisationCandidate[];
   onSetup: (candidate: OrganisationCandidate) => void;
+  onReassign?: (candidate: OrganisationCandidate) => void;
 }) {
   const expected = PARENT_LEVEL[candidate.level];
   const sameParent = (entry: OrganisationNode | OrganisationCandidate) =>
@@ -46,6 +47,9 @@ export function PendingHierarchyRow({ candidate, nodes, candidates, onSetup }: {
       <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-950">Pending Setup</Badge>
       {candidate.branch_approved && <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-900">Approved for setup</Badge>}
     </div></td>
-    <td className="px-5 py-3.5 text-right"><Button size="sm" variant="outline" onClick={() => onSetup(candidate)}>Complete setup</Button></td>
+    <td className="px-5 py-3.5 text-right"><div className="flex justify-end gap-2">
+      {onReassign && <Button size="sm" variant="outline" onClick={() => onReassign(candidate)}>Reassign manager</Button>}
+      <Button size="sm" variant="outline" onClick={() => onSetup(candidate)}>Complete setup</Button>
+    </div></td>
   </tr>;
 }

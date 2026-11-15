@@ -84,7 +84,7 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
       ? String(initialCandidate.linked_national_node_id) : '');
   const candidateManager = (candidate?: OrganisationCandidate) => {
     const employeeId = candidate?.linked_manager_employee_id;
-    if (!employeeId || candidate?.level === 'BRANCH') return '';
+    if (!employeeId) return '';
     const enrolled = managers.find(manager => manager.employee_id === employeeId
       && manager.level === candidate.level && manager.is_active && manager.user_eligible);
     return enrolled ? String(enrolled.id) : `user:${employeeId}`;
@@ -105,6 +105,9 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
   useEffect(() => {
     if (initialCandidate?.source_reference_id) editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [initialCandidate?.source_reference_id]);
+  useEffect(() => {
+    if (node?.id) editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [node?.id]);
 
   const parentLevel: SalesLevel | null = level === 'REGION' ? 'NATIONAL' : level === 'BRANCH' ? 'REGION' : level === 'UNIT' ? 'BRANCH' : null;
   const currentParent = nodes.find((entry) => entry.id === node?.parent_id);
@@ -145,7 +148,7 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
   const currentError = create.error || update.error;
   const saving = create.isPending || update.isPending;
   const activeChildren = node ? nodes.some((item) => item.parent_id === node.id && item.is_active) : false;
-  const valid = name.trim().length > 0 && (level === 'BRANCH' || /^\d+$/.test(managerId))
+  const valid = name.trim().length > 0 && ((level === 'BRANCH' && !managerId) || /^\d+$/.test(managerId))
     && (node || /^[A-Za-z0-9_-]{1,40}$/.test(code.trim()))
     && (level === 'NATIONAL' || Boolean(parentId))
     && !(node?.is_active && !active && activeChildren)
@@ -164,7 +167,7 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
   const save = () => {
     if (!valid || saving) return;
     const parent = parentId ? Number(parentId) : null;
-    const manager = level === 'BRANCH' ? null : Number(managerId);
+    const manager = level === 'BRANCH' && !managerId ? null : Number(managerId);
     if (node) {
       const nodeMedicalFields = MEDICAL_FIELDS[node.level as 'REGION' | 'BRANCH' | 'UNIT'];
       const medicalData = nodeMedicalFields
@@ -215,7 +218,7 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
       <div>
         <p className="text-[11px] font-bold uppercase tracking-[.16em] text-primary">Structure maintenance</p>
         <h2 className="mt-1 text-lg font-semibold">{node ? `Edit ${LEVEL_LABEL[node.level].toLowerCase()}` : 'Add a hierarchy entry'}</h2>
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Build from the top down. Use an available parent and an eligible manager at the same level. Branches have no manager. Existing imported records are matched in place.</p>
+        <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Build from the top down. Use an available parent and an eligible manager at the same level. Branch managers are optional. Existing imported records are matched in place.</p>
       </div>
       <Button variant="ghost" size="sm" onClick={onCancel}>Close</Button>
     </div>
@@ -311,10 +314,10 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
         {!parentOptions.length && <p className="text-xs text-amber-800">Create an available {LEVEL_LABEL[parentLevel].toLowerCase()} first. A missing parent cannot be inferred or fabricated.</p>}
         {currentParent && !currentParent.available && currentParent.id === Number(parentId) && <p className="text-xs text-amber-800">The current unavailable parent is retained for historical context. Choose an available parent to reparent this entry.</p>}
       </div>}
-      {level !== 'BRANCH' ? <div className="space-y-1.5 sm:col-span-2">
-        <Label htmlFor="org-manager">Assigned manager <span className="text-destructive">*</span></Label>
+      {<div className="space-y-1.5 sm:col-span-2">
+        <Label htmlFor="org-manager">Assigned manager {level !== 'BRANCH' && <span className="text-destructive">*</span>}</Label>
         <SearchableSelect id="org-manager" value={managerId} onValueChange={setManagerId}
-          options={assignedManagerChoices} placeholder="Choose a Sales Manager"
+          options={level === 'BRANCH' ? [{value:'',label:'No manager'},...assignedManagerChoices] : assignedManagerChoices} placeholder={level === 'BRANCH' ? 'No manager' : 'Choose a Sales Manager'}
           searchPlaceholder="Search managers by name or email…" emptyMessage="No Sales Managers match your search." />
         <p className="text-xs text-muted-foreground">Sales Manager users are listed by name and email. Saving requires an active enrollment in the selected manager category.</p>
         {needsEnrollment && selectedStaff && <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
@@ -324,7 +327,7 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
           </Button>
         </div>}
         {managerUsers?.length === 0 && <p className="text-xs text-amber-800">No Sales Manager users are available. Assign the Sales Manager profile in User Enrollment.</p>}
-      </div> : <p className="rounded-lg border bg-card p-3 text-sm text-muted-foreground sm:col-span-2">No manager is assigned to a Branch. Setup approval does not activate this entry; completing and saving the operational parent setup remains a separate action.</p>}
+      </div>}
       <label className="flex items-start gap-3 rounded-lg border bg-card px-3 py-3 sm:col-span-2">
         <input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} className="mt-1 accent-[#28614f]" />
         <span><b className="block text-sm">Active structure entry</b><small className="text-xs leading-5 text-muted-foreground">Inactive entries remain available for reference, but not as new parents or agent destinations.</small></span>

@@ -6,8 +6,8 @@ description: Canonical hierarchy, legacy-reference compatibility and historical 
 The full organisation workflow is National → Region → Branch → Unit → Agent.
 Agent registration selects one Unit; its ancestors are derived, not independently
 editable selections. Operational National, Region and Unit levels require an
-eligible manager designation of the corresponding category. Branches have no
-managers: leave their manager blank and approve them, as the user requested.
+eligible manager designation of the corresponding category. Branch managers are
+optional: existing managerless Branches remain blank unless explicitly assigned.
 New hierarchy setup does not activate,
 approve or change the profile of an existing login account.
 
@@ -125,3 +125,17 @@ remarks from the manager field.
 setup's National parent from this explicit mapping and retain Branch/Unit source
 parents. Do not silently route records into a different National, activate draft
 manager enrollments, or alter agent assignments.
+
+National Sales Admins may manage hierarchy assignments and reassign Region, Unit
+and optional Branch managers. Pending setup links may be changed explicitly to
+an eligible Sales Manager user without activating their category enrollment.
+Operational assignments still require an active, matching category enrollment.
+
+**Why:** The user requested Sales Admin manager reassignment for Regions, Branches
+and Units, then confirmed “Allow optional Branch managers.”
+
+**How to apply:** Preserve Branches without managers until explicitly assigned.
+Keep changes audited and version-checked. Manual pending-manager selections are
+distinct from imported identity matches; retain source records and prior links
+in history. Display imported Unit names in Agent Unit Mapping without making
+pending or unavailable Units selectable.

@@ -100,10 +100,35 @@ export const GetOrganisationResponse = zod.object({
   "linked_manager_name": zod.string().nullish(),
   "linked_national_node_id": zod.number().int().nullish(),
   "linked_national_name": zod.string().nullish(),
+  "setup_version": zod.number().int().optional(),
   "manager_link_status": zod.enum(['PENDING', 'MATCHED', 'UNRESOLVED', 'NOT_REQUIRED']).optional(),
   "branch_approved": zod.boolean().optional(),
   "setup_note": zod.string().nullish()
 }))
+})
+
+
+
+
+
+export const ReassignOrganisationSourceManagerParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+
+
+export const reassignOrganisationSourceManagerBodyReasonMax = 1000;
+
+
+
+export const ReassignOrganisationSourceManagerBody = zod.object({
+  "employee_id": zod.number().int().min(1).nullable(),
+  "version": zod.number().int().min(1),
+  "reason": zod.string().min(1).max(reassignOrganisationSourceManagerBodyReasonMax)
+})
+
+export const ReassignOrganisationSourceManagerResponse = zod.object({
+  "version": zod.number().int()
 })
 
 

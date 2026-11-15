@@ -58,6 +58,7 @@ import type {
   OrganisationAssignmentInput,
   OrganisationAssignmentResult,
   OrganisationSnapshot,
+  OrganisationSourceManagerInput,
   RecordAllocatedDocumentUpload201,
   RecordMedicalDocumentUpload201,
   RequestIntermediaryUpload200,
@@ -202,6 +203,72 @@ export function useGetOrganisation<TData = Awaited<ReturnType<typeof getOrganisa
 
 
 
+
+export const getReassignOrganisationSourceManagerUrl = (id: number,) => {
+
+
+
+
+  return `/api/organisation/sources/${id}/manager`
+}
+
+export const reassignOrganisationSourceManager = async (id: number,
+    organisationSourceManagerInput: OrganisationSourceManagerInput, options?: Parameters<typeof customFetch>[1]): Promise<OrganisationAssignmentResult> => {
+
+  return customFetch<OrganisationAssignmentResult>(getReassignOrganisationSourceManagerUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(organisationSourceManagerInput)
+  }
+);}
+
+
+
+
+
+export const getReassignOrganisationSourceManagerMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reassignOrganisationSourceManager>>, TError,{id: number;data: BodyType<OrganisationSourceManagerInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reassignOrganisationSourceManager>>, TError,{id: number;data: BodyType<OrganisationSourceManagerInput>}, TContext> => {
+
+const mutationKey = ['reassignOrganisationSourceManager'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reassignOrganisationSourceManager>>, {id: number;data: BodyType<OrganisationSourceManagerInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  reassignOrganisationSourceManager(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReassignOrganisationSourceManagerMutationResult = NonNullable<Awaited<ReturnType<typeof reassignOrganisationSourceManager>>>
+    export type ReassignOrganisationSourceManagerMutationBody = BodyType<OrganisationSourceManagerInput>
+    export type ReassignOrganisationSourceManagerMutationError = ErrorType<unknown>
+
+    export const useReassignOrganisationSourceManager = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reassignOrganisationSourceManager>>, TError,{id: number;data: BodyType<OrganisationSourceManagerInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reassignOrganisationSourceManager>>,
+        TError,
+        {id: number;data: BodyType<OrganisationSourceManagerInput>},
+        TContext
+      > => {
+      return useMutation(getReassignOrganisationSourceManagerMutationOptions(options));
+    }
 
 export const getGetOrganisationAgentsUrl = (params?: GetOrganisationAgentsParams,) => {
   const normalizedParams = new URLSearchParams();

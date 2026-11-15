@@ -3,11 +3,14 @@ import { ZodError } from "zod";
 import {
   GetOrganisationResponse, GetOrganisationAgentsQueryParams, GetOrganisationAgentsResponse,
   GetOrganisationAgentHistoryResponse, AssignOrganisationAgentBody, AssignOrganisationAgentResponse,
+  ReassignOrganisationSourceManagerBody,
 } from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth-middleware";
 import { agentCode } from "../lib/intermediary";
 import { SalesSetupError } from "../lib/sales-structure";
 import { organisationSnapshot, organisationAgents, organisationAssignmentHistory, saveOrganisationAssignment } from "../lib/organisation";
+import { reassignSourceManager } from "../lib/organisation-source-setup";
+import { z } from "zod";
 
 const router = Router();
 router.use("/organisation",requireAuth,(_req,res,next) => { res.setHeader("Cache-Control","private, no-store"); next(); });
@@ -22,6 +25,11 @@ const wrap = (fn: (req: Request,res: Response) => Promise<void>) => async (req: 
 };
 router.get("/organisation",wrap(async(req,res)=>{
   res.json(GetOrganisationResponse.parse(await organisationSnapshot(req.user!)));
+}));
+router.post("/organisation/sources/:id/manager",wrap(async(req,res)=>{
+  res.json(AssignOrganisationAgentResponse.parse(await reassignSourceManager(
+    z.coerce.number().int().positive().parse(req.params.id),
+    ReassignOrganisationSourceManagerBody.parse(req.body),req.user!)));
 }));
 router.get("/organisation/agents",wrap(async(req,res)=>{
   const params=GetOrganisationAgentsQueryParams.parse(req.query);

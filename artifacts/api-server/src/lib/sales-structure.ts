@@ -58,7 +58,6 @@ async function syncAdoptedManager(client: PoolClient, node: NodeRow, actor: stri
 }
 async function validateNode(client: PoolClient, input: NodeValues, level: SalesLevel, before?: NodeRow) {
   if (!input.name.trim()) fail("A name is required.");
-  if (level === "BRANCH" && input.manager_id !== null) fail("Branches have no assigned manager. Leave the manager blank.");
   if (level !== "BRANCH" && input.manager_id === null) fail("National, Region and Unit levels require an enrolled manager.");
   const expected = parentLevel[level];
   if (expected === null) {

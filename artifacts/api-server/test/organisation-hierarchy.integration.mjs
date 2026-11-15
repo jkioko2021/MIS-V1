@@ -16,6 +16,7 @@ let connected=false;
 try {
   await build({stdin:{contents:`export * from './artifacts/api-server/src/lib/sales-structure.ts';
     export * from './artifacts/api-server/src/lib/organisation.ts';
+    export * from './artifacts/api-server/src/lib/organisation-source-setup.ts';
     export * from './artifacts/api-server/src/lib/intermediary.ts';
     export {GetOrganisationResponse,GetOrganisationAgentsResponse,GetOrganisationAgentHistoryResponse}
       from './lib/api-zod/src/index.ts';`,
@@ -75,9 +76,9 @@ try {
     hiddenManagers.push(hidden);
     await assert.rejects(lib.createSalesNode({...input(i,i?nodes[i-1].id:null),
       code:`${prefix}_DENIED${i}`,name:`${prefix} denied ${i}`,manager_id:hidden},prefix),
-      e=>e.status===400&&(i===2?/Branches have no/.test(e.message):/Sales Manager profile/.test(e.message)));
+       e=>e.status===400&&/Sales Manager profile/.test(e.message));
     await assert.rejects(lib.updateSalesNode(nodes[i].id,{...input(i,i?nodes[i-1].id:null),
-      manager_id:hidden,version:1},prefix),e=>e.status===400&&(i===2?/Branches have no/.test(e.message):/Sales Manager profile/.test(e.message)));
+       manager_id:hidden,version:1},prefix),e=>e.status===400&&/Sales Manager profile/.test(e.message));
   }
   const profileFiltered=await lib.organisationSnapshot(admin);
   assert(profileFiltered.managers.every(m=>!hiddenManagers.includes(m.id)));
@@ -87,6 +88,16 @@ try {
   assert(!profileFiltered.managers.some(choice=>choice.employee_id===staff[9].employee_id));
   assert(!profileFiltered.manager_users.some(choice=>choice.employee_id===staff[8].employee_id),
     "Other profiles must not appear in the Sales Manager account list");
+  await db.query("SAVEPOINT optional_branch_manager");
+  await lib.updateSalesNode(nodes[2].id,{...input(2,nodes[1].id),manager_id:managers[2].id,version:1},prefix);
+  assert.equal((await lib.organisationSnapshot(user(2))).nodes.length,2,"An assigned optional Branch manager sees its Branch and Unit");
+  await db.query("UPDATE crm.sales_manager_enrollments SET is_active=false WHERE id=$1",[managers[2].id]);
+  await assert.rejects(lib.availableUnit(db,nodes[3].id),e=>e.status===400,"An ineligible assigned Branch manager blocks descendant Unit availability");
+  await db.query("UPDATE crm.sales_manager_enrollments SET is_active=true WHERE id=$1",[managers[2].id]);
+  await lib.updateSalesNode(nodes[2].id,{...input(2,nodes[1].id),manager_id:null,version:2},prefix);
+  assert.equal((await lib.availableUnit(db,nodes[3].id)).available,true,"Clearing an optional Branch manager restores a valid managerless Branch");
+  await db.query("ROLLBACK TO SAVEPOINT optional_branch_manager");
+  await db.query("RELEASE SAVEPOINT optional_branch_manager");
   // Pending-source account links do not create nodes, enrollments or reporting rights.
   await db.query("SAVEPOINT pending_source_fixture");
   const hash=value=>createHash("sha256").update(value).digest("hex");
@@ -97,6 +108,10 @@ try {
   const managerSource=await insertSource("regional-managers",`${prefix}_RM`,{RM_ID:`${prefix}_RM`});
   const sourceRegion=await insertSource("sales-regions",`${prefix}_SOURCE_REGION`,{REGION_MGR_ID:managerSource.code,NSM_CODE:"SOURCE_NATIONAL"});
   const sourceBranch=await insertSource("sales-branches",`${prefix}_SOURCE_BRANCH`,{REGION_CODE:sourceRegion.code,NSM_CODE:"SOURCE_NATIONAL"});
+  const sourceUnit=await insertSource("sales-units",`${prefix}_SOURCE_UNIT`,{BRANCH_CODE:sourceBranch.code,NSM_CODE:"SOURCE_NATIONAL"});
+  await db.query(`INSERT INTO crm.organisation_source_setup
+    (source_reference_id,source_row_sha256,manager_link_status,resolution_note,updated_by)
+    VALUES($1,$2,'UNRESOLVED','Awaiting setup',$3)`,[sourceUnit.id,sourceUnit.row_sha256,prefix]);
   const identityKey=hash(`${prefix}_identity`);
   await db.query(`INSERT INTO crm.sales_manager_user_identities(identity_key,employee_id,created_by) VALUES($1,$2,$3)`,
     [identityKey,staff[9].employee_id,prefix]);
@@ -111,6 +126,29 @@ try {
       branch?"NOT_REQUIRED":"MATCHED",branch,branch?"Approved for setup; operational setup pending.":"Verified source manager link.",prefix]);
   }
   const sourceCandidate=async(id)=>(await lib.organisationSnapshot(admin)).candidates.find(candidate=>candidate.source_reference_id===id);
+  await db.query("SAVEPOINT manual_manager_reassignment");
+  const salesProfile=(await db.query("SELECT profile_id FROM crm.profiles WHERE lower(btrim(profile_name))='national sales admin' AND is_active")).rows[0];
+  assert(salesProfile,"The National Sales Admin profile must be configured");
+  const salesAdmin={...admin,profileId:salesProfile.profile_id};
+  assert.equal((await lib.organisationSnapshot(salesAdmin)).can_manage,true,"Sales Admins receive hierarchy management controls");
+  await assert.rejects(lib.reassignSourceManager(sourceBranch.id,{employee_id:staff[0].employee_id,version:1,reason:"Assign"},user(0)),e=>e.status===403);
+  await assert.rejects(lib.reassignSourceManager(sourceBranch.id,{employee_id:staff[8].employee_id,version:1,reason:"Assign"},salesAdmin),e=>e.status===400);
+  await lib.reassignSourceManager(sourceBranch.id,{employee_id:staff[0].employee_id,version:1,reason:"Assign optional Branch manager"},salesAdmin);
+  assert.equal((await sourceCandidate(sourceBranch.id)).linked_manager_employee_id,staff[0].employee_id);
+  assert.equal((await sourceCandidate(sourceBranch.id)).branch_approved,true);
+  await assert.rejects(lib.reassignSourceManager(sourceBranch.id,{employee_id:staff[1].employee_id,version:1,reason:"Stale update"},salesAdmin),e=>e.status===409);
+  await lib.reassignSourceManager(sourceBranch.id,{employee_id:staff[1].employee_id,version:2,reason:"Reassign Branch manager"},salesAdmin);
+  assert.equal((await sourceCandidate(sourceBranch.id)).linked_manager_employee_id,staff[1].employee_id);
+  await lib.reassignSourceManager(sourceBranch.id,{employee_id:null,version:3,reason:"Clear optional manager"},salesAdmin);
+  assert.equal((await sourceCandidate(sourceBranch.id)).linked_manager_employee_id,null);
+  for(const source of [sourceRegion,sourceUnit]){
+    await lib.reassignSourceManager(source.id,{employee_id:staff[3].employee_id,version:1,reason:"Reassign pending manager"},salesAdmin);
+    assert.equal((await sourceCandidate(source.id)).linked_manager_employee_id,staff[3].employee_id);
+    await assert.rejects(lib.reassignSourceManager(source.id,{employee_id:null,version:2,reason:"Clear required manager"},salesAdmin),e=>e.status===400);
+  }
+  assert.equal((await db.query("SELECT count(*)::int count FROM crm.organisation_source_setup_events WHERE actor=$1",[prefix])).rows[0].count,5);
+  await db.query("ROLLBACK TO SAVEPOINT manual_manager_reassignment");
+  await db.query("RELEASE SAVEPOINT manual_manager_reassignment");
   assert.equal((await sourceCandidate(sourceRegion.id)).linked_manager_employee_id,staff[9].employee_id);
   assert.equal((await sourceCandidate(sourceRegion.id)).manager_link_status,"MATCHED");
   assert.equal((await sourceCandidate(sourceBranch.id)).branch_approved,true);

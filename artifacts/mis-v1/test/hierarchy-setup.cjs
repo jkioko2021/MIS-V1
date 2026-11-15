@@ -120,6 +120,10 @@ tree = render();
 const match = tree.filter(node => node.type === 'PendingHierarchyRow');
 assert.equal(match.length, 1);
 assert.equal(match[0].props.candidate.level, 'BRANCH');
+match[0].props.onReassign(match[0].props.candidate);
+assert.equal(render().find(node=>node.type==='SourceManagerDialog').props.candidate,match[0].props.candidate,
+  'Pending manager reassignment must open the dialog for the selected hierarchy record');
+render().find(node=>node.type==='SourceManagerDialog').props.onClose();
 match[0].props.onSetup(match[0].props.candidate);
 tree = render();
 assert.equal(tree.find(node => node.type === 'NodeEditor').props.initialCandidate, match[0].props.candidate,
@@ -166,6 +170,8 @@ const branchTree=walk(rowOutput.PendingHierarchyRow({candidate:approvedBranch,no
 assert(branchTree.some(node=>node.type==='Badge'&&node.props.children==='Approved for setup'));
 assert(branchTree.some(node=>node.type==='Badge'&&node.props.children==='Pending Setup'),'Branch approval must not activate the hierarchy');
 assert.equal(walk(rowOutput.PendingManagerDetails({candidate:approvedBranch}))[0].props.children,'—');
+assert.equal(walk(rowOutput.PendingManagerDetails({candidate:{...approvedBranch,linked_manager_name:'Optional Branch Manager'}}))[0].props.children,
+  'Optional Branch Manager','Explicit optional Branch manager names must be visible');
 for(const level of ['REGION','BRANCH','UNIT']){
   const mapped={...candidates.find(item=>item.level===level),linked_national_name:'Mapped National'};
   const mappedTree=walk(rowOutput.PendingHierarchyRow({candidate:mapped,nodes,candidates,onSetup(){}}));

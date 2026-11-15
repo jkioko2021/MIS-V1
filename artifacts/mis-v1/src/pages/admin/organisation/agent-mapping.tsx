@@ -6,7 +6,7 @@ import {
   useAssignOrganisationAgent, useGetOrganisationAgentHistory, useGetOrganisationAgents,
 } from '@workspace/api-client-react';
 import type {
-  GetOrganisationAgentsParams, OrganisationAgent, OrganisationAssignment, OrganisationNode,
+  GetOrganisationAgentsParams, OrganisationAgent, OrganisationAssignment, OrganisationNode, OrganisationCandidate,
 } from '@workspace/api-client-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { ArrowDownToLine, ArrowLeft, ArrowRight, AlertCircle, Clock3, GitBranch, RefreshCw, Search, UsersRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { agentPath, ErrorNotice, errorMessage, identityQueryKey, INPUT_CLASS, pathNames, prettyDate } from './shared';
+import { UnitOptions } from './unit-options';
 
 function currentDay() {
   return new Date().toISOString().slice(0, 10);
@@ -49,9 +50,10 @@ function AssignmentHistory({ code, userId, profileId, close }: { code: string; u
   </Dialog>;
 }
 
-function TransferDialog({ agent, units, onClose, onAssigned }: {
+function TransferDialog({ agent, units, pendingUnits, onClose, onAssigned }: {
   agent: OrganisationAgent;
   units: OrganisationNode[];
+  pendingUnits: OrganisationCandidate[];
   onClose: () => void;
   onAssigned: () => void;
 }) {
@@ -60,7 +62,7 @@ function TransferDialog({ agent, units, onClose, onAssigned }: {
   const [unitId, setUnitId] = useState('');
   const [date, setDate] = useState(currentDay());
   const [reason, setReason] = useState('');
-  const destination = units.find((unit) => unit.id === Number(unitId));
+  const destination = units.find((unit) => unit.id === Number(unitId) && unit.available && unit.is_active && unit.id !== agent.unit_id);
   const save = () => {
     if (!destination || !agent.unit_id || !reason.trim() || !date || date > currentDay()) return;
     if (!window.confirm(`Confirm transfer for ${agent.agent_name} (${agent.agent_code})?\n\nFrom: ${agentPath(agent)}\nTo: ${pathNames(destination.path)}\nEffective: ${date}\nReason: ${reason.trim()}`)) return;
@@ -74,7 +76,7 @@ function TransferDialog({ agent, units, onClose, onAssigned }: {
   return <Modal title="Move agent to another Unit" eyebrow="Controlled transfer" onClose={onClose}>
     <div className="my-4 rounded-lg border bg-muted/30 p-3 text-sm"><b>{agent.agent_name}</b><span className="ml-2 font-mono text-xs text-muted-foreground">{agent.agent_code}</span><p className="mt-2 text-xs text-muted-foreground">Current: {agentPath(agent)}</p></div>
     <div className="space-y-4">
-      <label className="block space-y-1.5"><span className="text-sm font-medium">Destination Unit <span className="text-destructive">*</span></span><select className={INPUT_CLASS} value={unitId} onChange={(event) => setUnitId(event.target.value)}><option value="">Select an available Unit</option>{units.filter((unit) => unit.is_active && unit.available && unit.id !== agent.unit_id).map((unit) => <option key={unit.id} value={unit.id}>{unit.name} · {unit.code} — {pathNames(unit.path)}</option>)}</select></label>
+      <label className="block space-y-1.5"><span className="text-sm font-medium">Destination Unit <span className="text-destructive">*</span></span><select className={INPUT_CLASS} value={unitId} onChange={(event) => setUnitId(event.target.value)}><option value="">Select an available Unit</option><UnitOptions units={units.filter(unit=>unit.id!==agent.unit_id)} pending={pendingUnits}/></select></label>
       {destination && <div className="rounded-lg border border-[#cbd9d1] bg-[#f4f8f5] p-3 text-xs"><span className="font-semibold">New reporting path</span><p className="mt-1">{pathNames(destination.path)}</p></div>}
       <label className="block space-y-1.5"><span className="text-sm font-medium">Effective date <span className="text-destructive">*</span></span><Input type="date" value={date} max={currentDay()} onChange={(event) => setDate(event.target.value)} /></label>
       <label className="block space-y-1.5"><span className="text-sm font-medium">Reason for transfer <span className="text-destructive">*</span></span><textarea className="min-h-24 w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm" value={reason} maxLength={1000} onChange={(event) => setReason(event.target.value)} placeholder="Record the operational reason. This becomes part of assignment history." /></label>
@@ -85,9 +87,10 @@ function TransferDialog({ agent, units, onClose, onAssigned }: {
   </Modal>;
 }
 
-function InitialMappingDialog({ agent, units, onClose, onAssigned }: {
+function InitialMappingDialog({ agent, units, pendingUnits, onClose, onAssigned }: {
   agent: OrganisationAgent;
   units: OrganisationNode[];
+  pendingUnits: OrganisationCandidate[];
   onClose: () => void;
   onAssigned: () => void;
 }) {
@@ -96,7 +99,7 @@ function InitialMappingDialog({ agent, units, onClose, onAssigned }: {
   const [unitId, setUnitId] = useState('');
   const [date, setDate] = useState(currentDay());
   const [reason, setReason] = useState('');
-  const destination = units.find((unit) => unit.id === Number(unitId));
+  const destination = units.find((unit) => unit.id === Number(unitId) && unit.available && unit.is_active);
   const save = () => {
     if (!destination || !reason.trim() || !date || date > currentDay()) return;
     if (!window.confirm(`Assign ${agent.agent_name} (${agent.agent_code}) to ${pathNames(destination.path)} effective ${date}?\n\nReason: ${reason.trim()}`)) return;
@@ -110,13 +113,14 @@ function InitialMappingDialog({ agent, units, onClose, onAssigned }: {
   return <Modal title={agent.agent_name} eyebrow="Initial mapping" onClose={onClose}>
     <p className="my-3 text-xs text-muted-foreground">Link this existing imported identity to an available Unit. No duplicate agent or organisation record is created.</p>
     <div className="space-y-3">
-      <label className="block space-y-1.5"><span className="text-sm font-medium">Available Unit <span className="text-destructive">*</span></span><select className={INPUT_CLASS} value={unitId} onChange={(event) => setUnitId(event.target.value)}><option value="">Choose Unit</option>{units.map((unit) => <option key={unit.id} value={unit.id}>{unit.name} · {unit.code} — {pathNames(unit.path)}</option>)}</select></label>
+      <label className="block space-y-1.5"><span className="text-sm font-medium">Available Unit <span className="text-destructive">*</span></span><select className={INPUT_CLASS} value={unitId} onChange={(event) => setUnitId(event.target.value)}><option value="">Choose Unit</option><UnitOptions units={units} pending={pendingUnits}/></select></label>
+      {!!pendingUnits.length&&<p className="text-xs text-muted-foreground">Pending Unit names are listed for reference. Complete and activate their hierarchy before assigning agents.</p>}
       {destination && <p className="rounded-lg border bg-[#f4f8f5] p-3 text-xs">{pathNames(destination.path)}</p>}
       <label className="block space-y-1.5"><span className="text-sm font-medium">Effective date <span className="text-destructive">*</span></span><Input type="date" value={date} max={currentDay()} onChange={(event) => setDate(event.target.value)} /></label>
       <label className="block space-y-1.5"><span className="text-sm font-medium">Reason <span className="text-destructive">*</span></span><textarea className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={reason} maxLength={1000} onChange={(event) => setReason(event.target.value)} /></label>
     </div>
     {assign.error && <Alert variant="destructive" className="mt-3"><AlertCircle className="h-4 w-4" /><AlertDescription>{errorMessage(assign.error)}</AlertDescription></Alert>}
-    <div className="mt-4 flex justify-end gap-2 border-t pt-4"><Button variant="outline" onClick={onClose}>Cancel</Button><Button onClick={save} disabled={!unitId || !reason.trim() || date > currentDay() || assign.isPending}>{assign.isPending ? 'Saving…' : 'Confirm initial mapping'}</Button></div>
+    <div className="mt-4 flex justify-end gap-2 border-t pt-4"><Button variant="outline" onClick={onClose}>Cancel</Button><Button onClick={save} disabled={!destination || !reason.trim() || date > currentDay() || assign.isPending}>{assign.isPending ? 'Saving…' : 'Confirm initial mapping'}</Button></div>
     <p className="mt-3 text-[11px] text-muted-foreground">The server records approver and timestamp.</p>
   </Modal>;
 }
@@ -141,7 +145,7 @@ async function invalidateAssignment(client: ReturnType<typeof useQueryClient>, c
   ]);
 }
 
-export function AgentMapping({ canManage, nodes, initialNodeId, userId, profileId }: { canManage: boolean; nodes: OrganisationNode[]; initialNodeId?: number; userId: number; profileId: number }) {
+export function AgentMapping({ canManage, nodes, candidates=[], initialNodeId, userId, profileId }: { canManage: boolean; nodes: OrganisationNode[]; candidates?:OrganisationCandidate[]; initialNodeId?: number; userId: number; profileId: number }) {
   const [search, setSearch] = useState('');
   const [nodeId, setNodeId] = useState(initialNodeId ? String(initialNodeId) : '');
   const [unmapped, setUnmapped] = useState(false);
@@ -162,7 +166,8 @@ export function AgentMapping({ canManage, nodes, initialNodeId, userId, profileI
     query: { queryKey: identityQueryKey(getGetOrganisationAgentsQueryKey(params), { id: userId, profileId }), enabled: !!userId },
   });
   const assign = useAssignOrganisationAgent();
-  const activeUnits = nodes.filter((node) => node.level === 'UNIT' && node.is_active && node.available);
+  const unitChoices = nodes.filter((node) => node.level === 'UNIT');
+  const pendingUnits = canManage ? candidates.filter(candidate=>candidate.level==='UNIT') : [];
   const items = data?.items ?? [];
   const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / (data?.page_size ?? 50)));
   const downloadCsv = () => {
@@ -191,10 +196,12 @@ export function AgentMapping({ canManage, nodes, initialNodeId, userId, profileI
         <Button variant="outline" size="sm" onClick={downloadCsv} disabled={!items.length} className="gap-2"><ArrowDownToLine className="h-4 w-4" />Download current page CSV</Button>
       </div>
       <p className="mb-4 rounded-md bg-[#eef4f0] px-3 py-2 text-xs text-[#3d5b4f]">Export includes only the current page ({items.length} rows) with active filters. Assignment hierarchy follows {asOf ? `the ${asOf} as-of date` : 'current assignments'}; agent status is always current.</p>
+      {!!pendingUnits.length&&<p className="mb-4 text-xs text-muted-foreground">{pendingUnits.length} imported Unit names are listed as Pending Setup. Complete their parent hierarchy and manager enrollment before assigning agents.</p>}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[1.4fr_1fr_160px_auto]">
         <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search agent name or code" className="pl-9" data-testid="input-agent-search" /></div>
         <select aria-label="Filter by any hierarchy level" className={INPUT_CLASS} value={nodeId} onChange={(event) => { setNodeId(event.target.value); setPage(1); }}>
           <option value="">All accessible organisation levels</option>{nodes.map((node) => <option key={node.id} value={node.id}>{node.level[0] + node.level.slice(1).toLowerCase()} · {pathNames(node.path)}</option>)}
+          <UnitOptions units={[]} pending={pendingUnits}/>
         </select>
         <label className="flex h-10 items-center gap-2 rounded-md border px-3 text-xs"><span className="shrink-0">As of</span><input type="date" value={asOf} onChange={(event) => { setAsOf(event.target.value); setPage(1); }} className="min-w-0 bg-transparent text-xs" /></label>
         <Button variant="outline" onClick={() => { setSearch(''); setNodeId(''); setAsOf(''); setUnmapped(false); setPage(1); }} disabled={isFetching}>Reset filters</Button>
@@ -219,8 +226,8 @@ export function AgentMapping({ canManage, nodes, initialNodeId, userId, profileI
         <span>Page {data?.page ?? page} of {totalPages} · {data?.page_size ?? 50} records per page</span><div className="flex items-center gap-2"><Button variant="outline" size="sm" disabled={page <= 1 || isFetching} onClick={() => setPage((value) => Math.max(1, value - 1))}><ArrowLeft className="mr-1 h-3.5 w-3.5" />Previous</Button><Button variant="outline" size="sm" disabled={page >= totalPages || isFetching} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>Next<ArrowRight className="ml-1 h-3.5 w-3.5" /></Button></div>
       </footer>
     </section>
-    {initialAgent && canManage && <InitialMappingDialog agent={initialAgent} units={activeUnits} onClose={() => setInitialAgent(null)} onAssigned={() => setInitialAgent(null)} />}
-    {transferAgent && <TransferDialog agent={transferAgent} units={activeUnits} onClose={() => setTransferAgent(null)} onAssigned={() => setTransferAgent(null)} />}
+    {initialAgent && canManage && <InitialMappingDialog agent={initialAgent} units={unitChoices} pendingUnits={pendingUnits} onClose={() => setInitialAgent(null)} onAssigned={() => setInitialAgent(null)} />}
+    {transferAgent && canManage && <TransferDialog agent={transferAgent} units={unitChoices} pendingUnits={pendingUnits} onClose={() => setTransferAgent(null)} onAssigned={() => setTransferAgent(null)} />}
     {historyCode && <AssignmentHistory code={historyCode} userId={userId} profileId={profileId} close={() => setHistoryCode('')} />}
   </section>;
 }

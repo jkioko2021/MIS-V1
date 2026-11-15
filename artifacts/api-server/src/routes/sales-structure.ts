@@ -12,15 +12,19 @@ import { withTransaction } from "../lib/postgres";
 import { createSalesNode, enrollSalesManager, updateSalesManager, updateSalesNode, SalesSetupError } from "../lib/sales-structure";
 import { salesCatalogSnapshot, saveSalesCatalogEntry } from "../lib/sales-catalogs";
 import { salesManagerMappingSnapshot, saveSalesManagerMapping, salesManagerMappingHistory } from "../lib/sales-manager-mapping";
+import { canManageIntermediaries } from "../lib/intermediary";
 
 const router = Router();
-router.use("/admin/sales-structure", requireAuth, (req, res, next) => {
-  if (req.user?.profileId !== 1 && req.user?.profileId !== 2) {
-    res.status(403).json({ error: "Medical and GI Structure setup require SuperAdmin or System Admin access." });
-    return;
-  }
-  res.setHeader("Cache-Control", "private, no-store");
-  next();
+router.use("/admin/sales-structure", requireAuth, async (req, res, next) => {
+  try {
+    const admin = [1,2].includes(req.user!.profileId);
+    const salesAction = req.method === "GET" || (["POST","PATCH"].includes(req.method)
+      && /^\/(?:nodes|managers)(?:\/\d+)?\/?$/.test(req.path));
+    if (!admin && (!salesAction || !await canManageIntermediaries(req.user!.profileId))) {
+      res.status(403).json({error:"Sales Administrator or System Administrator access is required."});return;
+    }
+    res.setHeader("Cache-Control", "private, no-store");next();
+  } catch(err) { next(err); }
 });
 const wrap = (fn: (req: Request, res: Response) => Promise<void>) =>
   async (req: Request, res: Response): Promise<void> => {

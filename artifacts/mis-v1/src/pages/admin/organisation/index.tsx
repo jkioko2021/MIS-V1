@@ -15,6 +15,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/utils';
 import { AgentMapping } from './agent-mapping';
+import { SourceManagerDialog } from './source-manager-dialog';
 import { OrganisationTree } from './hierarchy-tree';
 import { PendingHierarchyRow } from './pending-hierarchy-row';
 import { MedicalRecords } from './medical-records';
@@ -58,6 +59,7 @@ export default function OrganisationPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [editor, setEditor] = useState<OrganisationNode | 'new' | null>(null);
   const [initialCandidate, setInitialCandidate] = useState<OrganisationCandidate | undefined>(undefined);
+  const [managerCandidate,setManagerCandidate]=useState<OrganisationCandidate|null>(null);
   const route = location.split('?')[0].replace(/\/+$/, '').split('/').at(-1) ?? 'dashboard';
   const isHierarchy = route === 'hierarchy';
   const requestedLevel = new URLSearchParams(querySearch).get('level') as SalesLevel | null;
@@ -202,7 +204,7 @@ export default function OrganisationPage() {
           <div className="mt-4 rounded-lg border border-[#d6e3da] bg-[#f4f8f5] p-4 text-xs leading-5 text-[#4e685b]">Inactive organisations retain their manager assignment for reference; manager account activation and eligibility are separate controls.</div>
         </section>}
 
-        {isAgents && <AgentMapping key={`${selectedNodeId ?? 'all'}:${user?.id ?? 'anonymous'}:${user?.profileId ?? 0}`} canManage={canManage} nodes={nodes} initialNodeId={selectedNodeId ? Number(selectedNodeId) : undefined} userId={user?.id ?? 0} profileId={user?.profileId ?? 0} />}
+        {isAgents && <AgentMapping key={`${selectedNodeId ?? 'all'}:${user?.id ?? 'anonymous'}:${user?.profileId ?? 0}`} canManage={canManage} nodes={nodes} candidates={data.candidates} initialNodeId={selectedNodeId ? Number(selectedNodeId) : undefined} userId={user?.id ?? 0} profileId={user?.profileId ?? 0} />}
 
         {!isAgents && !isManagers && (isHierarchy || level) && <>
           {isHierarchy && <div className="max-w-sm space-y-1.5">
@@ -217,7 +219,7 @@ export default function OrganisationPage() {
             <p className="mt-1">{(['REGION', 'BRANCH', 'UNIT'] as const).filter(item => !displayLevel || item === displayLevel).map(item =>
               `${levelPendingSources.filter(candidate => candidate.level === item).length} ${item === 'REGION' ? 'Regions' : item === 'BRANCH' ? 'Branches' : 'Units'}`,
             ).join(' · ')}. Complete parent setup and required manager enrollments before using them for agent assignments.</p>
-            <p className="mt-1 text-xs">Verified manager links and Branch setup approvals do not activate the hierarchy. Branches have no assigned manager; unresolved manager references remain pending.</p>
+            <p className="mt-1 text-xs">Manager links and Branch setup approvals do not activate the hierarchy. Branch managers are optional; unresolved manager references remain pending.</p>
           </div>}
           {canManage && !isHierarchy && level !== 'NATIONAL' && <MedicalRecords
             snapshot={catalogs}
@@ -240,7 +242,7 @@ export default function OrganisationPage() {
               <tbody>{tableRecords.map((item) => {
                 if (item.kind === 'pending') return <PendingHierarchyRow key={`source-${item.record.source_reference_id}`}
                   candidate={item.record} nodes={nodes} candidates={data.candidates}
-                  onSetup={beginAdoption} />;
+                  onSetup={beginAdoption} onReassign={setManagerCandidate} />;
                 const node = item.record;
                 const parentInScope = node.parent_id == null ? undefined : nodes.find((item) => item.id === node.parent_id);
                 const parentFromPath = node.path.length > 1 ? node.path[node.path.length - 2] : undefined;
@@ -251,7 +253,10 @@ export default function OrganisationPage() {
                   <td className="px-5 py-3.5">{node.manager_name || <span className="text-amber-800">Manager not assigned</span>}</td>
                   <td className="px-5 py-3.5"><div className="flex flex-wrap gap-2 text-xs"><Badge variant="outline">{node.child_count} child{node.child_count === 1 ? '' : 'ren'}</Badge><Badge variant="outline">{node.agent_count} agents</Badge></div>{node.level === 'UNIT' && <Link href={`/admin/organisation/agents?node_id=${node.id}`} className="mt-2 inline-flex text-xs font-medium text-primary hover:underline">View agents</Link>}</td>
                   <td className="px-5 py-3.5"><Badge variant="outline" className={node.is_active ? 'border-emerald-200 bg-emerald-50/70 text-emerald-800' : 'text-muted-foreground'}>{node.is_active ? 'Active' : 'Inactive'}</Badge></td>
-                  <td className="px-5 py-3.5 text-right">{canManage && <Button size="sm" variant="outline" onClick={() => { setInitialCandidate(undefined); if (isHierarchy) setSelectedLevel(node.level); setEditor(node); }} className="gap-1.5"><Pencil className="h-3.5 w-3.5" />Edit</Button>}</td>
+                  <td className="px-5 py-3.5 text-right">{canManage && <div className="flex justify-end gap-2">
+                    {node.level!=='NATIONAL'&&<Button size="sm" variant="outline" onClick={()=>{setInitialCandidate(undefined);if(isHierarchy)setSelectedLevel(node.level);setEditor(node);}}>Reassign manager</Button>}
+                    <Button size="sm" variant="outline" onClick={() => { setInitialCandidate(undefined); if (isHierarchy) setSelectedLevel(node.level); setEditor(node); }} className="gap-1.5"><Pencil className="h-3.5 w-3.5" />Edit</Button>
+                  </div>}</td>
                 </tr>;
               })}</tbody></table></div>}
           <footer className="flex flex-col gap-2 border-t bg-muted/20 px-5 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between"><span>Imported identities and organisations are reused, not copied.</span><Link href="/admin/organisation/agents" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">Open agent mapping<ArrowRight className="h-3.5 w-3.5" /></Link></footer>
@@ -269,6 +274,7 @@ export default function OrganisationPage() {
         {!canManage && <p className="text-center text-xs text-muted-foreground">Access follows your assigned reporting scope. This view contains no sales or commission metrics.</p>}
       </>}
       {data && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#d6e3da] bg-[#eaf2ec] px-4 py-3 text-xs text-[#456454]"><span className="flex items-center gap-2"><CircleHelp className="h-4 w-4" />Reporting hierarchy is maintained independently from manager account enrollment.</span>{canManage && <Link href={managerLink} className="font-semibold hover:underline">Manager Enrollment <ArrowRight className="inline h-3.5 w-3.5" /></Link>}</div>}
+      {managerCandidate&&canManage&&<SourceManagerDialog candidate={managerCandidate} users={data?.manager_users??[]} onClose={()=>setManagerCandidate(null)}/>}
     </main>
   </div>;
 }

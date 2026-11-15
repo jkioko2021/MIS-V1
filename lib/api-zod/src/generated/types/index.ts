@@ -85,6 +85,7 @@ export * from './organisationCandidateManagerLinkStatus';
 export * from './organisationNode';
 export * from './organisationPathItem';
 export * from './organisationSnapshot';
+export * from './organisationSourceManagerInput';
 export * from './recordAllocatedDocumentUpload201';
 export * from './recordAllocatedDocumentUpload201Data';
 export * from './recordMedicalDocumentUpload201';

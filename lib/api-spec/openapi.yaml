@@ -20,6 +20,22 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/OrganisationSnapshot" }
+  /organisation/sources/{id}/manager:
+    post:
+      operationId: reassignOrganisationSourceManager
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OrganisationSourceManagerInput" }
+      responses:
+        "200":
+          description: Pending setup manager reassigned with audit history
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganisationAssignmentResult" }
   /organisation/agents:
     get:
       operationId: getOrganisationAgents
@@ -1178,6 +1194,7 @@ components:
         linked_manager_name: { type: [string, "null"] }
         linked_national_node_id: { type: [integer, "null"] }
         linked_national_name: { type: [string, "null"] }
+        setup_version: { type: integer }
         manager_link_status: { type: string, enum: [PENDING, MATCHED, UNRESOLVED, NOT_REQUIRED] }
         branch_approved: { type: boolean }
         setup_note: { type: [string, "null"] }
@@ -1209,6 +1226,13 @@ components:
         total: { type: integer }
         page: { type: integer }
         page_size: { type: integer }
+    OrganisationSourceManagerInput:
+      type: object
+      required: [employee_id, version, reason]
+      properties:
+        employee_id: { type: [integer, "null"], minimum: 1 }
+        version: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 1, maxLength: 1000 }
     OrganisationAssignmentInput:
       type: object
       required: [unit_id, version, effective_date, reason]

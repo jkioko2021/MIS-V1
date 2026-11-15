@@ -39,6 +39,25 @@ adoption. Links do not create users or manager designations and grant no access.
 Setup decisions are audited separately from immutable source records. Source
 changes or loss of account eligibility invalidate the displayed link/approval.
 
+Branch managers are now optional: existing blank assignments are retained, and
+an administrator may explicitly assign, reassign or clear a Branch manager.
+Operational Branch assignments require an active Branch-category enrollment;
+an ineligible assigned Branch manager makes its descendant Units unavailable.
+National Sales Admins, SuperAdmins and System Admins can maintain hierarchy nodes
+and category enrollments. Ordinary Sales Managers retain scoped read access.
+Sales Admin access does not grant catalog maintenance or user administration.
+
+**Reassign manager** on a pending Region, Branch or Unit opens a searchable
+Sales Manager selector. Saving requires a reason and the current setup version;
+the prior assignment, actor and reason are audited. A manual pending selection
+does not overwrite the uploaded manager code or activate a category enrollment.
+Operational records use their validated hierarchy editor for reassignment.
+
+Agent Unit Mapping shows Unit **names**, retaining canonical IDs as option
+values. Pending imported Units are visible in a disabled Pending Setup group;
+inactive or unavailable operational Units are also disabled. Neither initial
+mapping nor transfer can save an unavailable Unit.
+
 The user-approved Medical National mapping connects uploaded `N_0001` to the
 existing `NATIONAL` node (`NSM-0001`). Region, Branch and Unit pending rows display
 that National without changing their original codes or activation state.
