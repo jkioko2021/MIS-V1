@@ -135,6 +135,18 @@ const optionText = value => typeof value === 'string' ? value
   node('button-save-manager-details').props.onClick();
   assert.equal(writes.at(-1).data.data.version, 4);
   assert.equal(writes.at(-1).data.data.details.email, 'updated-manager@example.test');
+  state=[];
+  currentProps={...currentProps,manager:undefined,initialLevel:'REGION',initialEmployeeId:2,lockSelection:false};
+  const beforeDraft=writes.length;
+  node('checkbox-manager-designation-active').props.onChange({target:{checked:false}});
+  node('button-save-manager-details').props.onClick();
+  assert.equal(writes.length,beforeDraft+1,'An inactive enrollment can retain missing fields');
+  assert.equal(writes.at(-1).data.data.details.mobile_no,'');
+  assert.equal(writes.at(-1).data.data.details.h_tax,'');
+  assert.equal(writes.at(-1).data.data.is_active,false);
+  node('checkbox-manager-designation-active').props.onChange({target:{checked:true}});
+  node('button-save-manager-details').props.onClick();
+  assert.equal(writes.length,beforeDraft+1,'Activating the same incomplete draft must be blocked');
   assert.equal(JSON.stringify(staff), original, 'Form interactions must not mutate account data');
   console.info('PASS: all manager fields, read-only existing account codes/name, four categories, missing-code exclusion, exact payroll/tax/phone values, account-change reset, immutable edit identity and explicit stale-draft rebase.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -108,3 +108,14 @@ only the selected origin, assigns the destination at the same manager level,
 and preserves both histories atomically. Require a reason and explicit review
 of any destination manager being replaced. Never bulk-clear the manager's other
 teams or rewrite their normal user account.
+
+Missing uploaded manager enrollment fields must stay blank in inactive drafts.
+
+**Why:** When told uploaded managers lacked required contact/tax information and
+offered inactive drafts, the user replied “leave them blank.”
+
+**How to apply:** Use verified existing MIS accounts and their canonical codes.
+Do not invent contact data, tax rates or validity dates, and do not choose between
+conflicting uploaded values. Preserve Medical/GI source provenance and one
+enrollment per person/category. Missing details prevent activation; neither draft
+capture nor later category edits activate or change the person's login account.

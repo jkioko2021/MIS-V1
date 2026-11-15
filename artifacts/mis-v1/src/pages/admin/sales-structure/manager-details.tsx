@@ -83,19 +83,19 @@ function validCalendarDate(value: string) {
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
-function validateDetails(details: ManagerDetailsDraft) {
+function validateDetails(details: ManagerDetailsDraft, requireComplete = true) {
   if (!details.code.trim()) return 'CODE is required. Select an existing MIS user with a code.';
   if (details.code.length > 50 || !/^[A-Za-z0-9_-]+$/.test(details.code)) return 'CODE must be at most 50 letters, numbers, underscores or hyphens.';
   if (!details.name.trim()) return 'NAME is required.';
   if (details.name.length > 150) return 'NAME must be 150 characters or fewer.';
-  if (!details.email.trim() || details.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(details.email)) return 'Enter a valid manager contact EMAIL (254 characters or fewer).';
-  if (!details.hrmis_code.trim() || details.hrmis_code.length > 50) return 'HRMIS_CODE is required and must be 50 characters or fewer.';
-  if (!details.mobile_no.trim() || details.mobile_no.length > 50) return 'MOBILE_NO is required and must be 50 characters or fewer.';
-  if (!details.h_tax || !/^(0|[1-9][0-9]{0,8})(\.[0-9]{1,6})?$/.test(details.h_tax)) return 'H_TAX is required; enter a non-negative decimal with up to 9 integer and 6 fractional digits.';
+  if ((requireComplete || details.email.trim()) && (details.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(details.email))) return 'Enter a valid manager contact EMAIL (254 characters or fewer).';
+  if ((requireComplete && !details.hrmis_code.trim()) || details.hrmis_code.length > 50) return 'HRMIS_CODE is required and must be 50 characters or fewer.';
+  if ((requireComplete && !details.mobile_no.trim()) || details.mobile_no.length > 50) return 'MOBILE_NO is required and must be 50 characters or fewer.';
+  if ((requireComplete || details.h_tax.trim()) && !/^(0|[1-9][0-9]{0,8})(\.[0-9]{1,6})?$/.test(details.h_tax)) return 'H_TAX is required; enter a non-negative decimal with up to 9 integer and 6 fractional digits.';
   if (!details.mis_emp_code.trim() || details.mis_emp_code.length > 50) return 'MIS_EMP_CODE is required and must be 50 characters or fewer.';
-  if (!validCalendarDate(details.valid_from)) return 'VALID_FROM must be a real calendar date.';
-  if (!validCalendarDate(details.valid_to)) return 'VALID_TO must be a real calendar date.';
-  if (details.valid_to < details.valid_from) return 'VALID_TO must be on or after VALID_FROM.';
+  if ((requireComplete || details.valid_from.trim()) && !validCalendarDate(details.valid_from)) return 'VALID_FROM must be a real calendar date.';
+  if ((requireComplete || details.valid_to.trim()) && !validCalendarDate(details.valid_to)) return 'VALID_TO must be a real calendar date.';
+  if (details.valid_from && details.valid_to && details.valid_to < details.valid_from) return 'VALID_TO must be on or after VALID_FROM.';
   return '';
 }
 
@@ -274,7 +274,7 @@ export function ManagerDetailsForm({
         return;
       }
     }
-    const issue = validateDetails(details);
+    const issue = validateDetails(details, isActive);
     if (issue) {
       setValidationError(issue);
       return;
@@ -409,6 +409,7 @@ export function ManagerDetailsForm({
           <DetailsField id="manager-detail-mis-emp-code" label="MIS_EMP_CODE" value={details.mis_emp_code} disabled={pending} readOnly hint="Read-only; copied from the selected MIS user’s existing code." />
           <DetailsField id="manager-detail-valid-from" label="VALID_FROM" type="date" value={details.valid_from} onChange={value => updateDetails('valid_from', value)} disabled={pending} />
           <DetailsField id="manager-detail-valid-to" label="VALID_TO" type="date" value={details.valid_to} onChange={value => updateDetails('valid_to', value)} disabled={pending} />
+          {!isActive && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 sm:col-span-2">Inactive draft: missing contact, tax and validity details may remain blank. Complete all required details before activating this manager enrollment. The MIS login account is unchanged.</p>}
 
           <label className="flex min-h-10 items-center gap-3 rounded-md border bg-muted/15 px-3 py-2 sm:col-span-2">
             <input type="checkbox" checked={isActive} disabled={pending || (!accountCanBeActive && !isActive)} onChange={event => setIsActive(event.target.checked)} className="h-4 w-4 accent-[#28614f]" data-testid="checkbox-manager-designation-active" />

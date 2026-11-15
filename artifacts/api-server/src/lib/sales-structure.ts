@@ -177,10 +177,12 @@ async function validateMedicalGiLink(client: PoolClient, values: Record<string, 
     if (!exists.rowCount) fail(`Select an existing ${field === "GI_UNIT" ? "GI Unit" : "GI Branch"}, or clear the optional link.`);
   }
 }
-async function checkedManagerDetails(client: PoolClient, employeeId: number, input: SalesManagerDetails, requireSales = false) {
+async function checkedManagerDetails(client: PoolClient, employeeId: number, input: SalesManagerDetails, requireSales = false, requireComplete = true) {
   if (!input) fail("Complete the manager enrollment details.");
   const details = Object.fromEntries(Object.entries(input).map(([key, value]) => [key, value.trim()])) as SalesManagerDetails;
-  for (const [key, value] of Object.entries(details)) if (!value) fail(`${key} is required.`);
+  for (const [key, value] of Object.entries(details)) if (!value && (requireComplete || ["code","name","mis_emp_code"].includes(key)))
+    fail(`${key} is required${requireComplete ? " before activating this enrollment. Edit the manager details first" : ""}.`);
+  if (details.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(details.email)) fail("Enter a valid manager email.");
   const { rows } = await client.query<{ employee_name: string; emp_code: string | null; department: string | null }>(
     `SELECT employee_name,emp_code,department FROM crm.employees WHERE employee_id=$1 AND NOT is_deleted FOR SHARE`, [employeeId]);
   const user = rows[0];
@@ -199,24 +201,25 @@ async function checkedManagerDetails(client: PoolClient, employeeId: number, inp
     const date = new Date(`${value}T00:00:00.000Z`);
     return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
   };
-  if (!validDate(details.valid_from) || !validDate(details.valid_to))
+  if ((details.valid_from && !validDate(details.valid_from)) || (details.valid_to && !validDate(details.valid_to)))
     fail("Valid From and Valid To must be real calendar dates in YYYY-MM-DD format.");
-  if (details.valid_to < details.valid_from) fail("Valid To cannot be before Valid From.");
-  if (!/^(0|[1-9][0-9]{0,8})(\.[0-9]{1,6})?$/.test(details.h_tax))
+  if (details.valid_from && details.valid_to && details.valid_to < details.valid_from) fail("Valid To cannot be before Valid From.");
+  if (details.h_tax && !/^(0|[1-9][0-9]{0,8})(\.[0-9]{1,6})?$/.test(details.h_tax))
     fail("H_TAX must be a nonnegative decimal with at most six decimal places.");
   return details;
 }
-export async function enrollSalesManager(input: SalesManagerInput, actor: string) {
-  return salesSetupTransaction(async client => {
+export async function captureSalesManagerEnrollment(client: PoolClient, input: SalesManagerInput, actor: string) {
     // Capturing an inactive designation does not activate or approve a login.
     if (input.is_active) await eligibleUser(client, input.employee_id);
-    const details = await checkedManagerDetails(client, input.employee_id, input.details, true);
+    const details = await checkedManagerDetails(client, input.employee_id, input.details, true, input.is_active);
     const { rows } = await client.query<EnrollmentRow>(`INSERT INTO crm.sales_manager_enrollments
       (employee_id,level,is_active,manager_details,created_by,updated_by) VALUES($1,$2,$3,$4::jsonb,$5,$5) RETURNING *`,
     [input.employee_id, input.level, input.is_active, JSON.stringify(details), actor]);
     await audit(client, "MANAGER", rows[0].id, null, rows[0], actor);
     return { id: rows[0].id, version: rows[0].version };
-  });
+}
+export async function enrollSalesManager(input: SalesManagerInput, actor: string) {
+  return salesSetupTransaction(client => captureSalesManagerEnrollment(client, input, actor));
 }
 export async function updateSalesManager(id: number, input: SalesManagerUpdate, actor: string) {
   return salesSetupTransaction(async client => {
@@ -224,7 +227,10 @@ export async function updateSalesManager(id: number, input: SalesManagerUpdate, 
     const before = rows[0];
     if (!before) throw new SalesSetupError(404, "Manager enrollment not found.");
     if (before.version !== input.version) throw new SalesSetupError(409, "This enrollment changed. Refresh before trying again.");
-    const details = input.details ? await checkedManagerDetails(client, before.employee_id, input.details) : undefined;
+    const effectiveDetails = input.details ?? before.manager_details;
+    const details = input.is_active || input.details
+      ? await checkedManagerDetails(client, before.employee_id, effectiveDetails!, false, input.is_active)
+      : undefined;
     if (input.is_active) await eligibleUser(client, before.employee_id);
     else {
       const { rowCount } = await client.query(

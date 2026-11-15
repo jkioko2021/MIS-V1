@@ -37,6 +37,16 @@ adoption. Links do not create users or manager designations and grant no access.
 Setup decisions are audited separately from immutable source records. Source
 changes or loss of account eligibility invalidate the displayed link/approval.
 
+Uploaded manager records may be captured separately as **inactive draft**
+enrollments. Missing contact, payroll, tax and validity fields remain empty, and
+conflicting source values remain empty with a recorded review note. Existing MIS
+codes identify the person; repeated source rows share one person/category
+enrollment. Medical and GI provenance is retained without creating team links.
+The enrollment form allows saving incomplete inactive drafts, but both the API
+and database prevent activation while captured required fields are blank.
+Activation without resending details still validates the saved draft. Existing
+accounts, operational hierarchy and original source records are unchanged.
+
 Hierarchy lookups use searchable, viewport-bounded popups with wrapping labels
 and scrollable results. Assigned manager searches names and email addresses,
 retaining the actual account/designation identifier when a result is selected.

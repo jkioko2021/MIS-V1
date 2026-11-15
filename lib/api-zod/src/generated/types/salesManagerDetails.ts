@@ -18,21 +18,18 @@ export interface SalesManagerDetails {
      * @maxLength 150
      */
   name: string;
-  /** @maxLength 254 */
+  /**
+     * @maxLength 254
+     * @pattern ^($|[^\s@]+@[^\s@]+\.[^\s@]+)$
+     */
   email: string;
-  /**
-     * @minLength 1
-     * @maxLength 50
-     */
+  /** @maxLength 50 */
   hrmis_code: string;
-  /**
-     * @minLength 1
-     * @maxLength 50
-     */
+  /** @maxLength 50 */
   mobile_no: string;
   /**
      * @maxLength 16
-     * @pattern ^(0|[1-9][0-9]{0,8})(\.[0-9]{1,6})?$
+     * @pattern ^($|(0|[1-9][0-9]{0,8})(\.[0-9]{1,6})?)$
      */
   h_tax: string;
   /**
@@ -40,8 +37,8 @@ export interface SalesManagerDetails {
      * @maxLength 50
      */
   mis_emp_code: string;
-  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  /** @pattern ^($|\d{4}-\d{2}-\d{2})$ */
   valid_from: string;
-  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  /** @pattern ^($|\d{4}-\d{2}-\d{2})$ */
   valid_to: string;
 }

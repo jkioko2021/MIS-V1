@@ -16,6 +16,8 @@ export const getOrganisationResponseManagersItemDetailsOneNameMax = 150;
 
 export const getOrganisationResponseManagersItemDetailsOneEmailMax = 254;
 
+
+export const getOrganisationResponseManagersItemDetailsOneEmailRegExp = new RegExp('^($|[^\\s@]+@[^\\s@]+\\.[^\\s@]+)$');
 export const getOrganisationResponseManagersItemDetailsOneHrmisCodeMax = 50;
 
 export const getOrganisationResponseManagersItemDetailsOneMobileNoMax = 50;
@@ -23,11 +25,11 @@ export const getOrganisationResponseManagersItemDetailsOneMobileNoMax = 50;
 export const getOrganisationResponseManagersItemDetailsOneHTaxMax = 16;
 
 
-export const getOrganisationResponseManagersItemDetailsOneHTaxRegExp = new RegExp('^(0|[1-9][0-9]{0,8})(\\.[0-9]{1,6})?$');
+export const getOrganisationResponseManagersItemDetailsOneHTaxRegExp = new RegExp('^($|(0|[1-9][0-9]{0,8})(\\.[0-9]{1,6})?)$');
 export const getOrganisationResponseManagersItemDetailsOneMisEmpCodeMax = 50;
 
-export const getOrganisationResponseManagersItemDetailsOneValidFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
-export const getOrganisationResponseManagersItemDetailsOneValidToRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getOrganisationResponseManagersItemDetailsOneValidFromRegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
+export const getOrganisationResponseManagersItemDetailsOneValidToRegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
 
 
 export const GetOrganisationResponse = zod.object({
@@ -68,9 +70,9 @@ export const GetOrganisationResponse = zod.object({
   "details": zod.union([zod.object({
   "code": zod.string().min(1).max(getOrganisationResponseManagersItemDetailsOneCodeMax).regex(getOrganisationResponseManagersItemDetailsOneCodeRegExp),
   "name": zod.string().min(1).max(getOrganisationResponseManagersItemDetailsOneNameMax),
-  "email": zod.string().email().max(getOrganisationResponseManagersItemDetailsOneEmailMax),
-  "hrmis_code": zod.string().min(1).max(getOrganisationResponseManagersItemDetailsOneHrmisCodeMax),
-  "mobile_no": zod.string().min(1).max(getOrganisationResponseManagersItemDetailsOneMobileNoMax),
+  "email": zod.string().max(getOrganisationResponseManagersItemDetailsOneEmailMax).regex(getOrganisationResponseManagersItemDetailsOneEmailRegExp),
+  "hrmis_code": zod.string().max(getOrganisationResponseManagersItemDetailsOneHrmisCodeMax),
+  "mobile_no": zod.string().max(getOrganisationResponseManagersItemDetailsOneMobileNoMax),
   "h_tax": zod.string().max(getOrganisationResponseManagersItemDetailsOneHTaxMax).regex(getOrganisationResponseManagersItemDetailsOneHTaxRegExp),
   "mis_emp_code": zod.string().min(1).max(getOrganisationResponseManagersItemDetailsOneMisEmpCodeMax),
   "valid_from": zod.string().regex(getOrganisationResponseManagersItemDetailsOneValidFromRegExp),
@@ -301,6 +303,8 @@ export const getSalesCatalogsResponseBranchManagersItemDetailsOneNameMax = 150;
 
 export const getSalesCatalogsResponseBranchManagersItemDetailsOneEmailMax = 254;
 
+
+export const getSalesCatalogsResponseBranchManagersItemDetailsOneEmailRegExp = new RegExp('^($|[^\\s@]+@[^\\s@]+\\.[^\\s@]+)$');
 export const getSalesCatalogsResponseBranchManagersItemDetailsOneHrmisCodeMax = 50;
 
 export const getSalesCatalogsResponseBranchManagersItemDetailsOneMobileNoMax = 50;
@@ -308,11 +312,11 @@ export const getSalesCatalogsResponseBranchManagersItemDetailsOneMobileNoMax = 5
 export const getSalesCatalogsResponseBranchManagersItemDetailsOneHTaxMax = 16;
 
 
-export const getSalesCatalogsResponseBranchManagersItemDetailsOneHTaxRegExp = new RegExp('^(0|[1-9][0-9]{0,8})(\\.[0-9]{1,6})?$');
+export const getSalesCatalogsResponseBranchManagersItemDetailsOneHTaxRegExp = new RegExp('^($|(0|[1-9][0-9]{0,8})(\\.[0-9]{1,6})?)$');
 export const getSalesCatalogsResponseBranchManagersItemDetailsOneMisEmpCodeMax = 50;
 
-export const getSalesCatalogsResponseBranchManagersItemDetailsOneValidFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
-export const getSalesCatalogsResponseBranchManagersItemDetailsOneValidToRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getSalesCatalogsResponseBranchManagersItemDetailsOneValidFromRegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
+export const getSalesCatalogsResponseBranchManagersItemDetailsOneValidToRegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
 
 
 export const GetSalesCatalogsResponse = zod.object({
@@ -382,9 +386,9 @@ export const GetSalesCatalogsResponse = zod.object({
   "details": zod.union([zod.object({
   "code": zod.string().min(1).max(getSalesCatalogsResponseBranchManagersItemDetailsOneCodeMax).regex(getSalesCatalogsResponseBranchManagersItemDetailsOneCodeRegExp),
   "name": zod.string().min(1).max(getSalesCatalogsResponseBranchManagersItemDetailsOneNameMax),
-  "email": zod.string().email().max(getSalesCatalogsResponseBranchManagersItemDetailsOneEmailMax),
-  "hrmis_code": zod.string().min(1).max(getSalesCatalogsResponseBranchManagersItemDetailsOneHrmisCodeMax),
-  "mobile_no": zod.string().min(1).max(getSalesCatalogsResponseBranchManagersItemDetailsOneMobileNoMax),
+  "email": zod.string().max(getSalesCatalogsResponseBranchManagersItemDetailsOneEmailMax).regex(getSalesCatalogsResponseBranchManagersItemDetailsOneEmailRegExp),
+  "hrmis_code": zod.string().max(getSalesCatalogsResponseBranchManagersItemDetailsOneHrmisCodeMax),
+  "mobile_no": zod.string().max(getSalesCatalogsResponseBranchManagersItemDetailsOneMobileNoMax),
   "h_tax": zod.string().max(getSalesCatalogsResponseBranchManagersItemDetailsOneHTaxMax).regex(getSalesCatalogsResponseBranchManagersItemDetailsOneHTaxRegExp),
   "mis_emp_code": zod.string().min(1).max(getSalesCatalogsResponseBranchManagersItemDetailsOneMisEmpCodeMax),
   "valid_from": zod.string().regex(getSalesCatalogsResponseBranchManagersItemDetailsOneValidFromRegExp),
@@ -457,6 +461,8 @@ export const getSalesStructureResponseManagersItemDetailsOneNameMax = 150;
 
 export const getSalesStructureResponseManagersItemDetailsOneEmailMax = 254;
 
+
+export const getSalesStructureResponseManagersItemDetailsOneEmailRegExp = new RegExp('^($|[^\\s@]+@[^\\s@]+\\.[^\\s@]+)$');
 export const getSalesStructureResponseManagersItemDetailsOneHrmisCodeMax = 50;
 
 export const getSalesStructureResponseManagersItemDetailsOneMobileNoMax = 50;
@@ -464,11 +470,11 @@ export const getSalesStructureResponseManagersItemDetailsOneMobileNoMax = 50;
 export const getSalesStructureResponseManagersItemDetailsOneHTaxMax = 16;
 
 
-export const getSalesStructureResponseManagersItemDetailsOneHTaxRegExp = new RegExp('^(0|[1-9][0-9]{0,8})(\\.[0-9]{1,6})?$');
+export const getSalesStructureResponseManagersItemDetailsOneHTaxRegExp = new RegExp('^($|(0|[1-9][0-9]{0,8})(\\.[0-9]{1,6})?)$');
 export const getSalesStructureResponseManagersItemDetailsOneMisEmpCodeMax = 50;
 
-export const getSalesStructureResponseManagersItemDetailsOneValidFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
-export const getSalesStructureResponseManagersItemDetailsOneValidToRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getSalesStructureResponseManagersItemDetailsOneValidFromRegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
+export const getSalesStructureResponseManagersItemDetailsOneValidToRegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
 
 
 export const GetSalesStructureResponse = zod.object({
@@ -497,9 +503,9 @@ export const GetSalesStructureResponse = zod.object({
   "details": zod.union([zod.object({
   "code": zod.string().min(1).max(getSalesStructureResponseManagersItemDetailsOneCodeMax).regex(getSalesStructureResponseManagersItemDetailsOneCodeRegExp),
   "name": zod.string().min(1).max(getSalesStructureResponseManagersItemDetailsOneNameMax),
-  "email": zod.string().email().max(getSalesStructureResponseManagersItemDetailsOneEmailMax),
-  "hrmis_code": zod.string().min(1).max(getSalesStructureResponseManagersItemDetailsOneHrmisCodeMax),
-  "mobile_no": zod.string().min(1).max(getSalesStructureResponseManagersItemDetailsOneMobileNoMax),
+  "email": zod.string().max(getSalesStructureResponseManagersItemDetailsOneEmailMax).regex(getSalesStructureResponseManagersItemDetailsOneEmailRegExp),
+  "hrmis_code": zod.string().max(getSalesStructureResponseManagersItemDetailsOneHrmisCodeMax),
+  "mobile_no": zod.string().max(getSalesStructureResponseManagersItemDetailsOneMobileNoMax),
   "h_tax": zod.string().max(getSalesStructureResponseManagersItemDetailsOneHTaxMax).regex(getSalesStructureResponseManagersItemDetailsOneHTaxRegExp),
   "mis_emp_code": zod.string().min(1).max(getSalesStructureResponseManagersItemDetailsOneMisEmpCodeMax),
   "valid_from": zod.string().regex(getSalesStructureResponseManagersItemDetailsOneValidFromRegExp),
@@ -585,6 +591,8 @@ export const enrollSalesManagerBodyDetailsNameMax = 150;
 
 export const enrollSalesManagerBodyDetailsEmailMax = 254;
 
+
+export const enrollSalesManagerBodyDetailsEmailRegExp = new RegExp('^($|[^\\s@]+@[^\\s@]+\\.[^\\s@]+)$');
 export const enrollSalesManagerBodyDetailsHrmisCodeMax = 50;
 
 export const enrollSalesManagerBodyDetailsMobileNoMax = 50;
@@ -592,11 +600,11 @@ export const enrollSalesManagerBodyDetailsMobileNoMax = 50;
 export const enrollSalesManagerBodyDetailsHTaxMax = 16;
 
 
-export const enrollSalesManagerBodyDetailsHTaxRegExp = new RegExp('^(0|[1-9][0-9]{0,8})(\\.[0-9]{1,6})?$');
+export const enrollSalesManagerBodyDetailsHTaxRegExp = new RegExp('^($|(0|[1-9][0-9]{0,8})(\\.[0-9]{1,6})?)$');
 export const enrollSalesManagerBodyDetailsMisEmpCodeMax = 50;
 
-export const enrollSalesManagerBodyDetailsValidFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
-export const enrollSalesManagerBodyDetailsValidToRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const enrollSalesManagerBodyDetailsValidFromRegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
+export const enrollSalesManagerBodyDetailsValidToRegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
 
 
 export const EnrollSalesManagerBody = zod.object({
@@ -606,9 +614,9 @@ export const EnrollSalesManagerBody = zod.object({
   "details": zod.object({
   "code": zod.string().min(1).max(enrollSalesManagerBodyDetailsCodeMax).regex(enrollSalesManagerBodyDetailsCodeRegExp),
   "name": zod.string().min(1).max(enrollSalesManagerBodyDetailsNameMax),
-  "email": zod.string().email().max(enrollSalesManagerBodyDetailsEmailMax),
-  "hrmis_code": zod.string().min(1).max(enrollSalesManagerBodyDetailsHrmisCodeMax),
-  "mobile_no": zod.string().min(1).max(enrollSalesManagerBodyDetailsMobileNoMax),
+  "email": zod.string().max(enrollSalesManagerBodyDetailsEmailMax).regex(enrollSalesManagerBodyDetailsEmailRegExp),
+  "hrmis_code": zod.string().max(enrollSalesManagerBodyDetailsHrmisCodeMax),
+  "mobile_no": zod.string().max(enrollSalesManagerBodyDetailsMobileNoMax),
   "h_tax": zod.string().max(enrollSalesManagerBodyDetailsHTaxMax).regex(enrollSalesManagerBodyDetailsHTaxRegExp),
   "mis_emp_code": zod.string().min(1).max(enrollSalesManagerBodyDetailsMisEmpCodeMax),
   "valid_from": zod.string().regex(enrollSalesManagerBodyDetailsValidFromRegExp),
@@ -638,6 +646,8 @@ export const updateSalesManagerEnrollmentBodyDetailsNameMax = 150;
 
 export const updateSalesManagerEnrollmentBodyDetailsEmailMax = 254;
 
+
+export const updateSalesManagerEnrollmentBodyDetailsEmailRegExp = new RegExp('^($|[^\\s@]+@[^\\s@]+\\.[^\\s@]+)$');
 export const updateSalesManagerEnrollmentBodyDetailsHrmisCodeMax = 50;
 
 export const updateSalesManagerEnrollmentBodyDetailsMobileNoMax = 50;
@@ -645,11 +655,11 @@ export const updateSalesManagerEnrollmentBodyDetailsMobileNoMax = 50;
 export const updateSalesManagerEnrollmentBodyDetailsHTaxMax = 16;
 
 
-export const updateSalesManagerEnrollmentBodyDetailsHTaxRegExp = new RegExp('^(0|[1-9][0-9]{0,8})(\\.[0-9]{1,6})?$');
+export const updateSalesManagerEnrollmentBodyDetailsHTaxRegExp = new RegExp('^($|(0|[1-9][0-9]{0,8})(\\.[0-9]{1,6})?)$');
 export const updateSalesManagerEnrollmentBodyDetailsMisEmpCodeMax = 50;
 
-export const updateSalesManagerEnrollmentBodyDetailsValidFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
-export const updateSalesManagerEnrollmentBodyDetailsValidToRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const updateSalesManagerEnrollmentBodyDetailsValidFromRegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
+export const updateSalesManagerEnrollmentBodyDetailsValidToRegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
 
 
 export const UpdateSalesManagerEnrollmentBody = zod.object({
@@ -658,9 +668,9 @@ export const UpdateSalesManagerEnrollmentBody = zod.object({
   "details": zod.object({
   "code": zod.string().min(1).max(updateSalesManagerEnrollmentBodyDetailsCodeMax).regex(updateSalesManagerEnrollmentBodyDetailsCodeRegExp),
   "name": zod.string().min(1).max(updateSalesManagerEnrollmentBodyDetailsNameMax),
-  "email": zod.string().email().max(updateSalesManagerEnrollmentBodyDetailsEmailMax),
-  "hrmis_code": zod.string().min(1).max(updateSalesManagerEnrollmentBodyDetailsHrmisCodeMax),
-  "mobile_no": zod.string().min(1).max(updateSalesManagerEnrollmentBodyDetailsMobileNoMax),
+  "email": zod.string().max(updateSalesManagerEnrollmentBodyDetailsEmailMax).regex(updateSalesManagerEnrollmentBodyDetailsEmailRegExp),
+  "hrmis_code": zod.string().max(updateSalesManagerEnrollmentBodyDetailsHrmisCodeMax),
+  "mobile_no": zod.string().max(updateSalesManagerEnrollmentBodyDetailsMobileNoMax),
   "h_tax": zod.string().max(updateSalesManagerEnrollmentBodyDetailsHTaxMax).regex(updateSalesManagerEnrollmentBodyDetailsHTaxRegExp),
   "mis_emp_code": zod.string().min(1).max(updateSalesManagerEnrollmentBodyDetailsMisEmpCodeMax),
   "valid_from": zod.string().regex(updateSalesManagerEnrollmentBodyDetailsValidFromRegExp),

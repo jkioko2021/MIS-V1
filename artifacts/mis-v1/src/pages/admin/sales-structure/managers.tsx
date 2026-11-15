@@ -105,7 +105,7 @@ function ManagerWorkspace({ username }: { username: string }) {
       <SalesStructureHeader
         eyebrow="Administration / Organization structure-Medical"
         title="Manager Enrollment"
-        description="Enroll existing MIS users as Unit, Regional, Branch or National Sales Managers. Existing manager catalog and source records remain visible and separate."
+        description="Enroll existing MIS users as Unit, Regional, Branch or National Sales Managers. Imported enrollments with missing details remain inactive drafts; original source records are preserved."
       >
         <Button variant="outline" onClick={refreshAll} className="gap-2 bg-card" data-testid="button-refresh-managers">
           <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />Refresh
@@ -211,7 +211,7 @@ function ManagerWorkspace({ username }: { username: string }) {
                         </td>
                         <td className="px-5 py-3.5">
                           <Badge variant="outline" className={manager.is_active ? 'border-emerald-200 bg-emerald-50/60 text-emerald-800' : 'border-slate-200 text-slate-500'}>
-                            <span className={cn('mr-1.5 h-1.5 w-1.5 rounded-full', manager.is_active ? 'bg-emerald-600' : 'bg-slate-400')} />{manager.is_active ? 'Active' : 'Inactive'}
+                            <span className={cn('mr-1.5 h-1.5 w-1.5 rounded-full', manager.is_active ? 'bg-emerald-600' : 'bg-slate-400')} />{manager.is_active ? 'Active' : manager.details && Object.values(manager.details).some(value => !value.trim()) ? 'Inactive draft' : 'Inactive'}
                           </Badge>
                           {assigned && <p className="mt-1 text-[11px] text-muted-foreground">Assigned to active structure</p>}
                         </td>

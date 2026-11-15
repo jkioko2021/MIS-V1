@@ -68,6 +68,21 @@ try {
   assert.equal((await stored(pendingManager.id)).is_active, false);
   await assert.rejects(lib.updateSalesManager(pendingManager.id, { is_active: true, version: 1 }, prefix), e => e.status === 400);
   assert.equal((await stored(pendingManager.id)).version, 1, "Capturing a designation must not approve or activate its user");
+  await db.query("SAVEPOINT blank_draft_check");
+  const blankDetails={...details(staff[1]),mobile_no:"",h_tax:"",hrmis_code:"",valid_from:"",valid_to:""};
+  const draft=await enroll({...base,employee_id:staff[1].employee_id,is_active:false,details:blankDetails});
+  assert.equal((await stored(draft.id)).is_active,false);
+  assert.equal((await stored(draft.id)).manager_details.mobile_no,"");
+  assert.equal((await stored(draft.id)).manager_details.h_tax,"");
+  await assert.rejects(lib.updateSalesManager(draft.id,{is_active:true,version:1},prefix),e=>e.status===400&&/required/.test(e.message),
+    "Omitting details cannot bypass validation when activating a draft");
+  await db.query("SAVEPOINT direct_draft_activation");
+  await assert.rejects(db.query("UPDATE crm.sales_manager_enrollments SET is_active=true WHERE id=$1",[draft.id]),e=>e.code==="23514");
+  await db.query("ROLLBACK TO SAVEPOINT direct_draft_activation");
+  await lib.updateSalesManager(draft.id,{is_active:true,version:1,details:details(staff[1])},prefix);
+  assert.equal((await stored(draft.id)).is_active,true,"Completing details allows explicit activation");
+  await db.query("ROLLBACK TO SAVEPOINT blank_draft_check");
+  await db.query("RELEASE SAVEPOINT blank_draft_check");
   for (const value of ["-0.1", "1e-3", "0.1234567"])
     assert(!lib.EnrollSalesManagerBody.safeParse({ ...base, details: { ...base.details, h_tax: value } }).success);
   for (const dates of [
