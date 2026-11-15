@@ -5,14 +5,16 @@ import {
   useCreateSalesStructureNode, useUpdateSalesStructureNode,
 } from '@workspace/api-client-react';
 import type {
-  OrganisationCandidate, OrganisationNode, SalesCatalogSnapshot, SalesLevel, SalesManager, SalesNodeInput, SalesNodeUpdate,
+  OrganisationCandidate, OrganisationNode, OrganisationSnapshot, SalesCatalogSnapshot, SalesLevel, SalesManager, SalesStaff, SalesNodeInput, SalesNodeUpdate,
 } from '@workspace/api-client-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import { AlertCircle, Check, RefreshCw } from 'lucide-react';
-import { errorMessage, errorStatus, INPUT_CLASS, LEVELS, LEVEL_LABEL } from './shared';
+import { errorMessage, errorStatus, LEVELS, LEVEL_LABEL } from './shared';
+import { ManagerDetailsForm } from '../sales-structure/manager-details';
 
 type MedicalValues = Record<string, string | null>;
 type CandidateWithMedical = OrganisationCandidate & { medical_details?: MedicalValues };
@@ -63,17 +65,18 @@ function changedMedicalDetails(fields: Array<{ key: string }>, values: MedicalVa
   })) as MedicalValues;
 }
 
-export function NodeEditor({ node, nodes, candidates, managers, catalogSnapshot, initialCandidate, initialLevel, onCancel, onSaved, onRefresh }: {
+export function NodeEditor({ node, nodes, candidates, managers, managerUsers, catalogSnapshot, initialCandidate, initialLevel, onCancel, onSaved, onRefresh }: {
   node?: OrganisationNode;
   nodes: OrganisationNode[];
   candidates: OrganisationCandidate[];
   managers: SalesManager[];
+  managerUsers?: SalesStaff[];
   catalogSnapshot?: SalesCatalogSnapshot;
   initialCandidate?: OrganisationCandidate;
   initialLevel?: SalesLevel;
   onCancel: () => void;
   onSaved: () => Promise<void>;
-  onRefresh: () => Promise<unknown>;
+  onRefresh: () => Promise<{ data?: OrganisationSnapshot }>;
 }) {
   const client = useQueryClient();
   const create = useCreateSalesStructureNode();
@@ -81,6 +84,7 @@ export function NodeEditor({ node, nodes, candidates, managers, catalogSnapshot,
   const initialMedicalCandidate = initialCandidate as CandidateWithMedical | undefined;
   const initialMedicalNode = node as NodeWithMedical | undefined;
   const [level, setLevel] = useState<SalesLevel>(node?.level ?? initialCandidate?.level ?? initialLevel ?? 'NATIONAL');
+  const [enrollingEmployeeId, setEnrollingEmployeeId] = useState<number | null>(null);
   const [candidateId, setCandidateId] = useState(initialCandidate ? String(initialCandidate.source_reference_id) : '');
   const selectedCandidate = (candidates.find((candidate) => candidate.source_reference_id === Number(candidateId))
     ?? (initialMedicalCandidate?.source_reference_id === Number(candidateId) ? initialMedicalCandidate : undefined)) as CandidateWithMedical | undefined;
@@ -110,6 +114,25 @@ export function NodeEditor({ node, nodes, candidates, managers, catalogSnapshot,
     && (entry.available || entry.id === node?.parent_id)) : [];
   const managerOptions = managers.filter((manager) =>
     manager.level === level && ((manager.is_active && manager.user_eligible) || manager.id === node?.manager_id));
+  const readyDesignation = (employeeId: number) => managerOptions.find(manager =>
+    manager.employee_id === employeeId && manager.is_active && manager.user_eligible);
+  const selectedEmployeeId = managerId.startsWith('user:') ? Number(managerId.slice(5))
+    : managers.find(manager => manager.id === Number(managerId))?.employee_id;
+  const selectedStaff = managerUsers?.find(staff => staff.employee_id === selectedEmployeeId);
+  const needsEnrollment = managerId.startsWith('user:');
+  const enrollmentToEdit = managers.find(manager => manager.employee_id === enrollingEmployeeId && manager.level === level);
+  const assignedManagerChoices: SearchableSelectOption[] = managerUsers
+    ? managerUsers.map(staff => ({
+      value: String(readyDesignation(staff.employee_id)?.id ?? `user:${staff.employee_id}`),
+      label: staff.employee_name,
+      description: [staff.email, staff.user_eligible === false ? staff.eligibility_note : null].filter(Boolean).join(' · '),
+      disabled: staff.user_eligible === false,
+    }))
+    : managerOptions.map(manager => ({ value: String(manager.id), label: manager.employee_name, description: manager.account_email ?? undefined }));
+  if (node?.manager_id && !assignedManagerChoices.some(option => option.value === String(node.manager_id))) {
+    assignedManagerChoices.push({ value: String(node.manager_id), label: node.manager_name ?? 'Current manager',
+      description: 'Current assignment; review eligibility', disabled: true });
+  }
   const parentCode = nodes.find((item) => item.id === Number(parentId))?.code ?? '';
   const missingSourceParent = (parentCodeFromSource: string | null | undefined) => {
     const value = (parentCodeFromSource ?? '').trim();
@@ -124,7 +147,7 @@ export function NodeEditor({ node, nodes, candidates, managers, catalogSnapshot,
   const currentError = create.error || update.error;
   const saving = create.isPending || update.isPending;
   const activeChildren = node ? nodes.some((item) => item.parent_id === node.id && item.is_active) : false;
-  const valid = name.trim().length > 0 && managerId !== ''
+  const valid = name.trim().length > 0 && /^\d+$/.test(managerId)
     && (node || /^[A-Za-z0-9_-]{1,40}$/.test(code.trim()))
     && (level === 'NATIONAL' || Boolean(parentId))
     && !(node?.is_active && !active && activeChildren)
@@ -201,17 +224,19 @@ export function NodeEditor({ node, nodes, candidates, managers, catalogSnapshot,
     <div className="grid gap-4 sm:grid-cols-2">
       {!node && <div className="space-y-1.5">
         <Label htmlFor="org-level">Hierarchy level</Label>
-        <select id="org-level" className={INPUT_CLASS} value={level} onChange={(event) => {
-          setLevel(event.target.value as SalesLevel); setCandidateId(''); setCode(''); setName(''); setParentId(''); setManagerId(''); setMedicalDetails({});
+        <SearchableSelect id="org-level" value={level} placeholder="Choose a hierarchy level"
+          options={LEVELS.map(item => ({ value: item, label: LEVEL_LABEL[item] }))} onValueChange={(value) => {
+          setLevel(value as SalesLevel); setCandidateId(''); setCode(''); setName(''); setParentId(''); setManagerId(''); setMedicalDetails({});
           originalMedicalDetails.current = {};
-        }}>
-          {LEVELS.map((item) => <option key={item} value={item}>{LEVEL_LABEL[item]}</option>)}
-        </select>
+        }} />
       </div>}
       {!node && <div className="space-y-1.5">
         <Label htmlFor="org-source-candidate">Imported organisation match</Label>
-        <select id="org-source-candidate" className={INPUT_CLASS} value={candidateId} onChange={(event) => {
-          const value = event.target.value;
+        <SearchableSelect id="org-source-candidate" value={candidateId} placeholder="Create new record"
+          searchPlaceholder="Search imported organisations…"
+          options={[{ value: '', label: 'Create new record' }, ...sourceCandidates.map(candidate => ({
+            value: String(candidate.source_reference_id), label: candidate.name,
+          }))]} onValueChange={(value) => {
           setCandidateId(value);
           const candidate = candidates.find((item) => item.source_reference_id === Number(value));
           const medicalCandidate = candidate as CandidateWithMedical | undefined;
@@ -221,10 +246,7 @@ export function NodeEditor({ node, nodes, candidates, managers, catalogSnapshot,
           } else {
             setCode(''); setName(''); setMedicalDetails({}); originalMedicalDetails.current = {};
           }
-        }}>
-          <option value="">Create new record</option>
-          {sourceCandidates.map((candidate) => <option key={candidate.source_reference_id} value={candidate.source_reference_id}>{candidate.name}</option>)}
-        </select>
+        }} />
         <p className="text-xs text-muted-foreground">Source code and name are preserved exactly when reusing an imported organisation.</p>
       </div>}
       {!node && <div className="space-y-1.5">
@@ -258,16 +280,15 @@ export function NodeEditor({ node, nodes, candidates, managers, catalogSnapshot,
             const fieldId = `medical-${field.key.toLowerCase()}`;
             return <div key={field.key} className="space-y-1.5">
               <Label htmlFor={fieldId}>{field.label}</Label>
-              {field.input === 'select' ? <select
+              {field.input === 'select' ? <SearchableSelect
                 id={fieldId}
-                className={INPUT_CLASS}
                 value={value}
-                onChange={(event) => setMedicalDetails((current) => ({ ...current, [field.key]: event.target.value || null }))}
-              >
-                <option value="">Not linked</option>
-                {value && !choices.some((entry) => entry.code === value) && <option value={value}>Previously selected item unavailable</option>}
-                {choices.map((entry) => <option key={`${entry.catalog}-${entry.code}`} value={entry.code}>{entry.name}</option>)}
-              </select> : <Input
+                placeholder="Not linked"
+                options={[{ value: '', label: 'Not linked' },
+                  ...(value && !choices.some(entry => entry.code === value) ? [{ value, label: 'Previously selected item unavailable' }] : []),
+                  ...choices.map(entry => ({ value: entry.code, label: entry.name }))]}
+                onValueChange={(next) => setMedicalDetails((current) => ({ ...current, [field.key]: next || null }))}
+              /> : <Input
                 id={fieldId}
                 type={field.input}
                 value={value}
@@ -280,21 +301,27 @@ export function NodeEditor({ node, nodes, candidates, managers, catalogSnapshot,
       </section>}
       {parentLevel && <div className="space-y-1.5 sm:col-span-2">
         <Label htmlFor="org-parent">{LEVEL_LABEL[parentLevel]} parent <span className="text-destructive">*</span></Label>
-        <select id="org-parent" className={INPUT_CLASS} value={parentId} onChange={(event) => changeParent(event.target.value)}>
-          <option value="">Choose an available {LEVEL_LABEL[parentLevel].toLowerCase()}</option>
-          {parentOptions.map((parent) => <option key={parent.id} value={parent.id}>{parent.name}{!parent.available ? ' (retained current parent)' : ''}</option>)}
-        </select>
+        <SearchableSelect id="org-parent" value={parentId} onValueChange={changeParent}
+          placeholder={`Choose an available ${LEVEL_LABEL[parentLevel].toLowerCase()}`}
+          searchPlaceholder={`Search ${LEVEL_LABEL[parentLevel].toLowerCase()} names…`}
+          options={parentOptions.map(parent => ({ value: String(parent.id), label: parent.name,
+            description: !parent.available ? 'Retained current parent' : undefined }))} />
         {!parentOptions.length && <p className="text-xs text-amber-800">Create an available {LEVEL_LABEL[parentLevel].toLowerCase()} first. A missing parent cannot be inferred or fabricated.</p>}
         {currentParent && !currentParent.available && currentParent.id === Number(parentId) && <p className="text-xs text-amber-800">The current unavailable parent is retained for historical context. Choose an available parent to reparent this entry.</p>}
       </div>}
       <div className="space-y-1.5 sm:col-span-2">
         <Label htmlFor="org-manager">Assigned manager <span className="text-destructive">*</span></Label>
-        <select id="org-manager" className={INPUT_CLASS} value={managerId} onChange={(event) => setManagerId(event.target.value)}>
-          <option value="">Choose an eligible manager</option>
-          {managerOptions.map((manager) => <option key={manager.id} value={manager.id}>{manager.employee_name} · {manager.username}</option>)}
-        </select>
-        <p className="text-xs text-muted-foreground">Only users with the Sales Manager profile and an eligible enrollment in this category can be assigned.</p>
-        {!managerOptions.length && <p className="text-xs text-amber-800">No eligible manager at this level. Assign the Sales Manager profile in User Enrollment, then complete or activate the matching Manager Enrollment.</p>}
+        <SearchableSelect id="org-manager" value={managerId} onValueChange={setManagerId}
+          options={assignedManagerChoices} placeholder="Choose a Sales Manager"
+          searchPlaceholder="Search managers by name or email…" emptyMessage="No Sales Managers match your search." />
+        <p className="text-xs text-muted-foreground">Sales Manager users are listed by name and email. Saving requires an active enrollment in the selected manager category.</p>
+        {needsEnrollment && selectedStaff && <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+          <p>{selectedStaff.employee_name} needs an eligible {LEVEL_LABEL[level]} manager enrollment before this entry can be saved.</p>
+          <Button type="button" size="sm" variant="outline" onClick={() => setEnrollingEmployeeId(selectedStaff.employee_id)}>
+            {managers.some(manager => manager.employee_id === selectedStaff.employee_id && manager.level === level) ? 'Review category enrollment' : 'Enroll selected manager'}
+          </Button>
+        </div>}
+        {managerUsers?.length === 0 && <p className="text-xs text-amber-800">No Sales Manager users are available. Assign the Sales Manager profile in User Enrollment.</p>}
       </div>
       <label className="flex items-start gap-3 rounded-lg border bg-card px-3 py-3 sm:col-span-2">
         <input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} className="mt-1 accent-[#28614f]" />
@@ -302,6 +329,25 @@ export function NodeEditor({ node, nodes, candidates, managers, catalogSnapshot,
       </label>
       {node?.is_active && !active && activeChildren && <Alert className="sm:col-span-2"><AlertCircle className="h-4 w-4" /><AlertTitle>Active children must be moved first</AlertTitle><AlertDescription>This entry still has active child organisations and cannot be deactivated.</AlertDescription></Alert>}
     </div>
+    {enrollingEmployeeId !== null && <ManagerDetailsForm
+      key={`${level}-${enrollingEmployeeId}`}
+      users={managerUsers ?? []}
+      managers={managers}
+      manager={enrollmentToEdit}
+      initialLevel={level}
+      initialEmployeeId={enrollingEmployeeId}
+      lockSelection
+      onClose={() => setEnrollingEmployeeId(null)}
+      onSaved={() => setEnrollingEmployeeId(null)}
+      refreshStructure={async () => {
+        const refreshed = await onRefresh();
+        const designation = refreshed.data?.managers.find(manager => manager.employee_id === enrollingEmployeeId
+          && manager.level === level && manager.is_active && manager.user_eligible);
+        if (designation) setManagerId(String(designation.id));
+        return refreshed;
+      }}
+      refreshManager={async id => (await onRefresh()).data?.managers.find(manager => manager.id === id)}
+    />}
     {currentError && <Alert variant="destructive" className="mt-4"><AlertCircle className="h-4 w-4" /><AlertTitle>Could not save entry</AlertTitle><AlertDescription className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><span>{errorMessage(currentError)}</span>{errorStatus(currentError) === 409 && node && <Button variant="outline" size="sm" onClick={() => { void refreshVersion(); }}>Refresh latest version</Button>}</AlertDescription></Alert>}
     <div className="mt-5 flex flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end">
       <Button variant="outline" onClick={onCancel} disabled={saving}>Cancel</Button>

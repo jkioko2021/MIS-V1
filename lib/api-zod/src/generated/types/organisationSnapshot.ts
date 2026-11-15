@@ -8,10 +8,12 @@
 import type { OrganisationCandidate } from './organisationCandidate';
 import type { OrganisationNode } from './organisationNode';
 import type { SalesManager } from './salesManager';
+import type { SalesStaff } from './salesStaff';
 
 export interface OrganisationSnapshot {
   can_manage: boolean;
   nodes: OrganisationNode[];
   managers: SalesManager[];
+  manager_users: SalesStaff[];
   candidates: OrganisationCandidate[];
 }

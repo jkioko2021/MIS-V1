@@ -43,12 +43,12 @@ try {
     "SELECT * FROM crm.sales_catalog_source_records ORDER BY id")).rows)).digest("hex");
   const beforeSource=await sourceHash();
   const staff=[];
-  for(let i=0;i<9;i++)staff.push((await db.query(`INSERT INTO crm.employees
+  for(let i=0;i<10;i++)staff.push((await db.query(`INSERT INTO crm.employees
     (username,employee_name,emp_code,email,password_hash,profile_id,activated,approved,department)
     VALUES($1,$1,$1,$2,'not-a-login-hash',CASE WHEN $3 THEN
       (SELECT profile_id FROM crm.profiles WHERE lower(btrim(profile_name))='sales manager' AND is_active)
       ELSE 3 END,true,true,'Sales') RETURNING *`,
-    [`${prefix}_${i}`,`${prefix}_${i}@example.test`,i<8])).rows[0]);
+    [`${prefix}_${i}`,`${prefix}_${i}@example.test`,i!==8])).rows[0]);
   const identityBefore=JSON.stringify(staff);
   const admin={sub:staff[0].employee_id,profileId:1,username:prefix,sid:randomUUID(),name:prefix};
   const user=i=>({...admin,sub:staff[i].employee_id,profileId:staff[i].profile_id,username:staff[i].username});
@@ -82,6 +82,11 @@ try {
   const profileFiltered=await lib.organisationSnapshot(admin);
   assert(profileFiltered.managers.every(m=>!hiddenManagers.includes(m.id)));
   assert(managers.every(m=>profileFiltered.managers.some(choice=>choice.id===m.id)));
+  assert(profileFiltered.manager_users.some(choice=>choice.employee_id===staff[9].employee_id),
+    "Sales Manager accounts must be listed before any category enrollment exists");
+  assert(!profileFiltered.managers.some(choice=>choice.employee_id===staff[9].employee_id));
+  assert(!profileFiltered.manager_users.some(choice=>choice.employee_id===staff[8].employee_id),
+    "Other profiles must not appear in the Sales Manager account list");
   // Medical operating details are separate from authoritative identity/ancestry.
   const medicalBase={...input(3,nodes[2].id),code:`${prefix}_MED_UNIT`,name:`${prefix} Medical Unit`};
   const medical=await lib.createSalesNode({...medicalBase,medical_details:{
@@ -120,6 +125,7 @@ try {
     assert(snapshot.nodes.every(n=>n.path.some(p=>p.id===nodes[i].id) || (i===0&&n.id===inactive.id)));
     assert(!snapshot.nodes.some(n=>nodes.slice(4).some(row=>row.id===n.id)));
     assert.equal(snapshot.managers.length,0);assert.equal(snapshot.candidates.length,0);
+    assert.equal(snapshot.manager_users.length,0,"Scoped managers must not receive the global staff roster");
   }
   await assert.rejects(lib.organisationSnapshot({...user(0),sub:2147483647}),e=>e.status===403);
   const code=`${prefix}_AGENT`;

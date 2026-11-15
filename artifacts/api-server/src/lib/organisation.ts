@@ -49,6 +49,15 @@ export async function organisationSnapshot(user: JwtPayload) {
       JOIN crm.profiles p ON p.profile_id=e.profile_id
       WHERE p.is_active AND lower(btrim(p.profile_name))='sales manager' AND NOT e.is_deleted
       ORDER BY e.employee_name,m.level`)).rows : [];
+    const managerUsers = organisationAdmin(user) ? (await client.query(`SELECT e.employee_id,e.employee_name,e.username,
+      e.emp_code,e.email,(e.activated AND e.approved AND NOT e.employee_locked
+        AND lower(btrim(coalesce(e.department,'')))='sales') AS user_eligible,
+      nullif(concat_ws('; ',CASE WHEN NOT e.activated THEN 'Inactive' END,
+        CASE WHEN NOT e.approved THEN 'Not approved' END,CASE WHEN e.employee_locked THEN 'Locked' END,
+        CASE WHEN lower(btrim(coalesce(e.department,'')))<>'sales' THEN 'Sales department required' END),'') AS eligibility_note
+      FROM crm.employees e JOIN crm.profiles p ON p.profile_id=e.profile_id
+      WHERE NOT e.is_deleted AND p.is_active AND lower(btrim(p.profile_name))='sales manager'
+      ORDER BY e.employee_name,e.employee_id`)).rows : [];
     const candidates = organisationAdmin(user) ? (await client.query(`SELECT s.id AS source_reference_id,s.code,s.name,s.data,
       CASE s.catalog WHEN 'sales-regions' THEN 'REGION' WHEN 'sales-branches' THEN 'BRANCH' ELSE 'UNIT' END AS level,
       CASE s.catalog WHEN 'sales-branches' THEN s.data->>'REGION_CODE'
@@ -58,7 +67,7 @@ export async function organisationSnapshot(user: JwtPayload) {
       ORDER BY s.name,s.id`)).rows.map(({data,...candidate})=>({
         ...candidate,medical_details:sourceMedicalDetails(candidate.level,data),
       })) : [];
-    return { can_manage: organisationAdmin(user), nodes, managers, candidates };
+    return { can_manage: organisationAdmin(user), nodes, managers, manager_users: managerUsers, candidates };
   });
 }
 

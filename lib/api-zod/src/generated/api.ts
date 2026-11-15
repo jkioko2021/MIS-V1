@@ -77,6 +77,16 @@ export const GetOrganisationResponse = zod.object({
   "valid_to": zod.string().regex(getOrganisationResponseManagersItemDetailsOneValidToRegExp)
 }),zod.null()]).optional()
 })),
+  "manager_users": zod.array(zod.object({
+  "employee_id": zod.number().int(),
+  "employee_name": zod.string(),
+  "username": zod.string(),
+  "emp_code": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "inactive_manager_categories": zod.array(zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT'])).optional(),
+  "user_eligible": zod.boolean().optional(),
+  "eligibility_note": zod.string().nullish()
+})),
   "candidates": zod.array(zod.object({
   "source_reference_id": zod.number().int(),
   "code": zod.string(),

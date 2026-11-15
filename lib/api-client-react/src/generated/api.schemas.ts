@@ -340,6 +340,7 @@ export interface OrganisationSnapshot {
   can_manage: boolean;
   nodes: OrganisationNode[];
   managers: SalesManager[];
+  manager_users: SalesStaff[];
   candidates: OrganisationCandidate[];
 }
 

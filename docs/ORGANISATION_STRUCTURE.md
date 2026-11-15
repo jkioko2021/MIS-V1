@@ -1,10 +1,15 @@
 # Organization structure-Medical and Agent Unit Mapping
 
 National, Regions, Branches and Units are combined under **Hierachy Setup** in
-Organization structure-Medical. Four level tabs retain the existing setup and
-imported-reference views; Add entry defaults to the selected level. Old level
-URLs redirect to the corresponding tab. Other Medical and GI menu items remain
+Organization structure-Medical, in one list without level tabs. The entry form
+retains Hierarchy level, while imported references remain accessible in the
+expandable source-record section. Old level URLs prefill the entry category
+without filtering the combined list. Other Medical and GI menu items remain
 separate. This navigation change does not alter records or account permissions.
+
+Hierarchy lookups use searchable, viewport-bounded popups with wrapping labels
+and scrollable results. Assigned manager searches names and email addresses,
+retaining the actual account/designation identifier when a result is selected.
 
 ## Implementation assessment
 
@@ -66,11 +71,18 @@ Manager Enrollment is available within Organization structure-Medical and create
 a designation, not a new person or
 replacement login profile. A manager may own several organisations.
 
-For Medical **Assigned manager** selections, National, Region, Branch and Unit
+For saving Medical **Assigned manager** selections, National, Region, Branch and Unit
 all require the existing **Sales Manager** account profile as well as the matching
 eligible manager enrollment. This filter is enforced on the returned choices and
 on create/update requests. It does not automatically change anyone's profile;
 an empty list must be resolved through User Enrollment and Manager Enrollment.
+
+The Assigned manager dropdown lists Sales Manager **accounts**, even before a
+category enrollment exists. Selecting an unenrolled account exposes the existing
+enrollment form inline, fixed to that person and level. Saving the designation
+refreshes and selects its real ID; the hierarchy cannot save a pending account ID.
+Inactive or expired designations can be reviewed through the same path. The staff
+roster is returned only to administrators, never to scoped reporting users.
 
 ## Setup workflow
 

@@ -1176,11 +1176,12 @@ components:
         medical_details: { $ref: "#/components/schemas/MedicalOrganisationDetails" }
     OrganisationSnapshot:
       type: object
-      required: [can_manage, nodes, managers, candidates]
+      required: [can_manage, nodes, managers, manager_users, candidates]
       properties:
         can_manage: { type: boolean }
         nodes: { type: array, items: { $ref: "#/components/schemas/OrganisationNode" } }
         managers: { type: array, items: { $ref: "#/components/schemas/SalesManager" } }
+        manager_users: { type: array, items: { $ref: "#/components/schemas/SalesStaff" } }
         candidates: { type: array, items: { $ref: "#/components/schemas/OrganisationCandidate" } }
     OrganisationAgent:
       type: object

@@ -147,6 +147,8 @@ export function ManagerDetailsForm({
   users,
   managers,
   initialLevel,
+  initialEmployeeId,
+  lockSelection = false,
   manager,
   onClose,
   onSaved,
@@ -156,6 +158,8 @@ export function ManagerDetailsForm({
   users: SalesStaff[];
   managers: SalesManager[];
   initialLevel: SalesLevel;
+  initialEmployeeId?: number;
+  lockSelection?: boolean;
   manager?: SalesManager;
   onClose: () => void;
   onSaved: (saved: { level: SalesLevel; is_active: boolean }) => void;
@@ -166,10 +170,11 @@ export function ManagerDetailsForm({
   const enroll = useEnrollSalesManager();
   const update = useUpdateSalesManagerEnrollment();
   const [editManager, setEditManager] = useState(manager);
-  const [employeeId, setEmployeeId] = useState(manager ? String(manager.employee_id) : '');
+  const initialStaff = users.find(staff => staff.employee_id === initialEmployeeId);
+  const [employeeId, setEmployeeId] = useState(manager ? String(manager.employee_id) : initialStaff ? String(initialStaff.employee_id) : '');
   const [level, setLevel] = useState<SalesLevel>(manager?.level ?? initialLevel);
   const [search, setSearch] = useState('');
-  const [details, setDetails] = useState<ManagerDetailsDraft>(() => manager ? detailsFromManager(manager) : detailsFromStaff());
+  const [details, setDetails] = useState<ManagerDetailsDraft>(() => manager ? detailsFromManager(manager) : detailsFromStaff(initialStaff));
   const [isActive, setIsActive] = useState(manager?.is_active ?? true);
   const [version, setVersion] = useState(manager?.version ?? 0);
   const [validationError, setValidationError] = useState('');
@@ -355,16 +360,16 @@ export function ManagerDetailsForm({
         </DialogHeader>
 
         <div className="grid gap-x-4 gap-y-4 py-2 sm:grid-cols-2">
-          {isEditing ? (
+          {isEditing || lockSelection ? (
             <>
               <div className="space-y-1.5"><Label>Manager category (CATEGORY)</Label><div className="flex h-10 items-center rounded-md border bg-muted/45 px-3 text-sm">{LEVEL_LABEL[level]}</div><p className="text-[11px] text-muted-foreground">Category is fixed to preserve existing assignments.</p></div>
-              <div className="space-y-1.5"><Label>Linked MIS user</Label><div className="flex min-h-10 items-center break-words rounded-md border bg-muted/45 px-3 py-2 text-sm">{[editManager?.employee_name, editManager?.account_email].filter(Boolean).join(' · ')}</div></div>
+              <div className="space-y-1.5"><Label>Linked MIS user</Label><div className="flex min-h-10 items-center break-words rounded-md border bg-muted/45 px-3 py-2 text-sm">{[editManager?.employee_name ?? selectedUser?.employee_name, editManager?.account_email ?? selectedUser?.email].filter(Boolean).join(' · ')}</div></div>
             </>
           ) : (
             <>
               <div className="space-y-1.5">
                 <Label htmlFor="manager-level">Manager category (CATEGORY)</Label>
-                <select id="manager-level" value={level} disabled={pending} onChange={event => {
+                <select id="manager-level" value={level} disabled={pending || lockSelection} onChange={event => {
                   const nextLevel = event.target.value as SalesLevel;
                   setLevel(nextLevel);
                   setEmployeeId('');
@@ -379,7 +384,7 @@ export function ManagerDetailsForm({
               <div className="space-y-1.5 sm:row-span-2">
                 <Label htmlFor="staff-search">Existing Sales user</Label>
                 <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input id="staff-search" value={search} disabled={pending} onChange={event => setSearch(event.target.value)} placeholder="Search by name or email" className="pl-9" data-testid="input-search-staff" /></div>
-                <select value={employeeId} disabled={pending} onChange={event => handleAccountChange(event.target.value)} size={Math.min(Math.max(matchingUsers.length, 2), 6)} className="w-full rounded-md border border-input bg-background p-1 text-sm disabled:opacity-60" aria-label="Choose existing staff account" data-testid="select-manager-staff">
+                <select value={employeeId} disabled={pending || lockSelection} onChange={event => handleAccountChange(event.target.value)} size={Math.min(Math.max(matchingUsers.length, 2), 6)} className="w-full rounded-md border border-input bg-background p-1 text-sm disabled:opacity-60" aria-label="Choose existing staff account" data-testid="select-manager-staff">
                   {matchingUsers.length ? <option value="">Choose Sales user</option> : <option value="">{users.length === 0 ? 'No Sales users available' : 'No matching Sales users'}</option>}
                   {matchingUsers.map(staff => {
                     const alreadyEnrolled = managers.some(item => item.employee_id === staff.employee_id && item.level === level);

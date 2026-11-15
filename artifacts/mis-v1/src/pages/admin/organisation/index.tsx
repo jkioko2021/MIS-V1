@@ -59,9 +59,8 @@ export default function OrganisationPage() {
   const route = location.split('?')[0].replace(/\/+$/, '').split('/').at(-1) ?? 'dashboard';
   const isHierarchy = route === 'hierarchy';
   const requestedLevel = new URLSearchParams(querySearch).get('level') as SalesLevel | null;
-  const level = LEVEL_ROUTES[route] ?? (isHierarchy
-    ? (requestedLevel && LEVELS.includes(requestedLevel) ? requestedLevel : 'NATIONAL')
-    : undefined);
+  const level = LEVEL_ROUTES[route];
+  const editorLevel = level ?? (requestedLevel && LEVELS.includes(requestedLevel) ? requestedLevel : 'NATIONAL');
   const isAgents = route === 'agents';
   const isManagers = route === 'managers';
   const managerLink = '/admin/sales-structure/managers';
@@ -73,8 +72,8 @@ export default function OrganisationPage() {
   })), [nodes]);
   const rows = nodes.filter((node) => (!level || node.level === level)
     && (statusFilter === 'all' || (statusFilter === 'active' ? node.is_active : !node.is_active))
-    && `${node.code} ${node.name} ${node.manager_name ?? ''} ${pathNames(node.path)}`.toLowerCase().includes(search.toLowerCase().trim()))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    && `${node.code} ${node.name} ${LEVEL_LABEL[node.level]} ${node.manager_name ?? ''} ${pathNames(node.path)}`.toLowerCase().includes(search.toLowerCase().trim()))
+    .sort((a, b) => LEVELS.indexOf(a.level) - LEVELS.indexOf(b.level) || a.name.localeCompare(b.name));
   const pageTitle = isAgents ? 'Agent unit mapping'
     : isManagers ? 'Manager assignment'
       : isHierarchy ? 'Hierachy Setup'
@@ -112,24 +111,6 @@ export default function OrganisationPage() {
         )}>{label}</Link>)}
       </nav>
 
-      {isHierarchy && <section className="space-y-2 rounded-xl border bg-card p-3">
-        <nav aria-label="Hierarchy setup levels" className="flex flex-wrap gap-2">
-          {LEVELS.map(item => <Link key={item} href={`/admin/organisation/hierarchy?level=${item}`}
-            aria-current={level === item ? 'page' : undefined}
-            aria-disabled={!!editor}
-            onClick={event => {
-              if (editor) { event.preventDefault(); return; }
-              setSearch(''); setStatusFilter('active');
-            }}
-            className={cn('rounded-lg px-4 py-2 text-sm font-medium',
-              level === item ? 'bg-[#1f5849] text-white' : 'bg-muted text-muted-foreground hover:text-foreground',
-              editor && 'cursor-not-allowed opacity-60')}>
-            {item === 'NATIONAL' ? 'National' : item === 'REGION' ? 'Regions' : item === 'BRANCH' ? 'Branches' : 'Units'}
-          </Link>)}
-        </nav>
-        {editor && <p className="text-xs text-muted-foreground">Save or cancel the current entry before switching levels.</p>}
-      </section>}
-
       {!user && <div className="rounded-xl border bg-card p-5 text-sm">Sign in to view the organisation structure.</div>}
       {isError && <ErrorNotice error={error} retry={() => { void refetch(); }} />}
       {isLoading && <div className="space-y-4" aria-label="Loading organisation hierarchy">{[1, 2, 3].map((item) => <div key={item} className="h-24 animate-pulse rounded-xl bg-card" />)}</div>}
@@ -141,9 +122,10 @@ export default function OrganisationPage() {
           nodes={nodes}
           candidates={data.candidates}
           managers={data.managers}
+          managerUsers={data.manager_users}
           catalogSnapshot={catalogs}
           initialCandidate={initialCandidate}
-          initialLevel={level}
+          initialLevel={editorLevel}
           onCancel={() => { setEditor(null); setInitialCandidate(undefined); }}
           onRefresh={async () => {
             const refreshed = await refetch();
@@ -156,7 +138,7 @@ export default function OrganisationPage() {
           onSaved={async () => { setEditor(null); setInitialCandidate(undefined); await refetch(); }}
         />}
 
-        {!isAgents && !isManagers && !level && <>
+        {!isAgents && !isManagers && !isHierarchy && !level && <>
           <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border bg-card p-4"><p className="text-[11px] font-bold uppercase tracking-[.14em] text-muted-foreground">Structure records</p><p className="mt-2 text-3xl font-semibold">{nodes.length}</p><p className="mt-1 text-xs text-muted-foreground">{nodes.filter((node) => node.is_active).length} active across all levels</p></div>
             {counts.map((item) => <Link key={item.level} href={`/admin/organisation/hierarchy?level=${item.level}`} className="group flex items-center justify-between rounded-xl border bg-card p-4 transition-transform hover:-translate-y-0.5 hover:border-[#b8cec0]">
@@ -197,8 +179,8 @@ export default function OrganisationPage() {
 
         {isAgents && <AgentMapping key={`${selectedNodeId ?? 'all'}:${user?.id ?? 'anonymous'}:${user?.profileId ?? 0}`} canManage={canManage} nodes={nodes} initialNodeId={selectedNodeId ? Number(selectedNodeId) : undefined} userId={user?.id ?? 0} profileId={user?.profileId ?? 0} />}
 
-        {!isAgents && !isManagers && level && <>
-          {canManage && level !== 'NATIONAL' && <MedicalRecords
+        {!isAgents && !isManagers && (isHierarchy || level) && <>
+          {canManage && !isHierarchy && level !== 'NATIONAL' && <MedicalRecords
             snapshot={catalogs}
             isLoading={catalogsLoading}
             isError={catalogsError}
@@ -211,10 +193,10 @@ export default function OrganisationPage() {
           />}
           <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
           <div className="flex flex-col gap-3 border-b px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <div><h2 className="font-semibold">{LEVEL_LABEL[level]} records</h2><p className="mt-1 text-xs text-muted-foreground">{rows.length} displayed · {nodes.filter((node) => node.is_active).length} active entries across your scope</p></div>
+            <div><h2 className="font-semibold">{isHierarchy ? 'All hierarchy records' : `${LEVEL_LABEL[level!]} records`}</h2><p className="mt-1 text-xs text-muted-foreground">{rows.length} displayed · {nodes.filter((node) => node.is_active).length} active entries across your scope</p></div>
             <div className="grid gap-2 sm:grid-cols-[minmax(200px,1fr)_155px]"><div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, code or manager" className="pl-9" /></div><select aria-label="Filter by status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm"><option value="active">Active entries</option><option value="inactive">Inactive entries</option><option value="all">All statuses</option></select></div>
           </div>
-          {!rows.length ? <div className="px-5 py-14 text-center"><Network className="mx-auto h-8 w-8 text-muted-foreground" /><h3 className="mt-3 font-semibold">{nodes.length ? 'No matching entries' : 'No records at this level'}</h3><p className="mx-auto mt-1 max-w-lg text-sm leading-6 text-muted-foreground">{nodes.length ? 'Adjust the search or status filter.' : 'Create a parent level before adding a new organisation record.'}</p>{canManage && <Button onClick={() => { setInitialCandidate(undefined); setEditor('new'); }} className="mt-4 gap-2"><Plus className="h-4 w-4" />Add {LEVEL_LABEL[level]}</Button>}</div>
+          {!rows.length ? <div className="px-5 py-14 text-center"><Network className="mx-auto h-8 w-8 text-muted-foreground" /><h3 className="mt-3 font-semibold">{nodes.length ? 'No matching entries' : isHierarchy ? 'No hierarchy records yet' : 'No records at this level'}</h3><p className="mx-auto mt-1 max-w-lg text-sm leading-6 text-muted-foreground">{nodes.length ? 'Adjust the search or status filter.' : 'Create a parent level before adding a new organisation record.'}</p>{canManage && <Button onClick={() => { setInitialCandidate(undefined); setEditor('new'); }} className="mt-4 gap-2"><Plus className="h-4 w-4" />{isHierarchy ? 'Add entry' : `Add ${LEVEL_LABEL[level!]}`}</Button>}</div>
             : <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-sm"><thead className="bg-[#f6f8f6] text-left text-[11px] font-semibold uppercase tracking-[.12em] text-muted-foreground"><tr><th className="px-5 py-3">Organisation</th><th className="px-5 py-3">Reports through</th><th className="px-5 py-3">Manager</th><th className="px-5 py-3">Coverage</th><th className="px-5 py-3">Status</th><th className="px-5 py-3 text-right">Action</th></tr></thead>
               <tbody>{rows.map((node) => {
                 const parentInScope = node.parent_id == null ? undefined : nodes.find((item) => item.id === node.parent_id);
@@ -231,6 +213,15 @@ export default function OrganisationPage() {
               })}</tbody></table></div>}
           <footer className="flex flex-col gap-2 border-t bg-muted/20 px-5 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between"><span>Imported identities and organisations are reused, not copied.</span><Link href="/admin/organisation/agents" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">Open agent mapping<ArrowRight className="h-3.5 w-3.5" /></Link></footer>
           </section>
+          {canManage && isHierarchy && <details className="rounded-xl border bg-card">
+            <summary className="cursor-pointer px-5 py-4 text-sm font-semibold">Imported organisational records</summary>
+            <div className="max-h-[36rem] overflow-y-auto">
+              <MedicalRecords snapshot={catalogs} isLoading={catalogsLoading} isError={catalogsError}
+                error={catalogsLoadError} onRetry={() => { void refetchCatalogs(); }} nodes={nodes}
+                candidates={data.candidates} showAllRecords
+                onAdopt={(candidate) => { setInitialCandidate(candidate); setEditor('new'); }} />
+            </div>
+          </details>}
         </>}
         {!canManage && <p className="text-center text-xs text-muted-foreground">Access follows your assigned reporting scope. This view contains no sales or commission metrics.</p>}
       </>}

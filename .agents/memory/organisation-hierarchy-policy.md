@@ -59,13 +59,28 @@ eligible hierarchy parents/managers, but distinguish pending references from
 operational nodes. Do not interpret visibility in the Medical source list as
 authorisation to activate accounts or make a Unit available to agents.
 
-Medical **Assigned manager** choices at National, Region, Branch and Unit level
-must use accounts with the **Sales Manager** profile, in addition to a matching,
-eligible manager-category enrollment.
+Medical **Assigned manager** must list **Sales Manager** profile accounts at
+National, Region, Branch and Unit level, including people not yet enrolled in
+that category. Saving an assignment still requires a matching eligible category
+enrollment; provide an explicit inline enrollment route rather than hiding them.
 
 **Why:** The user asked for Sales Manager users on the National Assigned manager
 field and clarified that the same rule applies to regions, branches and units.
+The user reiterated that Assigned manager should display Sales Managers after
+the uploaded accounts had been activated; deriving the list only from category
+enrollments incorrectly kept it empty.
 
 **How to apply:** Filter choices and validate assignments on the server. Do not
 silently change existing account profiles, activate accounts or create manager
-designations to fill an empty list. Enrollment by itself does not grant a profile.
+designations to fill an empty list. Keep the selected account/category fixed
+while completing the explicit enrollment form. Enrollment by itself does not
+grant a profile, and global staff choices are admin-only.
+
+Hierarchy Setup is one combined list, without National, Region, Branch or Unit
+tabs. Keep level selection in the entry form and retain access to imported
+source records without turning them into operational nodes automatically.
+
+**Why:** The user explicitly requested removing the four level tabs.
+
+**How to apply:** Do not leave a hidden level filter behind when removing tabs.
+Legacy level links may prefill a new entry but must not hide other levels.

@@ -6,6 +6,10 @@ const ts = require('typescript');
 const root = path.join(__dirname, '..');
 const levels = ['NATIONAL', 'REGION', 'BRANCH', 'UNIT'];
 const names = { NATIONAL: 'National', REGION: 'Region', BRANCH: 'Branch', UNIT: 'Unit' };
+const nodes = levels.map((level, index) => ({
+  id: index + 1, code: `TEST_${level}`, name: `${names[level]} record`, level,
+  is_active: true, path: [], manager_name: 'Manager', child_count: 0, agent_count: 0,
+}));
 let state = [], cursor = 0, search = '';
 const jsx = (type, props) => ({ type, props: props || {} });
 const source = fs.readFileSync(path.join(root, 'src/pages/admin/organisation/index.tsx'), 'utf8');
@@ -30,7 +34,7 @@ vm.runInNewContext(ts.transpileModule(source, {
     };
     if (name === '@workspace/api-client-react') return {
       getGetOrganisationQueryKey: () => ['/api/organisation'], getGetSalesCatalogsQueryKey: () => ['/catalogs'],
-      useGetOrganisation: () => ({ data: { can_manage: true, nodes: [], managers: [], candidates: [] } }),
+      useGetOrganisation: () => ({ data: { can_manage: true, nodes, managers: [], manager_users: [], candidates: [] } }),
       useGetSalesCatalogs: () => ({ data: {} }),
     };
     return new Proxy({}, { get: (_, key) => key });
@@ -44,18 +48,18 @@ for (const requested of [...levels, 'INVALID', '']) {
   const expected = levels.includes(requested) ? requested : 'NATIONAL';
   let tree = render();
   assert(tree.some(node => node.type === 'h1' && node.props.children === 'Hierachy Setup'));
-  const nav = tree.find(node => node.props['aria-label'] === 'Hierarchy setup levels');
-  const links = walk(nav).filter(node => node.type === 'Link');
-  assert.equal(links.length, 4);
-  assert.equal(links.find(node => node.props['aria-current'] === 'page').props.href,
-    `/admin/organisation/hierarchy?level=${expected}`);
+  assert(!tree.some(node => node.props['aria-label'] === 'Hierarchy setup levels'), 'The four level tabs must be removed');
+  for (const node of nodes) {
+    assert(tree.some(item => item.props['data-testid'] === `row-organisation-node-${node.id}`),
+      'All four levels must appear together even when an old level query parameter is present');
+  }
+  const imports = tree.filter(node => node.type === 'MedicalRecords');
+  assert.equal(imports.length, 1, 'Hierarchy view must not also render the dashboard');
+  assert.equal(imports[0].props.showAllRecords, true, 'Imported records remain accessible together');
   tree.find(node => node.type === 'Button' && walk(node).some(child => child.props?.children === 'Add entry')
     || node.type === 'Button' && node.props.children?.includes('Add entry')).props.onClick();
   tree = render();
   assert.equal(tree.find(node => node.type === 'NodeEditor').props.initialLevel, expected);
-  let prevented = false;
-  tree.find(node => node.type === 'Link' && node.props['aria-disabled']).props.onClick({ preventDefault() { prevented = true; } });
-  assert(prevented, 'Changing levels must not silently discard an open editor');
 }
 const app = fs.readFileSync(path.join(root, 'src/App.tsx'), 'utf8');
 assert.equal((app.match(/label: 'Hierachy Setup'/g) || []).length, 1);
@@ -63,4 +67,4 @@ for (const [slug, level] of Object.entries({ national: 'NATIONAL', regions: 'REG
   assert(!app.includes(`{ href: '/admin/organisation/${slug}', label:`), 'Old standalone sidebar items must be removed');
   assert(app.includes(`to="/admin/organisation/hierarchy?level=${level}"`), 'Old links must redirect to the matching level');
 }
-console.log('PASS: one setup menu, four levels, safe defaults, matching Add entry category, draft protection and legacy redirects.');
+console.log('PASS: no level tabs, all four levels in one list, imported records retained, safe Add defaults and legacy redirects.');

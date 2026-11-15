@@ -24,6 +24,7 @@ vm.runInNewContext(ts.transpileModule(source,{
     if(name==='@tanstack/react-query')return {useQueryClient:()=>({invalidateQueries:async()=>{}})};
     if(name==='@workspace/api-client-react')return new Proxy({},{get:(_,key)=>String(key).startsWith('get')?()=>[]:()=>({isPending:false,reset(){},mutate(input){writes.push(input)}})});
     if(name==='lucide-react'||name.startsWith('@/components/ui/'))return new Proxy({},{get:(_,key)=>String(key)});
+    if(name==='../sales-structure/manager-details')return {ManagerDetailsForm:'ManagerDetailsForm'};
     if(name==='./shared')return {INPUT_CLASS:'input',LEVELS:['NATIONAL','REGION','BRANCH','UNIT'],
       LEVEL_LABEL:{NATIONAL:'National',REGION:'Region',BRANCH:'Branch',UNIT:'Unit'},errorStatus:()=>0,errorMessage:()=>''};
     throw Error(`Unexpected import ${name}`);
@@ -40,7 +41,10 @@ const walk=node=>node==null||typeof node==='boolean'?[]:Array.isArray(node)?node
   typeof node==='object'?[node,...walk(node.props?.children)]:[];
 const render=()=>{cursor=0;effects=[];const tree=output.NodeEditor(props);effects.forEach(fn=>fn());return tree};
 const find=id=>walk(render()).find(node=>node.props?.id===id);
-const change=(id,value)=>find(id).props.onChange({target:{value}});
+const change=(id,value)=>{
+  const field=find(id).props;
+  return field.onValueChange ? field.onValueChange(value) : field.onChange({target:{value}});
+};
 change('org-level','REGION');
 change('org-code','R_NEW');change('org-name','Typed region name');
 change('org-parent','1');
@@ -115,19 +119,19 @@ props={nodes,candidates:[
   {id:32,level:'BRANCH',is_active:true,user_eligible:true,employee_name:'Branch Manager'},
 ],catalogSnapshot:branchCatalog};
 change('org-level','BRANCH');change('org-parent','3');change('org-source-candidate','22');
-assert.equal(walk(find('org-source-candidate')).find(item=>item.type==='option'&&String(item.props.value)==='22').props.children,'Preloaded Branch',
+assert.equal(find('org-source-candidate').props.options.find(item=>item.value==='22').label,'Preloaded Branch',
   'Imported source dropdown labels use names only');
-assert.equal(walk(find('org-parent')).find(item=>item.type==='option'&&String(item.props.value)==='3').props.children.join(''),'Region One',
+assert.equal(find('org-parent').props.options.find(item=>item.value==='3').label,'Region One',
   'Parent dropdown labels use names only');
 assert.equal(find('medical-branch_type').props.value,'Agency','Imported Medical defaults preload into editor');
 assert.equal(find('medical-speciality').props.value,'GEN','Imported Medical defaults preload into editor');
 assert.equal(find('medical-branch_type').props.maxLength,50);
 assert.equal(find('medical-speciality').props.maxLength,5);
 assert.equal(find('medical-gi_branch').props.value,'GB1','Imported GI reference code is retained as the value');
-const giOptions=walk(find('medical-gi_branch')).filter(item=>item.type==='option');
-assert.equal(giOptions.filter(item=>item.props.value==='GB1').length,1,'GI choices with the same code are deduplicated');
-assert.equal(giOptions.find(item=>item.props.value==='GB1').props.children,'Central GI','GI dropdown labels use names only');
-assert.equal(giOptions.some(item=>item.props.value==='GB2'),false,'Unapproved imported GI references are excluded');
+const giOptions=find('medical-gi_branch').props.options;
+assert.equal(giOptions.filter(item=>item.value==='GB1').length,1,'GI choices with the same code are deduplicated');
+assert.equal(giOptions.find(item=>item.value==='GB1').label,'Central GI','GI dropdown labels use names only');
+assert.equal(giOptions.some(item=>item.value==='GB2'),false,'Unapproved imported GI references are excluded');
 change('org-manager','32');
 const preloadedSave=save();
 assert.equal(preloadedSave.data.source_reference_id,22);
@@ -160,3 +164,38 @@ for(const initialLevel of ['NATIONAL','REGION','BRANCH','UNIT']){
   assert.equal(find('org-level').props.value,initialLevel,'Add entry must start at the selected hierarchy level');
 }
 console.log('PASS: selected hierarchy level, retained source drafts, Medical defaults, GI names, sparse create overrides and explicit clearing.');
+
+(async()=>{
+  const staff={employee_id:101,employee_name:'Visible Sales Manager',email:'manager@example.test',
+    username:'not-shown',emp_code:'EMP_TEST101',user_eligible:true};
+  const parents=[
+    {id:1,level:'NATIONAL',name:'National',available:true},
+    {id:2,level:'REGION',name:'Region',available:true},
+    {id:3,level:'BRANCH',name:'Branch',available:true},
+  ];
+  for(const [index,initialLevel] of ['NATIONAL','REGION','BRANCH','UNIT'].entries()){
+    state=[];
+    const ready={id:900+index,employee_id:101,level:initialLevel,is_active:true,user_eligible:true};
+    props={nodes:parents,candidates:[],managers:[],managerUsers:[staff],initialLevel,onCancel(){},onSaved:async()=>{},
+      onRefresh:async()=>({data:{can_manage:true,nodes:parents,candidates:[],managers:[ready],manager_users:[staff]}})};
+    const option=find('org-manager').props.options.find(item=>item.value==='user:101');
+    assert(option,'Unenrolled Sales Manager must be listed at every level');
+    assert.equal(option.label,'Visible Sales Manager');
+    assert.equal(option.description,'manager@example.test');
+    change('org-code',`TEST_${initialLevel}`);change('org-name',`Test ${initialLevel}`);
+    if(index)change('org-parent',String(index));
+    change('org-manager','user:101');
+    const saveButton=()=>walk(render()).find(item=>item.type==='Button'&&JSON.stringify(item.props.children).includes('"Create entry"'));
+    assert.equal(saveButton().props.disabled,true,'Pending account ID must never be sent as a designation ID');
+    const previousWrites=writes.length;saveButton().props.onClick();assert.equal(writes.length,previousWrites);
+    walk(render()).find(item=>item.type==='Button'&&item.props.children==='Enroll selected manager').props.onClick();
+    const form=walk(render()).find(item=>item.type==='ManagerDetailsForm');
+    assert.equal(form.props.initialEmployeeId,101);assert.equal(form.props.initialLevel,initialLevel);
+    assert.equal(form.props.lockSelection,true);
+    await form.props.refreshStructure();
+    props={...props,managers:[ready]};
+    assert.equal(find('org-manager').props.value,String(ready.id),'New enrollment must become the selected designation');
+    assert.equal(saveButton().props.disabled,false,'Valid assignment becomes saveable without reselecting the user');
+  }
+  console.log('PASS: Sales Manager users appear at all four levels before enrollment; inline enrollment binds the right account/category and selects the resulting designation.');
+})().catch(error=>{console.error(error);process.exitCode=1});

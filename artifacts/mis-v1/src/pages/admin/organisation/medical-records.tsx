@@ -52,6 +52,7 @@ export function MedicalRecords({
   nodes,
   candidates,
   level,
+  showAllRecords = false,
   onAdopt,
 }: {
   snapshot?: SalesCatalogSnapshot;
@@ -62,6 +63,7 @@ export function MedicalRecords({
   nodes: OrganisationNode[];
   candidates: OrganisationCandidate[];
   level?: SalesLevel;
+  showAllRecords?: boolean;
   onAdopt: (candidate: OrganisationCandidate) => void;
 }) {
   const [search, setSearch] = useState('');
@@ -83,7 +85,7 @@ export function MedicalRecords({
     entryLevel(entry) === target && nodes.some((node) => node.level === target && node.code.toLowerCase() === entry.code.toLowerCase()),
   ).length;
 
-  if (level === undefined) {
+  if (level === undefined && !showAllRecords) {
     return <section className="rounded-xl border border-[#d6e3da] bg-[#f7faf7] p-4 sm:p-5" data-testid="medical-import-counts">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -112,11 +114,11 @@ export function MedicalRecords({
     </section>;
   }
 
-  return <section className="overflow-hidden rounded-xl border border-[#d6e3da] bg-card shadow-sm" data-testid={`medical-imported-${level.toLowerCase()}`}>
+  return <section className="overflow-hidden rounded-xl border border-[#d6e3da] bg-card shadow-sm" data-testid={`medical-imported-${level?.toLowerCase() ?? 'all'}`}>
     <div className="flex flex-col gap-3 border-b bg-[#f7faf7] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="font-semibold">Previously imported Medical {level === 'BRANCH' ? 'branches' : `${LEVEL_LABEL[level].toLowerCase()}s`}</h2>
+          <h2 className="font-semibold">Previously imported Medical {level ? level === 'BRANCH' ? 'branches' : `${LEVEL_LABEL[level].toLowerCase()}s` : 'records'}</h2>
           <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-950">Read-only source</Badge>
         </div>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">Search and review the original source rows beside their operational hierarchy status.</p>
@@ -136,7 +138,7 @@ export function MedicalRecords({
       <Button variant="outline" onClick={onRetry} className="mt-4">Retry</Button>
     </div> : filtered.length === 0 ? <div className="px-5 py-12 text-center">
       <FileSearch className="mx-auto h-8 w-8 text-[#678675]" />
-      <h3 className="mt-3 font-semibold">{levelRecords.length ? 'No matching imported records' : `No imported ${LEVEL_LABEL[level].toLowerCase()} records found`}</h3>
+      <h3 className="mt-3 font-semibold">{levelRecords.length ? 'No matching imported records' : level ? `No imported ${LEVEL_LABEL[level].toLowerCase()} records found` : 'No imported organisational records found'}</h3>
       <p className="mx-auto mt-1 max-w-md text-sm leading-5 text-muted-foreground">{levelRecords.length ? 'Try a different search term.' : 'The source catalog currently contains no records at this level.'}</p>
     </div> : <div className="divide-y">
       {filtered.map((entry) => {
