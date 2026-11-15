@@ -70,6 +70,19 @@ without changing their prior decision to leave login accounts inactive.
 Hold ambiguous names, shared emails or unverified existing-account matches for
 review rather than merging or changing another person's account.
 
+The user subsequently authorized the verified uploaded manager list to use the
+**Sales** department and **Sales Manager** profile, with accounts approved and
+activated. The earlier inactive-import choice is an initial-import safeguard,
+not a requirement to keep these verified accounts disabled.
+
+**Why:** The user explicitly requested: "Assign uploaded list to sales
+department,and sales manager profile ,approve and activate".
+
+**How to apply:** Do not reset approved existing accounts to inactive import
+defaults when reprocessing references. Restrict this authorization to confirmed
+source-to-account links; unresolved identities remain held. Do not change
+passwords, create shared credentials or treat approval as category enrollment.
+
 Keep Medical and GI structure setup separate. Medical uses one combined Manager
 Enrollment with Unit Manager, Regional Manager, Branch Manager and National Sales
 Manager categories, rather than separate Unit Managers and Regional Managers
