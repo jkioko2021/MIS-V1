@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
+import { createOrganisationFixture } from "./organisation-fixture.mjs";
 
 const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
 const dir = await mkdtemp(path.join(os.tmpdir(), "intermediary-test-"));
@@ -38,6 +39,7 @@ try {
   });
   const lib = await import(pathToFileURL(path.join(dir, "test.mjs")).href);
   const prefix = `QA_${randomUUID().slice(0, 8)}`, a = `${prefix}A`, b = `${prefix}B`, d = `${prefix}C`;
+  const hierarchy = await createOrganisationFixture(client,prefix);
   assert.equal(await lib.canManageIntermediaries(1), true);
   assert.equal(await lib.canManageIntermediaries(3), false);
   assert.equal(await lib.canManageIntermediaries(10), false, "NSM is not National Sales Admin");
@@ -59,7 +61,7 @@ try {
   await assert.rejects(lib.saveMaster({...source(a),notes:"No manual creation"},"fixture_maker"),e=>e.status===405);
   await assert.rejects(lib.saveMaster({...source(a),agent_name:"Changed core name",notes:"Invalid",version:1},"fixture_maker",a),e=>e.status===400);
   first = await lib.saveMaster({agent_code:a,agent_name:a,agent_type:"INDEPENDENT",notes:"Retained note",
-    version:first.agent.version,email:null}, "fixture_maker", a);
+    version:first.agent.version,email:null,organisation_unit_id:hierarchy.unitId}, "fixture_maker", a);
   assert.equal(first.agent.email, null, "Explicit clearing is saved");
   assert.equal(first.agent.mobile_no, "0700000000", "Omitted field is preserved");
   await assert.rejects(lib.saveMaster({agent_code:a,agent_name:a,agent_type:"INDEPENDENT",notes:"stale",version:1}, "fixture_maker", a), e=>e.status===409);

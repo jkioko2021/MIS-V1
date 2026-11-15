@@ -31,4 +31,6 @@ export interface SalesNodeInput {
      */
   manager_id: number | null;
   is_active: boolean;
+  /** @minimum 1 */
+  source_reference_id?: number;
 }

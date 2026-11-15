@@ -1,0 +1,180 @@
+import { useMemo, useState } from 'react';
+import { Link, useLocation, useSearch } from 'wouter';
+import {
+  ArrowRight, Building2, ChevronRight, CircleHelp, GitBranch, Layers3, LockKeyhole, Network,
+  Pencil, Plus, RefreshCw, Search, ShieldCheck, UsersRound,
+} from 'lucide-react';
+import { getGetOrganisationQueryKey, useGetOrganisation } from '@workspace/api-client-react';
+import type { OrganisationNode, SalesLevel } from '@workspace/api-client-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useAuth } from '@/lib/auth-context';
+import { cn } from '@/lib/utils';
+import { AgentMapping } from './agent-mapping';
+import { OrganisationTree } from './hierarchy-tree';
+import { NodeEditor } from './node-editor';
+import { ErrorNotice, identityQueryKey, LEVELS, LEVEL_LABEL, pathNames } from './shared';
+
+const LEVEL_ROUTES: Record<string, SalesLevel | undefined> = {
+  national: 'NATIONAL',
+  regions: 'REGION',
+  branches: 'BRANCH',
+  units: 'UNIT',
+};
+const LEVEL_HREF: Record<SalesLevel, string> = {
+  NATIONAL: 'national',
+  REGION: 'regions',
+  BRANCH: 'branches',
+  UNIT: 'units',
+};
+function IconForLevel({ level }: { level: SalesLevel }) {
+  const Icon = level === 'NATIONAL' ? ShieldCheck : level === 'REGION' ? GitBranch : level === 'BRANCH' ? Building2 : Layers3;
+  return <Icon className="h-5 w-5" />;
+}
+
+export default function OrganisationPage() {
+  const [location] = useLocation();
+  const querySearch = useSearch();
+  const { user } = useAuth();
+  const { data, isLoading, isFetching, isError, error, refetch } = useGetOrganisation({
+    query: { queryKey: identityQueryKey(getGetOrganisationQueryKey(), user), enabled: !!user, staleTime: 15_000 },
+  });
+  const nodes = data?.nodes ?? [];
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('active');
+  const [editor, setEditor] = useState<OrganisationNode | 'new' | null>(null);
+  const route = location.split('?')[0].replace(/\/+$/, '').split('/').at(-1) ?? 'dashboard';
+  const level = LEVEL_ROUTES[route];
+  const isAgents = route === 'agents';
+  const isManagers = route === 'managers';
+  const canManage = !!data?.can_manage;
+  const managerLink = '/admin/sales-structure/managers';
+  const selectedNodeId = new URLSearchParams(querySearch).get('node_id');
+  const counts = useMemo(() => LEVELS.map((item) => ({
+    level: item,
+    total: nodes.filter((node) => node.level === item).length,
+    active: nodes.filter((node) => node.level === item && node.is_active).length,
+  })), [nodes]);
+  const rows = nodes.filter((node) => (!level || node.level === level)
+    && (statusFilter === 'all' || (statusFilter === 'active' ? node.is_active : !node.is_active))
+    && `${node.code} ${node.name} ${node.manager_name ?? ''} ${pathNames(node.path)}`.toLowerCase().includes(search.toLowerCase().trim()))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const pageTitle = isAgents ? 'Agent unit mapping'
+    : isManagers ? 'Manager assignment'
+      : level ? `${LEVEL_LABEL[level]} management`
+        : 'Organisation hierarchy';
+  const pageDescription = isAgents
+    ? 'Initial mapping, controlled transfers and date-aware, server-scoped reporting for existing agent identities.'
+    : isManagers
+      ? 'Manager ownership follows reporting level. Account enrollment remains in the existing Manager Enrollment workflow.'
+      : 'Maintain the live reporting line once. Imported organisations are matched in place; existing people and source identities are never duplicated.';
+
+  return <div className="min-h-full bg-[#f2f6f3]">
+    <header className="border-b border-[#d9e4dd] bg-card">
+      <div className="mx-auto flex max-w-[1500px] flex-col gap-4 px-4 py-5 sm:px-6 lg:flex-row lg:items-end lg:justify-between lg:px-8">
+        <div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground"><span>Administration</span><ChevronRight className="h-3 w-3" /><span>Organisation Structure</span></div>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-[#19392e] sm:text-3xl">{pageTitle}</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">{pageDescription}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => { void refetch(); }} disabled={isFetching} className="gap-2 bg-card"><RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />Refresh</Button>
+          {canManage && !isAgents && !isManagers && <Button onClick={() => setEditor('new')} className="gap-2 bg-[#1f5849] hover:bg-[#174536]"><Plus className="h-4 w-4" />Add entry</Button>}
+        </div>
+      </div>
+    </header>
+
+    <main className="mx-auto max-w-[1500px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
+      <nav aria-label="Organisation pages" className="flex gap-1 overflow-x-auto rounded-xl border bg-card p-1">
+        {[
+          ['dashboard', 'Dashboard'], ['national', 'National'], ['regions', 'Regions'],
+          ['branches', 'Branches'], ['units', 'Units'], ['managers', 'Manager assignment'], ['agents', 'Agents'],
+        ].map(([slug, label]) => <Link key={slug} href={`/admin/organisation/${slug}`} className={cn(
+          'shrink-0 rounded-lg px-3 py-2 text-xs font-medium transition-colors',
+          route === slug ? 'bg-[#e7f0e9] text-[#1f5849]' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+        )}>{label}</Link>)}
+      </nav>
+
+      {!user && <div className="rounded-xl border bg-card p-5 text-sm">Sign in to view the organisation structure.</div>}
+      {isError && <ErrorNotice error={error} retry={() => { void refetch(); }} />}
+      {isLoading && <div className="space-y-4" aria-label="Loading organisation hierarchy">{[1, 2, 3].map((item) => <div key={item} className="h-24 animate-pulse rounded-xl bg-card" />)}</div>}
+      {!isLoading && data && <>
+        {!canManage && <div className="flex items-start gap-3 rounded-lg border border-[#d6e3da] bg-[#eaf2ec] px-4 py-3 text-sm text-[#385c4c]"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" /><p>Read-only reporting view. Structure setup, manager lists and mapping actions are available to administrators only.</p></div>}
+        {editor && canManage && <NodeEditor
+          key={editor === 'new' ? 'new' : editor.id}
+          node={editor === 'new' ? undefined : editor}
+          nodes={nodes}
+          candidates={data.candidates}
+          managers={data.managers}
+          onCancel={() => setEditor(null)}
+          onRefresh={async () => {
+            const refreshed = await refetch();
+            if (editor !== 'new') {
+              const current = refreshed.data?.nodes.find(entry => entry.id === editor.id);
+              if (current) setEditor(current);
+            }
+            return refreshed;
+          }}
+          onSaved={async () => { setEditor(null); await refetch(); }}
+        />}
+
+        {!isAgents && !isManagers && !level && <>
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl border bg-card p-4"><p className="text-[11px] font-bold uppercase tracking-[.14em] text-muted-foreground">Structure records</p><p className="mt-2 text-3xl font-semibold">{nodes.length}</p><p className="mt-1 text-xs text-muted-foreground">{nodes.filter((node) => node.is_active).length} active across all levels</p></div>
+            {counts.map((item) => <Link key={item.level} href={`/admin/organisation/${LEVEL_HREF[item.level]}`} className="group flex items-center justify-between rounded-xl border bg-card p-4 transition-transform hover:-translate-y-0.5 hover:border-[#b8cec0]">
+              <div><p className="text-[11px] font-bold uppercase tracking-[.14em] text-muted-foreground">{LEVEL_LABEL[item.level]} entries</p><p className="mt-2 text-3xl font-semibold">{item.active}</p><p className="mt-1 text-xs text-muted-foreground">{item.total - item.active} inactive</p></div>
+              <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#eaf2ec] text-[#28614f]"><IconForLevel level={item.level} /></span>
+            </Link>)}
+          </section>
+          <OrganisationTree nodes={nodes} canManage={canManage} userId={user?.id ?? 0} profileId={user?.profileId ?? 0} onEdit={setEditor} />
+        </>}
+
+        {isManagers && <section className="rounded-xl border bg-card p-5 sm:p-7">
+          <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div><p className="text-[11px] font-bold uppercase tracking-[.15em] text-primary">Manager assignments</p><h2 className="mt-2 text-xl font-semibold">Keep enrollment separate from reporting ownership</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Node managers are assigned during structure creation or editing, and must match the node level. Manager accounts and eligibility are maintained in Manager Enrollment.</p>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">{LEVELS.map((item) => <div key={item} className="rounded-lg border bg-muted/20 p-3"><span className="text-xs font-semibold">{LEVEL_LABEL[item]}</span><span className="float-right text-xs text-muted-foreground">{nodes.filter((node) => node.level === item && node.manager_id != null).length} assigned nodes</span></div>)}</div>
+            </div>
+            {canManage && <Button asChild className="gap-2 bg-[#1f5849] hover:bg-[#174536]"><Link href={managerLink}>Open Manager Enrollment<ArrowRight className="h-4 w-4" /></Link></Button>}
+          </div>
+          <div className="mt-5 overflow-x-auto rounded-lg border">
+            {!nodes.length ? <div className="p-8 text-center text-sm text-muted-foreground">No organisation nodes are available in your reporting scope.</div> : <table className="w-full min-w-[700px] text-sm">
+              <thead className="bg-muted/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground"><tr><th className="px-4 py-3">Reporting node</th><th className="px-4 py-3">Level</th><th className="px-4 py-3">Assigned manager</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Action</th></tr></thead>
+              <tbody>{nodes.slice().sort((a, b) => LEVELS.indexOf(a.level) - LEVELS.indexOf(b.level) || a.name.localeCompare(b.name)).map((node) => <tr key={node.id} className="border-t">
+                <td className="px-4 py-3"><b>{node.name}</b><div className="mt-1 text-[11px] text-muted-foreground">{pathNames(node.path)}</div></td><td className="px-4 py-3">{LEVEL_LABEL[node.level]}</td><td className="px-4 py-3">{node.manager_name || 'Not assigned'}</td><td className="px-4 py-3"><Badge variant="outline">{node.is_active ? 'Active' : 'Inactive'}</Badge></td><td className="px-4 py-3 text-right">{canManage && <Button size="sm" variant="outline" onClick={() => setEditor(node)} className="gap-1.5"><Pencil className="h-3.5 w-3.5" />Edit node</Button>}</td>
+              </tr>)}</tbody>
+            </table>}
+          </div>
+          <div className="mt-4 rounded-lg border border-[#d6e3da] bg-[#f4f8f5] p-4 text-xs leading-5 text-[#4e685b]">Inactive organisations retain their manager assignment for reference; manager account activation and eligibility are separate controls.</div>
+        </section>}
+
+        {isAgents && <AgentMapping key={`${selectedNodeId ?? 'all'}:${user?.id ?? 'anonymous'}:${user?.profileId ?? 0}`} canManage={canManage} nodes={nodes} initialNodeId={selectedNodeId ? Number(selectedNodeId) : undefined} userId={user?.id ?? 0} profileId={user?.profileId ?? 0} />}
+
+        {!isAgents && !isManagers && level && <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
+          <div className="flex flex-col gap-3 border-b px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div><h2 className="font-semibold">{LEVEL_LABEL[level]} records</h2><p className="mt-1 text-xs text-muted-foreground">{rows.length} displayed · {nodes.filter((node) => node.is_active).length} active entries across your scope</p></div>
+            <div className="grid gap-2 sm:grid-cols-[minmax(200px,1fr)_155px]"><div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, code or manager" className="pl-9" /></div><select aria-label="Filter by status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm"><option value="active">Active entries</option><option value="inactive">Inactive entries</option><option value="all">All statuses</option></select></div>
+          </div>
+          {!rows.length ? <div className="px-5 py-14 text-center"><Network className="mx-auto h-8 w-8 text-muted-foreground" /><h3 className="mt-3 font-semibold">{nodes.length ? 'No matching entries' : 'No records at this level'}</h3><p className="mx-auto mt-1 max-w-lg text-sm leading-6 text-muted-foreground">{nodes.length ? 'Adjust the search or status filter.' : 'Create a parent level before adding a new organisation record.'}</p>{canManage && <Button onClick={() => setEditor('new')} className="mt-4 gap-2"><Plus className="h-4 w-4" />Add {LEVEL_LABEL[level]}</Button>}</div>
+            : <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-sm"><thead className="bg-[#f6f8f6] text-left text-[11px] font-semibold uppercase tracking-[.12em] text-muted-foreground"><tr><th className="px-5 py-3">Organisation</th><th className="px-5 py-3">Reports through</th><th className="px-5 py-3">Manager</th><th className="px-5 py-3">Coverage</th><th className="px-5 py-3">Status</th><th className="px-5 py-3 text-right">Action</th></tr></thead>
+              <tbody>{rows.map((node) => {
+                const parentInScope = node.parent_id == null ? undefined : nodes.find((item) => item.id === node.parent_id);
+                const parentFromPath = node.path.length > 1 ? node.path[node.path.length - 2] : undefined;
+                const parentName = parentInScope?.name ?? parentFromPath?.name ?? (node.level === 'NATIONAL' ? 'National root' : 'Parent outside reporting scope');
+                return <tr key={node.id} className="border-t hover:bg-[#f7faf7]" data-testid={`row-organisation-node-${node.id}`}>
+                  <td className="px-5 py-3.5"><b>{node.name}</b><div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground"><span className="font-mono">{node.code}</span><span>·</span><span>{LEVEL_LABEL[node.level]}</span></div></td>
+                  <td className="px-5 py-3.5">{parentName}{parentFromPath?.code && !parentInScope && <span className="ml-2 font-mono text-xs text-muted-foreground">{parentFromPath.code}</span>}</td>
+                  <td className="px-5 py-3.5">{node.manager_name || <span className="text-amber-800">Manager not assigned</span>}</td>
+                  <td className="px-5 py-3.5"><div className="flex flex-wrap gap-2 text-xs"><Badge variant="outline">{node.child_count} child{node.child_count === 1 ? '' : 'ren'}</Badge><Badge variant="outline">{node.agent_count} agents</Badge></div>{node.level === 'UNIT' && <Link href={`/admin/organisation/agents?node_id=${node.id}`} className="mt-2 inline-flex text-xs font-medium text-primary hover:underline">View agents</Link>}</td>
+                  <td className="px-5 py-3.5"><Badge variant="outline" className={node.is_active ? 'border-emerald-200 bg-emerald-50/70 text-emerald-800' : 'text-muted-foreground'}>{node.is_active ? 'Active' : 'Inactive'}</Badge></td>
+                  <td className="px-5 py-3.5 text-right">{canManage && <Button size="sm" variant="outline" onClick={() => setEditor(node)} className="gap-1.5"><Pencil className="h-3.5 w-3.5" />Edit</Button>}</td>
+                </tr>;
+              })}</tbody></table></div>}
+          <footer className="flex flex-col gap-2 border-t bg-muted/20 px-5 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between"><span>Imported identities and organisations are reused, not copied.</span><Link href="/admin/organisation/agents" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">Open agent mapping<ArrowRight className="h-3.5 w-3.5" /></Link></footer>
+        </section>}
+        {!canManage && <p className="text-center text-xs text-muted-foreground">Access follows your assigned reporting scope. This view contains no sales or commission metrics.</p>}
+      </>}
+      {data && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#d6e3da] bg-[#eaf2ec] px-4 py-3 text-xs text-[#456454]"><span className="flex items-center gap-2"><CircleHelp className="h-4 w-4" />Reporting hierarchy is maintained independently from manager account enrollment.</span>{canManage && <Link href={managerLink} className="font-semibold hover:underline">Manager Enrollment <ArrowRight className="inline h-3.5 w-3.5" /></Link>}</div>}
+    </main>
+  </div>;
+}

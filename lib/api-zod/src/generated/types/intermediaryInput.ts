@@ -24,6 +24,11 @@ export interface IntermediaryInput {
   agent_type: string;
   version?: number;
   /**
+     * @minimum 1
+     * @nullable
+     */
+  organisation_unit_id?: number | null;
+  /**
      * @minLength 1
      * @maxLength 4000
      */
@@ -38,17 +43,17 @@ export interface IntermediaryInput {
      */
   user_id?: string | null;
   /**
-     * @maxLength 30
+     * @maxLength 40
      * @nullable
      */
   unit_code?: string | null;
   /**
-     * @maxLength 30
+     * @maxLength 40
      * @nullable
      */
   branch_code?: string | null;
   /**
-     * @maxLength 30
+     * @maxLength 40
      * @nullable
      */
   region_code?: string | null;

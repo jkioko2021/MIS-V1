@@ -11,6 +11,13 @@ router.use(requireAuth);
 // This is the authoritative list of all pages/items in the system.
 // Access rights for every profile are derived from this list.
 export const MENU_MASTER = [
+  { main: "Organisation Structure", sub: "Organisation Hierarchy", url: "/admin/organisation/dashboard", order: 10 },
+  { main: "Organisation Structure", sub: "National Management", url: "/admin/organisation/national", order: 20 },
+  { main: "Organisation Structure", sub: "Region Management", url: "/admin/organisation/regions", order: 30 },
+  { main: "Organisation Structure", sub: "Branch Management", url: "/admin/organisation/branches", order: 40 },
+  { main: "Organisation Structure", sub: "Unit Management", url: "/admin/organisation/units", order: 50 },
+  { main: "Organisation Structure", sub: "Manager Assignment", url: "/admin/organisation/managers", order: 60 },
+  { main: "Organisation Structure", sub: "Agent Unit Mapping", url: "/admin/organisation/agents", order: 70 },
   { main: "Intemediary Management", sub: "Agent Registration", url: "/intermediary/registration", order: 10 },
   { main: "Intemediary Management", sub: "Agent Listing", url: "/intermediary/agents", order: 20 },
   { main: "Intemediary Management", sub: "Agent Details", url: "/intermediary/details", order: 30 },

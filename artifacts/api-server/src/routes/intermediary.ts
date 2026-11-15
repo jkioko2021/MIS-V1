@@ -9,6 +9,7 @@ import { agentCode, agentSelect, canManageIntermediaries, detail, IntermediaryEr
   saveMaster, performAction } from "../lib/intermediary";
 import { ObjectStorageService } from "../lib/document-storage";
 import { coreImportConfiguration, pullCoreAgents, importCoreRows } from "../lib/intermediary-core-import";
+import { SalesSetupError } from "../lib/sales-structure";
 
 const router = Router();
 const storage = new ObjectStorageService();
@@ -17,6 +18,7 @@ const wrap = (fn: (req: Request, res: Response) => Promise<void>) =>
     try { await fn(req, res); }
     catch (err) {
       if (err instanceof IntermediaryError) { res.status(err.status).json({ error: err.message }); return; }
+      if (err instanceof SalesSetupError) { res.status(err.status).json({ error: err.message }); return; }
       if (err instanceof ZodError) { res.status(400).json({ error: err.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ") }); return; }
       if ((err as { code?: string }).code === "23505") { res.status(409).json({ error: "This agent code, core reference or licence already exists. Existing MIS details were not overwritten." }); return; }
       req.log.error({ err }, "Intermediary operation failed");

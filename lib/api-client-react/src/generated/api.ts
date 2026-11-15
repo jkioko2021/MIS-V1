@@ -24,6 +24,7 @@ import type {
   AmlOriginatingSystemsResponse,
   GetClientRatingOptions200,
   GetClientRatingsReportParams,
+  GetOrganisationAgentsParams,
   GetRiskAnalyticsParams,
   GetRiskRegisterHistoryParams,
   GetRiskRegisterReopenScope200,
@@ -52,6 +53,11 @@ import type {
   MedicalDocumentInput,
   OpenDepartmentRiskCycle200,
   OpenDepartmentRiskCycleInput,
+  OrganisationAgentList,
+  OrganisationAssignment,
+  OrganisationAssignmentInput,
+  OrganisationAssignmentResult,
+  OrganisationSnapshot,
   RecordAllocatedDocumentUpload201,
   RecordMedicalDocumentUpload201,
   RequestIntermediaryUpload200,
@@ -125,6 +131,292 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetOrganisationUrl = () => {
+
+
+
+
+  return `/api/organisation`
+}
+
+export const getOrganisation = async ( options?: Parameters<typeof customFetch>[1]): Promise<OrganisationSnapshot> => {
+
+  return customFetch<OrganisationSnapshot>(getGetOrganisationUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOrganisationQueryKey = () => {
+    return [
+    `/api/organisation`
+    ] as const;
+    }
+
+
+export const getGetOrganisationQueryOptions = <TData = Awaited<ReturnType<typeof getOrganisation>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOrganisation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOrganisationQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOrganisation>>> = ({ signal }) => getOrganisation({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOrganisation>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOrganisationQueryResult = NonNullable<Awaited<ReturnType<typeof getOrganisation>>>
+export type GetOrganisationQueryError = ErrorType<unknown>
+
+
+
+export function useGetOrganisation<TData = Awaited<ReturnType<typeof getOrganisation>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOrganisation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOrganisationQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetOrganisationAgentsUrl = (params?: GetOrganisationAgentsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/organisation/agents?${stringifiedParams}` : `/api/organisation/agents`
+}
+
+export const getOrganisationAgents = async (params?: GetOrganisationAgentsParams, options?: Parameters<typeof customFetch>[1]): Promise<OrganisationAgentList> => {
+
+  return customFetch<OrganisationAgentList>(getGetOrganisationAgentsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOrganisationAgentsQueryKey = (params?: GetOrganisationAgentsParams,) => {
+    return [
+    `/api/organisation/agents`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetOrganisationAgentsQueryOptions = <TData = Awaited<ReturnType<typeof getOrganisationAgents>>, TError = ErrorType<unknown>>(params?: GetOrganisationAgentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOrganisationAgents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOrganisationAgentsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOrganisationAgents>>> = ({ signal }) => getOrganisationAgents(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOrganisationAgents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOrganisationAgentsQueryResult = NonNullable<Awaited<ReturnType<typeof getOrganisationAgents>>>
+export type GetOrganisationAgentsQueryError = ErrorType<unknown>
+
+
+
+export function useGetOrganisationAgents<TData = Awaited<ReturnType<typeof getOrganisationAgents>>, TError = ErrorType<unknown>>(
+ params?: GetOrganisationAgentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOrganisationAgents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOrganisationAgentsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAssignOrganisationAgentUrl = (code: string,) => {
+
+
+
+
+  return `/api/organisation/agents/${code}/unit`
+}
+
+export const assignOrganisationAgent = async (code: string,
+    organisationAssignmentInput: OrganisationAssignmentInput, options?: Parameters<typeof customFetch>[1]): Promise<OrganisationAssignmentResult> => {
+
+  return customFetch<OrganisationAssignmentResult>(getAssignOrganisationAgentUrl(code),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(organisationAssignmentInput)
+  }
+);}
+
+
+
+
+
+export const getAssignOrganisationAgentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignOrganisationAgent>>, TError,{code: string;data: BodyType<OrganisationAssignmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof assignOrganisationAgent>>, TError,{code: string;data: BodyType<OrganisationAssignmentInput>}, TContext> => {
+
+const mutationKey = ['assignOrganisationAgent'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof assignOrganisationAgent>>, {code: string;data: BodyType<OrganisationAssignmentInput>}> = (props) => {
+          const {code,data} = props ?? {};
+
+          return  assignOrganisationAgent(code,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AssignOrganisationAgentMutationResult = NonNullable<Awaited<ReturnType<typeof assignOrganisationAgent>>>
+    export type AssignOrganisationAgentMutationBody = BodyType<OrganisationAssignmentInput>
+    export type AssignOrganisationAgentMutationError = ErrorType<unknown>
+
+    export const useAssignOrganisationAgent = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignOrganisationAgent>>, TError,{code: string;data: BodyType<OrganisationAssignmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof assignOrganisationAgent>>,
+        TError,
+        {code: string;data: BodyType<OrganisationAssignmentInput>},
+        TContext
+      > => {
+      return useMutation(getAssignOrganisationAgentMutationOptions(options));
+    }
+
+export const getGetOrganisationAgentHistoryUrl = (code: string,) => {
+
+
+
+
+  return `/api/organisation/agents/${code}/history`
+}
+
+export const getOrganisationAgentHistory = async (code: string, options?: Parameters<typeof customFetch>[1]): Promise<OrganisationAssignment[]> => {
+
+  return customFetch<OrganisationAssignment[]>(getGetOrganisationAgentHistoryUrl(code),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOrganisationAgentHistoryQueryKey = (code: string,) => {
+    return [
+    `/api/organisation/agents/${code}/history`
+    ] as const;
+    }
+
+
+export const getGetOrganisationAgentHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getOrganisationAgentHistory>>, TError = ErrorType<unknown>>(code: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOrganisationAgentHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOrganisationAgentHistoryQueryKey(code);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOrganisationAgentHistory>>> = ({ signal }) => getOrganisationAgentHistory(code, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: code !== null && code !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOrganisationAgentHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOrganisationAgentHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getOrganisationAgentHistory>>>
+export type GetOrganisationAgentHistoryQueryError = ErrorType<unknown>
+
+
+
+export function useGetOrganisationAgentHistory<TData = Awaited<ReturnType<typeof getOrganisationAgentHistory>>, TError = ErrorType<unknown>>(
+ code: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOrganisationAgentHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOrganisationAgentHistoryQueryOptions(code,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetSalesManagerMappingsUrl = () => {
 

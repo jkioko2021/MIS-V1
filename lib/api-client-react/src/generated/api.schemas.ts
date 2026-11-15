@@ -307,6 +307,89 @@ export interface SalesSetupSaved {
   version: number;
 }
 
+export interface OrganisationPathItem {
+  id: number;
+  code: string;
+  name: string;
+  level: SalesLevel;
+}
+
+export type OrganisationNode = SalesNode & ({
+  /** @nullable */
+  manager_name: string | null;
+  child_count: number;
+  agent_count: number;
+  available: boolean;
+  path: OrganisationPathItem[];
+});
+
+export interface OrganisationCandidate {
+  source_reference_id: number;
+  code: string;
+  name: string;
+  level: SalesLevel;
+  /** @nullable */
+  parent_code: string | null;
+}
+
+export interface OrganisationSnapshot {
+  can_manage: boolean;
+  nodes: OrganisationNode[];
+  managers: SalesManager[];
+  candidates: OrganisationCandidate[];
+}
+
+export interface OrganisationAgent {
+  agent_code: string;
+  agent_name: string;
+  /** @nullable */
+  agent_status: string | null;
+  version: number;
+  /** @nullable */
+  unit_id: number | null;
+  hierarchy: OrganisationPathItem[];
+  /** @nullable */
+  legacy_unit_code?: string | null;
+}
+
+export interface OrganisationAgentList {
+  items: OrganisationAgent[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface OrganisationAssignmentInput {
+  /** @minimum 1 */
+  unit_id: number;
+  /** @minimum 1 */
+  version: number;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  effective_date: string;
+  /**
+     * @minLength 1
+     * @maxLength 1000
+     */
+  reason: string;
+}
+
+export interface OrganisationAssignmentResult {
+  version: number;
+}
+
+export interface OrganisationAssignment {
+  id: string;
+  agent_code: string;
+  /** @nullable */
+  from_unit: string | null;
+  to_unit: string;
+  hierarchy: OrganisationPathItem[];
+  effective_date: string;
+  reason: string;
+  approved_by: string;
+  approved_at: string;
+}
+
 export interface SalesStructure {
   nodes: SalesNode[];
   managers: SalesManager[];
@@ -337,6 +420,8 @@ export interface SalesNodeInput {
      */
   manager_id: number | null;
   is_active: boolean;
+  /** @minimum 1 */
+  source_reference_id?: number;
 }
 
 export interface SalesNodeUpdate {
@@ -399,6 +484,11 @@ export interface IntermediaryInput {
   agent_type: string;
   version?: number;
   /**
+     * @minimum 1
+     * @nullable
+     */
+  organisation_unit_id?: number | null;
+  /**
      * @minLength 1
      * @maxLength 4000
      */
@@ -413,17 +503,17 @@ export interface IntermediaryInput {
      */
   user_id?: string | null;
   /**
-     * @maxLength 30
+     * @maxLength 40
      * @nullable
      */
   unit_code?: string | null;
   /**
-     * @maxLength 30
+     * @maxLength 40
      * @nullable
      */
   branch_code?: string | null;
   /**
-     * @maxLength 30
+     * @maxLength 40
      * @nullable
      */
   region_code?: string | null;
@@ -1694,6 +1784,26 @@ export interface AllocatedDocumentUpload {
   /** @nullable */
   originating_system: string | null;
 }
+
+export type GetOrganisationAgentsParams = {
+/**
+ * @maxLength 200
+ */
+search?: string;
+/**
+ * @minimum 1
+ */
+node_id?: number;
+unmapped?: boolean;
+/**
+ * @pattern ^\d{4}-\d{2}-\d{2}$
+ */
+as_of?: string;
+/**
+ * @minimum 1
+ */
+page?: number;
+};
 
 export type GetSalesManagerMappingHistoryParams = {
 catalog: SalesMappingCatalog;

@@ -1,6 +1,10 @@
 import type { ReactNode } from 'react';
 import { AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { getGetOrganisationQueryKey, useGetOrganisation } from '@workspace/api-client-react';
 import type { Intermediary, IntermediaryInput } from '@workspace/api-client-react';
+import { Link } from 'wouter';
+import { useAuth } from '@/lib/auth-context';
+import { identityQueryKey } from '@/pages/admin/organisation/shared';
 
 export type IntermediaryCatalog = {
   agent_types: string[];
@@ -16,6 +20,7 @@ export function intermediaryInputFrom(agent: Intermediary): IntermediaryInput {
     agent_name: agent.agent_name,
     agent_type: agent.agent_type,
     version: agent.version,
+    organisation_unit_id: agent.organisation_unit_id ?? null,
     notes: '',
     receive_date: agent.receive_date ?? null,
     contract_date: agent.contract_date ?? null,
@@ -123,12 +128,17 @@ export function SuccessMessage({ children }: { children: ReactNode }) {
 export function MasterFields({ value, onChange, catalog, lockedCore = false }: {
   value: IntermediaryInput; onChange: (value: IntermediaryInput) => void; catalog?: IntermediaryCatalog; lockedCore?: boolean;
 }) {
+  const { user } = useAuth();
+  const organisation = useGetOrganisation({
+    query: { queryKey: identityQueryKey(getGetOrganisationQueryKey(), user), enabled: !!user, staleTime: 30_000 },
+  });
+  const assignedUnit = organisation.data?.nodes.find(node => node.id === value.organisation_unit_id);
+  const reportingPath = assignedUnit?.path ?? [];
   const set = (key: keyof IntermediaryInput, raw: string) => {
-    const nullable = ['receive_date', 'contract_date', 'user_id', 'unit_code', 'branch_code', 'region_code', 'email', 'mobile_no', 'secondary_mobile', 'hrmis_code', 'pin_no', 'nid_no', 'rms_code_corp', 'rms_code_ret', 'gi_code', 'pay_mode'];
+    const nullable = ['receive_date', 'contract_date', 'user_id', 'email', 'mobile_no', 'secondary_mobile', 'hrmis_code', 'pin_no', 'nid_no', 'rms_code_corp', 'rms_code_ret', 'gi_code', 'pay_mode'];
     const next = nullable.includes(key) ? raw.trim() || null : raw;
     onChange({ ...value, [key]: next } as IntermediaryInput);
   };
-  const optionsList = (id: string, entries?: string[]) => <datalist id={id}>{(entries ?? []).map(item => <option key={item} value={item} />)}</datalist>;
   return <>
     <div className="im-form-section"><div className="im-form-section-title"><span>01</span><div><b>Identity & classification</b><small>Core identity is imported; MIS classification remains editable</small></div></div>
       <div className="im-form-grid">
@@ -150,18 +160,18 @@ export function MasterFields({ value, onChange, catalog, lockedCore = false }: {
         <Field label="National ID" value={value.nid_no ?? ''} onChange={v => set('nid_no', v)} />
       </div>
     </div>
-    <div className="im-form-section"><div className="im-form-section-title"><span>03</span><div><b>Organization & commission attributes</b><small>Codes remain editable; suggestions reflect supplied master values</small></div></div>
+    <div className="im-form-section"><div className="im-form-section-title"><span>03</span><div><b>Organization & commission attributes</b><small>Reporting hierarchy is derived; supplemental attributes remain editable</small></div></div>
       <div className="im-form-grid">
-        {optionsList('im-units', catalog?.units)}{optionsList('im-branches', catalog?.branches)}{optionsList('im-regions', catalog?.regions)}{optionsList('im-gi-codes', catalog?.gi_codes)}
-        <Field label="Unit code" value={value.unit_code ?? ''} onChange={v => set('unit_code', v)} list="im-units" required={lockedCore} />
-        <Field label="Branch code" value={value.branch_code ?? ''} onChange={v => set('branch_code', v)} list="im-branches" />
-        <Field label="Region code" value={value.region_code ?? ''} onChange={v => set('region_code', v)} list="im-regions" required={lockedCore} />
+        {catalog?.gi_codes?.length ? <datalist id="im-gi-codes">{catalog.gi_codes.map(item => <option key={item} value={item} />)}</datalist> : null}
+        <div className="im-field"><span>Organisation Unit</span><div className="flex min-h-10 items-center rounded-md border bg-muted/30 px-3 text-sm">{assignedUnit ? `${assignedUnit.name} · ${assignedUnit.code}` : value.unit_code ? `Not mapped · legacy code ${value.unit_code}` : 'Not mapped'}</div><small>Unit assignment is read-only here. Use Agent Unit Mapping for initial assignment or transfer.</small></div>
+        <div className="im-field"><span>Reporting path</span><div className="flex min-h-10 items-center rounded-md border bg-muted/30 px-3 text-sm">{reportingPath.length ? reportingPath.map(item => item.name).join(' / ') : value.region_code ? `Legacy region code ${value.region_code}` : 'Not available'}</div><small>Branch and Region are derived from the assigned Unit.</small></div>
         <Field label="GI code" value={value.gi_code ?? ''} onChange={v => set('gi_code', v)} list="im-gi-codes" />
         <Field label="RMS corporate code" value={value.rms_code_corp ?? ''} onChange={v => set('rms_code_corp', v)} />
         <Field label="RMS retail code" value={value.rms_code_ret ?? ''} onChange={v => set('rms_code_ret', v)} />
         <Field label="Commission rate (%)" type="number" value={value.commission_rate ?? ''} onChange={v => onChange({ ...value, commission_rate: v === '' ? null : Number(v) })} placeholder="Optional" />
         <Field label="Pay mode" value={value.pay_mode ?? ''} onChange={v => set('pay_mode', v)} placeholder="Enter pay mode" />
       </div>
+      <div className="mt-3 text-xs"><Link href="/admin/organisation/agents" className="font-semibold text-primary hover:underline">Open Agent Unit Mapping</Link></div>
       <div className="im-form-toggle"><Toggle label="eTIMS verified" checked={!!value.etims_verified} onChange={v => onChange({ ...value, etims_verified: v })} /></div>
     </div>
   </>;

@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { PoolClient } from "pg";
 import { query, queryOne, withTransaction } from "./postgres";
 import { UpdateIntermediaryBody, ActionIntermediaryBody, GetIntermediaryResponse } from "@workspace/api-zod";
+import { assignAgentUnit, availableUnit } from "./organisation";
 
 export class IntermediaryError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -17,7 +18,13 @@ export const masterColumns = ["agent_name", "agent_type", "receive_date", "contr
   "unit_code", "branch_code", "region_code", "email", "mobile_no", "secondary_mobile", "hrmis_code",
   "pin_no", "nid_no", "rms_code_corp", "rms_code_ret", "gi_code", "commission_rate", "pay_mode", "etims_verified"] as const;
 export const agentSelect = `*, receive_date::text AS receive_date,contract_date::text AS contract_date,
-  terminate_date::text AS terminate_date,commission_rate::float8 AS commission_rate,'Agent master record' AS notes`;
+  terminate_date::text AS terminate_date,commission_rate::float8 AS commission_rate,'Agent master record' AS notes,
+  CASE WHEN organisation_unit_id IS NULL THEN unit_code ELSE
+    (SELECT p.path->3->>'code' FROM crm.organisation_paths p WHERE p.id=organisation_unit_id) END AS unit_code,
+  CASE WHEN organisation_unit_id IS NULL THEN branch_code ELSE
+    (SELECT p.path->2->>'code' FROM crm.organisation_paths p WHERE p.id=organisation_unit_id) END AS branch_code,
+  CASE WHEN organisation_unit_id IS NULL THEN region_code ELSE
+    (SELECT p.path->1->>'code' FROM crm.organisation_paths p WHERE p.id=organisation_unit_id) END AS region_code`;
 export const agentCode = z.string().trim().min(1).max(30).regex(/^[a-zA-Z0-9_-]+$/);
 const calendar = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
   const d = new Date(`${value}T00:00:00Z`);
@@ -75,16 +82,27 @@ export async function saveMaster(body: unknown, actor: string, code?: string) {
   const data = parseMaster(body);
   if (code && data.agent_code !== code) throw new IntermediaryError(400, "Agent codes cannot be changed.");
   await withTransaction(async client => {
+    await client.query("SELECT pg_advisory_xact_lock(82026,55)");
     if (code) {
-      const current = (await client.query(`SELECT agent_name,user_id,registration_status FROM ${master}
+      const current = (await client.query(`SELECT * FROM ${master}
         WHERE agent_code=$1 FOR UPDATE`, [code])).rows[0];
       if (!current) throw new IntermediaryError(404, "Agent not found.");
       if (current.registration_status === "PENDING" && (data.agent_name !== current.agent_name
         || (Object.hasOwn(data, "user_id") && data.user_id !== current.user_id)))
         throw new IntermediaryError(400, "The imported agent name and core user ID cannot be changed during registration.");
       if (!Number.isInteger(data.version)) throw new IntermediaryError(400, "Reload the current agent before editing.");
+      if (current.version !== data.version) throw new IntermediaryError(409, "Agent changed. Reload before saving.");
+      if (current.registration_status === "PENDING") {
+        if (!data.organisation_unit_id) throw new IntermediaryError(400, "Select an active Unit before saving agent registration.");
+        const today = (await client.query("SELECT CURRENT_DATE::text AS today")).rows[0].today;
+        await assignAgentUnit(client,current,data.organisation_unit_id,today,data.notes.slice(0,1000),actor);
+      } else if (data.organisation_unit_id != null && data.organisation_unit_id !== current.organisation_unit_id) {
+        throw new IntermediaryError(400, "Use Agent Unit Mapping for controlled assignments and transfers of completed agents.");
+      }
       // Omitted optional fields do not silently erase an existing value.
-      const fields = masterColumns.filter(k => Object.hasOwn(data, k));
+      // Legacy source codes are preserved, not another editable copy of the hierarchy.
+      const fields = masterColumns.filter(k => Object.hasOwn(data, k)
+        && !["unit_code","branch_code","region_code"].includes(k));
       const result = await client.query(`UPDATE ${master}
         SET ${fields.map((k, i) => `${k}=$${i + 1}`).join(",")},version=version+1
         WHERE agent_code=$${fields.length + 1} AND version=$${fields.length + 2} RETURNING agent_code`,
@@ -99,6 +117,7 @@ export async function performAction(code: string, body: unknown, actor: string) 
   const data = ActionIntermediaryBody.parse(body);
   const notes = required(data.notes, "Reason / notes");
   await withTransaction(async client => {
+    await client.query("SELECT pg_advisory_xact_lock(82026,55)");
     // Serializes mapping graph edits and prevents reciprocal mapping deadlocks.
     await client.query("SELECT pg_advisory_xact_lock(7345201)");
     const row = (await client.query(`SELECT * FROM ${master} WHERE agent_code=$1 FOR UPDATE`, [code])).rows[0];
@@ -110,9 +129,10 @@ export async function performAction(code: string, body: unknown, actor: string) 
         throw new IntermediaryError(409, "Only a pending core-imported agent can complete registration.");
       if (row.terminated || row.suspended)
         throw new IntermediaryError(400, "A suspended or terminated agent cannot complete registration.");
-      const missing = ["unit_code", "region_code", "receive_date", "contract_date", "mobile_no"]
+      const missing = ["organisation_unit_id", "receive_date", "contract_date", "mobile_no"]
         .filter(k => !row[k]);
       if (missing.length) throw new IntermediaryError(400, `Complete the MIS details first: ${missing.join(", ")}.`);
+      await availableUnit(client,row.organisation_unit_id);
       const verified = await client.query(`SELECT 1 FROM crm.intermediary_licences WHERE agent_code=$1
         AND status='VERIFIED' AND valid_from<=CURRENT_DATE AND valid_to>=CURRENT_DATE LIMIT 1`, [code]);
       if (!verified.rowCount) throw new IntermediaryError(400, "A currently valid verified licence is required to complete registration.");

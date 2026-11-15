@@ -11,6 +11,57 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /organisation:
+    get:
+      operationId: getOrganisation
+      responses:
+        "200":
+          description: Authorised hierarchy and setup choices
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganisationSnapshot" }
+  /organisation/agents:
+    get:
+      operationId: getOrganisationAgents
+      parameters:
+        - { name: search, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: node_id, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: unmapped, in: query, schema: { type: boolean } }
+        - { name: as_of, in: query, schema: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+      responses:
+        "200":
+          description: Scoped agent hierarchy report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganisationAgentList" }
+  /organisation/agents/{code}/unit:
+    post:
+      operationId: assignOrganisationAgent
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OrganisationAssignmentInput" }
+      responses:
+        "200":
+          description: Assignment approved and recorded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganisationAssignmentResult" }
+  /organisation/agents/{code}/history:
+    get:
+      operationId: getOrganisationAgentHistory
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Immutable unit assignment history
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/OrganisationAssignment" } }
   /admin/sales-structure/manager-mappings:
     get:
       operationId: getSalesManagerMappings
@@ -1094,6 +1145,87 @@ components:
           oneOf:
             - { $ref: "#/components/schemas/SalesManagerDetails" }
             - { type: "null" }
+    OrganisationNode:
+      allOf:
+        - { $ref: "#/components/schemas/SalesNode" }
+        - type: object
+          required: [manager_name, child_count, agent_count, path, available]
+          properties:
+            manager_name: { type: [string, "null"] }
+            child_count: { type: integer }
+            agent_count: { type: integer }
+            available: { type: boolean }
+            path: { type: array, items: { $ref: "#/components/schemas/OrganisationPathItem" } }
+    OrganisationPathItem:
+      type: object
+      required: [id, code, name, level]
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        name: { type: string }
+        level: { $ref: "#/components/schemas/SalesLevel" }
+    OrganisationCandidate:
+      type: object
+      required: [source_reference_id, code, name, level, parent_code]
+      properties:
+        source_reference_id: { type: integer }
+        code: { type: string }
+        name: { type: string }
+        level: { $ref: "#/components/schemas/SalesLevel" }
+        parent_code: { type: [string, "null"] }
+    OrganisationSnapshot:
+      type: object
+      required: [can_manage, nodes, managers, candidates]
+      properties:
+        can_manage: { type: boolean }
+        nodes: { type: array, items: { $ref: "#/components/schemas/OrganisationNode" } }
+        managers: { type: array, items: { $ref: "#/components/schemas/SalesManager" } }
+        candidates: { type: array, items: { $ref: "#/components/schemas/OrganisationCandidate" } }
+    OrganisationAgent:
+      type: object
+      required: [agent_code, agent_name, agent_status, version, unit_id, hierarchy]
+      properties:
+        agent_code: { type: string }
+        agent_name: { type: string }
+        agent_status: { type: [string, "null"] }
+        version: { type: integer }
+        unit_id: { type: [integer, "null"] }
+        hierarchy: { type: array, items: { $ref: "#/components/schemas/OrganisationPathItem" } }
+        legacy_unit_code: { type: [string, "null"] }
+    OrganisationAgentList:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/OrganisationAgent" } }
+        total: { type: integer }
+        page: { type: integer }
+        page_size: { type: integer }
+    OrganisationAssignmentInput:
+      type: object
+      required: [unit_id, version, effective_date, reason]
+      properties:
+        unit_id: { type: integer, minimum: 1 }
+        version: { type: integer, minimum: 1 }
+        effective_date: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        reason: { type: string, minLength: 1, maxLength: 1000 }
+    OrganisationAssignmentResult:
+      type: object
+      required: [version]
+      properties:
+        version: { type: integer }
+    OrganisationAssignment:
+      type: object
+      required: [id, agent_code, from_unit, to_unit, hierarchy, effective_date, reason, approved_by, approved_at]
+      properties:
+        id: { type: string }
+        agent_code: { type: string }
+        from_unit: { type: [string, "null"] }
+        to_unit: { type: string }
+        hierarchy: { type: array, items: { $ref: "#/components/schemas/OrganisationPathItem" } }
+        effective_date: { type: string }
+        reason: { type: string }
+        approved_by: { type: string }
+        approved_at: { type: string }
     SalesNode:
       type: object
       required: [id, code, name, level, parent_id, manager_id, is_active, version]
@@ -1123,6 +1255,7 @@ components:
         parent_id: { type: [integer, "null"], minimum: 1 }
         manager_id: { type: [integer, "null"], minimum: 1 }
         is_active: { type: boolean }
+        source_reference_id: { type: integer, minimum: 1 }
     SalesNodeUpdate:
       type: object
       required: [name, parent_id, manager_id, is_active, version]
@@ -1162,13 +1295,14 @@ components:
         agent_name: { type: string, maxLength: 250, minLength: 1 }
         agent_type: { type: string, maxLength: 50, minLength: 1 }
         version: { type: integer }
+        organisation_unit_id: { type: [integer, "null"], minimum: 1 }
         notes: { type: string, minLength: 1, maxLength: 4000 }
         receive_date: { type: ["string", "null"] }
         contract_date: { type: ["string", "null"] }
         user_id: { type: ["string", "null"], maxLength: 64 }
-        unit_code: { type: ["string", "null"], maxLength: 30 }
-        branch_code: { type: ["string", "null"], maxLength: 30 }
-        region_code: { type: ["string", "null"], maxLength: 30 }
+        unit_code: { type: ["string", "null"], maxLength: 40 }
+        branch_code: { type: ["string", "null"], maxLength: 40 }
+        region_code: { type: ["string", "null"], maxLength: 40 }
         email: { type: ["string", "null"], maxLength: 254 }
         mobile_no: { type: ["string", "null"], maxLength: 32 }
         secondary_mobile: { type: ["string", "null"], maxLength: 32 }

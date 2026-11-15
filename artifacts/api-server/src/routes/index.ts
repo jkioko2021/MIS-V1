@@ -18,9 +18,11 @@ import clientRatingsRouter from "./client-ratings";
 import riskAdministrationRouter from "./risk-administration";
 import intermediaryRouter from "./intermediary";
 import salesStructureRouter from "./sales-structure";
+import organisationRouter from "./organisation";
 
 const router: IRouter = Router();
 router.use(salesStructureRouter);
+router.use(organisationRouter);
 router.use(intermediaryRouter);
 router.use(riskRegisterRouter);
 router.use(clientRatingsRouter);

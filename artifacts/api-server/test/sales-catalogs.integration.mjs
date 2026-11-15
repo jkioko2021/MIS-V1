@@ -51,8 +51,10 @@ try {
   const employee = (await db.query(`INSERT INTO crm.employees(username,employee_name,emp_code,password_hash,
     profile_id,activated,approved,department) VALUES($1,$1,$1,'not-a-login-hash',3,true,true,'Sales') RETURNING employee_id`,
   [prefix])).rows[0].employee_id;
+  const nationalManager = (await db.query(`INSERT INTO crm.sales_manager_enrollments
+    (employee_id,level,is_active,created_by,updated_by) VALUES($1,'NATIONAL',true,$2,$2) RETURNING id`, [employee,prefix])).rows[0];
   const national = await lib.createSalesNode({
-    code: `${prefix}_N`, name: prefix, level: "NATIONAL", parent_id: null, manager_id: null, is_active: true,
+    code: `${prefix}_N`, name: prefix, level: "NATIONAL", parent_id: null, manager_id: nationalManager.id, is_active: true,
   }, prefix);
   const bm = await lib.enrollSalesManager({ employee_id: employee, level: "BRANCH", is_active: true,
     details: { code: prefix, mis_emp_code: prefix, name: prefix, email: "fixture@example.test",
@@ -113,7 +115,7 @@ try {
   await bad(() => update("unit-managers", { UNIT_CODE: "NO_SUCH_UNIT" }));
   await assert.rejects(() => update("unit-managers", {}, { version: 999 }), e => e.status === 409);
   await bad(() => lib.updateSalesNode(national.id, { name: prefix, parent_id: null,
-    manager_id: null, is_active: false, version: national.version }, prefix));
+    manager_id: nationalManager.id, is_active: false, version: national.version }, prefix));
   await bad(() => lib.updateSalesManager(bm.id, { is_active: false, version: bm.version }, prefix));
   const otherRegion = await lib.saveSalesCatalogEntry("sales-regions", {
     values: { REGION_CODE: `${prefix}_OTHER`, REGION_NAME: "Other region" }, employee_id: null, is_active: true,

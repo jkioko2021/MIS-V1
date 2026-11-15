@@ -21,6 +21,7 @@ import BusinessRequirementsPage from '@/pages/admin/business-requirements';
 import SalesCatalogPage from '@/pages/admin/sales-structure/catalogs';
 import SalesStructureManagersPage from '@/pages/admin/sales-structure/managers';
 import ManagerMappingPage from '@/pages/admin/sales-structure/manager-mapping';
+import OrganisationPage from '@/pages/admin/organisation';
 import MedicalUnderwritingPage from '@/pages/medical-underwriting';
 import CashierPage from '@/pages/cashier';
 import PricingReviewPage from '@/pages/pricing-review';
@@ -41,7 +42,7 @@ import {
 import {
   Home, FileText, Shield, Database, Bell, Banknote, ClipboardCheck, FilePlus2,
   ChevronRight, LogOut, User, Users, Settings, SlidersHorizontal, Menu, X,
-  Workflow, BadgeCheck, CalendarDays, LockKeyhole, History, UsersRound, SearchCheck, Target, Tags, ListChecks, Gauge,
+  Workflow, BadgeCheck, CalendarDays, LockKeyhole, History, UsersRound, SearchCheck, Target, Tags, ListChecks, Gauge, GitBranch,
   Fingerprint, ShieldAlert, FileCheck2, Network,
   type LucideIcon,
 } from 'lucide-react';
@@ -56,6 +57,7 @@ type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
+  adminOnly?: boolean;
   bpoOnly?: boolean;
   bpoReviewOnly?: boolean;
   medicalOnly?: boolean;
@@ -147,12 +149,11 @@ const NAV_SECTIONS: Array<{
   },
   {
     label: 'Administration',
-    adminOnly: true,
     items: [
-      { href: '/admin/users',    label: 'User Enrollment',    icon: Users },
-      { href: '/admin/profiles', label: 'Profiles & Access',  icon: Settings },
+      { href: '/admin/users',    label: 'User Enrollment',    icon: Users, adminOnly: true },
+      { href: '/admin/profiles', label: 'Profiles & Access',  icon: Settings, adminOnly: true },
       {
-        href: '/admin/sales-structure', label: 'Medical Structure setup', icon: Network,
+        href: '/admin/sales-structure', label: 'Medical Structure setup', icon: Network, adminOnly: true,
         children: [
           { href: '/admin/sales-structure/managers', label: 'Manager Enrollment', icon: UsersRound },
           { href: '/admin/sales-structure/manager-mapping', label: 'Manager Mapping', icon: UsersRound },
@@ -162,12 +163,24 @@ const NAV_SECTIONS: Array<{
         ],
       },
       {
-        href: '/admin/gi-structure', label: 'GI Structure setup', icon: Network,
+        href: '/admin/gi-structure', label: 'GI Structure setup', icon: Network, adminOnly: true,
         children: [
           { href: '/admin/gi-structure/catalogs/gi-unit-managers', label: 'GI Unit Managers', icon: UsersRound },
           { href: '/admin/gi-structure/catalogs/gi-units', label: 'GI Units', icon: Database },
           { href: '/admin/gi-structure/catalogs/gi-branches', label: 'GI Branches', icon: Network },
           { href: '/admin/gi-structure/catalogs/gi-coordinators', label: 'GI Coordinators', icon: UsersRound },
+        ],
+      },
+      {
+        href: '/admin/organisation', label: 'Organisation Structure', icon: Network,
+        children: [
+      { href: '/admin/organisation/dashboard', label: 'Hierarchy dashboard', icon: Network },
+      { href: '/admin/organisation/national', label: 'National', icon: Shield },
+      { href: '/admin/organisation/regions', label: 'Regions', icon: GitBranch },
+      { href: '/admin/organisation/branches', label: 'Branches', icon: Network },
+      { href: '/admin/organisation/units', label: 'Units', icon: Database },
+      { href: '/admin/organisation/managers', label: 'Manager assignment', icon: UsersRound },
+      { href: '/admin/organisation/agents', label: 'Agent unit mapping', icon: Fingerprint },
         ],
       },
     ],
@@ -253,6 +266,7 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
             >
               {section.items.map((item) => {
                 const { href, label, icon: Icon } = item;
+                if (item.adminOnly && !isAdmin) return null;
                 if (item.riskAdminOnly && !riskActor?.can_manage) return null;
                 if (item.intermediaryOnly && !canSeeIntermediary) return null;
                 const bpoOnly = 'bpoOnly' in item && item.bpoOnly;
@@ -514,6 +528,8 @@ function ProtectedRouter() {
           <Route path="/discovery"        component={DiscoveryPage} />
           <Route path="/admin/users"      component={UsersPage} />
           <Route path="/admin/profiles"   component={ProfilesPage} />
+          <Route path="/admin/organisation" component={() => <Redirect to="/admin/organisation/dashboard" />} />
+          <Route path="/admin/organisation/:view" component={OrganisationPage} />
             <Route path="/admin/sales-structure/manager-mapping" component={ManagerMappingPage} />
             <Route path="/admin/sales-structure/managers" component={SalesStructureManagersPage} />
             <Route path="/admin/sales-structure/catalogs/unit-managers">

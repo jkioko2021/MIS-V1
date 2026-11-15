@@ -34,6 +34,9 @@ const wrap = (fn: (req: Request, res: Response) => Promise<void>) =>
       if ((err as { code?: string }).code === "23503") {
         res.status(400).json({ error: "A selected user, parent or manager no longer exists. Refresh and select again." }); return;
       }
+      if ((err as { code?: string }).code === "23514") {
+        res.status(400).json({ error: "The hierarchy requires the correct active parent and an enrolled manager at the same level." }); return;
+      }
       req.log.error({ err }, "Medical/GI Structure setup failed");
       res.status(500).json({ error: "Unable to complete structure setup. Please try again." });
     }

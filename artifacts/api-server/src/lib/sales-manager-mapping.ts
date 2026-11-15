@@ -48,7 +48,8 @@ export async function salesManagerMappingSnapshot() {
 /** Prevent ordinary catalog retirement/override from silently invalidating assigned teams. */
 export async function validateSalesManagerMappingHierarchy(client: PoolClient) {
   const assigned = (await client.query(`SELECT catalog,organization_code FROM crm.sales_team_manager_assignments
-    WHERE employee_id IS NOT NULL`)).rows;
+    WHERE employee_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM crm.sales_structure_nodes n
+      WHERE upper(n.code)=upper(organization_code))`)).rows;
   if (!assigned.length) return;
   const organizations = await salesMappingOrganizations(client);
   for (const row of assigned) {
@@ -69,6 +70,11 @@ async function appendMappingEvent(client: PoolClient, before: AssignmentRow | un
 
 export async function saveSalesManagerMapping(input: SalesManagerMappingInput, actor: string) {
   return salesSetupTransaction(async client => {
+    const adopted = await client.query(`SELECT 1 FROM crm.sales_structure_nodes
+      WHERE upper(code)=ANY($1::text[]) LIMIT 1`,
+    [[input.organization_code,input.move_from?.organization_code].filter((v): v is string => !!v).map(v=>v.toUpperCase())]);
+    if (adopted.rowCount)
+      throw new SalesSetupError(400,"This organisation is managed in Organisation Structure. Use Manager Assignment there; the existing mapping history is retained.");
     const before = (await client.query<AssignmentRow>(`${assignmentSql}
       WHERE a.catalog=$1 AND a.organization_code=$2 FOR UPDATE OF a`,
     [input.catalog, input.organization_code])).rows[0];

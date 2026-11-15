@@ -8,6 +8,167 @@
 import * as zod from 'zod';
 
 
+export const getOrganisationResponseManagersItemDetailsOneCodeMax = 50;
+
+
+export const getOrganisationResponseManagersItemDetailsOneCodeRegExp = new RegExp('^[A-Za-z0-9_-]+$');
+export const getOrganisationResponseManagersItemDetailsOneNameMax = 150;
+
+export const getOrganisationResponseManagersItemDetailsOneEmailMax = 254;
+
+export const getOrganisationResponseManagersItemDetailsOneHrmisCodeMax = 50;
+
+export const getOrganisationResponseManagersItemDetailsOneMobileNoMax = 50;
+
+export const getOrganisationResponseManagersItemDetailsOneHTaxMax = 16;
+
+
+export const getOrganisationResponseManagersItemDetailsOneHTaxRegExp = new RegExp('^(0|[1-9][0-9]{0,8})(\\.[0-9]{1,6})?$');
+export const getOrganisationResponseManagersItemDetailsOneMisEmpCodeMax = 50;
+
+export const getOrganisationResponseManagersItemDetailsOneValidFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getOrganisationResponseManagersItemDetailsOneValidToRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const GetOrganisationResponse = zod.object({
+  "can_manage": zod.boolean(),
+  "nodes": zod.array(zod.object({
+  "id": zod.number().int(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "level": zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT']),
+  "parent_id": zod.number().int().nullable(),
+  "manager_id": zod.number().int().nullable(),
+  "is_active": zod.boolean(),
+  "version": zod.number().int()
+}).and(zod.object({
+  "manager_name": zod.string().nullable(),
+  "child_count": zod.number().int(),
+  "agent_count": zod.number().int(),
+  "available": zod.boolean(),
+  "path": zod.array(zod.object({
+  "id": zod.number().int(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "level": zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT'])
+}))
+}))),
+  "managers": zod.array(zod.object({
+  "id": zod.number().int(),
+  "employee_id": zod.number().int(),
+  "level": zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT']),
+  "is_active": zod.boolean(),
+  "version": zod.number().int(),
+  "employee_name": zod.string(),
+  "username": zod.string(),
+  "emp_code": zod.string().nullish(),
+  "account_email": zod.string().nullish(),
+  "user_eligible": zod.boolean(),
+  "details": zod.union([zod.object({
+  "code": zod.string().min(1).max(getOrganisationResponseManagersItemDetailsOneCodeMax).regex(getOrganisationResponseManagersItemDetailsOneCodeRegExp),
+  "name": zod.string().min(1).max(getOrganisationResponseManagersItemDetailsOneNameMax),
+  "email": zod.string().email().max(getOrganisationResponseManagersItemDetailsOneEmailMax),
+  "hrmis_code": zod.string().min(1).max(getOrganisationResponseManagersItemDetailsOneHrmisCodeMax),
+  "mobile_no": zod.string().min(1).max(getOrganisationResponseManagersItemDetailsOneMobileNoMax),
+  "h_tax": zod.string().max(getOrganisationResponseManagersItemDetailsOneHTaxMax).regex(getOrganisationResponseManagersItemDetailsOneHTaxRegExp),
+  "mis_emp_code": zod.string().min(1).max(getOrganisationResponseManagersItemDetailsOneMisEmpCodeMax),
+  "valid_from": zod.string().regex(getOrganisationResponseManagersItemDetailsOneValidFromRegExp),
+  "valid_to": zod.string().regex(getOrganisationResponseManagersItemDetailsOneValidToRegExp)
+}),zod.null()]).optional()
+})),
+  "candidates": zod.array(zod.object({
+  "source_reference_id": zod.number().int(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "level": zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT']),
+  "parent_code": zod.string().nullable()
+}))
+})
+
+
+export const getOrganisationAgentsQuerySearchMax = 200;
+
+
+export const getOrganisationAgentsQueryAsOfRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getOrganisationAgentsQueryPageDefault = 1;
+
+
+
+export const GetOrganisationAgentsQueryParams = zod.object({
+  "search": zod.coerce.string().max(getOrganisationAgentsQuerySearchMax).optional(),
+  "node_id": zod.coerce.number().int().min(1).optional(),
+  "unmapped": zod.coerce.boolean().optional(),
+  "as_of": zod.coerce.string().regex(getOrganisationAgentsQueryAsOfRegExp).optional(),
+  "page": zod.coerce.number().int().min(1).default(getOrganisationAgentsQueryPageDefault)
+})
+
+export const GetOrganisationAgentsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "agent_code": zod.string(),
+  "agent_name": zod.string(),
+  "agent_status": zod.string().nullable(),
+  "version": zod.number().int(),
+  "unit_id": zod.number().int().nullable(),
+  "hierarchy": zod.array(zod.object({
+  "id": zod.number().int(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "level": zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT'])
+})),
+  "legacy_unit_code": zod.string().nullish()
+})),
+  "total": zod.number().int(),
+  "page": zod.number().int(),
+  "page_size": zod.number().int()
+})
+
+
+export const AssignOrganisationAgentParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+
+
+export const assignOrganisationAgentBodyEffectiveDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const assignOrganisationAgentBodyReasonMax = 1000;
+
+
+
+export const AssignOrganisationAgentBody = zod.object({
+  "unit_id": zod.number().int().min(1),
+  "version": zod.number().int().min(1),
+  "effective_date": zod.string().regex(assignOrganisationAgentBodyEffectiveDateRegExp),
+  "reason": zod.string().min(1).max(assignOrganisationAgentBodyReasonMax)
+})
+
+export const AssignOrganisationAgentResponse = zod.object({
+  "version": zod.number().int()
+})
+
+
+export const GetOrganisationAgentHistoryParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const GetOrganisationAgentHistoryResponseItem = zod.object({
+  "id": zod.string(),
+  "agent_code": zod.string(),
+  "from_unit": zod.string().nullable(),
+  "to_unit": zod.string(),
+  "hierarchy": zod.array(zod.object({
+  "id": zod.number().int(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "level": zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT'])
+})),
+  "effective_date": zod.string(),
+  "reason": zod.string(),
+  "approved_by": zod.string(),
+  "approved_at": zod.string()
+})
+export const GetOrganisationAgentHistoryResponse = zod.array(GetOrganisationAgentHistoryResponseItem)
+
+
 export const GetSalesManagerMappingsResponse = zod.object({
   "organizations": zod.array(zod.object({
   "catalog": zod.enum(['sales-regions', 'sales-branches', 'sales-units']),
@@ -349,13 +510,15 @@ export const createSalesStructureNodeBodyNameMax = 150;
 
 
 
+
 export const CreateSalesStructureNodeBody = zod.object({
   "code": zod.string().min(1).max(createSalesStructureNodeBodyCodeMax).regex(createSalesStructureNodeBodyCodeRegExp),
   "name": zod.string().min(1).max(createSalesStructureNodeBodyNameMax),
   "level": zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT']),
   "parent_id": zod.number().int().min(1).nullable(),
   "manager_id": zod.number().int().min(1).nullable(),
-  "is_active": zod.boolean()
+  "is_active": zod.boolean(),
+  "source_reference_id": zod.number().int().min(1).optional()
 })
 
 export const CreateSalesStructureNodeResponse = zod.object({
@@ -528,15 +691,16 @@ export const listIntermediariesResponseItemsItemOneAgentNameMax = 250;
 
 export const listIntermediariesResponseItemsItemOneAgentTypeMax = 50;
 
+
 export const listIntermediariesResponseItemsItemOneNotesMax = 4000;
 
 export const listIntermediariesResponseItemsItemOneUserIdMax = 64;
 
-export const listIntermediariesResponseItemsItemOneUnitCodeMax = 30;
+export const listIntermediariesResponseItemsItemOneUnitCodeMax = 40;
 
-export const listIntermediariesResponseItemsItemOneBranchCodeMax = 30;
+export const listIntermediariesResponseItemsItemOneBranchCodeMax = 40;
 
-export const listIntermediariesResponseItemsItemOneRegionCodeMax = 30;
+export const listIntermediariesResponseItemsItemOneRegionCodeMax = 40;
 
 export const listIntermediariesResponseItemsItemOneEmailMax = 254;
 
@@ -569,6 +733,7 @@ export const ListIntermediariesResponse = zod.object({
   "agent_name": zod.string().min(1).max(listIntermediariesResponseItemsItemOneAgentNameMax),
   "agent_type": zod.string().min(1).max(listIntermediariesResponseItemsItemOneAgentTypeMax),
   "version": zod.number().int(),
+  "organisation_unit_id": zod.number().int().min(1).nullish(),
   "notes": zod.string().min(1).max(listIntermediariesResponseItemsItemOneNotesMax),
   "receive_date": zod.string().nullish(),
   "contract_date": zod.string().nullish(),
@@ -612,15 +777,16 @@ export const getIntermediaryResponseAgentOneAgentNameMax = 250;
 
 export const getIntermediaryResponseAgentOneAgentTypeMax = 50;
 
+
 export const getIntermediaryResponseAgentOneNotesMax = 4000;
 
 export const getIntermediaryResponseAgentOneUserIdMax = 64;
 
-export const getIntermediaryResponseAgentOneUnitCodeMax = 30;
+export const getIntermediaryResponseAgentOneUnitCodeMax = 40;
 
-export const getIntermediaryResponseAgentOneBranchCodeMax = 30;
+export const getIntermediaryResponseAgentOneBranchCodeMax = 40;
 
-export const getIntermediaryResponseAgentOneRegionCodeMax = 30;
+export const getIntermediaryResponseAgentOneRegionCodeMax = 40;
 
 export const getIntermediaryResponseAgentOneEmailMax = 254;
 
@@ -653,6 +819,7 @@ export const GetIntermediaryResponse = zod.object({
   "agent_name": zod.string().min(1).max(getIntermediaryResponseAgentOneAgentNameMax),
   "agent_type": zod.string().min(1).max(getIntermediaryResponseAgentOneAgentTypeMax),
   "version": zod.number().int(),
+  "organisation_unit_id": zod.number().int().min(1).nullish(),
   "notes": zod.string().min(1).max(getIntermediaryResponseAgentOneNotesMax),
   "receive_date": zod.string().nullish(),
   "contract_date": zod.string().nullish(),
@@ -738,15 +905,16 @@ export const updateIntermediaryBodyAgentNameMax = 250;
 
 export const updateIntermediaryBodyAgentTypeMax = 50;
 
+
 export const updateIntermediaryBodyNotesMax = 4000;
 
 export const updateIntermediaryBodyUserIdMax = 64;
 
-export const updateIntermediaryBodyUnitCodeMax = 30;
+export const updateIntermediaryBodyUnitCodeMax = 40;
 
-export const updateIntermediaryBodyBranchCodeMax = 30;
+export const updateIntermediaryBodyBranchCodeMax = 40;
 
-export const updateIntermediaryBodyRegionCodeMax = 30;
+export const updateIntermediaryBodyRegionCodeMax = 40;
 
 export const updateIntermediaryBodyEmailMax = 254;
 
@@ -778,6 +946,7 @@ export const UpdateIntermediaryBody = zod.object({
   "agent_name": zod.string().min(1).max(updateIntermediaryBodyAgentNameMax),
   "agent_type": zod.string().min(1).max(updateIntermediaryBodyAgentTypeMax),
   "version": zod.number().int().optional(),
+  "organisation_unit_id": zod.number().int().min(1).nullish(),
   "notes": zod.string().min(1).max(updateIntermediaryBodyNotesMax),
   "receive_date": zod.string().nullish(),
   "contract_date": zod.string().nullish(),
@@ -805,15 +974,16 @@ export const updateIntermediaryResponseAgentOneAgentNameMax = 250;
 
 export const updateIntermediaryResponseAgentOneAgentTypeMax = 50;
 
+
 export const updateIntermediaryResponseAgentOneNotesMax = 4000;
 
 export const updateIntermediaryResponseAgentOneUserIdMax = 64;
 
-export const updateIntermediaryResponseAgentOneUnitCodeMax = 30;
+export const updateIntermediaryResponseAgentOneUnitCodeMax = 40;
 
-export const updateIntermediaryResponseAgentOneBranchCodeMax = 30;
+export const updateIntermediaryResponseAgentOneBranchCodeMax = 40;
 
-export const updateIntermediaryResponseAgentOneRegionCodeMax = 30;
+export const updateIntermediaryResponseAgentOneRegionCodeMax = 40;
 
 export const updateIntermediaryResponseAgentOneEmailMax = 254;
 
@@ -846,6 +1016,7 @@ export const UpdateIntermediaryResponse = zod.object({
   "agent_name": zod.string().min(1).max(updateIntermediaryResponseAgentOneAgentNameMax),
   "agent_type": zod.string().min(1).max(updateIntermediaryResponseAgentOneAgentTypeMax),
   "version": zod.number().int(),
+  "organisation_unit_id": zod.number().int().min(1).nullish(),
   "notes": zod.string().min(1).max(updateIntermediaryResponseAgentOneNotesMax),
   "receive_date": zod.string().nullish(),
   "contract_date": zod.string().nullish(),
@@ -972,15 +1143,16 @@ export const actionIntermediaryResponseAgentOneAgentNameMax = 250;
 
 export const actionIntermediaryResponseAgentOneAgentTypeMax = 50;
 
+
 export const actionIntermediaryResponseAgentOneNotesMax = 4000;
 
 export const actionIntermediaryResponseAgentOneUserIdMax = 64;
 
-export const actionIntermediaryResponseAgentOneUnitCodeMax = 30;
+export const actionIntermediaryResponseAgentOneUnitCodeMax = 40;
 
-export const actionIntermediaryResponseAgentOneBranchCodeMax = 30;
+export const actionIntermediaryResponseAgentOneBranchCodeMax = 40;
 
-export const actionIntermediaryResponseAgentOneRegionCodeMax = 30;
+export const actionIntermediaryResponseAgentOneRegionCodeMax = 40;
 
 export const actionIntermediaryResponseAgentOneEmailMax = 254;
 
@@ -1013,6 +1185,7 @@ export const ActionIntermediaryResponse = zod.object({
   "agent_name": zod.string().min(1).max(actionIntermediaryResponseAgentOneAgentNameMax),
   "agent_type": zod.string().min(1).max(actionIntermediaryResponseAgentOneAgentTypeMax),
   "version": zod.number().int(),
+  "organisation_unit_id": zod.number().int().min(1).nullish(),
   "notes": zod.string().min(1).max(actionIntermediaryResponseAgentOneNotesMax),
   "receive_date": zod.string().nullish(),
   "contract_date": zod.string().nullish(),
@@ -1125,15 +1298,16 @@ export const confirmIntermediaryUploadResponseAgentOneAgentNameMax = 250;
 
 export const confirmIntermediaryUploadResponseAgentOneAgentTypeMax = 50;
 
+
 export const confirmIntermediaryUploadResponseAgentOneNotesMax = 4000;
 
 export const confirmIntermediaryUploadResponseAgentOneUserIdMax = 64;
 
-export const confirmIntermediaryUploadResponseAgentOneUnitCodeMax = 30;
+export const confirmIntermediaryUploadResponseAgentOneUnitCodeMax = 40;
 
-export const confirmIntermediaryUploadResponseAgentOneBranchCodeMax = 30;
+export const confirmIntermediaryUploadResponseAgentOneBranchCodeMax = 40;
 
-export const confirmIntermediaryUploadResponseAgentOneRegionCodeMax = 30;
+export const confirmIntermediaryUploadResponseAgentOneRegionCodeMax = 40;
 
 export const confirmIntermediaryUploadResponseAgentOneEmailMax = 254;
 
@@ -1166,6 +1340,7 @@ export const ConfirmIntermediaryUploadResponse = zod.object({
   "agent_name": zod.string().min(1).max(confirmIntermediaryUploadResponseAgentOneAgentNameMax),
   "agent_type": zod.string().min(1).max(confirmIntermediaryUploadResponseAgentOneAgentTypeMax),
   "version": zod.number().int(),
+  "organisation_unit_id": zod.number().int().min(1).nullish(),
   "notes": zod.string().min(1).max(confirmIntermediaryUploadResponseAgentOneNotesMax),
   "receive_date": zod.string().nullish(),
   "contract_date": zod.string().nullish(),

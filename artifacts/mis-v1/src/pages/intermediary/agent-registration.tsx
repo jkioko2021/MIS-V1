@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { useImportIntermediaries, useUpdateIntermediary, useActionIntermediary } from '@workspace/api-client-react';
-import type { Intermediary, IntermediaryActionInput, IntermediaryDetail, IntermediaryInput, IntermediaryOptions } from '@workspace/api-client-react';
+import { getGetOrganisationQueryKey, useGetOrganisation, useImportIntermediaries, useUpdateIntermediary, useActionIntermediary } from '@workspace/api-client-react';
+import type { Intermediary, IntermediaryActionInput, IntermediaryDetail, IntermediaryInput, IntermediaryOptions, OrganisationNode } from '@workspace/api-client-react';
 import { ArrowRight, ArrowLeft, Check, CloudDownload, FileCheck2, Search, ShieldCheck, UserRound, Users, LockKeyhole, Circle, CheckCircle2, RefreshCw } from 'lucide-react';
 import { Link } from 'wouter';
+import { useAuth } from '@/lib/auth-context';
+import { identityQueryKey } from '@/pages/admin/organisation/shared';
 import { ApiMessage, Button, Field, NoteField, SelectField, SkeletonRows, StatusPill, SuccessMessage, intermediaryInputFrom } from './form-components';
 import { EmptyRegistrationSupport, RegistrationSupport, type RegistrationSection } from './registration-support';
 
@@ -28,6 +30,7 @@ export function AgentRegistration({
   onSelect: (code: string) => void; onInvalidate: (code?: string) => Promise<void>; onNavigate: (path: string) => void;
   onReload: () => Promise<IntermediaryDetail | undefined>;
 }) {
+  const { user } = useAuth();
   const [form, setForm] = useState<IntermediaryInput>(EMPTY_FORM);
   const [saveNote, setSaveNote] = useState('');
   const [completionNote, setCompletionNote] = useState('');
@@ -41,6 +44,8 @@ export function AgentRegistration({
   const importMutation = useImportIntermediaries();
   const update = useUpdateIntermediary();
   const action = useActionIntermediary();
+  const organisation = useGetOrganisation({ query: { queryKey: identityQueryKey(getGetOrganisationQueryKey(), user), enabled: !!user, staleTime: 30_000 } });
+  const availableUnits = organisation.data?.nodes.filter(node => node.level === 'UNIT' && node.is_active && node.available) ?? [];
   const selectedAgent = detail?.agent;
   const baseline = useRef<IntermediaryInput | null>(null);
   const today = new Date().toISOString().slice(0, 10);
@@ -67,8 +72,8 @@ export function AgentRegistration({
     tabListRef.current?.querySelector<HTMLButtonElement>(`[data-step-index="${activeStep}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [activeStep]);
 
-  const profileComplete = Boolean(selectedAgent && selectedAgent.agent_type.trim() && selectedAgent.unit_code?.trim()
-    && selectedAgent.region_code?.trim() && selectedAgent.receive_date && selectedAgent.contract_date
+  const profileComplete = Boolean(selectedAgent && selectedAgent.agent_type.trim() && selectedAgent.organisation_unit_id
+    && selectedAgent.receive_date && selectedAgent.contract_date
     && selectedAgent.mobile_no?.trim());
   const verifiedLicence = detail?.licences.some(licence => licence.status === 'VERIFIED' && licence.valid_from <= today && licence.valid_to >= today) ?? false;
   const hasDocument = (detail?.documents.length ?? 0) > 0;
@@ -256,7 +261,7 @@ export function AgentRegistration({
           {notice && <SuccessMessage>{notice}</SuccessMessage>}
           {isConflict(error) && <ConflictReload onReload={reloadCurrent} />}
           <form onSubmit={saveDetails}>
-            <RegistrationProfileFields value={selectedAgent.registration_status === 'COMPLETED' ? intermediaryInputFrom(selectedAgent) : form} onChange={selectedAgent.registration_status === 'COMPLETED' ? () => undefined : setForm} sourceRef={selectedAgent.source_ref || ''} disabled={selectedAgent.registration_status === 'COMPLETED'} agentTypes={options?.agent_types} codeCatalog={options} />
+            <RegistrationProfileFields value={selectedAgent.registration_status === 'COMPLETED' ? intermediaryInputFrom(selectedAgent) : form} onChange={selectedAgent.registration_status === 'COMPLETED' ? () => undefined : setForm} sourceRef={selectedAgent.source_ref || ''} disabled={selectedAgent.registration_status === 'COMPLETED'} agentTypes={options?.agent_types} codeCatalog={options} units={selectedAgent.organisation_unit_id ? [...availableUnits, ...(organisation.data?.nodes.find(node => node.id === selectedAgent.organisation_unit_id && !node.is_active) ? [organisation.data.nodes.find(node => node.id === selectedAgent.organisation_unit_id)!] : [])] : availableUnits} unitsLoading={organisation.isLoading} unitsError={organisation.error} />
             {selectedAgent.registration_status !== 'COMPLETED' && <>
               <NoteField value={saveNote} onChange={setSaveNote} label="MIS profile change note" />
               <div className="im-form-footer"><span>Save explicitly against initialized version {form.version ?? selectedAgent.version}. Moving to another step does not save.</span><Button type="submit" disabled={isPending || !saveNote.trim()}>{update.isPending ? 'Saving…' : 'Save MIS profile'} <Check size={15} /></Button></div>
@@ -274,7 +279,7 @@ export function AgentRegistration({
             <div className="im-saved-overview-head"><div><div className="im-section-index">SAVED PROFILE OVERVIEW</div><h3>{selectedAgent.agent_name}</h3><p>{selectedAgent.agent_code} · Source {selectedAgent.source_ref || 'reference unavailable'} · Server version {selectedAgent.version}</p></div><StatusPill status={selectedAgent.registration_status} /></div>
             {profileDirty && <div className="im-alert im-alert-warn"><ShieldCheck size={16} /><span>The profile has unsaved edits. This overview shows persisted server values only; save in Agent Details before completion.</span></div>}
             <div className="im-saved-summary">
-              {[['Agent type', selectedAgent.agent_type || '—'], ['Primary mobile', selectedAgent.mobile_no || '—'], ['Email', selectedAgent.email || '—'], ['Region code', selectedAgent.region_code || '—'], ['Sales manager / unit', selectedAgent.unit_code || '—'], ['Commission rate', selectedAgent.commission_rate == null ? '—' : `${selectedAgent.commission_rate}%`], ['Pay frequency', selectedAgent.pay_mode || '—'], ['Receive date', selectedAgent.receive_date || '—'], ['Contract date', selectedAgent.contract_date || '—']].map(([label, value]) => <div key={label}><small>{label}</small><b>{value}</b></div>)}
+              {[['Agent type', selectedAgent.agent_type || '—'], ['Organisation Unit', organisation.data?.nodes.find(node => node.id === selectedAgent.organisation_unit_id)?.name || selectedAgent.unit_code || 'Not mapped'], ['Reporting path', organisation.data?.nodes.find(node => node.id === selectedAgent.organisation_unit_id)?.path.map(item => item.name).join(' / ') || selectedAgent.region_code || '—'], ['Primary mobile', selectedAgent.mobile_no || '—'], ['Email', selectedAgent.email || '—'], ['Commission rate', selectedAgent.commission_rate == null ? '—' : `${selectedAgent.commission_rate}%`], ['Pay frequency', selectedAgent.pay_mode || '—'], ['Receive date', selectedAgent.receive_date || '—'], ['Contract date', selectedAgent.contract_date || '—']].map(([label, value]) => <div key={label}><small>{label}</small><b>{value}</b></div>)}
             </div>
             <div className="im-overview-counts"><div><span>Licence records</span><b>{detail.licences.length}</b></div><div><span>Confirmed documents</span><b>{detail.documents.length}</b></div><div><span>Directors</span><b>{detail.directors.length}</b></div><div><span>Retained actions</span><b>{detail.events.length}</b></div></div>
           </section>
@@ -286,8 +291,7 @@ export function AgentRegistration({
               <div className="im-registration-readiness-head"><div><div className="im-section-index">REGISTRATION GATES · SAVED DATA</div><h3>Completion readiness</h3></div><span>{readyToComplete ? 'READY TO COMPLETE' : 'REQUIREMENTS REMAIN'}</span></div>
               <Requirement done={Boolean(form.version && !profileDirty)} label="MIS profile is saved at the current version" />
               <Requirement done={Boolean(selectedAgent.agent_type.trim())} label="Agent type recorded" />
-              <Requirement done={Boolean(selectedAgent.unit_code?.trim())} label="Sales manager / unit code recorded" />
-              <Requirement done={Boolean(selectedAgent.region_code?.trim())} label="Region code recorded" />
+              <Requirement done={Boolean(selectedAgent.organisation_unit_id)} label="Active organisation Unit assigned" />
               <Requirement done={Boolean(selectedAgent.receive_date)} label="Receive date recorded" />
               <Requirement done={Boolean(selectedAgent.contract_date)} label="Contract date recorded" />
               <Requirement done={Boolean(selectedAgent.mobile_no?.trim())} label="Primary mobile recorded" />
@@ -317,9 +321,10 @@ export function AgentRegistration({
   </div>;
 }
 
-function RegistrationProfileFields({ value, onChange, sourceRef, disabled = false, agentTypes = [], codeCatalog }: {
+function RegistrationProfileFields({ value, onChange, sourceRef, disabled = false, agentTypes = [], codeCatalog, units = [], unitsLoading = false, unitsError }: {
   value: IntermediaryInput; onChange: (value: IntermediaryInput) => void; sourceRef: string; disabled?: boolean;
   agentTypes?: string[]; codeCatalog?: IntermediaryOptions;
+  units?: OrganisationNode[]; unitsLoading?: boolean; unitsError?: unknown;
 }) {
   const set = (key: keyof IntermediaryInput, raw: string) => {
     const nullable: (keyof IntermediaryInput)[] = ['receive_date','contract_date','unit_code','region_code','gi_code','pin_no','nid_no','hrmis_code','mobile_no','secondary_mobile','email','pay_mode'];
@@ -328,8 +333,6 @@ function RegistrationProfileFields({ value, onChange, sourceRef, disabled = fals
   const setNumber = (raw: string) => onChange({ ...value, commission_rate: raw === '' ? null : Number(raw) });
   return <div className={`im-registration-fields ${disabled ? 'disabled' : ''}`} aria-disabled={disabled}>
     {disabled && <div className="im-readonly-banner">Read-only record · core identity remains immutable</div>}
-    <datalist id="registration-regions">{(codeCatalog?.regions ?? []).map(code => <option key={code} value={code} />)}</datalist>
-    <datalist id="registration-units">{(codeCatalog?.units ?? []).map(code => <option key={code} value={code} />)}</datalist>
     <datalist id="registration-gi-codes">{(codeCatalog?.gi_codes ?? []).map(code => <option key={code} value={code} />)}</datalist>
     <div className="im-form-section"><div className="im-form-section-title"><span>01</span><div><b>Personal Details</b><small>Source registration and organization assignment</small></div></div>
       <div className="im-form-grid">
@@ -338,8 +341,11 @@ function RegistrationProfileFields({ value, onChange, sourceRef, disabled = fals
         <Field label="Agent No" value={value.agent_code} onChange={() => undefined} disabled hint="Core agent code · immutable" />
         <Field label="Intermediary Name" value={value.agent_name} onChange={() => undefined} disabled hint="Core registered name · immutable" />
         {agentTypes.length ? <SelectField label="Agent Type" value={value.agent_type} onChange={v => set('agent_type', v)} options={agentTypes} required disabled={disabled} /> : <Field label="Agent Type" value={value.agent_type} onChange={v => set('agent_type', v)} disabled={disabled} required hint="Approved agent-type catalog is not currently loaded" />}
-        <Field label="Region Name" value={value.region_code ?? ''} onChange={v => set('region_code', v)} list="registration-regions" disabled={disabled} required hint="Region code (region_code); names are not loaded" placeholder="Enter region code" />
-        <Field label="Sales Manager" value={value.unit_code ?? ''} onChange={v => set('unit_code', v)} list="registration-units" disabled={disabled} required hint="Sales manager / unit code (unit_code); names are not loaded" placeholder="Enter manager code" />
+        <label className="im-field"><span>Organisation Unit<b className="im-required"> *</b></span><select value={value.organisation_unit_id ?? ''} disabled={disabled || unitsLoading} required onChange={event => onChange({ ...value, organisation_unit_id: event.target.value ? Number(event.target.value) : null })}>
+          <option value="">{unitsLoading ? 'Loading available Units…' : 'Select an active Unit'}</option>
+          {units.map(unit => <option key={unit.id} value={unit.id}>{unit.name} · {unit.code}</option>)}
+        </select><small>{unitsError ? 'Organisation list could not be loaded. Retry before saving.' : 'Required reporting assignment. Existing organisation and agent records are reused.'}</small></label>
+        <DerivedPath unit={units.find(unit => unit.id === value.organisation_unit_id)} />
         <Field label="GI Manager" value={value.gi_code ?? ''} onChange={v => set('gi_code', v)} list="registration-gi-codes" disabled={disabled} hint="GI manager code (gi_code); names are not loaded" placeholder="Enter GI manager code" />
         <Field label="PIN" value={value.pin_no ?? ''} onChange={v => set('pin_no', v)} disabled={disabled} />
         <Field label="ID / Reg No" value={value.nid_no ?? ''} onChange={v => set('nid_no', v)} disabled={disabled} />
@@ -367,6 +373,12 @@ function RegistrationProfileFields({ value, onChange, sourceRef, disabled = fals
 function Requirement({ done, label }: { done: boolean; label: string }) {
   return <div className={`im-requirement ${done ? 'complete' : ''}`}><i className={done ? 'done' : ''}>{done ? <Check size={11} /> : null}</i><span>{label}</span></div>;
 }
+function DerivedPath({ unit }: { unit?: OrganisationNode }) {
+  const path = unit?.path ?? [];
+  return <div className="im-field"><span>Derived reporting line</span><div className="flex min-h-10 flex-wrap items-center gap-1 rounded-md border bg-muted/30 px-3 py-2 text-sm" aria-live="polite">
+    {path.length ? path.map((item, index) => <span key={item.id} className="inline-flex items-center gap-1">{index > 0 && <ArrowRight size={12} className="text-muted-foreground" />}<span>{item.name}</span></span>) : <span className="text-muted-foreground">National · Region · Branch will appear after Unit selection</span>}
+  </div><small>National, Region and Branch are derived from the selected Unit.</small></div>;
+}
 function isConflict(error: unknown) { return Boolean(error && typeof error === 'object' && 'status' in error && (error as { status?: number }).status === 409); }
 function ConflictReload({ onReload }: { onReload: () => Promise<void> }) {
   const [loading, setLoading] = useState(false);
@@ -377,6 +389,6 @@ function ConflictReload({ onReload }: { onReload: () => Promise<void> }) {
   return <div className="im-alert im-alert-warn im-conflict-reload"><div><strong>Another administrator changed this record.</strong><p>Your drafts are retained. Reload only when you are ready to discard them and start from the current server version.</p></div><Button variant="quiet" disabled={loading} onClick={reload}>{loading ? 'Reloading…' : 'Reload current details'}</Button></div>;
 }
 function isDirty(form: IntermediaryInput, agent: Intermediary) {
-  const fields: (keyof IntermediaryInput)[] = ['agent_type','receive_date','contract_date','unit_code','region_code','gi_code','email','mobile_no','secondary_mobile','hrmis_code','pin_no','nid_no','commission_rate','pay_mode','etims_verified'];
+  const fields: (keyof IntermediaryInput)[] = ['agent_type','receive_date','contract_date','organisation_unit_id','unit_code','region_code','gi_code','email','mobile_no','secondary_mobile','hrmis_code','pin_no','nid_no','commission_rate','pay_mode','etims_verified'];
   return fields.some(key => (form[key] ?? null) !== (agent[key] ?? null));
 }

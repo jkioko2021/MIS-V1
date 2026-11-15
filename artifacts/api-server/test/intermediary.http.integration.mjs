@@ -3,12 +3,14 @@ import pg from "pg";
 import bcrypt from "bcrypt";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { createOrganisationFixture,removeOrganisationFixture } from "./organisation-fixture.mjs";
 
 const db = new pg.Client({ connectionString: process.env.DATABASE_URL });
 const prefix = `agent_http_${randomUUID().slice(0, 8)}`;
 const code = `QA_${randomUUID().slice(0, 8)}`;
 const password = `${randomUUID()}Aa9!`;
 const ids = [];
+let hierarchy;
 const api = async (path, cookie, method = "GET", body) => {
   const response = await fetch(`http://localhost:80/api${path}`, {
     method, headers: { ...(cookie ? { cookie } : {}), ...(body ? { "Content-Type": "application/json" } : {}) },
@@ -19,6 +21,7 @@ const api = async (path, cookie, method = "GET", body) => {
 };
 try {
   await db.connect();
+  hierarchy=await createOrganisationFixture(db,code);
   const role = (await db.query("SELECT profile_id FROM crm.profiles WHERE profile_name='National Sales Admin'")).rows[0].profile_id;
   const cookies = [];
   for (const [index, profile] of [role, 3].entries()) {
@@ -55,9 +58,11 @@ try {
   assert.equal(before.response.status, 200);
   const input = { ...before.data.agent, notes: "Synthetic HTTP details capture", unit_code: "QA_UNIT",
     region_code: "QA_REGION", mobile_no: "0700000000", receive_date: "2026-11-01", contract_date: "2026-11-01" };
+  assert.equal((await api(`${root}/agents/${code}`,cookies[0],"PATCH",input)).response.status,400,"A Unit is mandatory");
+  input.organisation_unit_id=hierarchy.unitId;
   const saved = await api(`${root}/agents/${code}`, cookies[0], "PATCH", input);
   assert.equal(saved.response.status, 200, saved.data.error);
-  assert.equal(saved.data.agent.unit_code, "QA_UNIT");
+  assert.equal(saved.data.agent.unit_code, hierarchy.codes[3]);
   assert(saved.data.events.some(e => e.notes === input.notes));
   assert.equal((await api(`${root}/agents/${code}`, cookies[0], "PATCH", input)).response.status, 409);
   assert.equal((await api(`${root}/agents/${code}/actions`, cookies[1], "POST",
@@ -69,6 +74,7 @@ try {
   assert.equal(badDocument.response.status, 404);
   console.info("PASS: real HTTP authentication, National Sales Admin authorization, pending import queue, manual-create denial, saved details, retained notes, stale-write prevention and explicit incomplete-registration/configuration errors.");
 } finally {
+  if(hierarchy)await removeOrganisationFixture(db,hierarchy,[code]);
   await db.query("DELETE FROM crm.intermediary_events WHERE agent_code=$1", [code]).catch(() => {});
   await db.query("DELETE FROM crm.tbl_mis_sales_intermediary WHERE agent_code=$1", [code]).catch(() => {});
   if (ids.length) {

@@ -36,8 +36,26 @@ export async function salesSetupTransaction<T>(fn: (client: PoolClient) => Promi
     return fn(client);
   });
 }
+async function syncAdoptedManager(client: PoolClient, node: NodeRow, actor: string) {
+  const catalog = { UNIT: "sales-units", BRANCH: "sales-branches", REGION: "sales-regions", NATIONAL: "" }[node.level];
+  const existing = (await client.query(`SELECT a.*,e.employee_name FROM crm.sales_team_manager_assignments a
+    LEFT JOIN crm.employees e ON e.employee_id=a.employee_id
+    WHERE a.catalog=$1 AND upper(a.organization_code)=upper($2) FOR UPDATE OF a`,[catalog,node.code])).rows[0];
+  if (!existing) return;
+  const manager = (await client.query(`SELECT m.employee_id,e.employee_name FROM crm.sales_manager_enrollments m
+    JOIN crm.employees e ON e.employee_id=m.employee_id WHERE m.id=$1`,[node.manager_id])).rows[0];
+  if (existing.employee_id === manager.employee_id) return;
+  const updated = (await client.query(`UPDATE crm.sales_team_manager_assignments
+    SET employee_id=$2,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1 RETURNING *`,
+  [existing.id,manager.employee_id,actor])).rows[0];
+  await client.query(`INSERT INTO crm.sales_team_manager_events
+    (assignment_id,action,before_data,after_data,note,actor) VALUES($1,'REASSIGNED',$2::jsonb,$3::jsonb,$4,$5)`,
+  [existing.id,JSON.stringify(existing),JSON.stringify({...updated,employee_name:manager.employee_name}),
+    "Manager updated through Organisation Structure; imported source references retained.",actor]);
+}
 async function validateNode(client: PoolClient, input: NodeValues, level: SalesLevel, before?: NodeRow) {
   if (!input.name.trim()) fail("A name is required.");
+  if (input.manager_id === null) fail("Every organisational level requires an enrolled manager.");
   const expected = parentLevel[level];
   if (expected === null) {
     if (input.parent_id !== null) fail("A national structure cannot have a parent.");
@@ -45,7 +63,17 @@ async function validateNode(client: PoolClient, input: NodeValues, level: SalesL
     const { rows } = await client.query<NodeRow>("SELECT * FROM crm.sales_structure_nodes WHERE id=$1 FOR UPDATE", [input.parent_id]);
     const parent = rows[0];
     if (!parent || parent.level !== expected) fail(`Select a ${expected.toLowerCase()} parent for this category.`);
-    if (input.is_active && !parent.is_active) fail("An active category requires an active parent.");
+    if ((!before || input.parent_id !== before.parent_id || input.is_active) && !parent.is_active)
+      fail("Select an active parent.");
+    if (input.is_active || !before || input.parent_id !== before.parent_id) {
+      const available = await client.query("SELECT 1 FROM crm.organisation_paths WHERE id=$1 AND available", [input.parent_id]);
+      if (!available.rowCount) fail("The parent hierarchy must be active with eligible managers.");
+    }
+  }
+  if (before && (!input.is_active || input.parent_id !== before.parent_id)) {
+    const agents = await client.query(`SELECT 1 FROM crm.tbl_mis_sales_intermediary a
+      JOIN crm.organisation_paths p ON p.id=a.organisation_unit_id WHERE $1=ANY(p.node_ids) LIMIT 1`, [before.id]);
+    if (agents.rowCount) fail("Transfer the agents in this hierarchy before deactivating or moving it. Historical assignments will be preserved.");
   }
   if (before && !input.is_active) {
     const { rowCount } = await client.query("SELECT 1 FROM crm.sales_structure_nodes WHERE parent_id=$1 AND is_active LIMIT 1", [before.id]);
@@ -65,17 +93,45 @@ async function validateNode(client: PoolClient, input: NodeValues, level: SalesL
     if (input.is_active || before?.manager_id !== input.manager_id) {
       if (!manager.is_active) fail("Select an active manager enrollment.");
       await eligibleUser(client, manager.employee_id);
+      const validity = manager.manager_details;
+      const today = (await client.query<{ today: string }>("SELECT CURRENT_DATE::text AS today")).rows[0].today;
+      if (validity && (validity.valid_from > today || validity.valid_to < today))
+        fail("Select a manager whose designation is valid today.");
     }
   }
 }
-export async function createSalesNode(input: NodeValues & { code: string; level: SalesLevel }, actor: string) {
+export async function createSalesNode(input: NodeValues & { code: string; level: SalesLevel; source_reference_id?: number }, actor: string) {
   return salesSetupTransaction(async client => {
     await validateNode(client, input, input.level);
+    const catalog = { UNIT: "sales-units", BRANCH: "sales-branches", REGION: "sales-regions", NATIONAL: "" }[input.level];
+    const refs = (await client.query(`SELECT id,code,name,data FROM crm.sales_catalog_source_records
+      WHERE catalog=$1 AND upper(btrim(code))=upper($2) ORDER BY id`, [catalog, input.code])).rows;
+    const operational = await client.query(`SELECT 1 FROM crm.sales_catalog_entries WHERE catalog=$1
+      AND upper(btrim(code))=upper($2) LIMIT 1`, [catalog, input.code]);
+    if (operational.rowCount) fail("This organisation already exists in the operational catalog. Reconcile its record before creating a hierarchy duplicate.");
+    if (refs.length) {
+      if (refs.length !== 1 || refs[0].id !== input.source_reference_id)
+        fail("Select the existing imported reference for this code; ambiguous source records require reconciliation.");
+      if (refs[0].name.trim() !== input.name.trim()) fail("Use the imported name when adopting this reference. You can edit the name after adoption.");
+      const parentCode = input.level === "UNIT" ? refs[0].data.BRANCH_CODE : input.level === "BRANCH" ? refs[0].data.REGION_CODE : null;
+      if (parentCode && String(parentCode).trim().toUpperCase() !== "NULL") {
+        const parent = (await client.query("SELECT code FROM crm.sales_structure_nodes WHERE id=$1", [input.parent_id])).rows[0];
+        if (parent?.code !== String(parentCode).trim().toUpperCase()) fail("Select the parent recorded in the imported reference. Resolve source conflicts before adoption.");
+      }
+    } else if (input.source_reference_id) fail("This imported reference no longer matches the selected code.");
+    const oldAssignment = (await client.query(`SELECT employee_id FROM crm.sales_team_manager_assignments
+      WHERE catalog=$1 AND upper(organization_code)=upper($2) AND employee_id IS NOT NULL`, [catalog, input.code])).rows[0];
+    if (oldAssignment) {
+      const chosen = (await client.query("SELECT employee_id FROM crm.sales_manager_enrollments WHERE id=$1", [input.manager_id])).rows[0];
+      if (chosen?.employee_id !== oldAssignment.employee_id)
+        fail("The imported organisation already has a different manager assignment. Select that manager or reconcile the existing mapping first.");
+    }
     const { rows } = await client.query<NodeRow>(
-      `INSERT INTO crm.sales_structure_nodes(code,name,level,parent_id,manager_id,is_active,created_by,updated_by)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$7) RETURNING *`,
-      [input.code.toUpperCase(), input.name.trim(), input.level, input.parent_id, input.manager_id, input.is_active, actor]);
+      `INSERT INTO crm.sales_structure_nodes(code,name,level,parent_id,manager_id,is_active,created_by,updated_by,source_reference_id)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$7,$8) RETURNING *`,
+      [input.code.toUpperCase(), input.name.trim(), input.level, input.parent_id, input.manager_id, input.is_active, actor, input.source_reference_id ?? null]);
     await audit(client, "NODE", rows[0].id, null, rows[0], actor);
+    await syncAdoptedManager(client, rows[0], actor);
     return { id: rows[0].id, version: rows[0].version };
   });
 }
@@ -90,6 +146,7 @@ export async function updateSalesNode(id: number, input: NodeValues & { version:
       name=$2,parent_id=$3,manager_id=$4,is_active=$5,version=version+1,updated_at=now(),updated_by=$6
       WHERE id=$1 RETURNING *`, [id, input.name.trim(), input.parent_id, input.manager_id, input.is_active, actor]);
     await audit(client, "NODE", id, before, result.rows[0], actor);
+    await syncAdoptedManager(client, result.rows[0], actor);
     return { id, version: result.rows[0].version };
   });
 }

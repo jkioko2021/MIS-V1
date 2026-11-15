@@ -172,6 +172,10 @@ export async function saveSalesCatalogEntry(key: string, input: SalesCatalogInpu
       }
     } else if (input.employee_id !== null) fail("Only manager enrollments can be linked to a MIS user.");
     const normalized = normalize(def, input, actor, before);
+    if (["sales-units","sales-branches","sales-regions"].includes(key)) {
+      const canonical = await client.query("SELECT 1 FROM crm.sales_structure_nodes WHERE upper(code)=upper($1) LIMIT 1", [normalized.code]);
+      if (canonical.rowCount) fail("This organisation is managed in Organisation Structure. Edit it there to preserve its hierarchy, manager and agent history.");
+    }
     const managerField = mappingManagerFields[key];
     if (managerField && (normalized.values[managerField] ?? null) !== (before?.values[managerField] ?? null)) {
       const mapped = await client.query(`SELECT 1 FROM crm.sales_team_manager_assignments

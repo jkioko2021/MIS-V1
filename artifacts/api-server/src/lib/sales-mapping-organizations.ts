@@ -19,6 +19,7 @@ export async function salesMappingOrganizations(client: PoolClient): Promise<Sal
     1 AS version,data AS "values",true AS source_reference
     FROM crm.sales_catalog_source_records WHERE catalog IN ('sales-regions','sales-branches','sales-units')`)).rows;
   const lookup = organizationLookups(live, sources);
+  const adopted = new Set((await client.query<{ code: string }>("SELECT code FROM crm.sales_structure_nodes")).rows.map(r=>r.code.toUpperCase()));
   const find = (catalog: string, code: string | null) => code ? lookup.get(`${catalog}:${code}`) : undefined;
   const result: SalesMappingOrganization[] = [];
   for (const row of lookup.values()) {
@@ -30,6 +31,8 @@ export async function salesMappingOrganizations(client: PoolClient): Promise<Sal
     const branch = branchCode ? find("sales-branches", branchCode) : undefined;
     const region = find("sales-regions", regionCode);
     const issues: string[] = [];
+    if (adopted.has(row.code.toUpperCase()))
+      issues.push("Managed in Organisation Structure. Use its Manager Assignment page; legacy references and history are retained.");
     if (!row.is_active) issues.push("This organizational record is inactive.");
     if (!region) issues.push("The region is missing or ambiguous. Resolve its organizational reference before assigning a manager.");
     else if (!region.is_active) issues.push("The parent region is inactive.");
