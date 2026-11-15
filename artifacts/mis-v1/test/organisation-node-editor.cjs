@@ -45,7 +45,10 @@ const change=(id,value)=>{
   const field=find(id).props;
   return field.onValueChange ? field.onValueChange(value) : field.onChange({target:{value}});
 };
+let changedLevel;
+props.onLevelChange = level => { changedLevel = level; };
 change('org-level','REGION');
+assert.equal(changedLevel, 'REGION', 'Entry level changes must notify the hierarchy list');
 change('org-code','R_NEW');change('org-name','Typed region name');
 change('org-parent','1');
 assert.equal(find('org-code').props.value,'R_NEW');

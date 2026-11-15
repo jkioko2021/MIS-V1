@@ -65,7 +65,7 @@ function changedMedicalDetails(fields: Array<{ key: string }>, values: MedicalVa
   })) as MedicalValues;
 }
 
-export function NodeEditor({ node, nodes, candidates, managers, managerUsers, catalogSnapshot, initialCandidate, initialLevel, onCancel, onSaved, onRefresh }: {
+export function NodeEditor({ node, nodes, candidates, managers, managerUsers, catalogSnapshot, initialCandidate, initialLevel, onLevelChange, onCancel, onSaved, onRefresh }: {
   node?: OrganisationNode;
   nodes: OrganisationNode[];
   candidates: OrganisationCandidate[];
@@ -74,6 +74,7 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
   catalogSnapshot?: SalesCatalogSnapshot;
   initialCandidate?: OrganisationCandidate;
   initialLevel?: SalesLevel;
+  onLevelChange?: (level: SalesLevel) => void;
   onCancel: () => void;
   onSaved: () => Promise<void>;
   onRefresh: () => Promise<{ data?: OrganisationSnapshot }>;
@@ -228,6 +229,7 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
           options={LEVELS.map(item => ({ value: item, label: LEVEL_LABEL[item] }))} onValueChange={(value) => {
           setLevel(value as SalesLevel); setCandidateId(''); setCode(''); setName(''); setParentId(''); setManagerId(''); setMedicalDetails({});
           originalMedicalDetails.current = {};
+          onLevelChange?.(value as SalesLevel);
         }} />
       </div>}
       {!node && <div className="space-y-1.5">

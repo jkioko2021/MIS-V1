@@ -11,10 +11,12 @@ import type { OrganisationCandidate, OrganisationNode, SalesLevel } from '@works
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/utils';
 import { AgentMapping } from './agent-mapping';
 import { OrganisationTree } from './hierarchy-tree';
+import { PendingHierarchyRow } from './pending-hierarchy-row';
 import { MedicalRecords } from './medical-records';
 import { NodeEditor } from './node-editor';
 import { ErrorNotice, identityQueryKey, LEVELS, LEVEL_LABEL, pathNames } from './shared';
@@ -53,14 +55,24 @@ export default function OrganisationPage() {
     },
   });
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('active');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [editor, setEditor] = useState<OrganisationNode | 'new' | null>(null);
   const [initialCandidate, setInitialCandidate] = useState<OrganisationCandidate | undefined>(undefined);
   const route = location.split('?')[0].replace(/\/+$/, '').split('/').at(-1) ?? 'dashboard';
   const isHierarchy = route === 'hierarchy';
   const requestedLevel = new URLSearchParams(querySearch).get('level') as SalesLevel | null;
   const level = LEVEL_ROUTES[route];
-  const editorLevel = level ?? (requestedLevel && LEVELS.includes(requestedLevel) ? requestedLevel : 'NATIONAL');
+  const [selectedLevel, setSelectedLevel] = useState<SalesLevel | 'ALL'>('ALL');
+  const displayLevel = isHierarchy ? selectedLevel === 'ALL' ? undefined : selectedLevel : level;
+  const editorLevel = level ?? (selectedLevel !== 'ALL' ? selectedLevel : requestedLevel && LEVELS.includes(requestedLevel) ? requestedLevel : 'NATIONAL');
+  const beginNew = () => {
+    if (isHierarchy) setSelectedLevel(editorLevel);
+    setInitialCandidate(undefined); setEditor('new');
+  };
+  const beginAdoption = (candidate: OrganisationCandidate) => {
+    if (isHierarchy) setSelectedLevel(candidate.level);
+    setInitialCandidate(candidate); setEditor('new');
+  };
   const isAgents = route === 'agents';
   const isManagers = route === 'managers';
   const managerLink = '/admin/sales-structure/managers';
@@ -70,10 +82,22 @@ export default function OrganisationPage() {
     total: nodes.filter((node) => node.level === item).length,
     active: nodes.filter((node) => node.level === item && node.is_active).length,
   })), [nodes]);
-  const rows = nodes.filter((node) => (!level || node.level === level)
-    && (statusFilter === 'all' || (statusFilter === 'active' ? node.is_active : !node.is_active))
+  const rows = nodes.filter((node) => (!displayLevel || node.level === displayLevel)
+    && (statusFilter === 'all' || (statusFilter === 'active' && node.is_active) || (statusFilter === 'inactive' && !node.is_active))
     && `${node.code} ${node.name} ${LEVEL_LABEL[node.level]} ${node.manager_name ?? ''} ${pathNames(node.path)}`.toLowerCase().includes(search.toLowerCase().trim()))
     .sort((a, b) => LEVELS.indexOf(a.level) - LEVELS.indexOf(b.level) || a.name.localeCompare(b.name));
+  const pendingSources = isHierarchy && canManage
+    ? (data?.candidates ?? []).filter(candidate => !nodes.some(node => node.code.trim().toUpperCase() === candidate.code.trim().toUpperCase()))
+    : [];
+  const levelPendingSources = pendingSources.filter(candidate => !displayLevel || candidate.level === displayLevel);
+  const pendingRows = levelPendingSources.filter(candidate =>
+    (statusFilter === 'all' || statusFilter === 'pending')
+    && `${candidate.code} ${candidate.name} ${LEVEL_LABEL[candidate.level]} ${candidate.parent_code ?? ''} Pending Setup`
+      .toLowerCase().includes(search.toLowerCase().trim()));
+  const tableRecords: Array<{ kind: 'node'; record: OrganisationNode } | { kind: 'pending'; record: OrganisationCandidate }> = [
+    ...rows.map(record => ({ kind: 'node' as const, record })),
+    ...pendingRows.map(record => ({ kind: 'pending' as const, record })),
+  ].sort((a, b) => LEVELS.indexOf(a.record.level) - LEVELS.indexOf(b.record.level) || a.record.name.localeCompare(b.record.name));
   const pageTitle = isAgents ? 'Agent unit mapping'
     : isManagers ? 'Manager assignment'
       : isHierarchy ? 'Hierachy Setup'
@@ -95,7 +119,7 @@ export default function OrganisationPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => { void refetch(); }} disabled={isFetching} className="gap-2 bg-card"><RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />Refresh</Button>
-          {canManage && !isAgents && !isManagers && <Button onClick={() => { setInitialCandidate(undefined); setEditor('new'); }} className="gap-2 bg-[#1f5849] hover:bg-[#174536]"><Plus className="h-4 w-4" />Add entry</Button>}
+          {canManage && !isAgents && !isManagers && <Button onClick={beginNew} className="gap-2 bg-[#1f5849] hover:bg-[#174536]"><Plus className="h-4 w-4" />Add entry</Button>}
         </div>
       </div>
     </header>
@@ -126,6 +150,7 @@ export default function OrganisationPage() {
           catalogSnapshot={catalogs}
           initialCandidate={initialCandidate}
           initialLevel={editorLevel}
+          onLevelChange={isHierarchy ? setSelectedLevel : undefined}
           onCancel={() => { setEditor(null); setInitialCandidate(undefined); }}
           onRefresh={async () => {
             const refreshed = await refetch();
@@ -180,6 +205,19 @@ export default function OrganisationPage() {
         {isAgents && <AgentMapping key={`${selectedNodeId ?? 'all'}:${user?.id ?? 'anonymous'}:${user?.profileId ?? 0}`} canManage={canManage} nodes={nodes} initialNodeId={selectedNodeId ? Number(selectedNodeId) : undefined} userId={user?.id ?? 0} profileId={user?.profileId ?? 0} />}
 
         {!isAgents && !isManagers && (isHierarchy || level) && <>
+          {isHierarchy && <div className="max-w-sm space-y-1.5">
+            <label htmlFor="hierarchy-level-filter" className="text-sm font-medium">Show hierarchy level</label>
+            <SearchableSelect id="hierarchy-level-filter" value={selectedLevel} onValueChange={value => setSelectedLevel(value as SalesLevel | 'ALL')}
+              disabled={!!editor} placeholder="All hierarchy levels"
+              options={[{ value: 'ALL', label: 'All hierarchy levels' }, ...LEVELS.map(item => ({ value: item, label: LEVEL_LABEL[item] }))]} />
+            {editor && <p className="text-xs text-muted-foreground">Change the level in the entry form, or close the form to use this filter.</p>}
+          </div>}
+          {levelPendingSources.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-950" data-testid="pending-hierarchy-summary">
+            <b>Uploaded records — Pending Setup</b>
+            <p className="mt-1">{(['REGION', 'BRANCH', 'UNIT'] as const).filter(item => !displayLevel || item === displayLevel).map(item =>
+              `${levelPendingSources.filter(candidate => candidate.level === item).length} ${item === 'REGION' ? 'Regions' : item === 'BRANCH' ? 'Branches' : 'Units'}`,
+            ).join(' · ')}. Complete parent and manager setup before using them for agent assignments.</p>
+          </div>}
           {canManage && !isHierarchy && level !== 'NATIONAL' && <MedicalRecords
             snapshot={catalogs}
             isLoading={catalogsLoading}
@@ -189,16 +227,20 @@ export default function OrganisationPage() {
             nodes={nodes}
             candidates={data.candidates}
             level={level}
-            onAdopt={(candidate) => { setInitialCandidate(candidate); setEditor('new'); }}
+            onAdopt={beginAdoption}
           />}
           <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
           <div className="flex flex-col gap-3 border-b px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <div><h2 className="font-semibold">{isHierarchy ? 'All hierarchy records' : `${LEVEL_LABEL[level!]} records`}</h2><p className="mt-1 text-xs text-muted-foreground">{rows.length} displayed · {nodes.filter((node) => node.is_active).length} active entries across your scope</p></div>
-            <div className="grid gap-2 sm:grid-cols-[minmax(200px,1fr)_155px]"><div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, code or manager" className="pl-9" /></div><select aria-label="Filter by status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm"><option value="active">Active entries</option><option value="inactive">Inactive entries</option><option value="all">All statuses</option></select></div>
+            <div><h2 className="font-semibold">{displayLevel ? `${LEVEL_LABEL[displayLevel]} records` : 'All hierarchy records'}</h2><p className="mt-1 text-xs text-muted-foreground">{tableRecords.length} displayed · {levelPendingSources.length} pending setup · {nodes.filter(node => node.is_active && (!displayLevel || node.level === displayLevel)).length} active entries</p></div>
+            <div className="grid gap-2 sm:grid-cols-[minmax(200px,1fr)_155px]"><div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, level, code or manager" className="pl-9" /></div><select aria-label="Filter by status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm"><option value="all">All statuses</option><option value="active">Active entries</option><option value="inactive">Inactive entries</option>{isHierarchy && canManage && <option value="pending">Pending Setup</option>}</select></div>
           </div>
-          {!rows.length ? <div className="px-5 py-14 text-center"><Network className="mx-auto h-8 w-8 text-muted-foreground" /><h3 className="mt-3 font-semibold">{nodes.length ? 'No matching entries' : isHierarchy ? 'No hierarchy records yet' : 'No records at this level'}</h3><p className="mx-auto mt-1 max-w-lg text-sm leading-6 text-muted-foreground">{nodes.length ? 'Adjust the search or status filter.' : 'Create a parent level before adding a new organisation record.'}</p>{canManage && <Button onClick={() => { setInitialCandidate(undefined); setEditor('new'); }} className="mt-4 gap-2"><Plus className="h-4 w-4" />{isHierarchy ? 'Add entry' : `Add ${LEVEL_LABEL[level!]}`}</Button>}</div>
+          {!tableRecords.length ? <div className="px-5 py-14 text-center"><Network className="mx-auto h-8 w-8 text-muted-foreground" /><h3 className="mt-3 font-semibold">{nodes.length || pendingSources.length ? 'No matching entries' : isHierarchy ? 'No hierarchy records yet' : 'No records at this level'}</h3><p className="mx-auto mt-1 max-w-lg text-sm leading-6 text-muted-foreground">{nodes.length || pendingSources.length ? 'Adjust the level, search or status filter.' : 'Create a parent level before adding a new organisation record.'}</p>{canManage && <Button onClick={beginNew} className="mt-4 gap-2"><Plus className="h-4 w-4" />{isHierarchy ? 'Add entry' : `Add ${LEVEL_LABEL[level!]}`}</Button>}</div>
             : <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-sm"><thead className="bg-[#f6f8f6] text-left text-[11px] font-semibold uppercase tracking-[.12em] text-muted-foreground"><tr><th className="px-5 py-3">Organisation</th><th className="px-5 py-3">Reports through</th><th className="px-5 py-3">Manager</th><th className="px-5 py-3">Coverage</th><th className="px-5 py-3">Status</th><th className="px-5 py-3 text-right">Action</th></tr></thead>
-              <tbody>{rows.map((node) => {
+              <tbody>{tableRecords.map((item) => {
+                if (item.kind === 'pending') return <PendingHierarchyRow key={`source-${item.record.source_reference_id}`}
+                  candidate={item.record} nodes={nodes} candidates={data.candidates}
+                  onSetup={beginAdoption} />;
+                const node = item.record;
                 const parentInScope = node.parent_id == null ? undefined : nodes.find((item) => item.id === node.parent_id);
                 const parentFromPath = node.path.length > 1 ? node.path[node.path.length - 2] : undefined;
                 const parentName = parentInScope?.name ?? parentFromPath?.name ?? (node.level === 'NATIONAL' ? 'National root' : 'Parent outside reporting scope');
@@ -208,18 +250,18 @@ export default function OrganisationPage() {
                   <td className="px-5 py-3.5">{node.manager_name || <span className="text-amber-800">Manager not assigned</span>}</td>
                   <td className="px-5 py-3.5"><div className="flex flex-wrap gap-2 text-xs"><Badge variant="outline">{node.child_count} child{node.child_count === 1 ? '' : 'ren'}</Badge><Badge variant="outline">{node.agent_count} agents</Badge></div>{node.level === 'UNIT' && <Link href={`/admin/organisation/agents?node_id=${node.id}`} className="mt-2 inline-flex text-xs font-medium text-primary hover:underline">View agents</Link>}</td>
                   <td className="px-5 py-3.5"><Badge variant="outline" className={node.is_active ? 'border-emerald-200 bg-emerald-50/70 text-emerald-800' : 'text-muted-foreground'}>{node.is_active ? 'Active' : 'Inactive'}</Badge></td>
-                  <td className="px-5 py-3.5 text-right">{canManage && <Button size="sm" variant="outline" onClick={() => { setInitialCandidate(undefined); setEditor(node); }} className="gap-1.5"><Pencil className="h-3.5 w-3.5" />Edit</Button>}</td>
+                  <td className="px-5 py-3.5 text-right">{canManage && <Button size="sm" variant="outline" onClick={() => { setInitialCandidate(undefined); if (isHierarchy) setSelectedLevel(node.level); setEditor(node); }} className="gap-1.5"><Pencil className="h-3.5 w-3.5" />Edit</Button>}</td>
                 </tr>;
               })}</tbody></table></div>}
           <footer className="flex flex-col gap-2 border-t bg-muted/20 px-5 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between"><span>Imported identities and organisations are reused, not copied.</span><Link href="/admin/organisation/agents" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">Open agent mapping<ArrowRight className="h-3.5 w-3.5" /></Link></footer>
           </section>
-          {canManage && isHierarchy && <details className="rounded-xl border bg-card">
+          {canManage && isHierarchy && displayLevel !== 'NATIONAL' && <details className="rounded-xl border bg-card">
             <summary className="cursor-pointer px-5 py-4 text-sm font-semibold">Imported organisational records</summary>
             <div className="max-h-[36rem] overflow-y-auto">
               <MedicalRecords snapshot={catalogs} isLoading={catalogsLoading} isError={catalogsError}
                 error={catalogsLoadError} onRetry={() => { void refetchCatalogs(); }} nodes={nodes}
-                candidates={data.candidates} showAllRecords
-                onAdopt={(candidate) => { setInitialCandidate(candidate); setEditor('new'); }} />
+                candidates={data.candidates} showAllRecords level={displayLevel}
+                onAdopt={beginAdoption} />
             </div>
           </details>}
         </>}

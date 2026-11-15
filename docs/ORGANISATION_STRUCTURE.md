@@ -7,6 +7,21 @@ expandable source-record section. Old level URLs prefill the entry category
 without filtering the combined list. Other Medical and GI menu items remain
 separate. This navigation change does not alter records or account permissions.
 
+Unadopted imported Regions, Branches and Units appear directly in the combined
+table as **Pending Setup**, alongside operational records, with their original
+levels and identifiers. All statuses are shown initially; Pending Setup can be
+filtered separately. Imported parent names are reference information, not live
+hierarchy links. Complete setup opens the existing validated adoption form;
+displaying an import does not create a manager designation or make a Unit
+available for agent assignments. Adopted records are not repeated as pending.
+
+The visible **Show hierarchy level** dropdown filters operational and Pending
+Setup records, counts and source details to the selected National, Region,
+Branch or Unit level. All levels remain available as a view. Add entry starts
+at the selected level; changing the entry form's level updates the table.
+During editing, use the entry form's level control or close the form before
+changing the list filter, so draft fields are not silently discarded.
+
 Hierarchy lookups use searchable, viewport-bounded popups with wrapping labels
 and scrollable results. Assigned manager searches names and email addresses,
 retaining the actual account/designation identifier when a result is selected.

@@ -79,8 +79,15 @@ grant a profile, and global staff choices are admin-only.
 Hierarchy Setup is one combined list, without National, Region, Branch or Unit
 tabs. Keep level selection in the entry form and retain access to imported
 source records without turning them into operational nodes automatically.
+Show uploaded Regions, Branches and Units in that main list at their original
+levels as **Pending Setup** until explicitly adopted.
 
-**Why:** The user explicitly requested removing the four level tabs.
+**Why:** The user explicitly requested removing the four level tabs, then chose
+"Show as Pending Setup" when asked how to load the uploaded organisational rows.
 
 **How to apply:** Do not leave a hidden level filter behind when removing tabs.
 Legacy level links may prefill a new entry but must not hide other levels.
+The user subsequently requested explicit filtering by the selected hierarchy
+level: Region shows only Regions, Branch only Branches and Unit only Units.
+Keep this as a visible dropdown, not restored tabs, and synchronize it with
+the entry form's selected level.
