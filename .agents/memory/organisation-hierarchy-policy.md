@@ -37,9 +37,13 @@ Keep scoped frontend query keys tied to the signed-in account.
 
 The organisation menu is named **Organization structure-Medical** and reuses the
 previously loaded Medical regions, branches and units. GI setup remains separate.
+The previous **Medical Structure setup** menu and its submenus are retired;
+Manager Enrollment belongs to the new Medical menu.
 
 **Why:** The user asked to update the new organisation structure from the earlier
 Medical Structure pages and rename it specifically for Medical.
+The user subsequently asked to delete the previous Medical Structure setup menu,
+including its submenus.
 
 **How to apply:** Present existing imported Medical records even before they have
 eligible hierarchy parents/managers, but distinguish pending references from

@@ -101,7 +101,7 @@ function ManagerWorkspace({ username }: { username: string }) {
   return (
     <>
       <SalesStructureHeader
-        eyebrow="Administration / Medical Structure setup"
+        eyebrow="Administration / Organization structure-Medical"
         title="Manager Enrollment"
         description="Enroll existing MIS users as Unit, Regional, Branch or National Sales Managers. Existing manager catalog and source records remain visible and separate."
       >

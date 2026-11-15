@@ -20,7 +20,6 @@ import ProfilesPage from '@/pages/admin/profiles';
 import BusinessRequirementsPage from '@/pages/admin/business-requirements';
 import SalesCatalogPage from '@/pages/admin/sales-structure/catalogs';
 import SalesStructureManagersPage from '@/pages/admin/sales-structure/managers';
-import ManagerMappingPage from '@/pages/admin/sales-structure/manager-mapping';
 import OrganisationPage from '@/pages/admin/organisation';
 import MedicalUnderwritingPage from '@/pages/medical-underwriting';
 import CashierPage from '@/pages/cashier';
@@ -152,16 +151,6 @@ const NAV_SECTIONS: Array<{
     items: [
       { href: '/admin/users',    label: 'User Enrollment',    icon: Users, adminOnly: true },
       { href: '/admin/profiles', label: 'Profiles & Access',  icon: Settings, adminOnly: true },
-      {
-        href: '/admin/sales-structure', label: 'Medical Structure setup', icon: Network, adminOnly: true,
-        children: [
-          { href: '/admin/sales-structure/managers', label: 'Manager Enrollment', icon: UsersRound },
-          { href: '/admin/sales-structure/manager-mapping', label: 'Manager Mapping', icon: UsersRound },
-          { href: '/admin/sales-structure/catalogs/sales-units', label: 'Sales Units', icon: Database },
-          { href: '/admin/sales-structure/catalogs/sales-branches', label: 'Sales Branches', icon: Network },
-          { href: '/admin/sales-structure/catalogs/sales-regions', label: 'Sales Regions', icon: Network },
-        ],
-      },
       {
         href: '/admin/gi-structure', label: 'GI Structure setup', icon: Network, adminOnly: true,
         children: [
@@ -531,7 +520,9 @@ function ProtectedRouter() {
           <Route path="/admin/profiles"   component={ProfilesPage} />
           <Route path="/admin/organisation" component={() => <Redirect to="/admin/organisation/dashboard" />} />
           <Route path="/admin/organisation/:view" component={OrganisationPage} />
-            <Route path="/admin/sales-structure/manager-mapping" component={ManagerMappingPage} />
+            <Route path="/admin/sales-structure/manager-mapping">
+              {() => <Redirect to="/admin/organisation/managers" />}
+            </Route>
             <Route path="/admin/sales-structure/managers" component={SalesStructureManagersPage} />
             <Route path="/admin/sales-structure/catalogs/unit-managers">
               {() => <Redirect to="/admin/sales-structure/managers?category=UNIT" />}
@@ -555,9 +546,17 @@ function ProtectedRouter() {
             <Route path="/admin/gi-structure">
               {() => <Redirect to="/admin/gi-structure/catalogs/gi-units" />}
             </Route>
-            <Route path="/admin/sales-structure/catalogs/:catalog" component={SalesCatalogPage} />
+            <Route path="/admin/sales-structure/catalogs/sales-units">
+              {() => <Redirect to="/admin/organisation/units" />}
+            </Route>
+            <Route path="/admin/sales-structure/catalogs/sales-branches">
+              {() => <Redirect to="/admin/organisation/branches" />}
+            </Route>
+            <Route path="/admin/sales-structure/catalogs/sales-regions">
+              {() => <Redirect to="/admin/organisation/regions" />}
+            </Route>
             <Route path="/admin/sales-structure">
-              {() => <Redirect to="/admin/sales-structure/managers" />}
+              {() => <Redirect to="/admin/organisation/dashboard" />}
             </Route>
           <Route path="/admin/business-requirements" component={BusinessRequirementsPage} />
           <Route path="/admin">

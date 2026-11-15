@@ -53,8 +53,11 @@ Under **Organization structure-Medical**, in the Administration area:
 | Manager Assignment | `/admin/organisation/managers` |
 | Agent Unit Mapping and reporting | `/admin/organisation/agents` |
 
-Existing Medical Structure setup, GI Structure setup and Manager Enrollment
-remain available. Manager Enrollment creates a designation, not a new person or
+The previous Medical Structure setup navigation has been removed. Its old
+Units, Branches, Regions and Manager Mapping links redirect to the corresponding
+Organization structure-Medical pages. GI Structure setup remains separate.
+Manager Enrollment is available within Organization structure-Medical and creates
+a designation, not a new person or
 replacement login profile. A manager may own several organisations.
 
 ## Setup workflow
@@ -188,8 +191,9 @@ Imported records and their full source details are fetched and rendered for
 administrators only. Normal assigned managers retain their scoped hierarchy view;
 they do not receive the administrator-only source catalog.
 
-Existing Medical Structure setup and GI Structure setup remain available. Manager
-Enrollment is linked from the renamed menu and continues to reuse existing users.
+The previous Medical Structure setup menu and its submenus have been retired;
+the new Medical menu and GI Structure setup remain available. Manager Enrollment
+is linked from the new Medical menu and continues to reuse existing users.
 
 ## Migration
 
