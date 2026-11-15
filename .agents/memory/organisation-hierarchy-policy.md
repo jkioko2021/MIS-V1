@@ -49,3 +49,14 @@ including its submenus.
 eligible hierarchy parents/managers, but distinguish pending references from
 operational nodes. Do not interpret visibility in the Medical source list as
 authorisation to activate accounts or make a Unit available to agents.
+
+Medical **Assigned manager** choices at National, Region, Branch and Unit level
+must use accounts with the **Sales Manager** profile, in addition to a matching,
+eligible manager-category enrollment.
+
+**Why:** The user asked for Sales Manager users on the National Assigned manager
+field and clarified that the same rule applies to regions, branches and units.
+
+**How to apply:** Filter choices and validate assignments on the server. Do not
+silently change existing account profiles, activate accounts or create manager
+designations to fill an empty list. Enrollment by itself does not grant a profile.

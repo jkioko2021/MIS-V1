@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Check, Eye, RefreshCw, Search, UserRoundCheck } from 'lucide-react';
 import {
+  getGetOrganisationQueryKey,
   getGetSalesManagerMappingsQueryKey,
   getGetSalesStructureQueryKey,
   useEnrollSalesManager,
@@ -281,6 +282,7 @@ export function ManagerDetailsForm({
       update.mutate({ id: editManager.id, data: { is_active: isActive, version, details } }, {
         onSuccess: async () => {
           await Promise.all([
+            queryClient.invalidateQueries({ queryKey: getGetOrganisationQueryKey() }),
             queryClient.invalidateQueries({ queryKey: getGetSalesStructureQueryKey() }),
             queryClient.invalidateQueries({ queryKey: getGetSalesManagerMappingsQueryKey() }),
           ]);
@@ -308,6 +310,7 @@ export function ManagerDetailsForm({
     enroll.mutate({ data: input }, {
       onSuccess: async () => {
         await Promise.all([
+          queryClient.invalidateQueries({ queryKey: getGetOrganisationQueryKey() }),
           queryClient.invalidateQueries({ queryKey: getGetSalesStructureQueryKey() }),
           queryClient.invalidateQueries({ queryKey: getGetSalesManagerMappingsQueryKey() }),
         ]);

@@ -60,6 +60,12 @@ Manager Enrollment is available within Organization structure-Medical and create
 a designation, not a new person or
 replacement login profile. A manager may own several organisations.
 
+For Medical **Assigned manager** selections, National, Region, Branch and Unit
+all require the existing **Sales Manager** account profile as well as the matching
+eligible manager enrollment. This filter is enforced on the returned choices and
+on create/update requests. It does not automatically change anyone's profile;
+an empty list must be resolved through User Enrollment and Manager Enrollment.
+
 ## Setup workflow
 
 1. Use existing User Enrollment to prepare the intended manager accounts.

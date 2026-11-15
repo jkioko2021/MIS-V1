@@ -74,20 +74,21 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        'relative z-[200] max-h-[--radix-select-content-available-height] min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-md border border-slate-300 !bg-white text-slate-900 shadow-xl dark:border-slate-700 dark:!bg-slate-950 dark:text-slate-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1 origin-[--radix-select-content-transform-origin]',
+        'relative z-[250] max-h-[min(22rem,var(--radix-select-content-available-height))] max-w-[calc(100vw_-_1rem)] min-w-[8rem] overflow-hidden rounded-md border border-slate-300 !bg-white text-slate-900 shadow-xl dark:border-slate-700 dark:!bg-slate-950 dark:text-slate-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1 origin-[--radix-select-content-transform-origin]',
         position === 'popper' &&
           'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
         className,
       )}
       position={position}
+      collisionPadding={8}
       {...props}
     >
       <SelectScrollUpButton />
       <SelectPrimitive.Viewport
         className={cn(
-          'p-1',
+          'max-h-[min(20rem,calc(var(--radix-select-content-available-height)_-_2rem))] overflow-y-auto p-1',
           position === 'popper' &&
-            'h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]',
+            'w-full min-w-[var(--radix-select-trigger-width)]',
         )}
       >
         {children}
@@ -117,7 +118,7 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
       className={cn(
-        'relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-slate-100 focus:text-slate-900 data-[highlighted]:bg-slate-100 data-[highlighted]:text-slate-900 dark:focus:bg-slate-800 dark:focus:text-slate-50 dark:data-[highlighted]:bg-slate-800 dark:data-[highlighted]:text-slate-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+        'relative flex w-full cursor-default select-none items-center whitespace-normal rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none [&>span:last-child]:min-w-0 [&>span:last-child]:break-words focus:bg-slate-100 focus:text-slate-900 data-[highlighted]:bg-slate-100 data-[highlighted]:text-slate-900 dark:focus:bg-slate-800 dark:focus:text-slate-50 dark:data-[highlighted]:bg-slate-800 dark:data-[highlighted]:text-slate-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className,
     )}
     {...props}

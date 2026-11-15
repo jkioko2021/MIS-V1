@@ -116,8 +116,12 @@ try {
     await db.query("RELEASE SAVEPOINT eligibility_check");
   }
 
+  const nationalEmployee=(await db.query(`INSERT INTO crm.employees
+    (username,employee_name,password_hash,profile_id,activated,approved,department)
+    VALUES($1,$1,'not-a-login-hash',(SELECT profile_id FROM crm.profiles WHERE lower(btrim(profile_name))='sales manager' AND is_active),true,true,'Sales')
+    RETURNING employee_id`,[`${prefix}_NATIONAL`])).rows[0].employee_id;
   const nationalManager = (await db.query(`INSERT INTO crm.sales_manager_enrollments
-    (employee_id,level,is_active,created_by,updated_by) VALUES($1,'NATIONAL',true,$2,$2) RETURNING id`,[staff[0],prefix])).rows[0];
+    (employee_id,level,is_active,created_by,updated_by) VALUES($1,'NATIONAL',true,$2,$2) RETURNING id`,[nationalEmployee,prefix])).rows[0];
   await lib.createSalesNode({
     code: `${prefix}_NATIONAL`, name: `${prefix} National`, level: "NATIONAL",
     parent_id: null, manager_id: nationalManager.id, is_active: true,
@@ -217,8 +221,9 @@ try {
   assert.equal((await history(unit)).length, destinationHistory);
   assert.deepEqual((await db.query("SELECT * FROM crm.employees WHERE employee_id=ANY($1::int[]) ORDER BY employee_id", [staff])).rows, employeeBefore);
   assert.equal(await sourceDigest(), originalSources, "Imported user records must remain byte-for-byte unchanged");
-  assert.equal((await db.query("SELECT count(*)::int AS n FROM crm.sales_manager_enrollments WHERE employee_id=ANY($1::int[])", [staff])).rows[0].n, 1,
-    "Only the explicit National manager fixture should exist; mapping must not create designations");
+  assert.equal((await db.query("SELECT count(*)::int AS n FROM crm.sales_manager_enrollments WHERE employee_id=ANY($1::int[])", [staff])).rows[0].n, 0,
+    "Legacy team mapping must not create manager designations");
+  assert.equal((await db.query("SELECT count(*)::int AS n FROM crm.sales_manager_enrollments WHERE employee_id=$1", [nationalEmployee])).rows[0].n, 1);
   assert(!lib.SaveSalesManagerMappingBody.safeParse({ ...(await input(unit, staff[0], 5)), catalog: "gi-units" }).success);
   console.log("PASS: multi-team ownership; atomic Unit/Branch/Region moves and destination replacement; stale source/destination conflicts; one current manager; hierarchy and MIS eligibility; paired history and rollback after second audit failure; orphan removal; unchanged accounts/source; all fixtures rolled back.");
 } finally {

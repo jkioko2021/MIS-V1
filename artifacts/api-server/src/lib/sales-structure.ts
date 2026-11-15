@@ -95,6 +95,10 @@ async function validateNode(client: PoolClient, input: NodeValues, level: SalesL
     if (input.is_active || before?.manager_id !== input.manager_id) {
       if (!manager.is_active) fail("Select an active manager enrollment.");
       await eligibleUser(client, manager.employee_id);
+      const salesProfile = await client.query(`SELECT 1 FROM crm.employees e
+        JOIN crm.profiles p ON p.profile_id=e.profile_id
+        WHERE e.employee_id=$1 AND p.is_active AND lower(btrim(p.profile_name))='sales manager'`, [manager.employee_id]);
+      if (!salesProfile.rowCount) fail("Assigned managers must have the Sales Manager profile and be enrolled in the matching manager category.");
       const validity = manager.manager_details;
       const today = (await client.query<{ today: string }>("SELECT CURRENT_DATE::text AS today")).rows[0].today;
       if (validity && (validity.valid_from > today || validity.valid_to < today))

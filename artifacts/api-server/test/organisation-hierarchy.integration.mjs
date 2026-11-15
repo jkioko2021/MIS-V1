@@ -43,13 +43,15 @@ try {
     "SELECT * FROM crm.sales_catalog_source_records ORDER BY id")).rows)).digest("hex");
   const beforeSource=await sourceHash();
   const staff=[];
-  for(let i=0;i<8;i++)staff.push((await db.query(`INSERT INTO crm.employees
+  for(let i=0;i<9;i++)staff.push((await db.query(`INSERT INTO crm.employees
     (username,employee_name,emp_code,email,password_hash,profile_id,activated,approved,department)
-    VALUES($1,$1,$1,$2,'not-a-login-hash',3,true,true,'Sales') RETURNING *`,
-    [`${prefix}_${i}`,`${prefix}_${i}@example.test`])).rows[0]);
+    VALUES($1,$1,$1,$2,'not-a-login-hash',CASE WHEN $3 THEN
+      (SELECT profile_id FROM crm.profiles WHERE lower(btrim(profile_name))='sales manager' AND is_active)
+      ELSE 3 END,true,true,'Sales') RETURNING *`,
+    [`${prefix}_${i}`,`${prefix}_${i}@example.test`,i<8])).rows[0]);
   const identityBefore=JSON.stringify(staff);
   const admin={sub:staff[0].employee_id,profileId:1,username:prefix,sid:randomUUID(),name:prefix};
-  const user=i=>({...admin,sub:staff[i].employee_id,profileId:3,username:staff[i].username});
+  const user=i=>({...admin,sub:staff[i].employee_id,profileId:staff[i].profile_id,username:staff[i].username});
   const levels=["NATIONAL","REGION","BRANCH","UNIT"];
   const managers=[];
   for(let i=0;i<8;i++)managers.push(await lib.enrollSalesManager({
@@ -65,6 +67,21 @@ try {
   await assert.rejects(lib.createSalesNode(input(1),prefix),e=>e.status===400);
   const nodes=[];
   for(let i=0;i<8;i++)nodes.push(await lib.createSalesNode(input(i,i%4?nodes[i-1].id:null),prefix));
+  const hiddenManagers=[];
+  for(let i=0;i<4;i++){
+    const hidden=(await db.query(`INSERT INTO crm.sales_manager_enrollments
+      (employee_id,level,is_active,created_by,updated_by) VALUES($1,$2,true,$3,$3) RETURNING id`,
+      [staff[8].employee_id,levels[i],prefix])).rows[0].id;
+    hiddenManagers.push(hidden);
+    await assert.rejects(lib.createSalesNode({...input(i,i?nodes[i-1].id:null),
+      code:`${prefix}_DENIED${i}`,name:`${prefix} denied ${i}`,manager_id:hidden},prefix),
+      e=>e.status===400&&/Sales Manager profile/.test(e.message));
+    await assert.rejects(lib.updateSalesNode(nodes[i].id,{...input(i,i?nodes[i-1].id:null),
+      manager_id:hidden,version:1},prefix),e=>e.status===400&&/Sales Manager profile/.test(e.message));
+  }
+  const profileFiltered=await lib.organisationSnapshot(admin);
+  assert(profileFiltered.managers.every(m=>!hiddenManagers.includes(m.id)));
+  assert(managers.every(m=>profileFiltered.managers.some(choice=>choice.id===m.id)));
   // Medical operating details are separate from authoritative identity/ancestry.
   const medicalBase={...input(3,nodes[2].id),code:`${prefix}_MED_UNIT`,name:`${prefix} Medical Unit`};
   const medical=await lib.createSalesNode({...medicalBase,medical_details:{

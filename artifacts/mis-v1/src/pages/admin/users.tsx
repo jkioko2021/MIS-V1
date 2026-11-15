@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getGetOrganisationQueryKey, getGetSalesStructureQueryKey } from '@workspace/api-client-react';
+import { userDepartmentChoices } from './user-departments';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,11 +56,6 @@ async function apiFetch(path: string, init?: RequestInit) {
   return data;
 }
 
-const DEPARTMENTS = [
-  'IT', 'MEMBERSHIP', 'CUST', 'MEDICAL', 'NONMEDICAL',
-  'FINANCE', 'HR', 'COMPLIANCE', 'OPERATIONS', 'NSM', 'BPO',
-];
-
 function isValidEmail(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 }
@@ -104,6 +101,7 @@ function EnrollDialog({
 }) {
   const qc = useQueryClient();
   const isEdit = !!employee;
+  const departmentOptions = userDepartmentChoices(employee?.department);
 
   const [form, setForm] = useState({
     username:      employee?.username      ?? '',
@@ -166,6 +164,8 @@ function EnrollDialog({
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-employees'] });
+      qc.invalidateQueries({ queryKey: getGetOrganisationQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetSalesStructureQueryKey() });
       onClose();
     },
     onError: (e: Error) => setError(e.message),
@@ -242,20 +242,20 @@ function EnrollDialog({
           </div>
 
           {/* Department + Profile */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Department</Label>
+              <Label htmlFor="user-enrollment-department">Department</Label>
               <Select value={form.department} onValueChange={v => setField('department')(v)}>
-                <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+                <SelectTrigger id="user-enrollment-department" className="h-auto min-h-9 text-left [&>span]:line-clamp-none [&>span]:whitespace-normal"><SelectValue placeholder="Select…" /></SelectTrigger>
                 <SelectContent>
-                  {DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                  {departmentOptions.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Profile / Role <span className="text-red-500">*</span></Label>
+              <Label htmlFor="user-enrollment-profile">Profile / Role <span className="text-red-500">*</span></Label>
               <Select value={form.profile_id} onValueChange={v => setField('profile_id')(v)}>
-                <SelectTrigger><SelectValue placeholder="Assign a profile…" /></SelectTrigger>
+                <SelectTrigger id="user-enrollment-profile" className="h-auto min-h-9 text-left [&>span]:line-clamp-none [&>span]:whitespace-normal"><SelectValue placeholder="Assign a profile…" /></SelectTrigger>
                 <SelectContent>
                   {profiles.map(p => (
                     <SelectItem key={p.profile_id} value={String(p.profile_id)}>
@@ -418,7 +418,11 @@ export default function UsersPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
-      .then(() => qc.invalidateQueries({ queryKey: ['admin-employees'] }))
+      .then(() => Promise.all([
+        qc.invalidateQueries({ queryKey: ['admin-employees'] }),
+        qc.invalidateQueries({ queryKey: getGetOrganisationQueryKey() }),
+        qc.invalidateQueries({ queryKey: getGetSalesStructureQueryKey() }),
+      ]))
       .catch((e: Error) => alert(e.message)),
   [qc]);
 

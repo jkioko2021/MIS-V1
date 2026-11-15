@@ -11,6 +11,11 @@ A portalled popover inside a Sheet must use a z-index higher than the sheet and 
 
 **How to apply:** When placing a `PopoverContent` inside a Sheet, verify its z-index is above the sheet stack and size it from the trigger width so it stays within the visible viewport.
 
+The same layering rule applies to portalled Select lists inside Dialogs. Check
+the actual containing popup layer rather than assuming a shared dropdown layer
+is always high enough. Keep the option viewport scrollable within the available
+screen height so choices below the first visible group remain reachable.
+
 Popup positioning and scrollbar visibility must stay consistent across MIS pages.
 
 **Why:** The user requested moving popup windows so their scrollbars remain visible across all pages, not only Allocation Files.

@@ -4,7 +4,7 @@ export async function createOrganisationFixture(db, label) {
   const prefix=label.toUpperCase();
   const employee=(await db.query(`INSERT INTO crm.employees
     (username,employee_name,emp_code,password_hash,profile_id,activated,approved,department)
-    VALUES($1,$1,$1,'not-a-login-hash',3,true,true,'Sales') RETURNING employee_id`,[`${prefix}_STRUCTURE`])).rows[0].employee_id;
+    VALUES($1,$1,$1,'not-a-login-hash',(SELECT profile_id FROM crm.profiles WHERE lower(btrim(profile_name))='sales manager' AND is_active),true,true,'Sales') RETURNING employee_id`,[`${prefix}_STRUCTURE`])).rows[0].employee_id;
   const managerIds=[],nodeIds=[],codes=[];
   for(const [index,level] of ["NATIONAL","REGION","BRANCH","UNIT"].entries()){
     const manager=(await db.query(`INSERT INTO crm.sales_manager_enrollments

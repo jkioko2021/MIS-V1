@@ -46,6 +46,8 @@ export async function organisationSnapshot(user: JwtPayload) {
         AND (m.manager_details IS NULL OR (m.manager_details->>'valid_from'<=CURRENT_DATE::text
           AND m.manager_details->>'valid_to'>=CURRENT_DATE::text))) AS user_eligible
       FROM crm.sales_manager_enrollments m JOIN crm.employees e ON e.employee_id=m.employee_id
+      JOIN crm.profiles p ON p.profile_id=e.profile_id
+      WHERE p.is_active AND lower(btrim(p.profile_name))='sales manager' AND NOT e.is_deleted
       ORDER BY e.employee_name,m.level`)).rows : [];
     const candidates = organisationAdmin(user) ? (await client.query(`SELECT s.id AS source_reference_id,s.code,s.name,s.data,
       CASE s.catalog WHEN 'sales-regions' THEN 'REGION' WHEN 'sales-branches' THEN 'BRANCH' ELSE 'UNIT' END AS level,

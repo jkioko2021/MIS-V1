@@ -5,6 +5,7 @@ import {
   UserRoundCheck, UsersRound,
 } from 'lucide-react';
 import {
+  getGetOrganisationQueryKey,
   getGetSalesCatalogsQueryKey,
   getGetSalesManagerMappingsQueryKey,
   getGetSalesStructureQueryKey,
@@ -76,6 +77,7 @@ function ManagerWorkspace({ username }: { username: string }) {
     updateEnrollment.mutate({ id: manager.id, data: { is_active: !manager.is_active, version: manager.version } }, {
       onSuccess: async () => {
         await Promise.all([
+          queryClient.invalidateQueries({ queryKey: getGetOrganisationQueryKey() }),
           queryClient.invalidateQueries({ queryKey: getGetSalesStructureQueryKey() }),
           queryClient.invalidateQueries({ queryKey: getGetSalesManagerMappingsQueryKey() }),
         ]);

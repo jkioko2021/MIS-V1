@@ -292,7 +292,8 @@ export function NodeEditor({ node, nodes, candidates, managers, catalogSnapshot,
           <option value="">Choose an eligible manager</option>
           {managerOptions.map((manager) => <option key={manager.id} value={manager.id}>{manager.employee_name} · {manager.username}</option>)}
         </select>
-        {!managerOptions.length && <p className="text-xs text-amber-800">No eligible manager at this level. Enroll or activate a manager before saving.</p>}
+        <p className="text-xs text-muted-foreground">Only users with the Sales Manager profile and an eligible enrollment in this category can be assigned.</p>
+        {!managerOptions.length && <p className="text-xs text-amber-800">No eligible manager at this level. Assign the Sales Manager profile in User Enrollment, then complete or activate the matching Manager Enrollment.</p>}
       </div>
       <label className="flex items-start gap-3 rounded-lg border bg-card px-3 py-3 sm:col-span-2">
         <input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} className="mt-1 accent-[#28614f]" />

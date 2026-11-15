@@ -51,8 +51,12 @@ try {
   const employee = (await db.query(`INSERT INTO crm.employees(username,employee_name,emp_code,password_hash,
     profile_id,activated,approved,department) VALUES($1,$1,$1,'not-a-login-hash',3,true,true,'Sales') RETURNING employee_id`,
   [prefix])).rows[0].employee_id;
+  const nationalEmployee = (await db.query(`INSERT INTO crm.employees
+    (username,employee_name,password_hash,profile_id,activated,approved,department)
+    VALUES($1,$1,'not-a-login-hash',(SELECT profile_id FROM crm.profiles WHERE lower(btrim(profile_name))='sales manager' AND is_active),true,true,'Sales')
+    RETURNING employee_id`,[`${prefix}_NATIONAL`])).rows[0].employee_id;
   const nationalManager = (await db.query(`INSERT INTO crm.sales_manager_enrollments
-    (employee_id,level,is_active,created_by,updated_by) VALUES($1,'NATIONAL',true,$2,$2) RETURNING id`, [employee,prefix])).rows[0];
+    (employee_id,level,is_active,created_by,updated_by) VALUES($1,'NATIONAL',true,$2,$2) RETURNING id`, [nationalEmployee,prefix])).rows[0];
   const national = await lib.createSalesNode({
     code: `${prefix}_N`, name: prefix, level: "NATIONAL", parent_id: null, manager_id: nationalManager.id, is_active: true,
   }, prefix);
