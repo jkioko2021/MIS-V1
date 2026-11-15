@@ -1,10 +1,12 @@
 import type { PoolClient } from "pg";
 import { withTransaction } from "./postgres";
 import type { SalesManagerDetails, SalesManagerInput, SalesManagerUpdate } from "@workspace/api-zod";
+import { sourceMedicalDetails, validateMedicalDetails } from "./medical-organisation-details";
 
 export type SalesLevel = "NATIONAL" | "REGION" | "BRANCH" | "UNIT";
 type NodeValues = {
   name: string; parent_id: number | null; manager_id: number | null; is_active: boolean;
+  medical_details?: Record<string, string | null>;
 };
 type NodeRow = NodeValues & { id: number; code: string; level: SalesLevel; version: number };
 type EnrollmentRow = { id: number; employee_id: number; level: SalesLevel; is_active: boolean; version: number;
@@ -126,10 +128,14 @@ export async function createSalesNode(input: NodeValues & { code: string; level:
       if (chosen?.employee_id !== oldAssignment.employee_id)
         fail("The imported organisation already has a different manager assignment. Select that manager or reconcile the existing mapping first.");
     }
+    const medicalDetails = validateMedicalDetails(input.level, {
+      ...sourceMedicalDetails(input.level, refs[0]?.data), ...input.medical_details,
+    }, fail);
+    await validateMedicalGiLink(client, medicalDetails);
     const { rows } = await client.query<NodeRow>(
-      `INSERT INTO crm.sales_structure_nodes(code,name,level,parent_id,manager_id,is_active,created_by,updated_by,source_reference_id)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$7,$8) RETURNING *`,
-      [input.code.toUpperCase(), input.name.trim(), input.level, input.parent_id, input.manager_id, input.is_active, actor, input.source_reference_id ?? null]);
+      `INSERT INTO crm.sales_structure_nodes(code,name,level,parent_id,manager_id,is_active,created_by,updated_by,source_reference_id,medical_details)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$7,$8,$9::jsonb) RETURNING *`,
+      [input.code.toUpperCase(), input.name.trim(), input.level, input.parent_id, input.manager_id, input.is_active, actor, input.source_reference_id ?? null,JSON.stringify(medicalDetails)]);
     await audit(client, "NODE", rows[0].id, null, rows[0], actor);
     await syncAdoptedManager(client, rows[0], actor);
     return { id: rows[0].id, version: rows[0].version };
@@ -142,13 +148,28 @@ export async function updateSalesNode(id: number, input: NodeValues & { version:
     if (!before) throw new SalesSetupError(404, "Sales category not found.");
     if (before.version !== input.version) throw new SalesSetupError(409, "This category changed. Refresh the list and reopen it before saving.");
     await validateNode(client, input, before.level, before);
+    const source = (await client.query(`SELECT s.data FROM crm.sales_structure_nodes n
+      JOIN crm.sales_catalog_source_records s ON s.id=n.source_reference_id WHERE n.id=$1`, [id])).rows[0];
+    const medicalDetails = validateMedicalDetails(before.level, {
+      ...sourceMedicalDetails(before.level, source?.data), ...before.medical_details, ...input.medical_details,
+    }, fail);
+    await validateMedicalGiLink(client, medicalDetails);
     const result = await client.query<NodeRow>(`UPDATE crm.sales_structure_nodes SET
-      name=$2,parent_id=$3,manager_id=$4,is_active=$5,version=version+1,updated_at=now(),updated_by=$6
-      WHERE id=$1 RETURNING *`, [id, input.name.trim(), input.parent_id, input.manager_id, input.is_active, actor]);
+      name=$2,parent_id=$3,manager_id=$4,is_active=$5,version=version+1,updated_at=now(),updated_by=$6,medical_details=$7::jsonb
+      WHERE id=$1 RETURNING *`, [id, input.name.trim(), input.parent_id, input.manager_id, input.is_active, actor,JSON.stringify(medicalDetails)]);
     await audit(client, "NODE", id, before, result.rows[0], actor);
     await syncAdoptedManager(client, result.rows[0], actor);
     return { id, version: result.rows[0].version };
   });
+}
+async function validateMedicalGiLink(client: PoolClient, values: Record<string, string | null>) {
+  for (const [field, catalog] of [["GI_BRANCH", "gi-branches"], ["GI_UNIT", "gi-units"]]) {
+    const code = values[field];
+    if (!code) continue;
+    const exists = await client.query(`SELECT 1 FROM crm.sales_catalog_source_records WHERE catalog=$1 AND upper(btrim(code))=upper($2)
+      UNION ALL SELECT 1 FROM crm.sales_catalog_entries WHERE catalog=$1 AND upper(btrim(code))=upper($2) LIMIT 1`, [catalog, code]);
+    if (!exists.rowCount) fail(`Select an existing ${field === "GI_UNIT" ? "GI Unit" : "GI Branch"}, or clear the optional link.`);
+  }
 }
 async function checkedManagerDetails(client: PoolClient, employeeId: number, input: SalesManagerDetails, requireSales = false) {
   if (!input) fail("Complete the manager enrollment details.");

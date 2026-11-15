@@ -34,3 +34,14 @@ backfill fictitious pre-mapping history. Historical hierarchy does not imply
 historical agent status or commission amounts. Apply organisational scope on
 every reporting endpoint; SQL reporting views alone do not enforce actor access.
 Keep scoped frontend query keys tied to the signed-in account.
+
+The organisation menu is named **Organization structure-Medical** and reuses the
+previously loaded Medical regions, branches and units. GI setup remains separate.
+
+**Why:** The user asked to update the new organisation structure from the earlier
+Medical Structure pages and rename it specifically for Medical.
+
+**How to apply:** Present existing imported Medical records even before they have
+eligible hierarchy parents/managers, but distinguish pending references from
+operational nodes. Do not interpret visibility in the Medical source list as
+authorisation to activate accounts or make a Unit available to agents.

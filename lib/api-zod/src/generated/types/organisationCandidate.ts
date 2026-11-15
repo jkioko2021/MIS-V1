@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { MedicalOrganisationDetails } from './medicalOrganisationDetails';
 import type { SalesLevel } from './salesLevel';
 
 export interface OrganisationCandidate {
@@ -14,4 +15,5 @@ export interface OrganisationCandidate {
   level: SalesLevel;
   /** @nullable */
   parent_code: string | null;
+  medical_details?: MedicalOrganisationDetails;
 }

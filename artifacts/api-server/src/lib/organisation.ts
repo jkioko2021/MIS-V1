@@ -3,6 +3,7 @@ import type { JwtPayload } from "./auth-middleware";
 import type { OrganisationAssignmentInput, OrganisationPathItem, GetOrganisationAgentsParams } from "@workspace/api-zod";
 import { withTransaction } from "./postgres";
 import { salesSetupTransaction, SalesSetupError } from "./sales-structure";
+import { sourceMedicalDetails } from "./medical-organisation-details";
 
 export const organisationAdmin = (user: Pick<JwtPayload, "profileId">) => [1, 2].includes(user.profileId);
 type PathRow = { id: number; level: string; node_ids: number[]; path: OrganisationPathItem[]; available: boolean };
@@ -27,14 +28,18 @@ export async function organisationSnapshot(user: JwtPayload) {
     await client.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const scope = await organisationScope(client, user);
     const nodes = (await client.query(`SELECT n.id,n.code,n.name,n.level,n.parent_id,n.manager_id,n.is_active,n.version,
+      coalesce(s.data,'{}'::jsonb) AS source_details,n.medical_details,
       e.employee_name AS manager_name,p.path,p.available,
       (SELECT count(*)::int FROM crm.sales_structure_nodes c WHERE c.parent_id=n.id AND c.id=ANY($1::int[])) AS child_count,
       (SELECT count(*)::int FROM crm.tbl_mis_sales_intermediary a JOIN crm.organisation_paths u ON u.id=a.organisation_unit_id
         WHERE n.id=ANY(u.node_ids) AND u.id=ANY($1::int[])) AS agent_count
       FROM crm.sales_structure_nodes n JOIN crm.organisation_paths p ON p.id=n.id
+      LEFT JOIN crm.sales_catalog_source_records s ON s.id=n.source_reference_id
       LEFT JOIN crm.sales_manager_enrollments m ON m.id=n.manager_id
       LEFT JOIN crm.employees e ON e.employee_id=m.employee_id
-      WHERE n.id=ANY($1::int[]) ORDER BY cardinality(p.node_ids),n.name,n.id`, [scope.ids])).rows;
+      WHERE n.id=ANY($1::int[]) ORDER BY cardinality(p.node_ids),n.name,n.id`, [scope.ids])).rows.map(({source_details,...node})=>({
+        ...node,medical_details:{...sourceMedicalDetails(node.level,source_details),...node.medical_details},
+      }));
     const managers = organisationAdmin(user) ? (await client.query(`SELECT m.id,m.employee_id,m.level,m.is_active,m.version,
       e.employee_name,e.username,e.emp_code,e.email AS account_email,m.manager_details AS details,
       (NOT e.is_deleted AND e.activated AND e.approved AND NOT e.employee_locked
@@ -42,13 +47,15 @@ export async function organisationSnapshot(user: JwtPayload) {
           AND m.manager_details->>'valid_to'>=CURRENT_DATE::text))) AS user_eligible
       FROM crm.sales_manager_enrollments m JOIN crm.employees e ON e.employee_id=m.employee_id
       ORDER BY e.employee_name,m.level`)).rows : [];
-    const candidates = organisationAdmin(user) ? (await client.query(`SELECT s.id AS source_reference_id,s.code,s.name,
+    const candidates = organisationAdmin(user) ? (await client.query(`SELECT s.id AS source_reference_id,s.code,s.name,s.data,
       CASE s.catalog WHEN 'sales-regions' THEN 'REGION' WHEN 'sales-branches' THEN 'BRANCH' ELSE 'UNIT' END AS level,
       CASE s.catalog WHEN 'sales-branches' THEN s.data->>'REGION_CODE'
         WHEN 'sales-units' THEN s.data->>'BRANCH_CODE' ELSE NULL END AS parent_code
       FROM crm.sales_catalog_source_records s WHERE s.catalog IN('sales-regions','sales-branches','sales-units')
         AND NOT EXISTS(SELECT 1 FROM crm.sales_structure_nodes n WHERE upper(n.code)=upper(btrim(s.code)))
-      ORDER BY s.name,s.id`)).rows : [];
+      ORDER BY s.name,s.id`)).rows.map(({data,...candidate})=>({
+        ...candidate,medical_details:sourceMedicalDetails(candidate.level,data),
+      })) : [];
     return { can_manage: organisationAdmin(user), nodes, managers, candidates };
   });
 }

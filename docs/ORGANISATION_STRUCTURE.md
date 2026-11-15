@@ -1,4 +1,4 @@
-# Organisation Structure and Agent Unit Mapping
+# Organization structure-Medical and Agent Unit Mapping
 
 ## Implementation assessment
 
@@ -41,7 +41,7 @@ No original people or agent records were recreated or automatically activated.
 
 ## Where to find it
 
-Under **Organisation Structure**, in the Administration area:
+Under **Organization structure-Medical**, in the Administration area:
 
 | Screen | Route |
 | --- | --- |
@@ -147,6 +147,50 @@ These views do not independently implement per-user SQL access. Any future sales
 commission or performance API must apply the same `organisationScope` restrictions
 before querying or exporting them. Never expose raw view access to browsers.
 
+## Existing Medical fields and records
+
+The Regions, Branches and Units pages also display the previously loaded Medical
+source records, using the existing catalog data and name-resolution helpers.
+The imported collection currently includes 10 regions, 11 branches and 32 units.
+These records are shown by default, including references still awaiting setup.
+Dashboard import counts are separate from operational hierarchy counts; linking
+a source row does not create another imported organisation or double-count it.
+
+Each original record can be searched and opened with its existing Medical fields.
+Source relationships are explicitly labelled original values. Where a source row
+has been adopted, the current canonical hierarchy and manager are displayed
+separately and remain authoritative.
+
+**Configure** starts the existing hierarchy editor with the source identity and
+Medical defaults, rather than recreating them by hand. Creation still requires
+the recorded parent and an eligible manager. No National, manager designation,
+account activation or agent assignment is generated automatically.
+
+Operational Medical details include:
+
+- Region: validity start and end.
+- Branch: branch type, speciality and optional existing GI branch link.
+- Unit: unit type, speciality, year, validity dates, MIS number and optional
+  existing GI unit link.
+
+The code, display name, parent, manager and active status remain dedicated
+hierarchy fields, not competing copies in the Medical details object. Optional
+operating dates are retained as catalog information; they do not bypass or replace
+the hierarchy's active/eligible-manager checks.
+
+Create inherits source defaults. Edits preserve omitted values and support explicit
+clearing of optional fields. Calendar dates, date ordering, year, field limits,
+allowed field names and GI references are validated. Changes use the same version
+checks and before/after audit history as the existing hierarchy editor. Original
+source rows stay read-only.
+
+Imported records and their full source details are fetched and rendered for
+administrators only. Normal assigned managers retain their scoped hierarchy view;
+they do not receive the administrator-only source catalog.
+
+Existing Medical Structure setup and GI Structure setup remain available. Manager
+Enrollment is linked from the renamed menu and continues to reuse existing users.
+
 ## Migration
 
 `lib/db/migrations/0061_organisation_agent_hierarchy.sql`, applied to development:
@@ -164,6 +208,23 @@ The migration is rerunnable. It does not drop existing tables, reset accounts,
 auto-map agents, rewrite source data or alter production. Apply this migration to
 the target database before running updated code there; production was not changed
 or published as part of this implementation.
+
+`lib/db/migrations/0062_medical_organisation_details.sql` adds the non-destructive
+operational Medical details object and renames existing menu-rights rows without
+changing their permissions or URLs. It is rerunnable and applied to development
+only. The local metadata upgrade sequence includes both migrations.
+
+Medical verification covers real PostgreSQL source-default inheritance, edits,
+clearing, rejected invalid fields/dates/GI links, stale updates and audit data,
+alongside the existing scoped hierarchy and transfer regression checks. The
+component regression covers source defaults and sparse create/update payloads.
+Browser verification also confirmed all three imported lists, search and source
+details, prefilled configuration, retained drafts, create/reload/edit/clear
+persistence and unchanged original values. It verified manager exclusion from
+source records and protected writes, plus the Units page and editor at 390px.
+All synthetic records were removed and original users, agents and source
+fingerprints were unchanged. Mobile Region/Branch pages were not separately
+exercised.
 
 ## Files
 

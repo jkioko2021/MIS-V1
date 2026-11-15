@@ -172,7 +172,7 @@ const NAV_SECTIONS: Array<{
         ],
       },
       {
-        href: '/admin/organisation', label: 'Organisation Structure', icon: Network,
+        href: '/admin/organisation', label: 'Organization structure-Medical', icon: Network,
         children: [
       { href: '/admin/organisation/dashboard', label: 'Hierarchy dashboard', icon: Network },
       { href: '/admin/organisation/national', label: 'National', icon: Shield },
@@ -180,6 +180,7 @@ const NAV_SECTIONS: Array<{
       { href: '/admin/organisation/branches', label: 'Branches', icon: Network },
       { href: '/admin/organisation/units', label: 'Units', icon: Database },
       { href: '/admin/organisation/managers', label: 'Manager assignment', icon: UsersRound },
+       { href: '/admin/sales-structure/managers', label: 'Manager Enrollment', icon: UsersRound },
       { href: '/admin/organisation/agents', label: 'Agent unit mapping', icon: Fingerprint },
         ],
       },

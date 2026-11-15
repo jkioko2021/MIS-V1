@@ -70,6 +70,7 @@ export * from './listRiskRegisterRecordsAccess';
 export * from './listRiskRegisterRecordsParams';
 export * from './listRiskRegisterRecordsView';
 export * from './medicalDocumentInput';
+export * from './medicalOrganisationDetails';
 export * from './openDepartmentRiskCycle200';
 export * from './openDepartmentRiskCycle200Data';
 export * from './openDepartmentRiskCycle200DataNotification';

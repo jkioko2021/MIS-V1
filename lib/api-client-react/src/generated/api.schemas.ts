@@ -202,6 +202,8 @@ export interface SalesCatalogEntry {
   source_issues?: string[];
 }
 
+export interface MedicalOrganisationDetails {[key: string]: string | null}
+
 export interface SalesNode {
   id: number;
   code: string;
@@ -213,6 +215,7 @@ export interface SalesNode {
   manager_id: number | null;
   is_active: boolean;
   version: number;
+  medical_details?: MedicalOrganisationDetails;
 }
 
 export interface SalesManagerDetails {
@@ -330,6 +333,7 @@ export interface OrganisationCandidate {
   level: SalesLevel;
   /** @nullable */
   parent_code: string | null;
+  medical_details?: MedicalOrganisationDetails;
 }
 
 export interface OrganisationSnapshot {
@@ -422,6 +426,7 @@ export interface SalesNodeInput {
   is_active: boolean;
   /** @minimum 1 */
   source_reference_id?: number;
+  medical_details?: MedicalOrganisationDetails;
 }
 
 export interface SalesNodeUpdate {
@@ -443,6 +448,7 @@ export interface SalesNodeUpdate {
   is_active: boolean;
   /** @minimum 1 */
   version: number;
+  medical_details?: MedicalOrganisationDetails;
 }
 
 export interface SalesManagerInput {

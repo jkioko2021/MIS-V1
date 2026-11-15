@@ -65,6 +65,32 @@ try {
   await assert.rejects(lib.createSalesNode(input(1),prefix),e=>e.status===400);
   const nodes=[];
   for(let i=0;i<8;i++)nodes.push(await lib.createSalesNode(input(i,i%4?nodes[i-1].id:null),prefix));
+  // Medical operating details are separate from authoritative identity/ancestry.
+  const medicalBase={...input(3,nodes[2].id),code:`${prefix}_MED_UNIT`,name:`${prefix} Medical Unit`};
+  const medical=await lib.createSalesNode({...medicalBase,medical_details:{
+    UNIT_TYPE:"RETAIL",SPECIALITY:"MED",YEAR:"2026",VALID_FROM:"2026-01-01",VALID_TO:"2026-12-31",
+    MIS_NO:"MED001",GI_UNIT:null,
+  }},prefix);
+  let medicalRow=(await db.query("SELECT * FROM crm.sales_structure_nodes WHERE id=$1",[medical.id])).rows[0];
+  assert.equal(medicalRow.medical_details.UNIT_TYPE,"RETAIL");
+  const medicalUpdate={name:medicalBase.name,parent_id:nodes[2].id,manager_id:managers[3].id,is_active:true,version:1};
+  for(const values of [{REGION_CODE:"SPOOF"},{VALID_FROM:"2026-02-30"},{VALID_FROM:"2027-01-01"},
+    {YEAR:"year"},{GI_UNIT:"NOT_AN_EXISTING_GI_UNIT"},{SPECIALITY:"TOO_LONG"}]){
+    await assert.rejects(lib.updateSalesNode(medical.id,{...medicalUpdate,medical_details:values},prefix),e=>e.status===400);
+  }
+  assert.equal((await db.query("SELECT version FROM crm.sales_structure_nodes WHERE id=$1",[medical.id])).rows[0].version,1);
+  await lib.updateSalesNode(medical.id,{...medicalUpdate,medical_details:{MIS_NO:"MED002",VALID_TO:null}},prefix);
+  medicalRow=(await db.query("SELECT * FROM crm.sales_structure_nodes WHERE id=$1",[medical.id])).rows[0];
+  assert.equal(medicalRow.medical_details.MIS_NO,"MED002");
+  assert.equal(medicalRow.medical_details.UNIT_TYPE,"RETAIL","Partial updates retain operating fields");
+  assert.equal(medicalRow.medical_details.VALID_TO,null,"Optional fields can be cleared");
+  await assert.rejects(lib.updateSalesNode(medical.id,medicalUpdate,prefix),e=>e.status===409);
+  await lib.updateSalesNode(medical.id,{...medicalUpdate,version:2},prefix);
+  const medicalSnapshot=lib.GetOrganisationResponse.parse(await lib.organisationSnapshot(admin));
+  assert.equal(medicalSnapshot.nodes.find(n=>n.id===medical.id).medical_details.MIS_NO,"MED002");
+  const medicalAudit=(await db.query("SELECT after_data FROM crm.sales_setup_events WHERE entity_id=$1 AND action='UPDATED' ORDER BY id DESC LIMIT 1",[medical.id])).rows[0];
+  assert.equal(medicalAudit.after_data.medical_details.MIS_NO,"MED002");
+  await db.query("DELETE FROM crm.sales_structure_nodes WHERE id=$1",[medical.id]);
   await assert.rejects(lib.createSalesNode(input(0),prefix),e=>e.code==="23505");
   await assert.rejects(lib.createSalesNode({...input(1,nodes[2].id),code:`${prefix}_BAD_PARENT`},prefix),e=>e.status===400);
   await assert.rejects(lib.createSalesNode({...input(1,nodes[0].id),code:`${prefix}_BAD_MANAGER`,manager_id:managers[3].id},prefix),e=>e.status===400);
@@ -156,16 +182,22 @@ try {
   const ref=(await db.query(`INSERT INTO crm.sales_catalog_source_records
     (catalog,code,name,data,source_file,file_sha256,source_line,row_sha256,issues,imported_by)
     SELECT 'sales-regions',$1,$2,$3::jsonb,'test','test',1,$1,'[]'::jsonb,'test' RETURNING id`,
-    [`${prefix}_REF`,`${prefix} reference`,JSON.stringify({REGION_CODE:`${prefix}_REF`,REGION_NAME:`${prefix} reference`})])).rows[0];
+    [`${prefix}_REF`,`${prefix} reference`,JSON.stringify({REGION_CODE:`${prefix}_REF`,REGION_NAME:`${prefix} reference`,VALID_FROM:"2026-01-01",VALID_TO:"2026-12-31"})])).rows[0];
   const adoption={...input(1,nodes[0].id),code:`${prefix}_REF`,name:`${prefix} reference`};
   await assert.rejects(lib.createSalesNode(adoption,prefix),e=>e.status===400&&/reference/.test(e.message));
-  await lib.createSalesNode({...adoption,source_reference_id:ref.id},prefix);
+  const refSnapshot=await lib.organisationSnapshot(admin);
+  assert.equal(refSnapshot.candidates.find(c=>c.source_reference_id===ref.id).medical_details.VALID_FROM,"2026-01-01");
+  const adopted=await lib.createSalesNode({...adoption,source_reference_id:ref.id,medical_details:{VALID_TO:null}},prefix);
+  const adoptedRow=(await db.query("SELECT medical_details FROM crm.sales_structure_nodes WHERE id=$1",[adopted.id])).rows[0];
+  assert.equal(adoptedRow.medical_details.VALID_FROM,"2026-01-01");
+  assert.equal(adoptedRow.medical_details.VALID_TO,null);
+  assert.equal((await db.query("SELECT data->>'VALID_TO' AS date FROM crm.sales_catalog_source_records WHERE id=$1",[ref.id])).rows[0].date,"2026-12-31","Adoption never changes original imported values");
   await db.query("DELETE FROM crm.sales_structure_nodes WHERE source_reference_id=$1",[ref.id]);
   await db.query("DELETE FROM crm.sales_catalog_source_records WHERE id=$1",[ref.id]);
   assert.equal(await sourceHash(),beforeSource);
   const identities=(await db.query("SELECT * FROM crm.employees WHERE employee_id=ANY($1::int[]) ORDER BY employee_id",[staff.map(s=>s.employee_id)])).rows;
   assert.equal(JSON.stringify(identities),identityBefore,"Hierarchy work must not change user accounts");
-  console.log("PASS: four-level CRUD/validation, enrollment Unit gate and derived codes, four manager scopes, ID tampering, atomic transfer, historical reporting, source adoption, immutable audit and unchanged accounts.");
+  console.log("PASS: Medical fields, inherited source defaults, partial edits, clearing, invalid dates/fields/GI links, stale writes and audit; four-level validation, scoped agents, transfer/history, source preservation and unchanged accounts.");
 } finally {
   if(connected){await db.query("ROLLBACK").catch(()=>{});await db.end();}
   delete globalThis.__organisationTestDb;

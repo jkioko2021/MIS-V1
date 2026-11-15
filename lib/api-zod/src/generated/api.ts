@@ -40,7 +40,8 @@ export const GetOrganisationResponse = zod.object({
   "parent_id": zod.number().int().nullable(),
   "manager_id": zod.number().int().nullable(),
   "is_active": zod.boolean(),
-  "version": zod.number().int()
+  "version": zod.number().int(),
+  "medical_details": zod.record(zod.string(), zod.string().nullable()).optional()
 }).and(zod.object({
   "manager_name": zod.string().nullable(),
   "child_count": zod.number().int(),
@@ -81,7 +82,8 @@ export const GetOrganisationResponse = zod.object({
   "code": zod.string(),
   "name": zod.string(),
   "level": zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT']),
-  "parent_code": zod.string().nullable()
+  "parent_code": zod.string().nullable(),
+  "medical_details": zod.record(zod.string(), zod.string().nullable()).optional()
 }))
 })
 
@@ -348,7 +350,8 @@ export const GetSalesCatalogsResponse = zod.object({
   "parent_id": zod.number().int().nullable(),
   "manager_id": zod.number().int().nullable(),
   "is_active": zod.boolean(),
-  "version": zod.number().int()
+  "version": zod.number().int(),
+  "medical_details": zod.record(zod.string(), zod.string().nullable()).optional()
 })),
   "branch_managers": zod.array(zod.object({
   "id": zod.number().int(),
@@ -462,7 +465,8 @@ export const GetSalesStructureResponse = zod.object({
   "parent_id": zod.number().int().nullable(),
   "manager_id": zod.number().int().nullable(),
   "is_active": zod.boolean(),
-  "version": zod.number().int()
+  "version": zod.number().int(),
+  "medical_details": zod.record(zod.string(), zod.string().nullable()).optional()
 })),
   "managers": zod.array(zod.object({
   "id": zod.number().int(),
@@ -518,7 +522,8 @@ export const CreateSalesStructureNodeBody = zod.object({
   "parent_id": zod.number().int().min(1).nullable(),
   "manager_id": zod.number().int().min(1).nullable(),
   "is_active": zod.boolean(),
-  "source_reference_id": zod.number().int().min(1).optional()
+  "source_reference_id": zod.number().int().min(1).optional(),
+  "medical_details": zod.record(zod.string(), zod.string().nullable()).optional()
 })
 
 export const CreateSalesStructureNodeResponse = zod.object({
@@ -546,7 +551,8 @@ export const UpdateSalesStructureNodeBody = zod.object({
   "parent_id": zod.number().int().min(1).nullable(),
   "manager_id": zod.number().int().min(1).nullable(),
   "is_active": zod.boolean(),
-  "version": zod.number().int().min(1)
+  "version": zod.number().int().min(1),
+  "medical_details": zod.record(zod.string(), zod.string().nullable()).optional()
 })
 
 export const UpdateSalesStructureNodeResponse = zod.object({

@@ -1173,6 +1173,7 @@ components:
         name: { type: string }
         level: { $ref: "#/components/schemas/SalesLevel" }
         parent_code: { type: [string, "null"] }
+        medical_details: { $ref: "#/components/schemas/MedicalOrganisationDetails" }
     OrganisationSnapshot:
       type: object
       required: [can_manage, nodes, managers, candidates]
@@ -1238,6 +1239,7 @@ components:
         manager_id: { type: [integer, "null"] }
         is_active: { type: boolean }
         version: { type: integer }
+        medical_details: { $ref: "#/components/schemas/MedicalOrganisationDetails" }
     SalesStructure:
       type: object
       required: [nodes, managers, users]
@@ -1256,6 +1258,7 @@ components:
         manager_id: { type: [integer, "null"], minimum: 1 }
         is_active: { type: boolean }
         source_reference_id: { type: integer, minimum: 1 }
+        medical_details: { $ref: "#/components/schemas/MedicalOrganisationDetails" }
     SalesNodeUpdate:
       type: object
       required: [name, parent_id, manager_id, is_active, version]
@@ -1265,6 +1268,10 @@ components:
         manager_id: { type: [integer, "null"], minimum: 1 }
         is_active: { type: boolean }
         version: { type: integer, minimum: 1 }
+        medical_details: { $ref: "#/components/schemas/MedicalOrganisationDetails" }
+    MedicalOrganisationDetails:
+      type: object
+      additionalProperties: { type: [string, "null"] }
     SalesManagerInput:
       type: object
       required: [employee_id, level, is_active, details]

@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { MedicalOrganisationDetails } from './medicalOrganisationDetails';
 import type { SalesLevel } from './salesLevel';
 
 export interface SalesNodeInput {
@@ -33,4 +34,5 @@ export interface SalesNodeInput {
   is_active: boolean;
   /** @minimum 1 */
   source_reference_id?: number;
+  medical_details?: MedicalOrganisationDetails;
 }

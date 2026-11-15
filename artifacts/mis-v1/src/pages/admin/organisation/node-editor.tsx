@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetOrganisationAgentsQueryKey, getGetOrganisationQueryKey, getGetSalesStructureQueryKey,
   useCreateSalesStructureNode, useUpdateSalesStructureNode,
 } from '@workspace/api-client-react';
 import type {
-  OrganisationCandidate, OrganisationNode, SalesLevel, SalesManager, SalesNodeInput, SalesNodeUpdate,
+  OrganisationCandidate, OrganisationNode, SalesCatalogSnapshot, SalesLevel, SalesManager, SalesNodeInput, SalesNodeUpdate,
 } from '@workspace/api-client-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -14,11 +14,62 @@ import { Label } from '@/components/ui/label';
 import { AlertCircle, Check, RefreshCw } from 'lucide-react';
 import { errorMessage, errorStatus, INPUT_CLASS, LEVELS, LEVEL_LABEL } from './shared';
 
-export function NodeEditor({ node, nodes, candidates, managers, onCancel, onSaved, onRefresh }: {
+type MedicalValues = Record<string, string | null>;
+type CandidateWithMedical = OrganisationCandidate & { medical_details?: MedicalValues };
+type NodeWithMedical = OrganisationNode & { medical_details?: MedicalValues };
+
+const MEDICAL_FIELDS: Record<'REGION' | 'BRANCH' | 'UNIT', Array<{ key: string; label: string; input: 'date' | 'text' | 'select' }>> = {
+  REGION: [
+    { key: 'VALID_FROM', label: 'Valid from', input: 'date' },
+    { key: 'VALID_TO', label: 'Valid to', input: 'date' },
+  ],
+  BRANCH: [
+    { key: 'BRANCH_TYPE', label: 'Branch type', input: 'text' },
+    { key: 'SPECIALITY', label: 'Speciality', input: 'text' },
+    { key: 'GI_BRANCH', label: 'GI branch', input: 'select' },
+  ],
+  UNIT: [
+    { key: 'UNIT_TYPE', label: 'Unit type', input: 'text' },
+    { key: 'SPECIALITY', label: 'Speciality', input: 'text' },
+    { key: 'YEAR', label: 'Year', input: 'text' },
+    { key: 'VALID_FROM', label: 'Valid from', input: 'date' },
+    { key: 'VALID_TO', label: 'Valid to', input: 'date' },
+    { key: 'MIS_NO', label: 'MIS number', input: 'text' },
+    { key: 'GI_UNIT', label: 'GI unit', input: 'select' },
+  ],
+};
+
+const MEDICAL_MAX_LENGTH: Record<string, number> = {
+  VALID_FROM: 10,
+  VALID_TO: 10,
+  BRANCH_TYPE: 50,
+  SPECIALITY: 5,
+  UNIT_TYPE: 50,
+  YEAR: 4,
+  MIS_NO: 20,
+};
+
+const MEDICAL_CATALOG: Partial<Record<SalesLevel, string>> = {
+  REGION: 'sales-regions',
+  BRANCH: 'sales-branches',
+  UNIT: 'sales-units',
+};
+
+function changedMedicalDetails(fields: Array<{ key: string }>, values: MedicalValues, original: MedicalValues) {
+  return Object.fromEntries(fields.flatMap(({ key }) => {
+    const value = values[key]?.trim() || null;
+    const previous = original[key]?.trim() || null;
+    return value === previous ? [] : [[key, value]];
+  })) as MedicalValues;
+}
+
+export function NodeEditor({ node, nodes, candidates, managers, catalogSnapshot, initialCandidate, onCancel, onSaved, onRefresh }: {
   node?: OrganisationNode;
   nodes: OrganisationNode[];
   candidates: OrganisationCandidate[];
   managers: SalesManager[];
+  catalogSnapshot?: SalesCatalogSnapshot;
+  initialCandidate?: OrganisationCandidate;
   onCancel: () => void;
   onSaved: () => Promise<void>;
   onRefresh: () => Promise<unknown>;
@@ -26,18 +77,31 @@ export function NodeEditor({ node, nodes, candidates, managers, onCancel, onSave
   const client = useQueryClient();
   const create = useCreateSalesStructureNode();
   const update = useUpdateSalesStructureNode();
-  const [level, setLevel] = useState<SalesLevel>(node?.level ?? 'NATIONAL');
-  const [candidateId, setCandidateId] = useState('');
-  const selectedCandidate = candidates.find((candidate) => candidate.source_reference_id === Number(candidateId));
-  const [code, setCode] = useState(node?.code ?? '');
-  const [name, setName] = useState(node?.name ?? '');
+  const initialMedicalCandidate = initialCandidate as CandidateWithMedical | undefined;
+  const initialMedicalNode = node as NodeWithMedical | undefined;
+  const [level, setLevel] = useState<SalesLevel>(node?.level ?? initialCandidate?.level ?? 'NATIONAL');
+  const [candidateId, setCandidateId] = useState(initialCandidate ? String(initialCandidate.source_reference_id) : '');
+  const selectedCandidate = (candidates.find((candidate) => candidate.source_reference_id === Number(candidateId))
+    ?? (initialMedicalCandidate?.source_reference_id === Number(candidateId) ? initialMedicalCandidate : undefined)) as CandidateWithMedical | undefined;
+  const [code, setCode] = useState(node?.code ?? initialCandidate?.code ?? '');
+  const [name, setName] = useState(node?.name ?? initialCandidate?.name ?? '');
   const [parentId, setParentId] = useState(node?.parent_id == null ? '' : String(node.parent_id));
   const [managerId, setManagerId] = useState(node?.manager_id == null ? '' : String(node.manager_id));
   const [active, setActive] = useState(node?.is_active ?? true);
   const [version, setVersion] = useState(node?.version ?? 0);
+  const [medicalDetails, setMedicalDetails] = useState<MedicalValues>(
+    initialMedicalNode?.medical_details ?? initialMedicalCandidate?.medical_details ?? {},
+  );
+  const originalMedicalDetails = useRef<MedicalValues>(
+    initialMedicalNode?.medical_details ?? initialMedicalCandidate?.medical_details ?? {},
+  );
+  const editorRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     if (node?.version && node.version !== version) setVersion(node.version);
   }, [node?.version, version]);
+  useEffect(() => {
+    if (initialCandidate?.source_reference_id) editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [initialCandidate?.source_reference_id]);
 
   const parentLevel: SalesLevel | null = level === 'REGION' ? 'NATIONAL' : level === 'BRANCH' ? 'REGION' : level === 'UNIT' ? 'BRANCH' : null;
   const currentParent = nodes.find((entry) => entry.id === node?.parent_id);
@@ -52,6 +116,7 @@ export function NodeEditor({ node, nodes, candidates, managers, onCancel, onSave
   };
   const sourceCandidates = candidates.filter((candidate) => {
     if (candidate.level !== level) return false;
+    if (candidate.source_reference_id === Number(candidateId)) return true;
     if (level === 'NATIONAL') return missingSourceParent(candidate.parent_code);
     return missingSourceParent(candidate.parent_code) || candidate.parent_code === parentCode;
   });
@@ -79,12 +144,23 @@ export function NodeEditor({ node, nodes, candidates, managers, onCancel, onSave
     const parent = parentId ? Number(parentId) : null;
     const manager = Number(managerId);
     if (node) {
-      const data: SalesNodeUpdate = { name: name.trim(), parent_id: parent, manager_id: manager, is_active: active, version };
+      const nodeMedicalFields = MEDICAL_FIELDS[node.level as 'REGION' | 'BRANCH' | 'UNIT'];
+      const medicalData = nodeMedicalFields
+        ? changedMedicalDetails(nodeMedicalFields, medicalDetails, originalMedicalDetails.current)
+        : undefined;
+      const data: SalesNodeUpdate = {
+        name: name.trim(), parent_id: parent, manager_id: manager, is_active: active, version,
+        ...(medicalData && Object.keys(medicalData).length ? { medical_details: medicalData } : {}),
+      };
       update.mutate({ id: node.id, data }, { onSuccess: async () => {
         await invalidateOrganisation();
         await onSaved();
       } });
     } else {
+      const levelMedicalFields = MEDICAL_FIELDS[level as 'REGION' | 'BRANCH' | 'UNIT'];
+      const applicableMedicalDetails = levelMedicalFields
+        ? changedMedicalDetails(levelMedicalFields, medicalDetails, originalMedicalDetails.current)
+        : undefined;
       const data: SalesNodeInput = {
         code: (selectedCandidate?.code ?? code).trim(),
         name: (selectedCandidate?.name ?? name).trim(),
@@ -93,6 +169,7 @@ export function NodeEditor({ node, nodes, candidates, managers, onCancel, onSave
         manager_id: manager,
         is_active: active,
         ...(selectedCandidate ? { source_reference_id: selectedCandidate.source_reference_id } : {}),
+        ...(applicableMedicalDetails && Object.keys(applicableMedicalDetails).length ? { medical_details: applicableMedicalDetails } : {}),
       };
       create.mutate({ data }, { onSuccess: async () => {
         await invalidateOrganisation();
@@ -107,10 +184,11 @@ export function NodeEditor({ node, nodes, candidates, managers, onCancel, onSave
       && selectedCandidate.parent_code?.trim().toUpperCase() !== nextParent?.code.toUpperCase()) {
       // Discard only an incompatible source link, never the administrator's draft.
       setCandidateId('');
+      originalMedicalDetails.current = {};
     }
   };
 
-  return <section className="rounded-xl border border-[#cbd9d1] bg-[#f4f8f5] p-4 shadow-sm sm:p-6" data-testid="panel-node-editor">
+  return <section ref={editorRef} className="scroll-mt-16 rounded-xl border border-[#cbd9d1] bg-[#f4f8f5] p-4 shadow-sm sm:p-6" data-testid="panel-node-editor">
     <div className="mb-5 flex items-start justify-between gap-4">
       <div>
         <p className="text-[11px] font-bold uppercase tracking-[.16em] text-primary">Structure maintenance</p>
@@ -123,7 +201,8 @@ export function NodeEditor({ node, nodes, candidates, managers, onCancel, onSave
       {!node && <div className="space-y-1.5">
         <Label htmlFor="org-level">Hierarchy level</Label>
         <select id="org-level" className={INPUT_CLASS} value={level} onChange={(event) => {
-          setLevel(event.target.value as SalesLevel); setCandidateId(''); setCode(''); setName(''); setParentId(''); setManagerId('');
+          setLevel(event.target.value as SalesLevel); setCandidateId(''); setCode(''); setName(''); setParentId(''); setManagerId(''); setMedicalDetails({});
+          originalMedicalDetails.current = {};
         }}>
           {LEVELS.map((item) => <option key={item} value={item}>{LEVEL_LABEL[item]}</option>)}
         </select>
@@ -134,11 +213,16 @@ export function NodeEditor({ node, nodes, candidates, managers, onCancel, onSave
           const value = event.target.value;
           setCandidateId(value);
           const candidate = candidates.find((item) => item.source_reference_id === Number(value));
-          if (candidate) { setCode(candidate.code); setName(candidate.name); }
-          else { setCode(''); setName(''); }
+          const medicalCandidate = candidate as CandidateWithMedical | undefined;
+          if (candidate) {
+            const defaults = medicalCandidate?.medical_details ?? {};
+            setCode(candidate.code); setName(candidate.name); setMedicalDetails(defaults); originalMedicalDetails.current = defaults;
+          } else {
+            setCode(''); setName(''); setMedicalDetails({}); originalMedicalDetails.current = {};
+          }
         }}>
           <option value="">Create new record</option>
-          {sourceCandidates.map((candidate) => <option key={candidate.source_reference_id} value={candidate.source_reference_id}>{candidate.code} — {candidate.name}</option>)}
+          {sourceCandidates.map((candidate) => <option key={candidate.source_reference_id} value={candidate.source_reference_id}>{candidate.name}</option>)}
         </select>
         <p className="text-xs text-muted-foreground">Source code and name are preserved exactly when reusing an imported organisation.</p>
       </div>}
@@ -150,11 +234,54 @@ export function NodeEditor({ node, nodes, candidates, managers, onCancel, onSave
         <Label htmlFor="org-name">Display name <span className="text-destructive">*</span></Label>
         <Input id="org-name" value={name} disabled={!!selectedCandidate} onChange={(event) => setName(event.target.value)} maxLength={150} placeholder="Name shown in reporting" />
       </div>
+      {level !== 'NATIONAL' && <section className="space-y-3 rounded-lg border border-[#d6e3da] bg-card p-4 sm:col-span-2">
+        <div>
+          <h3 className="text-sm font-semibold text-[#244b3b]">Medical organisation details</h3>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">Source values are prefilled when available. Parent and region are derived from the hierarchy; manager assignment remains a separate eligibility-checked choice.</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {(MEDICAL_FIELDS[level as 'REGION' | 'BRANCH' | 'UNIT'] ?? []).map((field) => {
+            const catalogKey = MEDICAL_CATALOG[level];
+            const definition = catalogSnapshot?.definitions.find((item) => item.key === catalogKey);
+            const reference = definition?.fields.find((item) => item.key === field.key)?.reference
+              ?? (field.key === 'GI_BRANCH' ? 'gi-branches' : field.key === 'GI_UNIT' ? 'gi-units' : null);
+            const choiceEntries = field.input === 'select' && reference
+              ? (catalogSnapshot?.entries.filter((entry) =>
+                entry.catalog === reference && (!entry.source_reference || entry.organization_choice),
+              ) ?? []).sort((a, b) => Number(!!a.source_reference) - Number(!!b.source_reference) || a.name.localeCompare(b.name))
+              : [];
+            const choices = choiceEntries.filter((entry, index) =>
+              choiceEntries.findIndex((candidate) => candidate.code.toUpperCase() === entry.code.toUpperCase()) === index,
+            );
+            const value = medicalDetails[field.key] ?? '';
+            const fieldId = `medical-${field.key.toLowerCase()}`;
+            return <div key={field.key} className="space-y-1.5">
+              <Label htmlFor={fieldId}>{field.label}</Label>
+              {field.input === 'select' ? <select
+                id={fieldId}
+                className={INPUT_CLASS}
+                value={value}
+                onChange={(event) => setMedicalDetails((current) => ({ ...current, [field.key]: event.target.value || null }))}
+              >
+                <option value="">Not linked</option>
+                {value && !choices.some((entry) => entry.code === value) && <option value={value}>Previously selected item unavailable</option>}
+                {choices.map((entry) => <option key={`${entry.catalog}-${entry.code}`} value={entry.code}>{entry.name}</option>)}
+              </select> : <Input
+                id={fieldId}
+                type={field.input}
+                value={value}
+                onChange={(event) => setMedicalDetails((current) => ({ ...current, [field.key]: event.target.value || null }))}
+                maxLength={MEDICAL_MAX_LENGTH[field.key] ?? 100}
+              />}
+            </div>;
+          })}
+        </div>
+      </section>}
       {parentLevel && <div className="space-y-1.5 sm:col-span-2">
         <Label htmlFor="org-parent">{LEVEL_LABEL[parentLevel]} parent <span className="text-destructive">*</span></Label>
         <select id="org-parent" className={INPUT_CLASS} value={parentId} onChange={(event) => changeParent(event.target.value)}>
           <option value="">Choose an available {LEVEL_LABEL[parentLevel].toLowerCase()}</option>
-          {parentOptions.map((parent) => <option key={parent.id} value={parent.id}>{parent.code} — {parent.name}{!parent.available ? ' (retained current parent)' : ''}</option>)}
+          {parentOptions.map((parent) => <option key={parent.id} value={parent.id}>{parent.name}{!parent.available ? ' (retained current parent)' : ''}</option>)}
         </select>
         {!parentOptions.length && <p className="text-xs text-amber-800">Create an available {LEVEL_LABEL[parentLevel].toLowerCase()} first. A missing parent cannot be inferred or fabricated.</p>}
         {currentParent && !currentParent.available && currentParent.id === Number(parentId) && <p className="text-xs text-amber-800">The current unavailable parent is retained for historical context. Choose an available parent to reparent this entry.</p>}
