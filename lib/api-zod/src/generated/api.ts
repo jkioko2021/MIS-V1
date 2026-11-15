@@ -93,7 +93,12 @@ export const GetOrganisationResponse = zod.object({
   "name": zod.string(),
   "level": zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT']),
   "parent_code": zod.string().nullable(),
-  "medical_details": zod.record(zod.string(), zod.string().nullable()).optional()
+  "medical_details": zod.record(zod.string(), zod.string().nullable()).optional(),
+  "linked_manager_employee_id": zod.number().int().nullish(),
+  "linked_manager_name": zod.string().nullish(),
+  "manager_link_status": zod.enum(['PENDING', 'MATCHED', 'UNRESOLVED', 'NOT_REQUIRED']).optional(),
+  "branch_approved": zod.boolean().optional(),
+  "setup_note": zod.string().nullish()
 }))
 })
 

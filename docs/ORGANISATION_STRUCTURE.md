@@ -27,6 +27,16 @@ Year and GI branch.
 Existing source and saved metadata remains intact and is not cleared on save.
 Validity dates and MIS number retain their existing behaviour.
 
+Imported Region/Unit manager accounts can be linked before operational adoption.
+These links use exact uploaded manager codes and verified account provenance,
+not name-only matching. Missing, unverified or ambiguous references remain
+unresolved with an explanation in Hierachy Setup. Manager names are searchable.
+Branches are approved **for setup** with a blank manager. All these rows remain
+**Pending Setup** and unavailable for agent assignments until explicit operational
+adoption. Links do not create users or manager designations and grant no access.
+Setup decisions are audited separately from immutable source records. Source
+changes or loss of account eligibility invalidate the displayed link/approval.
+
 Hierarchy lookups use searchable, viewport-bounded popups with wrapping labels
 and scrollable results. Assigned manager searches names and email addresses,
 retaining the actual account/designation identifier when a result is selected.
@@ -91,8 +101,8 @@ Manager Enrollment is available within Organization structure-Medical and create
 a designation, not a new person or
 replacement login profile. A manager may own several organisations.
 
-For saving Medical **Assigned manager** selections, National, Region, Branch and Unit
-all require the existing **Sales Manager** account profile as well as the matching
+For saving Medical **Assigned manager** selections, National, Region and Unit
+require the existing **Sales Manager** account profile as well as the matching
 eligible manager enrollment. This filter is enforced on the returned choices and
 on create/update requests. It does not automatically change anyone's profile;
 an empty list must be resolved through User Enrollment and Manager Enrollment.
@@ -113,7 +123,8 @@ roster is returned only to administrators, never to scoped reporting users.
    manager category. Their existing MIS code is reused.
 3. Create the National and select an eligible National Sales Manager.
 4. Create or adopt Regions under that National, then Branches under Regions,
-   then Units under Branches. Each requires the corresponding enrolled manager.
+   then Units under Branches. National, Region and Unit require the corresponding
+   enrolled manager. Branches have no manager.
 5. At Agent Registration, choose an active, available Unit. Branch, Region and
    National are derived from its parent chain and displayed read-only.
 6. Use Agent Unit Mapping to assign older unmapped agents. This records the
@@ -121,7 +132,8 @@ roster is returned only to administrators, never to scoped reporting users.
    imported values.
 
 An available Unit has an active ancestor chain and eligible, active manager
-designations at every level. Designation validity dates and account
+designations at National, Region and Unit levels. Branches are managerless
+structural levels. Designation validity dates and account
 activation/approval/lock state are respected.
 
 ## Validation and audit
@@ -133,7 +145,8 @@ activation/approval/lock state are respected.
   or Unit without Branch. No cycles or inactive-parent creation.
 - Manager category must match the organisation level. Selecting a manager never
   grants administration rights or changes the login account.
-- New records require a manager even when initially inactive.
+- New National, Region and Unit records require a manager even when initially
+  inactive. Branch managers must be blank.
 - Optimistic versions reject stale writes. Shared transaction/advisory locks
   serialise hierarchy, manager and agent-unit changes.
 - Nodes with assigned agents cannot be moved or deactivated until those agents

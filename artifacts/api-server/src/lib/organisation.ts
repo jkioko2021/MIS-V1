@@ -4,6 +4,7 @@ import type { OrganisationAssignmentInput, OrganisationPathItem, GetOrganisation
 import { withTransaction } from "./postgres";
 import { salesSetupTransaction, SalesSetupError } from "./sales-structure";
 import { sourceMedicalDetails } from "./medical-organisation-details";
+import { pendingSourceSetups } from "./organisation-source-setup";
 
 export const organisationAdmin = (user: Pick<JwtPayload, "profileId">) => [1, 2].includes(user.profileId);
 type PathRow = { id: number; level: string; node_ids: number[]; path: OrganisationPathItem[]; available: boolean };
@@ -58,6 +59,7 @@ export async function organisationSnapshot(user: JwtPayload) {
       FROM crm.employees e JOIN crm.profiles p ON p.profile_id=e.profile_id
       WHERE NOT e.is_deleted AND p.is_active AND lower(btrim(p.profile_name))='sales manager'
       ORDER BY e.employee_name,e.employee_id`)).rows : [];
+    const sourceSetups = organisationAdmin(user) ? await pendingSourceSetups(client) : new Map();
     const candidates = organisationAdmin(user) ? (await client.query(`SELECT s.id AS source_reference_id,s.code,s.name,s.data,
       CASE s.catalog WHEN 'sales-regions' THEN 'REGION' WHEN 'sales-branches' THEN 'BRANCH' ELSE 'UNIT' END AS level,
       CASE s.catalog WHEN 'sales-branches' THEN s.data->>'REGION_CODE'
@@ -66,6 +68,7 @@ export async function organisationSnapshot(user: JwtPayload) {
         AND NOT EXISTS(SELECT 1 FROM crm.sales_structure_nodes n WHERE upper(n.code)=upper(btrim(s.code)))
       ORDER BY s.name,s.id`)).rows.map(({data,...candidate})=>({
         ...candidate,medical_details:sourceMedicalDetails(candidate.level,data),
+        ...sourceSetups.get(candidate.source_reference_id),
       })) : [];
     return { can_manage: organisationAdmin(user), nodes, managers, manager_users: managerUsers, candidates };
   });

@@ -1174,6 +1174,11 @@ components:
         level: { $ref: "#/components/schemas/SalesLevel" }
         parent_code: { type: [string, "null"] }
         medical_details: { $ref: "#/components/schemas/MedicalOrganisationDetails" }
+        linked_manager_employee_id: { type: [integer, "null"] }
+        linked_manager_name: { type: [string, "null"] }
+        manager_link_status: { type: string, enum: [PENDING, MATCHED, UNRESOLVED, NOT_REQUIRED] }
+        branch_approved: { type: boolean }
+        setup_note: { type: [string, "null"] }
     OrganisationSnapshot:
       type: object
       required: [can_manage, nodes, managers, manager_users, candidates]

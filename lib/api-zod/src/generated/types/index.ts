@@ -81,6 +81,7 @@ export * from './organisationAssignment';
 export * from './organisationAssignmentInput';
 export * from './organisationAssignmentResult';
 export * from './organisationCandidate';
+export * from './organisationCandidateManagerLinkStatus';
 export * from './organisationNode';
 export * from './organisationPathItem';
 export * from './organisationSnapshot';

@@ -326,6 +326,16 @@ export type OrganisationNode = SalesNode & ({
   path: OrganisationPathItem[];
 });
 
+export type OrganisationCandidateManagerLinkStatus = typeof OrganisationCandidateManagerLinkStatus[keyof typeof OrganisationCandidateManagerLinkStatus];
+
+
+export const OrganisationCandidateManagerLinkStatus = {
+  PENDING: 'PENDING',
+  MATCHED: 'MATCHED',
+  UNRESOLVED: 'UNRESOLVED',
+  NOT_REQUIRED: 'NOT_REQUIRED',
+} as const;
+
 export interface OrganisationCandidate {
   source_reference_id: number;
   code: string;
@@ -334,6 +344,14 @@ export interface OrganisationCandidate {
   /** @nullable */
   parent_code: string | null;
   medical_details?: MedicalOrganisationDetails;
+  /** @nullable */
+  linked_manager_employee_id?: number | null;
+  /** @nullable */
+  linked_manager_name?: string | null;
+  manager_link_status?: OrganisationCandidateManagerLinkStatus;
+  branch_approved?: boolean;
+  /** @nullable */
+  setup_note?: string | null;
 }
 
 export interface OrganisationSnapshot {

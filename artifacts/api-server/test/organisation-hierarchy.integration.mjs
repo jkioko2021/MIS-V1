@@ -62,7 +62,7 @@ try {
     }},prefix));
   const input=(i,parent=null)=>({code:`${prefix}_${levels[i%4]}${Math.floor(i/4)}`,
     name:`${prefix} ${levels[i%4]} ${Math.floor(i/4)}`,level:levels[i%4],
-    parent_id:parent,manager_id:managers[i].id,is_active:true});
+    parent_id:parent,manager_id:levels[i%4]==="BRANCH"?null:managers[i].id,is_active:true});
   await assert.rejects(lib.createSalesNode({...input(0),manager_id:null},prefix),e=>e.status===400);
   await assert.rejects(lib.createSalesNode(input(1),prefix),e=>e.status===400);
   const nodes=[];
@@ -75,9 +75,9 @@ try {
     hiddenManagers.push(hidden);
     await assert.rejects(lib.createSalesNode({...input(i,i?nodes[i-1].id:null),
       code:`${prefix}_DENIED${i}`,name:`${prefix} denied ${i}`,manager_id:hidden},prefix),
-      e=>e.status===400&&/Sales Manager profile/.test(e.message));
+      e=>e.status===400&&(i===2?/Branches have no/.test(e.message):/Sales Manager profile/.test(e.message)));
     await assert.rejects(lib.updateSalesNode(nodes[i].id,{...input(i,i?nodes[i-1].id:null),
-      manager_id:hidden,version:1},prefix),e=>e.status===400&&/Sales Manager profile/.test(e.message));
+      manager_id:hidden,version:1},prefix),e=>e.status===400&&(i===2?/Branches have no/.test(e.message):/Sales Manager profile/.test(e.message)));
   }
   const profileFiltered=await lib.organisationSnapshot(admin);
   assert(profileFiltered.managers.every(m=>!hiddenManagers.includes(m.id)));
@@ -87,6 +87,45 @@ try {
   assert(!profileFiltered.managers.some(choice=>choice.employee_id===staff[9].employee_id));
   assert(!profileFiltered.manager_users.some(choice=>choice.employee_id===staff[8].employee_id),
     "Other profiles must not appear in the Sales Manager account list");
+  // Pending-source account links do not create nodes, enrollments or reporting rights.
+  await db.query("SAVEPOINT pending_source_fixture");
+  const hash=value=>createHash("sha256").update(value).digest("hex");
+  const insertSource=async(catalog,code,data)=>(await db.query(`INSERT INTO crm.sales_catalog_source_records
+    (catalog,code,name,source_file,file_sha256,source_line,row_sha256,data,issues,imported_by)
+    VALUES($1,$2::text,$2::text,$2::text,$3,1,$3,$4::jsonb,'[]'::jsonb,$5) RETURNING *`,
+    [catalog,code,hash(code),JSON.stringify(data),prefix])).rows[0];
+  const managerSource=await insertSource("regional-managers",`${prefix}_RM`,{RM_ID:`${prefix}_RM`});
+  const sourceRegion=await insertSource("sales-regions",`${prefix}_SOURCE_REGION`,{REGION_MGR_ID:managerSource.code});
+  const sourceBranch=await insertSource("sales-branches",`${prefix}_SOURCE_BRANCH`,{REGION_CODE:sourceRegion.code});
+  const identityKey=hash(`${prefix}_identity`);
+  await db.query(`INSERT INTO crm.sales_manager_user_identities(identity_key,employee_id,created_by) VALUES($1,$2,$3)`,
+    [identityKey,staff[9].employee_id,prefix]);
+  await db.query(`INSERT INTO crm.sales_manager_user_sources(source_record_id,identity_key,source_row_sha256) VALUES($1,$2,$3)`,
+    [managerSource.id,identityKey,managerSource.row_sha256]);
+  for(const source of [sourceRegion,sourceBranch]){
+    const branch=source.id===sourceBranch.id;
+    await db.query(`INSERT INTO crm.organisation_source_setup
+      (source_reference_id,source_row_sha256,manager_employee_id,manager_sources,manager_link_status,branch_approved,resolution_note,updated_by)
+      VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8)`,[source.id,source.row_sha256,branch?null:staff[9].employee_id,
+      JSON.stringify(branch?[]:[{source_record_id:managerSource.id,row_sha256:managerSource.row_sha256}]),
+      branch?"NOT_REQUIRED":"MATCHED",branch,branch?"Approved for setup; operational setup pending.":"Verified source manager link.",prefix]);
+  }
+  const sourceCandidate=async(id)=>(await lib.organisationSnapshot(admin)).candidates.find(candidate=>candidate.source_reference_id===id);
+  assert.equal((await sourceCandidate(sourceRegion.id)).linked_manager_employee_id,staff[9].employee_id);
+  assert.equal((await sourceCandidate(sourceRegion.id)).manager_link_status,"MATCHED");
+  assert.equal((await sourceCandidate(sourceBranch.id)).branch_approved,true);
+  assert.equal((await sourceCandidate(sourceBranch.id)).linked_manager_employee_id,null);
+  assert.equal((await db.query("SELECT count(*)::int count FROM crm.sales_structure_nodes WHERE code=ANY($1)",[[sourceRegion.code,sourceBranch.code]])).rows[0].count,0);
+  await assert.rejects(lib.organisationSnapshot(user(9)),e=>e.status===403,"Pending links cannot grant reporting scope");
+  await db.query("UPDATE crm.employees SET employee_locked=true WHERE employee_id=$1",[staff[9].employee_id]);
+  assert.equal((await sourceCandidate(sourceRegion.id)).manager_link_status,"UNRESOLVED","Locked accounts fail closed");
+  await db.query("UPDATE crm.employees SET employee_locked=false WHERE employee_id=$1",[staff[9].employee_id]);
+  await db.query("UPDATE crm.sales_catalog_source_records SET row_sha256=$2 WHERE id=$1",[managerSource.id,hash("changed manager source")]);
+  assert.equal((await sourceCandidate(sourceRegion.id)).linked_manager_employee_id,null,"Stale identity provenance must not be reused");
+  await db.query("UPDATE crm.sales_catalog_source_records SET row_sha256=$2 WHERE id=$1",[sourceBranch.id,hash("changed Branch source")]);
+  assert.equal((await sourceCandidate(sourceBranch.id)).branch_approved,false,"Changed source rows require renewed approval");
+  await db.query("ROLLBACK TO SAVEPOINT pending_source_fixture");
+  await db.query("RELEASE SAVEPOINT pending_source_fixture");
   // Medical operating details are separate from authoritative identity/ancestry.
   const medicalBase={...input(3,nodes[2].id),code:`${prefix}_MED_UNIT`,name:`${prefix} Medical Unit`};
   const medical=await lib.createSalesNode({...medicalBase,medical_details:{
@@ -119,6 +158,11 @@ try {
   const inactive=await lib.createSalesNode({...input(0),code:`${prefix}_INACTIVE`,name:`${prefix} inactive`,is_active:false},prefix);
   await assert.rejects(lib.createSalesNode({...input(1,inactive.id),code:`${prefix}_INACTIVE_CHILD`,is_active:false},prefix),e=>e.status===400);
   for(let i=0;i<4;i++){
+    if(i===2){
+      await assert.rejects(lib.organisationSnapshot(user(i)),e=>e.status===403,
+        "Branches have no manager and cannot grant a Branch enrollment reporting scope");
+      continue;
+    }
     const snapshot=lib.GetOrganisationResponse.parse(await lib.organisationSnapshot(user(i)));
     assert.equal(snapshot.can_manage,false);
     assert.equal(snapshot.nodes.filter(n=>nodes.slice(0,4).some(row=>row.id===n.id)).length,4-i);
@@ -168,7 +212,7 @@ try {
   await assert.rejects(lib.updateSalesNode(nodes[3].id,{name:input(3).name,parent_id:nodes[2].id,
     manager_id:managers[3].id,is_active:false,version:1},prefix),e=>e.status===400&&/Transfer/.test(e.message));
   await assert.rejects(lib.updateSalesNode(nodes[2].id,{name:input(2).name,parent_id:nodes[5].id,
-    manager_id:managers[2].id,is_active:true,version:1},prefix),e=>e.status===400&&/Transfer/.test(e.message));
+    manager_id:null,is_active:true,version:1},prefix),e=>e.status===400&&/Transfer/.test(e.message));
   const yesterday=(await db.query("SELECT (CURRENT_DATE-1)::text AS date")).rows[0].date;
   await lib.saveOrganisationAssignment(code,transfer,admin);
   assert.equal((await lib.organisationAgents(user(3),{search:prefix})).items.length,0);

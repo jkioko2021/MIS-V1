@@ -80,7 +80,14 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
   const [code, setCode] = useState(node?.code ?? initialCandidate?.code ?? '');
   const [name, setName] = useState(node?.name ?? initialCandidate?.name ?? '');
   const [parentId, setParentId] = useState(node?.parent_id == null ? '' : String(node.parent_id));
-  const [managerId, setManagerId] = useState(node?.manager_id == null ? '' : String(node.manager_id));
+  const candidateManager = (candidate?: OrganisationCandidate) => {
+    const employeeId = candidate?.linked_manager_employee_id;
+    if (!employeeId || candidate?.level === 'BRANCH') return '';
+    const enrolled = managers.find(manager => manager.employee_id === employeeId
+      && manager.level === candidate.level && manager.is_active && manager.user_eligible);
+    return enrolled ? String(enrolled.id) : `user:${employeeId}`;
+  };
+  const [managerId, setManagerId] = useState(node?.manager_id == null ? candidateManager(initialCandidate) : String(node.manager_id));
   const [active, setActive] = useState(node?.is_active ?? true);
   const [version, setVersion] = useState(node?.version ?? 0);
   const [medicalDetails, setMedicalDetails] = useState<MedicalValues>(
@@ -136,7 +143,7 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
   const currentError = create.error || update.error;
   const saving = create.isPending || update.isPending;
   const activeChildren = node ? nodes.some((item) => item.parent_id === node.id && item.is_active) : false;
-  const valid = name.trim().length > 0 && /^\d+$/.test(managerId)
+  const valid = name.trim().length > 0 && (level === 'BRANCH' || /^\d+$/.test(managerId))
     && (node || /^[A-Za-z0-9_-]{1,40}$/.test(code.trim()))
     && (level === 'NATIONAL' || Boolean(parentId))
     && !(node?.is_active && !active && activeChildren)
@@ -155,7 +162,7 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
   const save = () => {
     if (!valid || saving) return;
     const parent = parentId ? Number(parentId) : null;
-    const manager = Number(managerId);
+    const manager = level === 'BRANCH' ? null : Number(managerId);
     if (node) {
       const nodeMedicalFields = MEDICAL_FIELDS[node.level as 'REGION' | 'BRANCH' | 'UNIT'];
       const medicalData = nodeMedicalFields
@@ -206,7 +213,7 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
       <div>
         <p className="text-[11px] font-bold uppercase tracking-[.16em] text-primary">Structure maintenance</p>
         <h2 className="mt-1 text-lg font-semibold">{node ? `Edit ${LEVEL_LABEL[node.level].toLowerCase()}` : 'Add a hierarchy entry'}</h2>
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Build from the top down. Use an available parent and an eligible manager at the same level. Existing imported records are matched in place.</p>
+        <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Build from the top down. Use an available parent and an eligible manager at the same level. Branches have no manager. Existing imported records are matched in place.</p>
       </div>
       <Button variant="ghost" size="sm" onClick={onCancel}>Close</Button>
     </div>
@@ -233,6 +240,7 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
           if (candidate) {
             const defaults = medicalCandidate?.medical_details ?? {};
             setCode(candidate.code); setName(candidate.name); setMedicalDetails(defaults); originalMedicalDetails.current = defaults;
+            setManagerId(candidateManager(candidate));
           } else {
             setCode(''); setName(''); setMedicalDetails({}); originalMedicalDetails.current = {};
           }
@@ -299,7 +307,7 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
         {!parentOptions.length && <p className="text-xs text-amber-800">Create an available {LEVEL_LABEL[parentLevel].toLowerCase()} first. A missing parent cannot be inferred or fabricated.</p>}
         {currentParent && !currentParent.available && currentParent.id === Number(parentId) && <p className="text-xs text-amber-800">The current unavailable parent is retained for historical context. Choose an available parent to reparent this entry.</p>}
       </div>}
-      <div className="space-y-1.5 sm:col-span-2">
+      {level !== 'BRANCH' ? <div className="space-y-1.5 sm:col-span-2">
         <Label htmlFor="org-manager">Assigned manager <span className="text-destructive">*</span></Label>
         <SearchableSelect id="org-manager" value={managerId} onValueChange={setManagerId}
           options={assignedManagerChoices} placeholder="Choose a Sales Manager"
@@ -312,7 +320,7 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
           </Button>
         </div>}
         {managerUsers?.length === 0 && <p className="text-xs text-amber-800">No Sales Manager users are available. Assign the Sales Manager profile in User Enrollment.</p>}
-      </div>
+      </div> : <p className="rounded-lg border bg-card p-3 text-sm text-muted-foreground sm:col-span-2">No manager is assigned to a Branch. Setup approval does not activate this entry; completing and saving the operational parent setup remains a separate action.</p>}
       <label className="flex items-start gap-3 rounded-lg border bg-card px-3 py-3 sm:col-span-2">
         <input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} className="mt-1 accent-[#28614f]" />
         <span><b className="block text-sm">Active structure entry</b><small className="text-xs leading-5 text-muted-foreground">Inactive entries remain available for reference, but not as new parents or agent destinations.</small></span>

@@ -101,3 +101,14 @@ and GI branch.
 
 **How to apply:** Keep them out of create/edit controls without deleting
 historical or original imported values.
+
+Imported hierarchy manager links and Branch approval are setup decisions only,
+not activation of the operational hierarchy.
+
+**Why:** The user chose “Approve Branches, keep hierarchy pending.”
+
+**How to apply:** Link Region/Unit source references only through verified MIS
+account provenance. Leave unmatched or conflicting identities unresolved.
+Show managerless Branches as approved for setup while retaining Pending Setup.
+Do not create operational nodes, manager enrollments or agent assignments as a
+side effect of this import.

@@ -46,18 +46,20 @@ async function syncAdoptedManager(client: PoolClient, node: NodeRow, actor: stri
   if (!existing) return;
   const manager = (await client.query(`SELECT m.employee_id,e.employee_name FROM crm.sales_manager_enrollments m
     JOIN crm.employees e ON e.employee_id=m.employee_id WHERE m.id=$1`,[node.manager_id])).rows[0];
-  if (existing.employee_id === manager.employee_id) return;
+  const employeeId = manager?.employee_id ?? null;
+  if (existing.employee_id === employeeId) return;
   const updated = (await client.query(`UPDATE crm.sales_team_manager_assignments
     SET employee_id=$2,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1 RETURNING *`,
-  [existing.id,manager.employee_id,actor])).rows[0];
+  [existing.id,employeeId,actor])).rows[0];
   await client.query(`INSERT INTO crm.sales_team_manager_events
-    (assignment_id,action,before_data,after_data,note,actor) VALUES($1,'REASSIGNED',$2::jsonb,$3::jsonb,$4,$5)`,
-  [existing.id,JSON.stringify(existing),JSON.stringify({...updated,employee_name:manager.employee_name}),
+    (assignment_id,action,before_data,after_data,note,actor) VALUES($1,$2,$3::jsonb,$4::jsonb,$5,$6)`,
+  [existing.id,employeeId === null ? "UNASSIGNED" : "REASSIGNED",JSON.stringify(existing),JSON.stringify({...updated,employee_name:manager?.employee_name ?? null}),
     "Manager updated through Organisation Structure; imported source references retained.",actor]);
 }
 async function validateNode(client: PoolClient, input: NodeValues, level: SalesLevel, before?: NodeRow) {
   if (!input.name.trim()) fail("A name is required.");
-  if (input.manager_id === null) fail("Every organisational level requires an enrolled manager.");
+  if (level === "BRANCH" && input.manager_id !== null) fail("Branches have no assigned manager. Leave the manager blank.");
+  if (level !== "BRANCH" && input.manager_id === null) fail("National, Region and Unit levels require an enrolled manager.");
   const expected = parentLevel[level];
   if (expected === null) {
     if (input.parent_id !== null) fail("A national structure cannot have a parent.");

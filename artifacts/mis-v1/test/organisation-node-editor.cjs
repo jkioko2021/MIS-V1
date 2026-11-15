@@ -130,8 +130,9 @@ assert.equal(find('org-parent').props.options.find(item=>item.value==='3').label
 assert.equal(find('medical-branch_type'),undefined,'Branch type is not shown on hierarchy forms');
 assert.equal(find('medical-speciality'),undefined,'Speciality is not shown on hierarchy forms');
 assert.equal(find('medical-gi_branch'),undefined,'GI branch is not shown for imported Branch records');
-change('org-manager','32');
+assert.equal(find('org-manager'),undefined,'Branches have no Assigned manager control');
 const preloadedSave=save();
+assert.equal(preloadedSave.data.manager_id,null);
 assert.equal(preloadedSave.data.source_reference_id,22);
 assert.equal(preloadedSave.data.medical_details,undefined,'Unchanged source defaults are inherited rather than resent as overrides');
 
@@ -186,11 +187,24 @@ console.log('PASS: hierarchy levels, source drafts, hidden Year/GI branch and ot
     {id:2,level:'REGION',name:'Region',available:true},
     {id:3,level:'BRANCH',name:'Branch',available:true},
   ];
+  state=[];
+  const linkedCandidate={source_reference_id:500,level:'UNIT',code:'LINKED_UNIT',name:'Linked unit',
+    parent_code:'BRANCH_KEEP',linked_manager_employee_id:101,linked_manager_name:staff.employee_name,manager_link_status:'MATCHED'};
+  props={nodes:parents,candidates:[linkedCandidate],managers:[],managerUsers:[staff],initialCandidate:linkedCandidate};
+  assert.equal(find('org-manager').props.value,'user:101','Opening setup prefills the verified account, not a fabricated designation');
+  const linkedCreate=walk(render()).find(item=>item.type==='Button'&&JSON.stringify(item.props.children).includes('"Create entry"'));
+  assert.equal(linkedCreate.props.disabled,true,'A source link alone cannot activate an operational Unit');
   for(const [index,initialLevel] of ['NATIONAL','REGION','BRANCH','UNIT'].entries()){
     state=[];
     const ready={id:900+index,employee_id:101,level:initialLevel,is_active:true,user_eligible:true};
     props={nodes:parents,candidates:[],managers:[],managerUsers:[staff],initialLevel,onCancel(){},onSaved:async()=>{},
       onRefresh:async()=>({data:{can_manage:true,nodes:parents,candidates:[],managers:[ready],manager_users:[staff]}})};
+    if(initialLevel==='BRANCH'){
+      assert.equal(find('org-manager'),undefined);
+      change('org-code','TEST_BRANCH');change('org-name','Test Branch');change('org-parent','2');
+      assert.equal(save().data.manager_id,null,'A Branch can be explicitly saved without a manager');
+      continue;
+    }
     const option=find('org-manager').props.options.find(item=>item.value==='user:101');
     assert(option,'Unenrolled Sales Manager must be listed at every level');
     assert.equal(option.label,'Visible Sales Manager');
@@ -210,5 +224,5 @@ console.log('PASS: hierarchy levels, source drafts, hidden Year/GI branch and ot
     assert.equal(find('org-manager').props.value,String(ready.id),'New enrollment must become the selected designation');
     assert.equal(saveButton().props.disabled,false,'Valid assignment becomes saveable without reselecting the user');
   }
-  console.log('PASS: Sales Manager users appear at all four levels before enrollment; inline enrollment binds the right account/category and selects the resulting designation.');
+  console.log('PASS: Branches save with no manager; other levels require explicit eligible category enrollment.');
 })().catch(error=>{console.error(error);process.exitCode=1});

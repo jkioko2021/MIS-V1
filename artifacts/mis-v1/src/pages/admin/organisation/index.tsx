@@ -92,7 +92,7 @@ export default function OrganisationPage() {
   const levelPendingSources = pendingSources.filter(candidate => !displayLevel || candidate.level === displayLevel);
   const pendingRows = levelPendingSources.filter(candidate =>
     (statusFilter === 'all' || statusFilter === 'pending')
-    && `${candidate.code} ${candidate.name} ${LEVEL_LABEL[candidate.level]} ${candidate.parent_code ?? ''} Pending Setup`
+    && `${candidate.code} ${candidate.name} ${LEVEL_LABEL[candidate.level]} ${candidate.parent_code ?? ''} ${candidate.linked_manager_name ?? ''} ${candidate.setup_note ?? ''} ${candidate.branch_approved ? 'Approved for setup' : ''} Pending Setup`
       .toLowerCase().includes(search.toLowerCase().trim()));
   const tableRecords: Array<{ kind: 'node'; record: OrganisationNode } | { kind: 'pending'; record: OrganisationCandidate }> = [
     ...rows.map(record => ({ kind: 'node' as const, record })),
@@ -216,7 +216,8 @@ export default function OrganisationPage() {
             <b>Uploaded records — Pending Setup</b>
             <p className="mt-1">{(['REGION', 'BRANCH', 'UNIT'] as const).filter(item => !displayLevel || item === displayLevel).map(item =>
               `${levelPendingSources.filter(candidate => candidate.level === item).length} ${item === 'REGION' ? 'Regions' : item === 'BRANCH' ? 'Branches' : 'Units'}`,
-            ).join(' · ')}. Complete parent and manager setup before using them for agent assignments.</p>
+            ).join(' · ')}. Complete parent setup and required manager enrollments before using them for agent assignments.</p>
+            <p className="mt-1 text-xs">Verified manager links and Branch setup approvals do not activate the hierarchy. Branches have no assigned manager; unresolved manager references remain pending.</p>
           </div>}
           {canManage && !isHierarchy && level !== 'NATIONAL' && <MedicalRecords
             snapshot={catalogs}

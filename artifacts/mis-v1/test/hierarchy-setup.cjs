@@ -152,6 +152,20 @@ assert(pendingTree.some(node => node.type === 'td' && node.props.children === 'N
 assert(JSON.stringify(pendingTree).includes('Imported parent: Uploaded organisation 1-1'));
 pendingTree.find(node => node.type === 'Button').props.onClick();
 assert.equal(chosen, pendingUnit);
+const matchedManagerTree=walk(rowOutput.PendingManagerDetails({candidate:{...pendingUnit,
+  linked_manager_name:'Verified Unit Manager',manager_link_status:'MATCHED',
+  setup_note:'Linked account; operational setup pending.'}}));
+assert(JSON.stringify(matchedManagerTree).includes('Verified Unit Manager'));
+assert(JSON.stringify(matchedManagerTree).includes('operational setup pending'));
+const unresolvedTree=walk(rowOutput.PendingManagerDetails({candidate:{...pendingUnit,
+  manager_link_status:'UNRESOLVED',setup_note:'The uploaded manager reference is missing.'}}));
+assert(JSON.stringify(unresolvedTree).includes('Manager match needs attention'));
+assert(JSON.stringify(unresolvedTree).includes('uploaded manager reference is missing'));
+const approvedBranch={...candidates.find(item=>item.level==='BRANCH'),branch_approved:true,manager_link_status:'NOT_REQUIRED'};
+const branchTree=walk(rowOutput.PendingHierarchyRow({candidate:approvedBranch,nodes,candidates,onSetup(){}}));
+assert(branchTree.some(node=>node.type==='Badge'&&node.props.children==='Approved for setup'));
+assert(branchTree.some(node=>node.type==='Badge'&&node.props.children==='Pending Setup'),'Branch approval must not activate the hierarchy');
+assert(JSON.stringify(walk(rowOutput.PendingManagerDetails({candidate:approvedBranch}))).includes('No manager required'));
 const app = fs.readFileSync(path.join(root, 'src/App.tsx'), 'utf8');
 assert.equal((app.match(/label: 'Hierachy Setup'/g) || []).length, 1);
 for (const [slug, level] of Object.entries({ national: 'NATIONAL', regions: 'REGION', branches: 'BRANCH', units: 'UNIT' })) {

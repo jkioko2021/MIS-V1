@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { MedicalOrganisationDetails } from './medicalOrganisationDetails';
+import type { OrganisationCandidateManagerLinkStatus } from './organisationCandidateManagerLinkStatus';
 import type { SalesLevel } from './salesLevel';
 
 export interface OrganisationCandidate {
@@ -16,4 +17,12 @@ export interface OrganisationCandidate {
   /** @nullable */
   parent_code: string | null;
   medical_details?: MedicalOrganisationDetails;
+  /** @nullable */
+  linked_manager_employee_id?: number | null;
+  /** @nullable */
+  linked_manager_name?: string | null;
+  manager_link_status?: OrganisationCandidateManagerLinkStatus;
+  branch_approved?: boolean;
+  /** @nullable */
+  setup_note?: string | null;
 }

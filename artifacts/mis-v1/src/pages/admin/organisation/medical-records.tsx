@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { SourceReferenceDetails } from '@/pages/admin/sales-structure/catalogs/source-reference-details';
 import { displayFieldLabel, displayReference } from '@/pages/admin/sales-structure/catalogs/catalog-display';
 import { LEVEL_LABEL, pathNames } from './shared';
+import { PendingManagerDetails } from './pending-hierarchy-row';
 
 type MedicalEntry = SalesCatalogEntry & { source_reference_id?: number };
 type MedicalCandidate = OrganisationCandidate & { medical_details?: Record<string, string | null> };
@@ -155,6 +156,7 @@ export function MedicalRecords({
               <h3 className="font-semibold text-[#214638]">{entry.name}</h3>
               <span className="font-mono text-xs text-muted-foreground">{entry.code}</span>
               <RecordStatus adopted={!!linkedNode} />
+              {!linkedNode && candidate?.branch_approved && <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-900">Approved for setup</Badge>}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">{LEVEL_LABEL[recordLevel!]} · original imported Medical source</p>
             {keyFields.length > 0 && snapshot && <div className="mt-3 rounded-lg bg-muted/25 p-3">
@@ -166,6 +168,7 @@ export function MedicalRecords({
                 </div>)}
               </dl>
             </div>}
+            {!linkedNode && candidate && <div className="mt-2 text-sm"><PendingManagerDetails candidate={candidate} /></div>}
             <div className="mt-2 rounded-lg border border-[#dce7df] bg-[#f7faf7] px-3 py-2 text-xs leading-5">
               <p className="font-semibold text-[#315b49]">Current operational hierarchy</p>
               {linkedNode
