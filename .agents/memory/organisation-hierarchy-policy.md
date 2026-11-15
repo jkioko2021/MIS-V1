@@ -5,8 +5,10 @@ description: Canonical hierarchy, legacy-reference compatibility and historical 
 
 The full organisation workflow is National → Region → Branch → Unit → Agent.
 Agent registration selects one Unit; its ancestors are derived, not independently
-editable selections. Each operational level requires an eligible manager
-designation of the corresponding category. New hierarchy setup does not activate,
+editable selections. Operational National, Region and Unit levels require an
+eligible manager designation of the corresponding category. Branches have no
+managers: leave their manager blank and approve them, as the user requested.
+New hierarchy setup does not activate,
 approve or change the profile of an existing login account.
 
 **Why:** The user supplied the Organisation Structure Hierarchy & Agent Mapping
