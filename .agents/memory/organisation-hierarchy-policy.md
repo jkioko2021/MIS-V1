@@ -91,3 +91,10 @@ The user subsequently requested explicit filtering by the selected hierarchy
 level: Region shows only Regions, Branch only Branches and Unit only Units.
 Keep this as a visible dropdown, not restored tabs, and synchronize it with
 the entry form's selected level.
+
+Hierarchy Setup forms omit Speciality, Unit type, Branch type and GI unit.
+
+**Why:** The user requested removing these fields from Hierarchy Setup.
+
+**How to apply:** Keep them out of create/edit controls without deleting
+historical or original imported values.

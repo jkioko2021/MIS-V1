@@ -26,27 +26,19 @@ const MEDICAL_FIELDS: Record<'REGION' | 'BRANCH' | 'UNIT', Array<{ key: string; 
     { key: 'VALID_TO', label: 'Valid to', input: 'date' },
   ],
   BRANCH: [
-    { key: 'BRANCH_TYPE', label: 'Branch type', input: 'text' },
-    { key: 'SPECIALITY', label: 'Speciality', input: 'text' },
     { key: 'GI_BRANCH', label: 'GI branch', input: 'select' },
   ],
   UNIT: [
-    { key: 'UNIT_TYPE', label: 'Unit type', input: 'text' },
-    { key: 'SPECIALITY', label: 'Speciality', input: 'text' },
     { key: 'YEAR', label: 'Year', input: 'text' },
     { key: 'VALID_FROM', label: 'Valid from', input: 'date' },
     { key: 'VALID_TO', label: 'Valid to', input: 'date' },
     { key: 'MIS_NO', label: 'MIS number', input: 'text' },
-    { key: 'GI_UNIT', label: 'GI unit', input: 'select' },
   ],
 };
 
 const MEDICAL_MAX_LENGTH: Record<string, number> = {
   VALID_FROM: 10,
   VALID_TO: 10,
-  BRANCH_TYPE: 50,
-  SPECIALITY: 5,
-  UNIT_TYPE: 50,
   YEAR: 4,
   MIS_NO: 20,
 };

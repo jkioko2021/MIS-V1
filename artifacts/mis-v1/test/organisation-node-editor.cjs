@@ -60,7 +60,7 @@ state=[];
 props={...props,candidates:[
   {source_reference_id:10,code:'R_SOURCE',name:'Source region',level:'REGION',parent_code:null},
   {source_reference_id:11,code:'B_SOURCE',name:'Source branch',level:'BRANCH',parent_code:'R001',
-    medical_details:{BRANCH_TYPE:'Agency',SPECIALITY:'GEN'}},
+    medical_details:{BRANCH_TYPE:'Agency',SPECIALITY:'GEN',GI_BRANCH:'GB1'}},
 ]};
 change('org-level','REGION');change('org-source-candidate','10');change('org-parent','1');
 assert.equal(find('org-source-candidate').props.value,'10','A Region with no legacy National retains its selected reference');
@@ -72,8 +72,9 @@ change('org-parent','4');
 assert.equal(find('org-source-candidate').props.value,'','Incompatible source link is cleared');
 assert.equal(find('org-code').props.value,'B_SOURCE','Source-derived draft text is retained for explicit correction');
 assert.equal(find('org-name').props.value,'Source branch');
-assert.equal(find('medical-branch_type').props.value,'Agency','Parent changes preserve source-derived medical draft values');
-assert.equal(find('medical-speciality').props.value,'GEN','Parent changes preserve source-derived medical draft values');
+assert.equal(find('medical-gi_branch').props.value,'GB1','Parent changes preserve remaining source-derived medical draft values');
+assert.equal(find('medical-branch_type'),undefined);
+assert.equal(find('medical-speciality'),undefined);
 state=[];
 props={...props,node:{...nodes[2],version:1,manager_id:12},managers:[
   {id:12,level:'REGION',is_active:true,user_eligible:true,employee_name:'Region Manager'},
@@ -126,10 +127,8 @@ assert.equal(find('org-source-candidate').props.options.find(item=>item.value===
   'Imported source dropdown labels use names only');
 assert.equal(find('org-parent').props.options.find(item=>item.value==='3').label,'Region One',
   'Parent dropdown labels use names only');
-assert.equal(find('medical-branch_type').props.value,'Agency','Imported Medical defaults preload into editor');
-assert.equal(find('medical-speciality').props.value,'GEN','Imported Medical defaults preload into editor');
-assert.equal(find('medical-branch_type').props.maxLength,50);
-assert.equal(find('medical-speciality').props.maxLength,5);
+assert.equal(find('medical-branch_type'),undefined,'Branch type is not shown on hierarchy forms');
+assert.equal(find('medical-speciality'),undefined,'Speciality is not shown on hierarchy forms');
 assert.equal(find('medical-gi_branch').props.value,'GB1','Imported GI reference code is retained as the value');
 const giOptions=find('medical-gi_branch').props.options;
 assert.equal(giOptions.filter(item=>item.value==='GB1').length,1,'GI choices with the same code are deduplicated');
@@ -147,17 +146,29 @@ props={nodes,candidates:[],managers:[
   ...nodes[2],level:'BRANCH',version:3,parent_id:1,manager_id:32,
   medical_details:{BRANCH_TYPE:'Agency',SPECIALITY:'GEN',GI_BRANCH:'GB1'},
 }};
-change('medical-branch_type','Agency Plus');
-change('medical-speciality','');
+assert.equal(find('medical-branch_type'),undefined,'Branch type is also hidden when editing');
+assert.equal(find('medical-speciality'),undefined,'Speciality is also hidden when editing');
+change('medical-gi_branch','');
 const updateSave=save();
-assert.deepEqual(plain(updateSave.data.medical_details),{BRANCH_TYPE:'Agency Plus',SPECIALITY:null},
-  'Update sends changed values and explicit null clearing while omitting unchanged metadata');
+assert.deepEqual(plain(updateSave.data.medical_details),{GI_BRANCH:null},
+  'Update clears an editable value without clearing or overwriting removed fields');
 
 state=[];props={nodes,candidates:[],managers:[]};change('org-level','UNIT');
 for(const [field,length] of Object.entries({
-  'medical-unit_type':50,'medical-speciality':5,'medical-year':4,
+  'medical-year':4,
   'medical-valid_from':10,'medical-valid_to':10,'medical-mis_no':20,
 }))assert.equal(find(field).props.maxLength,length,`${field} matches the backend limit`);
+for (const field of ['medical-unit_type','medical-speciality','medical-gi_unit']) {
+  assert.equal(find(field),undefined,`${field} must not appear on Unit creation`);
+}
+state=[];props={nodes:[...nodes,{id:5,level:'BRANCH',name:'Branch parent',code:'BRANCH_KEEP',is_active:true,available:true,parent_id:3}],
+  candidates:[],managers:[{id:33,level:'UNIT',is_active:true,user_eligible:true,employee_name:'Unit Manager'}],
+  node:{id:20,level:'UNIT',version:1,code:'UNIT_KEEP',name:'Unit with retained source values',
+    parent_id:5,manager_id:33,is_active:true,
+    medical_details:{UNIT_TYPE:'Existing',SPECIALITY:'GEN',GI_UNIT:'OLD_GI',YEAR:'2026'}}};
+for (const field of ['medical-unit_type','medical-speciality','medical-gi_unit']) assert.equal(find(field),undefined);
+change('medical-year','2027');
+assert.deepEqual(plain(save().data.medical_details),{YEAR:'2027'},'Unit edits preserve all hidden metadata');
 
 const page=fs.readFileSync(path.join(__dirname,'../src/pages/admin/organisation/index.tsx'),'utf8');
 assert.match(page,/if \(current\) setEditor\(current\)/,'Explicit version refresh must replace the editor snapshot, not just the query cache');
