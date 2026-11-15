@@ -52,6 +52,27 @@ props={...props,candidates:[mappedRegion],initialCandidate:mappedRegion};
 assert.equal(find('org-parent').props.value,'1','Completing a mapped Region must prefill its confirmed National');
 state=[];props={nodes,candidates:[],managers:[],onCancel(){},onSaved:async()=>{},onRefresh:async()=>{}};
 let changedLevel;
+state=[];
+props={...props,initialLevel:'UNIT',nodes:[...nodes,
+  {id:20,code:'B_READY',name:'Ready Branch',level:'BRANCH',available:true,is_active:true},
+  {id:21,code:'B_BLOCKED',name:'Unavailable Branch',level:'BRANCH',available:false,is_active:true}],
+  candidates:[
+    {source_reference_id:31,code:'B_IMPORTED',name:'Imported Branch Name',level:'BRANCH'},
+    {source_reference_id:32,code:'b_ready',name:'Duplicate imported Branch',level:'BRANCH'},
+    {source_reference_id:33,code:'R_IMPORTED',name:'Imported Region',level:'REGION'},
+  ]};
+let branchParents=find('org-parent').props.options;
+assert.equal(branchParents.length,3,'List operational and imported Branches, without duplicate codes or other levels');
+assert.equal(branchParents.find(option=>option.value==='20').label,'Ready Branch');
+assert.equal(branchParents.find(option=>option.value==='20').disabled,false);
+assert.equal(branchParents.find(option=>option.value==='21').disabled,true);
+assert.equal(branchParents.find(option=>option.value==='pending:31').label,'Imported Branch Name');
+assert.equal(branchParents.find(option=>option.value==='pending:31').disabled,true);
+change('org-parent','pending:31');
+assert.equal(find('org-parent').props.value,'','A pending source ID must never become an operational parent ID');
+change('org-parent','20');
+assert.equal(find('org-parent').props.value,'20');
+state=[];props={nodes,candidates:[],managers:[],onCancel(){},onSaved:async()=>{},onRefresh:async()=>{}};
 props.onLevelChange = level => { changedLevel = level; };
 change('org-level','REGION');
 assert.equal(changedLevel, 'REGION', 'Entry level changes must notify the hierarchy list');

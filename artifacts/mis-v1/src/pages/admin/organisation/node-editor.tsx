@@ -112,7 +112,17 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
   const parentLevel: SalesLevel | null = level === 'REGION' ? 'NATIONAL' : level === 'BRANCH' ? 'REGION' : level === 'UNIT' ? 'BRANCH' : null;
   const currentParent = nodes.find((entry) => entry.id === node?.parent_id);
   const parentOptions = parentLevel ? nodes.filter((entry) => entry.level === parentLevel && entry.id !== node?.id
-    && (entry.available || entry.id === node?.parent_id)) : [];
+    && (parentLevel === 'BRANCH' || entry.available || entry.id === node?.parent_id)) : [];
+  const pendingBranchParents = parentLevel === 'BRANCH' ? candidates.filter(candidate =>
+    candidate.level === 'BRANCH' && !nodes.some(entry => entry.level === 'BRANCH'
+      && entry.code.trim().toUpperCase() === candidate.code.trim().toUpperCase())) : [];
+  const parentChoices: SearchableSelectOption[] = [
+    ...parentOptions.map(parent => ({ value: String(parent.id), label: parent.name,
+      disabled: !parent.available && parent.id !== node?.parent_id,
+      description: !parent.available ? parent.id === node?.parent_id ? 'Retained current parent' : 'Hierarchy not yet available' : undefined })),
+    ...pendingBranchParents.map(parent => ({ value: `pending:${parent.source_reference_id}`, label: parent.name,
+      disabled: true, description: 'Pending Setup — complete the Branch hierarchy first' })),
+  ].sort((a,b)=>a.label.localeCompare(b.label));
   const managerOptions = managers.filter((manager) =>
     manager.level === level && ((manager.is_active && manager.user_eligible) || manager.id === node?.manager_id));
   const readyDesignation = (employeeId: number) => managerOptions.find(manager =>
@@ -150,7 +160,7 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
   const activeChildren = node ? nodes.some((item) => item.parent_id === node.id && item.is_active) : false;
   const valid = name.trim().length > 0 && ((level === 'BRANCH' && !managerId) || /^\d+$/.test(managerId))
     && (node || /^[A-Za-z0-9_-]{1,40}$/.test(code.trim()))
-    && (level === 'NATIONAL' || Boolean(parentId))
+    && (level === 'NATIONAL' || /^\d+$/.test(parentId))
     && !(node?.is_active && !active && activeChildren)
     && (!selectedCandidate || selectedCandidate.code === code);
 
@@ -203,6 +213,7 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
     }
   };
   const changeParent = (value: string) => {
+    if (value.startsWith('pending:')) return;
     setParentId(value);
     const nextParent = nodes.find(entry => entry.id === Number(value));
     if (selectedCandidate && !missingSourceParent(selectedCandidate.parent_code)
@@ -309,9 +320,9 @@ export function NodeEditor({ node, nodes, candidates, managers, managerUsers, ca
         <SearchableSelect id="org-parent" value={parentId} onValueChange={changeParent}
           placeholder={`Choose an available ${LEVEL_LABEL[parentLevel].toLowerCase()}`}
           searchPlaceholder={`Search ${LEVEL_LABEL[parentLevel].toLowerCase()} names…`}
-          options={parentOptions.map(parent => ({ value: String(parent.id), label: parent.name,
-            description: !parent.available ? 'Retained current parent' : undefined }))} />
-        {!parentOptions.length && <p className="text-xs text-amber-800">Create an available {LEVEL_LABEL[parentLevel].toLowerCase()} first. A missing parent cannot be inferred or fabricated.</p>}
+          options={parentChoices} />
+        {!!pendingBranchParents.length && <p className="text-xs text-muted-foreground">{pendingBranchParents.length} imported Branches are listed by name. Pending Setup Branches become selectable after their parent hierarchy is completed.</p>}
+        {!parentOptions.some(parent=>parent.available || parent.id===node?.parent_id) && <p className="text-xs text-amber-800">Complete an available {LEVEL_LABEL[parentLevel].toLowerCase()} first. A missing operational parent cannot be inferred or fabricated.</p>}
         {currentParent && !currentParent.available && currentParent.id === Number(parentId) && <p className="text-xs text-amber-800">The current unavailable parent is retained for historical context. Choose an available parent to reparent this entry.</p>}
       </div>}
       {<div className="space-y-1.5 sm:col-span-2">
