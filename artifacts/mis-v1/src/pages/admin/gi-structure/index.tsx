@@ -3,12 +3,12 @@ import { Link, useLocation } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowDownRight, ArrowRight, Building2, Check, ChevronRight, CircleHelp, Clock3,
-  GitBranch, History, Network, Pencil, Plus, RefreshCw, Search,
+  GitBranch, Network, Pencil, Plus, RefreshCw, Search,
   ShieldCheck, Unlink, UsersRound, Workflow,
 } from 'lucide-react';
 import {
   getGetGiStructureHistoryQueryKey, getGetGiStructureQueryKey, useGetGiStructure,
-  useGetGiStructureHistory, useRemoveGiMedicalMapping,
+  useRemoveGiMedicalMapping,
   useSaveGiMedicalMappings, useSaveGiStructureNode,
 } from '@workspace/api-client-react';
 import type {
@@ -55,46 +55,6 @@ function Notice({ children, tone = 'info' }: { children: ReactNode; tone?: 'info
     : tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
       : 'border-[#d6e3da] bg-[#eaf2ec] text-[#385c4c]';
   return <div className={cn('rounded-lg border px-4 py-3 text-sm leading-6', color)}>{children}</div>;
-}
-
-function HistoryList({ entityType, entityKey, identity }: { entityType: 'NODE' | 'MANAGER' | 'MAPPING'; entityKey: string; identity: readonly unknown[] }) {
-  const [open, setOpen] = useState(false);
-  const params = { entity_type: entityType, entity_key: entityKey };
-  const queryKey = [...getGetGiStructureHistoryQueryKey(params), ...identity] as const;
-  const { data, isLoading, isError, error, refetch } = useGetGiStructureHistory(params, {
-    query: { queryKey, enabled: !!entityKey && open },
-  });
-  return <details className="group rounded-lg border bg-card" onToggle={event => setOpen(event.currentTarget.open)}>
-    <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium">
-      <History className="h-4 w-4 text-primary" />Change history <span className="text-xs font-normal text-muted-foreground">Latest 100</span>
-      <ChevronRight className="ml-auto h-4 w-4 transition-transform group-open:rotate-90" />
-    </summary>
-    <div className="border-t p-4">
-      {isLoading ? <div className="space-y-2">{[0, 1].map(i => <div key={i} className="h-12 animate-pulse rounded bg-muted" />)}</div>
-        : isError ? <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-destructive"><span>{errorMessage(error)}</span><Button size="sm" variant="outline" onClick={() => { void refetch(); }}>Retry</Button></div>
-          : !data?.length ? <p className="text-sm text-muted-foreground">No recorded changes yet.</p>
-            : <ol className="space-y-4">{data.map(event => <li key={event.id} className="border-l-2 border-[#b9d0c1] pl-4">
-              <div className="flex flex-wrap items-center justify-between gap-2"><b className="text-sm">{event.actor}</b><time className="text-xs text-muted-foreground">{dateLabel(event.created_at)}</time></div>
-              <p className="mt-1 text-sm text-foreground">{event.reason}</p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {event.before_details && <DetailPreview title="Before" value={event.before_details} />}
-                <DetailPreview title="After" value={event.after_details} />
-              </div>
-            </li>)}</ol>}
-    </div>
-  </details>;
-}
-
-function DetailPreview({ title, value }: { title: string; value: string }) {
-  let text = value;
-  try {
-    const parsed = JSON.parse(value) as Record<string, unknown>;
-    text = Object.entries(parsed)
-      .filter(([key]) => !['id', 'version', 'employee_id', 'manager_id', 'parent_id', 'gi_unit_id'].includes(key))
-      .map(([key, item]) => `${key.replaceAll('_', ' ')}: ${typeof item === 'object' ? JSON.stringify(item) : String(item ?? '—')}`)
-      .join(' · ') || value;
-  } catch { /* Historical text can be shown as supplied. */ }
-  return <div className="rounded-md bg-muted/50 p-2.5"><span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{title}</span><p className="mt-1 break-words text-xs leading-5">{text}</p></div>;
 }
 
 function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
@@ -182,7 +142,7 @@ function NodeForm({ node, snapshot, onDone, onCancel }: { node?: GiNode; snapsho
   </Overlay>;
 }
 
-function MappingWorkspace({ snapshot, identity }: { snapshot: GiStructureSnapshot; identity: readonly unknown[] }) {
+function MappingWorkspace({ snapshot }: { snapshot: GiStructureSnapshot }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const saveMappings = useSaveGiMedicalMappings();
@@ -366,7 +326,6 @@ function MappingWorkspace({ snapshot, identity }: { snapshot: GiStructureSnapsho
             <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{unit.name}</p><span className="font-mono text-[10px] text-muted-foreground">{unit.code}</span></div><p className="mt-1 text-xs text-muted-foreground">{unit.branch_name || 'Branch not recorded'}</p></div>
             <div className="flex min-w-0 items-center gap-2 rounded-md bg-muted/35 px-3 py-2"><ArrowDownRight className="h-4 w-4 shrink-0 text-primary" /><span className="min-w-0 flex-1 truncate text-sm font-medium">{unit.gi_unit_name || 'GI Unit unavailable'}</span><StatusPill status={unit.available ? 'ACTIVE' : 'PENDING'} available={unit.mapping_available} /></div>
             <Button size="sm" variant="outline" onClick={() => { setRemoveTarget({ ...unit }); setRemoveReason(''); }} disabled={busy} className="w-full gap-1.5 lg:w-auto" data-testid={`button-remove-mapping-${unit.code}`}><Unlink className="h-3.5 w-3.5" />Remove</Button>
-            <div className="lg:col-span-3"><HistoryList entityType="MAPPING" entityKey={unit.code} identity={identity} /></div>
           </article>)}
         </div>}
       <div className="border-t p-4"><Notice tone="warning">Setup links are not operational assignments. Pending Medical Units or GI Units may be mapped explicitly, but neither side is activated by mapping.</Notice></div>
@@ -439,7 +398,6 @@ export default function GiStructurePage() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [search, setSearch] = useState('');
   const [managerSearch, setManagerSearch] = useState('');
-  const identity = [user?.id ?? null, user?.profileId ?? null] as const;
   const canManage = !!user && (user.profileId === 1 || user.profileId === 2 || user.profileName?.trim().toLowerCase() === 'national sales admin');
   const nodes = snapshot?.nodes ?? [];
   const managers = snapshot?.managers ?? [];
@@ -490,7 +448,6 @@ export default function GiStructurePage() {
                 <td className="hidden" />
               </tr>)}</tbody></table></div>}
           </section>
-          {filteredNodes.map(node => <HistoryList key={`history-${node.id}`} entityType="NODE" entityKey={String(node.id)} identity={identity} />)}
         </div>}
         {view === 'managers' && <div className="space-y-5">
           <Notice>GI Manager designations reuse eligible Sales Manager identities. GI source IDs remain independent from verified employee accounts; duplicate designations never create duplicate users. A person may be assigned to multiple Units.</Notice>
@@ -516,7 +473,6 @@ export default function GiStructurePage() {
                   </div>
                   <ManagerMedicalUnits manager={manager} snapshot={snapshot} />
                   {sourceReference && <p className="mt-3 text-xs text-muted-foreground">Source status · {sourceReference.source_active ? 'Marked active in import' : 'Marked inactive in import'}{sourceReference.review_note ? ` · ${sourceReference.review_note}` : ''}</p>}
-                  <div className="mt-4"><HistoryList entityType="MANAGER" entityKey={String(manager.id)} identity={identity} /></div>
                 </article>;
               })}</div>}
           </section>
@@ -527,7 +483,7 @@ export default function GiStructurePage() {
             </article>)}</div>
           </section>}
         </div>}
-        {view === 'medical-units' && <MappingWorkspace snapshot={snapshot} identity={identity} />}
+        {view === 'medical-units' && <MappingWorkspace snapshot={snapshot} />}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#d6e3da] bg-[#eaf2ec] px-4 py-3 text-xs text-[#456454]"><span className="flex items-center gap-2"><CircleHelp className="h-4 w-4" />Structure, enrollment and mapping changes are versioned and reason-recorded.</span>{canManage && <span className="font-medium">Access: system administrators and National Sales Admin</span>}</div>
       </>}
     </main>
