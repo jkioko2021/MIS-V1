@@ -27,6 +27,7 @@ import { identityQueryKey, errorMessage } from '../organisation/shared';
 import { ManagerForm } from './manager-form';
 import { NodeStatusAction } from './node-status-action';
 import { LinkedMedicalUnits, NodeViewAction } from './node-view-action';
+import { ManagerMedicalUnits } from './manager-medical-units';
 
 type View = 'dashboard' | 'hierarchy' | 'managers' | 'medical-units';
 const views: Array<{ id: View; label: string; icon: typeof Network }> = [
@@ -189,84 +190,192 @@ function MappingWorkspace({ snapshot, identity }: { snapshot: GiStructureSnapsho
   const [selectedGi, setSelectedGi] = useState('');
   const [selectedUnits, setSelectedUnits] = useState<string[]>([]);
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<'all' | 'unmapped' | 'mapped' | 'setup'>('all');
   const [reason, setReason] = useState('');
-  const [confirmation, setConfirmation] = useState<GiMedicalUnit[] | null>(null);
+  const [confirmation, setConfirmation] = useState<{ target: { id: number; name: string }; records: GiMedicalUnit[] } | null>(null);
   const [removeTarget, setRemoveTarget] = useState<GiMedicalUnit | null>(null);
   const [removeReason, setRemoveReason] = useState('');
   const giUnits = snapshot.nodes.filter(node => node.level === 'UNIT' && node.status !== 'INACTIVE');
   const target = giUnits.find(item => String(item.id) === selectedGi);
-  const filteredUnits = snapshot.medical_units.filter(item => `${item.name} ${item.branch_name ?? ''} ${item.code}`.toLowerCase().includes(search.trim().toLowerCase()));
+  const normalizedSearch = search.trim().toLowerCase();
+  const filteredUnits = useMemo(() => snapshot.medical_units
+    .filter(item => `${item.name} ${item.branch_name ?? ''} ${item.code}`.toLowerCase().includes(normalizedSearch))
+    .filter(item => filter === 'all'
+      || (filter === 'unmapped' && item.gi_unit_id == null)
+      || (filter === 'mapped' && item.gi_unit_id != null)
+      || (filter === 'setup' && item.gi_unit_id != null && !item.mapping_available))
+    .slice().sort((a, b) => a.name.localeCompare(b.name)),
+  [snapshot.medical_units, normalizedSearch, filter]);
   const mappings = snapshot.medical_units.filter(unit => unit.gi_unit_id != null);
+  const selectedRecords = snapshot.medical_units.filter(unit => selectedUnits.includes(unit.code));
+  const reassignmentCount = selectedRecords.filter(unit => unit.gi_unit_id != null && unit.gi_unit_id !== target?.id).length;
+  const busy = saveMappings.isPending || removeMapping.isPending;
   const toggle = (code: string) => setSelectedUnits(current => current.includes(code) ? current.filter(item => item !== code) : [...current, code]);
-  const requestSave = () => {
-    const records = snapshot.medical_units.filter(unit => selectedUnits.includes(unit.code));
-    const changed = records.filter(unit => unit.gi_unit_id != null && unit.gi_unit_id !== Number(selectedGi));
-    if (changed.length) setConfirmation(records);
-    else void persistMappings(records);
+  const selectVisible = () => setSelectedUnits(current => {
+    const visibleCodes = filteredUnits.map(unit => unit.code);
+    const allVisibleSelected = visibleCodes.length > 0 && visibleCodes.every(code => current.includes(code));
+    return allVisibleSelected
+      ? current.filter(code => !visibleCodes.includes(code))
+      : [...new Set([...current, ...visibleCodes])];
+  });
+  const invalidateMappingQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: getGetGiStructureQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: getGetGiStructureHistoryQueryKey() }),
+    ]);
   };
-  const persistMappings = async (records: GiMedicalUnit[]) => {
-    if (!target || !reason.trim() || !records.length) return;
+  const requestSave = () => {
+    if (!target || busy) return;
+    const records = snapshot.medical_units
+      .filter(unit => selectedUnits.includes(unit.code))
+      .map(unit => ({ ...unit }));
+    const changed = records.some(unit => unit.gi_unit_id != null && unit.gi_unit_id !== target.id);
+    if (changed) setConfirmation({ target: { id: target.id, name: target.name }, records });
+    else void persistMappings(records, { id: target.id, name: target.name });
+  };
+  const persistMappings = async (records: GiMedicalUnit[], frozenTarget: { id: number; name: string }) => {
+    if (!reason.trim() || reason.trim().length < 3 || !records.length || busy) return;
     try {
-      await saveMappings.mutateAsync({ data: { gi_unit_id: target.id, units: records.map(unit => ({ medical_unit_code: unit.code, version: unit.mapping_version })), reason: reason.trim() } });
-      await queryClient.invalidateQueries({ queryKey: getGetGiStructureQueryKey() });
-      await queryClient.invalidateQueries({ queryKey: ['/api/gi-structure/history'] });
-      toast({ title: 'Medical Unit mappings saved', description: `${records.length} Medical Unit${records.length === 1 ? '' : 's'} linked to ${target.name}.` });
-      setSelectedUnits([]); setReason(''); setConfirmation(null);
+      await saveMappings.mutateAsync({ data: { gi_unit_id: frozenTarget.id, units: records.map(unit => ({ medical_unit_code: unit.code, version: unit.mapping_version })), reason: reason.trim() } });
+      await invalidateMappingQueries();
+      toast({ title: 'Medical Unit mappings saved', description: `${records.length} Medical Unit${records.length === 1 ? '' : 's'} linked to ${frozenTarget.name}.` });
+      const savedCodes = new Set(records.map(unit => unit.code));
+      setSelectedUnits(current => current.filter(code => !savedCodes.has(code)));
+      setReason('');
+      setConfirmation(null);
     } catch (error) { toast({ title: 'Could not save mappings', description: errorMessage(error), variant: 'destructive' }); }
   };
   const submitRemove = async () => {
-    if (!removeTarget || removeReason.trim().length < 3) return;
+    if (!removeTarget || removeReason.trim().length < 3 || busy) return;
+    const frozenTarget = { ...removeTarget };
     try {
-      await removeMapping.mutateAsync({ data: { medical_unit_code: removeTarget.code, version: removeTarget.mapping_version, reason: removeReason.trim() } });
-      await queryClient.invalidateQueries({ queryKey: getGetGiStructureQueryKey() });
-      await queryClient.invalidateQueries({ queryKey: ['/api/gi-structure/history'] });
-      toast({ title: 'Mapping removed', description: `${removeTarget.name} is now unmapped.` });
+      await removeMapping.mutateAsync({ data: { medical_unit_code: frozenTarget.code, version: frozenTarget.mapping_version, reason: removeReason.trim() } });
+      await invalidateMappingQueries();
+      toast({ title: 'Mapping removed', description: `${frozenTarget.name} is now unmapped.` });
+      setSelectedUnits(current => current.filter(code => code !== frozenTarget.code));
       setRemoveTarget(null); setRemoveReason('');
     } catch (error) { toast({ title: 'Could not remove mapping', description: errorMessage(error), variant: 'destructive' }); }
   };
-  const historyIdentity = identity;
+  const allVisibleSelected = filteredUnits.length > 0 && filteredUnits.every(unit => selectedUnits.includes(unit.code));
+  const setupCount = mappings.filter(unit => !unit.mapping_available).length;
   return <div className="space-y-5">
-    <Notice><b>Many-to-one mapping.</b> Select several Medical Units and assign them to one GI Unit. A Medical Unit can have only one current GI target; a reassignment always requires confirmation.</Notice>
-    <section className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,.85fr)]">
-      <div className="rounded-xl border bg-card">
-        <div className="border-b p-4 sm:p-5"><div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-[11px] font-bold uppercase tracking-[.14em] text-primary">Build a mapping set</p><h2 className="mt-1 text-lg font-semibold">Choose Medical Units</h2></div><span className="text-xs text-muted-foreground">{selectedUnits.length} selected</span></div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(220px,.8fr)]">
-            <Field label="Target GI Unit"><SearchableSelect id="gi-mapping-target" value={selectedGi} options={giUnits.map(unit => ({ value: String(unit.id), label: unit.name, description: `${unit.parent_name || 'Branch not assigned'} · ${unit.available ? 'Operational' : 'Setup only'}`, disabled: unit.status === 'INACTIVE' }))} onValueChange={setSelectedGi} placeholder="Choose one GI Unit" searchPlaceholder="Find GI Unit…" emptyMessage="No available GI Units." /></Field>
-            <Field label="Search Medical Units"><div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={event => setSearch(event.target.value)} className="pl-9" placeholder="Name, branch or code" /></div></Field>
-          </div>
+    <section className="overflow-hidden rounded-xl border border-[#cddbd1] bg-[#eaf2ec]">
+      <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-6">
+        <div className="max-w-2xl">
+          <p className="text-[11px] font-bold uppercase tracking-[.15em] text-[#28614f]">General Insurance · accountability links</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[#19392e] sm:text-[28px]">Medical Unit mapping</h2>
+          <p className="mt-2 text-sm leading-6 text-[#4e685b]">Group Medical Units under one GI Unit. Each Medical Unit keeps one current target and its full assignment history.</p>
         </div>
-        <div className="max-h-[28rem] overflow-y-auto p-2">
-          {!filteredUnits.length ? <div className="px-4 py-10 text-center text-sm text-muted-foreground">No Medical Units match this search.</div>
-            : filteredUnits.map(unit => {
-              const selected = selectedUnits.includes(unit.code);
-              const changedTarget = unit.gi_unit_id != null && Number(selectedGi) !== unit.gi_unit_id;
-              return <label key={unit.code} className={cn('flex cursor-pointer items-start gap-3 rounded-lg border border-transparent p-3 transition-colors hover:bg-muted/40', selected && 'border-[#bdd1c2] bg-[#f0f6f1]')}>
-                <Checkbox checked={selected} onCheckedChange={() => toggle(unit.code)} className="mt-0.5" />
-                <span className="min-w-0 flex-1"><span className="block font-medium">{unit.name}</span><span className="mt-0.5 block text-xs text-muted-foreground">{unit.branch_name || 'Branch not recorded'}</span></span>
-                <span className="shrink-0 text-right"><span className="block text-xs font-medium">{unit.gi_unit_name || 'Unmapped'}</span><span className="mt-1 block"><StatusPill status={unit.available ? 'ACTIVE' : 'PENDING'} available={unit.mapping_available} /></span>{changedTarget && selected && <span className="mt-1 block text-[10px] text-amber-800">Target changes</span>}</span>
-              </label>;
-            })}
+        <div className="grid grid-cols-3 gap-2 sm:min-w-[330px]">
+          <div className="rounded-lg border border-[#c9d9cd] bg-card/75 px-3 py-2"><p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Mapped</p><p className="mt-1 text-xl font-semibold tabular-nums text-[#19392e]">{mappings.length}</p></div>
+          <div className="rounded-lg border border-[#c9d9cd] bg-card/75 px-3 py-2"><p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Unmapped</p><p className="mt-1 text-xl font-semibold tabular-nums text-[#19392e]">{snapshot.medical_units.length - mappings.length}</p></div>
+          <div className="rounded-lg border border-[#c9d9cd] bg-card/75 px-3 py-2"><p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Setup only</p><p className="mt-1 text-xl font-semibold tabular-nums text-[#19392e]">{setupCount}</p></div>
         </div>
-        <div className="space-y-3 border-t p-4 sm:p-5"><ReasonField value={reason} onChange={setReason} /><div className="flex justify-end"><Button onClick={requestSave} disabled={!selectedGi || !selectedUnits.length || reason.trim().length < 3 || saveMappings.isPending} className="gap-2">{saveMappings.isPending ? 'Saving…' : 'Save selected mappings'}<ArrowRight className="h-4 w-4" /></Button></div></div>
-      </div>
-      <div className="space-y-5">
-        <section className="rounded-xl border bg-card">
-          <div className="border-b p-4"><h2 className="font-semibold">Current mapping register</h2><p className="mt-1 text-xs text-muted-foreground">{mappings.length} Medical Units have a GI target</p></div>
-          {!mappings.length ? <div className="p-8 text-center"><Workflow className="mx-auto h-7 w-7 text-muted-foreground" /><p className="mt-2 text-sm font-medium">No mappings yet</p><p className="mt-1 text-xs text-muted-foreground">Mapped Medical Units appear here with setup and operational links distinguished.</p></div>
-            : <div className="max-h-[30rem] divide-y overflow-y-auto">{mappings.map(unit => <div key={unit.code} className="p-4">
-              <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="font-medium">{unit.name}</p><p className="mt-1 text-xs text-muted-foreground">{unit.branch_name || 'Branch not recorded'}</p></div><Button size="sm" variant="outline" onClick={() => { setRemoveTarget(unit); setRemoveReason(''); }} className="shrink-0 gap-1.5"><Unlink className="h-3.5 w-3.5" />Remove</Button></div>
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs"><ArrowDownRight className="h-3.5 w-3.5 text-primary" /><span className="font-medium">{unit.gi_unit_name}</span><StatusPill status={unit.available ? 'ACTIVE' : 'PENDING'} available={unit.mapping_available} /></div>
-              <div className="mt-3"><HistoryList entityType="MAPPING" entityKey={unit.code} identity={historyIdentity} /></div>
-            </div>)}</div>}
-        </section>
-        <Notice tone="warning">Setup links are not operational assignments. Pending Medical Units or GI Units may be mapped explicitly, but neither side is activated by mapping.</Notice>
       </div>
     </section>
-    {confirmation && <Overlay title="Confirm existing target changes" description="These Medical Units already point to another GI Unit. Confirm to replace those links; no mapping is silently overwritten." onClose={() => setConfirmation(null)}>
-      <div className="space-y-4"><div className="divide-y rounded-lg border">{confirmation.filter(unit => unit.gi_unit_id != null && unit.gi_unit_id !== Number(selectedGi)).map(unit => <div key={unit.code} className="grid gap-2 p-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center"><span className="font-medium">{unit.name}</span><span className="text-xs text-muted-foreground">{unit.gi_unit_name || 'Current target'} <ArrowRight className="inline h-3 w-3" /></span><span className="text-sm font-medium">{target?.name}</span></div>)}</div><ReasonField value={reason} onChange={setReason} /><div className="flex flex-col-reverse justify-end gap-2 sm:flex-row"><Button variant="outline" onClick={() => setConfirmation(null)}>Go back</Button><Button onClick={() => { void persistMappings(confirmation); }} disabled={saveMappings.isPending || reason.trim().length < 3}>{saveMappings.isPending ? 'Saving…' : 'Confirm reassignment'}</Button></div></div>
+
+    <Notice><b>Many-to-one relationship.</b> Select multiple Medical Units for a single GI Unit. Reassignments always require confirmation. Setup-only links remain non-operational.</Notice>
+
+    <section className="overflow-hidden rounded-xl border bg-card">
+      <div className="border-b bg-muted/25 p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><p className="text-[11px] font-bold uppercase tracking-[.14em] text-primary">01 / Build mapping set</p><h2 className="mt-1 text-lg font-semibold">Choose Medical Units</h2></div>
+          <div className="rounded-md border bg-card px-3 py-1.5 text-xs"><span className="font-semibold tabular-nums">{selectedUnits.length}</span><span className="ml-1 text-muted-foreground">selected</span></div>
+        </div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(260px,.9fr)_minmax(260px,1.1fr)]">
+          <Field label="Target GI Unit">
+            <SearchableSelect id="gi-mapping-target" value={selectedGi} options={giUnits.map(unit => ({ value: String(unit.id), label: unit.name, description: `${unit.parent_name || 'Branch not assigned'} · ${unit.available ? 'Operational' : 'Setup only'}`, disabled: unit.status === 'INACTIVE' }))} onValueChange={setSelectedGi} placeholder="Choose one GI Unit" searchPlaceholder="Find GI Unit…" emptyMessage="No available GI Units." />
+          </Field>
+          <Field label="Search Medical Units">
+            <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={event => setSearch(event.target.value)} className="pl-9" placeholder="Name, branch or code" data-testid="input-search-medical-units" /></div>
+          </Field>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter Medical Units">
+            {([
+              ['all', `All ${snapshot.medical_units.length}`],
+              ['unmapped', `Unmapped ${snapshot.medical_units.length - mappings.length}`],
+              ['mapped', `Mapped ${mappings.length}`],
+              ['setup', `Setup only ${setupCount}`],
+            ] as const).map(([value, label]) => <button key={value} type="button" onClick={() => setFilter(value)} aria-pressed={filter === value} disabled={busy} className={cn('rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-50', filter === value ? 'border-primary/30 bg-primary/10 text-primary' : 'border-transparent text-muted-foreground')} data-testid={`filter-medical-units-${value}`}>{label}</button>)}
+          </div>
+          <Button type="button" size="sm" variant="ghost" onClick={selectVisible} disabled={!filteredUnits.length || busy} className="h-8 text-xs">{allVisibleSelected ? 'Clear visible selection' : 'Select visible'}</Button>
+        </div>
+      </div>
+
+      <div className="grid gap-0 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,.55fr)]">
+        <div className="min-w-0 border-b xl:border-b-0 xl:border-r">
+          <div className="flex items-center justify-between border-b px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"><span>Medical Unit</span><span className="hidden sm:block">Current GI target · eligibility</span></div>
+          <div className="max-h-[29rem] overflow-y-auto">
+            {!filteredUnits.length ? <div className="px-5 py-12 text-center"><Search className="mx-auto h-6 w-6 text-muted-foreground" /><p className="mt-2 text-sm font-medium">No Medical Units found</p><p className="mt-1 text-xs text-muted-foreground">Try another search or filter.</p></div>
+              : filteredUnits.map(unit => {
+                const selected = selectedUnits.includes(unit.code);
+                const changedTarget = selected && unit.gi_unit_id != null && unit.gi_unit_id !== target?.id;
+                return <label key={unit.code} className={cn('grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] gap-3 border-b border-border/70 px-4 py-3 transition-colors hover:bg-muted/35 sm:grid-cols-[auto_minmax(0,1fr)_minmax(160px,.8fr)]', selected && 'bg-[#f0f6f1] hover:bg-[#e9f2eb]')} data-testid={`row-medical-unit-${unit.code}`}>
+                  <Checkbox checked={selected} disabled={busy} onCheckedChange={() => toggle(unit.code)} className="mt-1" aria-label={`Select ${unit.name}`} />
+                  <span className="min-w-0"><span className="flex flex-wrap items-center gap-x-2 gap-y-1"><span className="truncate text-sm font-semibold">{unit.name}</span><span className="font-mono text-[10px] text-muted-foreground">{unit.code}</span></span><span className="mt-1 block truncate text-xs text-muted-foreground">{unit.branch_name || 'Branch not recorded'}</span></span>
+                  <span className="col-start-2 flex min-w-0 items-center justify-between gap-2 sm:col-start-auto sm:justify-end">
+                    <span className="min-w-0 truncate text-xs text-muted-foreground sm:text-right">{unit.gi_unit_name || 'No current target'}</span>
+                    {unit.gi_unit_id == null
+                      ? <span className="rounded-full border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">Unmapped</span>
+                      : <StatusPill status={unit.available ? 'ACTIVE' : 'PENDING'} available={unit.mapping_available} />}
+                    {changedTarget && <span className="hidden rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-900 md:inline">Reassign</span>}
+                  </span>
+                </label>;
+              })}
+          </div>
+        </div>
+
+        <aside className="flex flex-col bg-[#fbfcfa]">
+          <div className="border-b p-4">
+            <p className="text-[11px] font-bold uppercase tracking-[.14em] text-primary">02 / Review and save</p>
+            <h3 className="mt-1 font-semibold">Assignment summary</h3>
+          </div>
+          <div className="flex-1 space-y-4 p-4">
+            <div className="rounded-lg border bg-card p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Target</p>
+              <p className="mt-1 text-sm font-semibold">{target?.name || 'Choose a GI Unit above'}</p>
+              {target && <p className="mt-0.5 text-xs text-muted-foreground">{target.parent_name || 'Branch not assigned'} · {target.available ? 'Operational' : 'Setup only'}</p>}
+            </div>
+            <div className="flex items-baseline justify-between"><span className="text-sm text-muted-foreground">Selected Medical Units</span><span className="text-lg font-semibold tabular-nums">{selectedUnits.length}</span></div>
+            <div className="flex items-baseline justify-between"><span className="text-sm text-muted-foreground">Existing targets to change</span><span className={cn('text-sm font-semibold tabular-nums', reassignmentCount > 0 && 'text-amber-800')}>{reassignmentCount}</span></div>
+            {selectedUnits.length > 0 && <div className="max-h-32 space-y-1 overflow-y-auto rounded-md bg-muted/45 p-2">
+              {selectedRecords.map(unit => <div key={unit.code} className="flex items-center justify-between gap-2 text-xs"><span className="min-w-0 truncate">{unit.name}</span><span className="shrink-0 text-muted-foreground">{unit.gi_unit_name || 'Unmapped'}{unit.gi_unit_id != null && unit.gi_unit_id !== target?.id ? ' · reassignment' : ''}</span></div>)}
+              {selectedRecords.length !== selectedUnits.length && <p className="px-1 pt-1 text-[11px] text-amber-800">Some selected records are not in the latest snapshot. Refresh the list before saving.</p>}
+            </div>}
+            {selectedUnits.length > 0 && <Button type="button" size="sm" variant="ghost" onClick={() => setSelectedUnits([])} disabled={busy} className="h-7 px-2 text-xs" data-testid="button-clear-mapping-selection">Clear selection</Button>}
+            <ReasonField value={reason} onChange={setReason} />
+            {saveMappings.isError && <p role="alert" className="text-xs text-destructive">{errorMessage(saveMappings.error)}</p>}
+            <Button onClick={requestSave} disabled={!target || !selectedUnits.length || selectedRecords.length !== selectedUnits.length || reason.trim().length < 3 || busy} className="w-full gap-2" data-testid="button-save-medical-mappings">
+              {saveMappings.isPending ? 'Saving mappings…' : reassignmentCount > 0 ? `Review ${reassignmentCount} reassignment${reassignmentCount === 1 ? '' : 's'}` : 'Save selected mappings'}<ArrowRight className="h-4 w-4" />
+            </Button>
+            <p className="text-[11px] leading-5 text-muted-foreground">A reason is recorded with each change. Saving does not activate either side of a setup-only link.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section className="overflow-hidden rounded-xl border bg-card">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b p-4 sm:px-5">
+        <div><p className="text-[11px] font-bold uppercase tracking-[.14em] text-primary">03 / Saved register</p><h2 className="mt-1 text-lg font-semibold">Current Medical Unit mappings</h2></div>
+        <span className="text-xs text-muted-foreground">{mappings.length} current link{mappings.length === 1 ? '' : 's'}</span>
+      </div>
+      {!mappings.length ? <div className="p-9 text-center"><Workflow className="mx-auto h-7 w-7 text-muted-foreground" /><p className="mt-2 text-sm font-medium">No mappings saved yet</p><p className="mt-1 text-xs text-muted-foreground">Saved Medical Unit to GI Unit links will appear here with their audit history.</p></div>
+        : <div className="divide-y">
+          {mappings.slice().sort((a, b) => a.name.localeCompare(b.name)).map(unit => <article key={unit.code} className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(210px,.85fr)_auto] lg:items-start" data-testid={`mapping-register-row-${unit.code}`}>
+            <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{unit.name}</p><span className="font-mono text-[10px] text-muted-foreground">{unit.code}</span></div><p className="mt-1 text-xs text-muted-foreground">{unit.branch_name || 'Branch not recorded'}</p></div>
+            <div className="flex min-w-0 items-center gap-2 rounded-md bg-muted/35 px-3 py-2"><ArrowDownRight className="h-4 w-4 shrink-0 text-primary" /><span className="min-w-0 flex-1 truncate text-sm font-medium">{unit.gi_unit_name || 'GI Unit unavailable'}</span><StatusPill status={unit.available ? 'ACTIVE' : 'PENDING'} available={unit.mapping_available} /></div>
+            <Button size="sm" variant="outline" onClick={() => { setRemoveTarget({ ...unit }); setRemoveReason(''); }} disabled={busy} className="w-full gap-1.5 lg:w-auto" data-testid={`button-remove-mapping-${unit.code}`}><Unlink className="h-3.5 w-3.5" />Remove</Button>
+            <div className="lg:col-span-3"><HistoryList entityType="MAPPING" entityKey={unit.code} identity={identity} /></div>
+          </article>)}
+        </div>}
+      <div className="border-t p-4"><Notice tone="warning">Setup links are not operational assignments. Pending Medical Units or GI Units may be mapped explicitly, but neither side is activated by mapping.</Notice></div>
+    </section>
+    {confirmation && <Overlay title="Confirm reassignment" description="Review the frozen current and destination targets. Confirming will replace these links and retain their history." onClose={() => { if (!busy) setConfirmation(null); }}>
+      <div className="space-y-4"><div className="divide-y rounded-lg border">{confirmation.records.filter(unit => unit.gi_unit_id != null && unit.gi_unit_id !== confirmation.target.id).map(unit => <div key={unit.code} className="grid gap-2 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,.8fr)_auto_minmax(0,.8fr)] sm:items-center"><span className="font-medium">{unit.name}</span><span className="truncate text-xs text-muted-foreground">{unit.gi_unit_name || 'Current target'}</span><ArrowRight className="hidden h-3 w-3 text-primary sm:block" /><span className="text-sm font-medium">{confirmation.target.name}</span></div>)}</div><p className="text-xs text-muted-foreground">The target and mapping versions were captured when you opened this confirmation. If another administrator has changed a mapping since then, the save will be rejected for review.</p><ReasonField value={reason} onChange={setReason} /><div className="flex flex-col-reverse justify-end gap-2 sm:flex-row"><Button variant="outline" onClick={() => setConfirmation(null)} disabled={busy}>Go back</Button><Button onClick={() => { void persistMappings(confirmation.records, confirmation.target); }} disabled={busy || reason.trim().length < 3} data-testid="button-confirm-reassignment">{saveMappings.isPending ? 'Saving…' : 'Confirm reassignment'}</Button></div></div>
     </Overlay>}
-    {removeTarget && <Overlay title="Remove Medical Unit mapping" description={`${removeTarget.name} will no longer have a current GI Unit target. The mapping history is retained.`} onClose={() => setRemoveTarget(null)}>
-      <div className="space-y-4"><Notice>Current target: <b>{removeTarget.gi_unit_name || 'Not available'}</b></Notice><ReasonField value={removeReason} onChange={setRemoveReason} /><div className="flex flex-col-reverse justify-end gap-2 sm:flex-row"><Button variant="outline" onClick={() => setRemoveTarget(null)}>Cancel</Button><Button variant="destructive" onClick={() => { void submitRemove(); }} disabled={removeMapping.isPending || removeReason.trim().length < 3}>{removeMapping.isPending ? 'Removing…' : 'Remove mapping'}</Button></div></div>
+    {removeTarget && <Overlay title="Remove Medical Unit mapping" description={`${removeTarget.name} will no longer have a current GI Unit target. The mapping history is retained.`} onClose={() => { if (!busy) setRemoveTarget(null); }}>
+      <div className="space-y-4"><Notice>Current target: <b>{removeTarget.gi_unit_name || 'Not available'}</b>. This removes the current link. You can create a new link later; the historical record is retained.</Notice><ReasonField value={removeReason} onChange={setRemoveReason} /><div className="flex flex-col-reverse justify-end gap-2 sm:flex-row"><Button variant="outline" onClick={() => setRemoveTarget(null)} disabled={busy}>Cancel</Button><Button variant="destructive" onClick={() => { void submitRemove(); }} disabled={busy || removeReason.trim().length < 3} data-testid="button-confirm-remove-mapping">{removeMapping.isPending ? 'Removing…' : 'Remove mapping'}</Button></div></div>
     </Overlay>}
   </div>;
 }
@@ -405,6 +514,7 @@ export default function GiStructurePage() {
                     <p className="text-xs text-muted-foreground">VALID_FROM <span className="ml-1 font-medium text-foreground">{dateLabel(manager.details.VALID_FROM)}</span></p>
                     <p className="text-xs text-muted-foreground">VALID_TO <span className="ml-1 font-medium text-foreground">{dateLabel(manager.details.VALID_TO)}</span></p>
                   </div>
+                  <ManagerMedicalUnits manager={manager} snapshot={snapshot} />
                   {sourceReference && <p className="mt-3 text-xs text-muted-foreground">Source status · {sourceReference.source_active ? 'Marked active in import' : 'Marked inactive in import'}{sourceReference.review_note ? ` · ${sourceReference.review_note}` : ''}</p>}
                   <div className="mt-4"><HistoryList entityType="MANAGER" entityKey={String(manager.id)} identity={identity} /></div>
                 </article>;

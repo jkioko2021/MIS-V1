@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { ManagerMedicalUnits } from './manager-medical-units';
 
 type Props = {
   manager?: GiManager;
@@ -150,6 +151,7 @@ export function ManagerForm({ manager, snapshot, onDone, onCancel }: Props) {
       {selected?.user_eligible === false && <FormNotice tone="warning">{selected.eligibility_note || 'This MIS account is not eligible for an active GI Manager designation. It may remain as an inactive draft.'}</FormNotice>}
       <FormNotice>{manager ? 'Saving preserves the existing designation status and imported Unit metadata.' : 'New enrollments are saved as inactive drafts.'} Assign managers to GI Units through Hierarchy Setup.</FormNotice>
       {!!manager?.source_notes?.length && <FormNotice tone="warning"><b>Original import review notes</b><ul className="mt-1 list-disc pl-5">{manager.source_notes.map(note=><li key={note}>{note}</li>)}</ul></FormNotice>}
+      <ManagerMedicalUnits manager={manager} snapshot={snapshot} />
 
       <section className="rounded-lg border p-4 sm:p-5">
         <div className="mb-4"><h3 className="font-semibold">GI source designation</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">These are original GI register fields. They are not aliases for the linked MIS account.</p></div>

@@ -26,6 +26,7 @@ vm.runInNewContext(ts.transpileModule(source, {
     if (name === '@/hooks/use-toast') return { useToast: () => ({ toast() {} }) };
     if (name === '../organisation/shared') return { errorMessage: e => String(e) };
     if (name === '@/lib/utils') return { cn: (...parts) => parts.join(' ') };
+    if (name === './manager-medical-units') return { ManagerMedicalUnits: 'ManagerMedicalUnits' };
     if (name.startsWith('@/components/ui/')) return new Proxy({}, { get: (_, key) => String(key) });
     throw Error(name);
   },
