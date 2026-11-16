@@ -27,6 +27,8 @@ export default defineConfig({
       client: "react-query",
       mode: "split",
       baseUrl: "/api",
+      // Keep path parameters as single segments (uploaded agent REF_NO may contain '/').
+      urlEncodeParameters: true,
       clean: true,
       prettier: true,
       override: {

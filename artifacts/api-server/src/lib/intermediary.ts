@@ -25,7 +25,7 @@ export const agentSelect = `*, receive_date::text AS receive_date,contract_date:
     (SELECT p.path->2->>'code' FROM crm.organisation_paths p WHERE p.id=organisation_unit_id) END AS branch_code,
   CASE WHEN organisation_unit_id IS NULL THEN region_code ELSE
     (SELECT p.path->1->>'code' FROM crm.organisation_paths p WHERE p.id=organisation_unit_id) END AS region_code`;
-export const agentCode = z.string().trim().min(1).max(30).regex(/^[a-zA-Z0-9_-]+$/);
+export const agentCode = z.string().trim().min(1).max(30).regex(/^[a-zA-Z0-9_\/-]+$/);
 const calendar = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
   const d = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;

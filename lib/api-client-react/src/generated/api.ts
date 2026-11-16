@@ -625,7 +625,7 @@ export const getReassignOrganisationSourceManagerUrl = (id: number,) => {
 
 
 
-  return `/api/organisation/sources/${id}/manager`
+  return `/api/organisation/sources/${encodeURIComponent(String(id))}/manager`
 }
 
 export const reassignOrganisationSourceManager = async (id: number,
@@ -769,7 +769,7 @@ export const getAssignOrganisationAgentUrl = (code: string,) => {
 
 
 
-  return `/api/organisation/agents/${code}/unit`
+  return `/api/organisation/agents/${encodeURIComponent(String(code))}/unit`
 }
 
 export const assignOrganisationAgent = async (code: string,
@@ -835,7 +835,7 @@ export const getGetOrganisationAgentHistoryUrl = (code: string,) => {
 
 
 
-  return `/api/organisation/agents/${code}/history`
+  return `/api/organisation/agents/${encodeURIComponent(String(code))}/history`
 }
 
 export const getOrganisationAgentHistory = async (code: string, options?: Parameters<typeof customFetch>[1]): Promise<OrganisationAssignment[]> => {
@@ -1191,7 +1191,7 @@ export const getCreateSalesCatalogEntryUrl = (catalog: string,) => {
 
 
 
-  return `/api/admin/sales-structure/catalogs/${catalog}`
+  return `/api/admin/sales-structure/catalogs/${encodeURIComponent(String(catalog))}`
 }
 
 export const createSalesCatalogEntry = async (catalog: string,
@@ -1258,7 +1258,7 @@ export const getUpdateSalesCatalogEntryUrl = (catalog: string,
 
 
 
-  return `/api/admin/sales-structure/catalogs/${catalog}/${id}`
+  return `/api/admin/sales-structure/catalogs/${encodeURIComponent(String(catalog))}/${encodeURIComponent(String(id))}`
 }
 
 export const updateSalesCatalogEntry = async (catalog: string,
@@ -1461,7 +1461,7 @@ export const getUpdateSalesStructureNodeUrl = (id: number,) => {
 
 
 
-  return `/api/admin/sales-structure/nodes/${id}`
+  return `/api/admin/sales-structure/nodes/${encodeURIComponent(String(id))}`
 }
 
 export const updateSalesStructureNode = async (id: number,
@@ -1592,7 +1592,7 @@ export const getUpdateSalesManagerEnrollmentUrl = (id: number,) => {
 
 
 
-  return `/api/admin/sales-structure/managers/${id}`
+  return `/api/admin/sales-structure/managers/${encodeURIComponent(String(id))}`
 }
 
 export const updateSalesManagerEnrollment = async (id: number,
@@ -1872,7 +1872,7 @@ export const getGetIntermediaryUrl = (code: string,) => {
 
 
 
-  return `/api/intermediary/agents/${code}`
+  return `/api/intermediary/agents/${encodeURIComponent(String(code))}`
 }
 
 export const getIntermediary = async (code: string, options?: Parameters<typeof customFetch>[1]): Promise<IntermediaryDetail> => {
@@ -1943,7 +1943,7 @@ export const getUpdateIntermediaryUrl = (code: string,) => {
 
 
 
-  return `/api/intermediary/agents/${code}`
+  return `/api/intermediary/agents/${encodeURIComponent(String(code))}`
 }
 
 export const updateIntermediary = async (code: string,
@@ -2009,7 +2009,7 @@ export const getActionIntermediaryUrl = (code: string,) => {
 
 
 
-  return `/api/intermediary/agents/${code}/actions`
+  return `/api/intermediary/agents/${encodeURIComponent(String(code))}/actions`
 }
 
 export const actionIntermediary = async (code: string,
@@ -2075,7 +2075,7 @@ export const getRequestIntermediaryUploadUrl = (code: string,) => {
 
 
 
-  return `/api/intermediary/agents/${code}/uploads`
+  return `/api/intermediary/agents/${encodeURIComponent(String(code))}/uploads`
 }
 
 export const requestIntermediaryUpload = async (code: string,
@@ -2142,7 +2142,7 @@ export const getConfirmIntermediaryUploadUrl = (code: string,
 
 
 
-  return `/api/intermediary/agents/${code}/documents/${id}/confirm`
+  return `/api/intermediary/agents/${encodeURIComponent(String(code))}/documents/${encodeURIComponent(String(id))}/confirm`
 }
 
 export const confirmIntermediaryUpload = async (code: string,
@@ -2209,7 +2209,7 @@ export const getDownloadIntermediaryDocumentUrl = (code: string,
 
 
 
-  return `/api/intermediary/agents/${code}/documents/${id}/download`
+  return `/api/intermediary/agents/${encodeURIComponent(String(code))}/documents/${encodeURIComponent(String(id))}/download`
 }
 
 export const downloadIntermediaryDocument = async (code: string,
@@ -2284,7 +2284,7 @@ export const getListRiskAdministrationReferencesUrl = (catalog: RiskReferenceCat
 
 
 
-  return `/api/risk-administration/references/${catalog}`
+  return `/api/risk-administration/references/${encodeURIComponent(String(catalog))}`
 }
 
 export const listRiskAdministrationReferences = async (catalog: RiskReferenceCatalog, options?: Parameters<typeof customFetch>[1]): Promise<ListRiskAdministrationReferences200> => {
@@ -2355,7 +2355,7 @@ export const getCreateRiskAdministrationReferenceUrl = (catalog: RiskReferenceCa
 
 
 
-  return `/api/risk-administration/references/${catalog}`
+  return `/api/risk-administration/references/${encodeURIComponent(String(catalog))}`
 }
 
 export const createRiskAdministrationReference = async (catalog: RiskReferenceCatalog,
@@ -2422,7 +2422,7 @@ export const getUpdateRiskAdministrationReferenceUrl = (catalog: RiskReferenceCa
 
 
 
-  return `/api/risk-administration/references/${catalog}/${code}`
+  return `/api/risk-administration/references/${encodeURIComponent(String(catalog))}/${encodeURIComponent(String(code))}`
 }
 
 export const updateRiskAdministrationReference = async (catalog: RiskReferenceCatalog,
@@ -2625,7 +2625,7 @@ export const getUpdateRiskAdministrationDepartmentUrl = (code: string,) => {
 
 
 
-  return `/api/risk-administration/departments/${code}`
+  return `/api/risk-administration/departments/${encodeURIComponent(String(code))}`
 }
 
 export const updateRiskAdministrationDepartment = async (code: string,
@@ -3120,7 +3120,7 @@ export const getGetRiskRegisterReadinessUrl = (departCode: string,
 
 
 
-  return `/api/risk-register/readiness/${departCode}/${periodId}`
+  return `/api/risk-register/readiness/${encodeURIComponent(String(departCode))}/${encodeURIComponent(String(periodId))}`
 }
 
 /**
@@ -3341,7 +3341,7 @@ export const getGetRiskRegisterRecordUrl = (riskCode: string,) => {
 
 
 
-  return `/api/risk-register/records/${riskCode}`
+  return `/api/risk-register/records/${encodeURIComponent(String(riskCode))}`
 }
 
 export const getRiskRegisterRecord = async (riskCode: string, options?: Parameters<typeof customFetch>[1]): Promise<RiskDetailResponse> => {
@@ -3412,7 +3412,7 @@ export const getUpdateRiskRegisterRecordUrl = (riskCode: string,) => {
 
 
 
-  return `/api/risk-register/records/${riskCode}`
+  return `/api/risk-register/records/${encodeURIComponent(String(riskCode))}`
 }
 
 export const updateRiskRegisterRecord = async (riskCode: string,
@@ -3478,7 +3478,7 @@ export const getSaveRiskRegisterRootCauseUrl = (riskCode: string,) => {
 
 
 
-  return `/api/risk-register/records/${riskCode}/root-causes`
+  return `/api/risk-register/records/${encodeURIComponent(String(riskCode))}/root-causes`
 }
 
 export const saveRiskRegisterRootCause = async (riskCode: string,
@@ -4129,7 +4129,7 @@ export const getOpenDepartmentRiskCycleUrl = (departCode: string,) => {
 
 
 
-  return `/api/risk-register/closed-registers/${departCode}/open`
+  return `/api/risk-register/closed-registers/${encodeURIComponent(String(departCode))}/open`
 }
 
 /**
@@ -4276,7 +4276,7 @@ export const getCloseRiskRegisterPeriodUrl = (periodId: number,) => {
 
 
 
-  return `/api/risk-register/periods/${periodId}/close`
+  return `/api/risk-register/periods/${encodeURIComponent(String(periodId))}/close`
 }
 
 /**
@@ -4488,7 +4488,7 @@ export const getRecordMedicalDocumentUploadUrl = (fileNo: string,) => {
 
 
 
-  return `/api/medical-underwriting/files/${fileNo}/uploads`
+  return `/api/medical-underwriting/files/${encodeURIComponent(String(fileNo))}/uploads`
 }
 
 export const recordMedicalDocumentUpload = async (fileNo: string,
@@ -4625,7 +4625,7 @@ export const getListAllocatedDocumentUploadsUrl = (fileNo: string,) => {
 
 
 
-  return `/api/business/allocated/${fileNo}/uploads`
+  return `/api/business/allocated/${encodeURIComponent(String(fileNo))}/uploads`
 }
 
 export const listAllocatedDocumentUploads = async (fileNo: string, options?: Parameters<typeof customFetch>[1]): Promise<ListAllocatedDocumentUploads200> => {
@@ -4696,7 +4696,7 @@ export const getRecordAllocatedDocumentUploadUrl = (fileNo: string,) => {
 
 
 
-  return `/api/business/allocated/${fileNo}/uploads`
+  return `/api/business/allocated/${encodeURIComponent(String(fileNo))}/uploads`
 }
 
 export const recordAllocatedDocumentUpload = async (fileNo: string,

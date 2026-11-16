@@ -1,0 +1,26 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { planAgentUpload } from "../src/agent-upload-plan.mjs";
+
+const file = "attached_assets/0_AGENTS_LIST_1794853275073.txt";
+const text = await readFile(file, "utf8");
+const result = planAgentUpload(text, file);
+assert.equal(result.rows.length, 1475);
+assert.equal(new Set(result.rows.map(row => row.agent_code)).size, 1475);
+assert.equal(result.invalidEmails, 8);
+assert(result.rows.every(row => row.agent_status === "ACTIVE" && row.registration_status === "PENDING"));
+assert(result.rows.every(row => Object.keys(row.source_data.data).length === 22));
+assert.equal(result.rows[0].hrmis_code, "005099", "Payroll leading zeros survive");
+assert.equal(result.rows[0].source_data.data.H_TAX, "0.100", "Tax is not inferred as commission or converted");
+assert.equal(result.rows[0].source_data.data.NSM_CODE, "N0001");
+assert.equal(result.rows[0].source_data.data.Contract_End_Date, "NULL", "Raw source null markers survive");
+assert.equal(result.rows[0].source_data.data.REF_NO, result.rows[0].agent_code);
+assert(result.rows.every(row => row.user_id === null || typeof row.user_id === "string"), "Long identifiers never become floating-point numbers; absent IDs remain null");
+assert.equal(result.rows.filter(row => row.unit_code === null).length, 10);
+assert.equal(result.rows.filter(row => row.agent_code.includes("/")).length, 3, "Original slash-containing codes must not be recoded");
+const first = text.split(/\r?\n/).slice(0, 2).join("\n");
+assert.throws(() => planAgentUpload(`${first}\n${first.split("\n")[1]}`, file), /duplicate agent code/);
+assert.throws(() => planAgentUpload(first.replace("2013-03-17", "2013-02-30").replace("Receive_Date", "Receive_Date"), file), /valid calendar date/);
+assert.throws(() => planAgentUpload(first.replace("Receive_Date", "UNKNOWN"), file), /headers/);
+assert.throws(() => planAgentUpload(`${first}\textra`, file), /22 tab-separated/);
+console.log("PASS: 1,475 identities, 22 raw columns, exact identifiers/payroll/tax, invalid emails retained and flagged, nulls, duplicates, malformed rows and dates.");

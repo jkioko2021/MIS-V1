@@ -3,6 +3,17 @@ name: OpenAPI generator compatibility
 description: Explicitly match the generated Zod syntax to the target library's installed major version.
 ---
 
+Orval fetch URL encoding must use its `urlEncodeParameters` output option,
+not a `verb.route` change in an output transformer.
+
+**Why:** Fetch URL generation receives its full route separately; changing the
+transformer's route did not affect generated URLs. Uploaded agent identities
+can contain slashes and must remain one encoded path segment.
+
+**How to apply:** Preserve raw identifiers in state, query keys and bodies.
+Let generated URL helpers encode path parameters once; do not pre-encode their
+arguments or manually patch generated clients.
+
 Configure the OpenAPI generator's Zod target version explicitly to match the schema library's installed major version rather than relying on auto-detection.
 
 **Why:** Orval auto-detection emitted Zod 4 integer constructors into this workspace's Zod 3 schema package; generation succeeded but shared-library compilation failed. This is a generator-target mismatch, not a reason to upgrade the application's validation library.
