@@ -15,6 +15,11 @@ export interface SalesStaff {
   emp_code?: string | null;
   /** @nullable */
   email?: string | null;
+  /**
+     * @maxLength 50
+     * @nullable
+     */
+  mobile_no?: string | null;
   inactive_manager_categories?: SalesLevel[];
   user_eligible?: boolean;
   /** @nullable */

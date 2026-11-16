@@ -36,7 +36,7 @@ function walk(node) {
   if (typeof node.type === 'function') return walk(node.type(node.props));
   return [node, ...walk(node.props?.children)];
 }
-const user = { employee_id: 71, employee_name: 'GI Test Manager', emp_code: 'TEST71', email: 'gi@example.test', user_eligible: true };
+const user = { employee_id: 71, employee_name: 'GI Test Manager', emp_code: 'TEST71', email: 'gi@example.test', mobile_no: '+254 0700-001-002', user_eligible: true };
 const snapshot = { manager_users: [user], nodes: [], nationals: [] };
 let props = { snapshot, onDone() { done++; }, onCancel() {} };
 function render() { cursor = 0; return walk(output.ManagerForm(props)); }
@@ -44,6 +44,8 @@ const find = predicate => render().find(predicate);
 (async () => {
   assert(!render().some(n => ['gi-manager-primary-unit', 'gi-manager-active'].includes(n.props.id)));
   find(n => n.props.id === 'gi-enrollment-user').props.onValueChange('71');
+  assert.equal(find(n => n.props.id === 'gi-manager-mobile').props.value, user.mobile_no);
+  assert.equal(find(n => n.props.id === 'gi-manager-mobile').props.readOnly, true);
   find(n => n.props['data-testid'] === 'input-gi-manager-reason').props.onChange({ target: { value: 'Enroll manager for GI setup' } });
   assert.equal(find(n => n.type === 'Button' && n.props.type === 'submit').props.disabled, false);
   await find(n => n.type === 'form').props.onSubmit({ preventDefault() {} });
@@ -51,6 +53,7 @@ const find = predicate => render().find(predicate);
   assert.equal(saved[0].details.GI_UNIT_CODE, '');
   assert.equal(saved[0].is_active, false);
   assert.equal(saved[0].employee_id, 71);
+  assert.equal(saved[0].details.MOBILE_NO, undefined, 'Contact stays on the user account, not copied into GI metadata');
   assert.equal(done, 1);
   assert.equal(invalidations.length, 2);
   const details = { ...saved[0].details, GI_UNIT_CODE: 'ORIGINAL_UNIT', VALID_FROM: '2026-01-01', VALID_TO: '2099-12-31' };

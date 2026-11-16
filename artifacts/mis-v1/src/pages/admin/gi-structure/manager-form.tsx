@@ -143,6 +143,9 @@ export function ManagerForm({ manager, snapshot, onDone, onCancel }: Props) {
         <Field label="Verified MIS Sales Manager account" hint="This existing account is the verified employee link, separate from GI_UM_ID.">
           <SearchableSelect id="gi-enrollment-user" value={employeeId} options={userOptions} onValueChange={chooseAccount} placeholder="Choose an eligible account" searchPlaceholder="Search by name or email…" emptyMessage="No eligible Sales Manager accounts." disabled={!!manager} />
         </Field>
+        <Field label="Mobile Number" hint="Captured in Administration → User Enrollment. Edit the user account to update it.">
+          <Input id="gi-manager-mobile" type="tel" value={selected?.mobile_no ?? manager?.mobile_no ?? ''} readOnly placeholder="Not captured on user account" />
+        </Field>
       </div>
       {selected?.user_eligible === false && <FormNotice tone="warning">{selected.eligibility_note || 'This MIS account is not eligible for an active GI Manager designation. It may remain as an inactive draft.'}</FormNotice>}
       <FormNotice>{manager ? 'Saving preserves the existing designation status and imported Unit metadata.' : 'New enrollments are saved as inactive drafts.'} Assign managers to GI Units through Hierarchy Setup.</FormNotice>

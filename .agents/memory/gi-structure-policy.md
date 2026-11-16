@@ -44,3 +44,11 @@ source Unit metadata. Team assignments belong in Hierarchy Setup.
 
 **How to apply:** Do not infer activation from saving or erase historical Unit
 values when a field is removed from the form.
+
+Display a manager's mobile number from the linked user enrollment record, rather
+than collecting a second copy in GI enrollment.
+
+**Why:** The user requested that manager mobile numbers be captured on user enrollment.
+
+**How to apply:** Keep the manager mobile display read-only and let account contact
+edits flow through to existing designations.

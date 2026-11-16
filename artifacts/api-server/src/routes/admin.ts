@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import { query, queryOne, txQuery, withTransaction } from "../lib/postgres";
 import { requireAuth } from "../lib/auth-middleware";
 import { logger } from "../lib/logger";
+import { employeeMobile } from "../lib/employee-mobile";
 
 const router = Router();
 router.use(requireAuth);
@@ -284,13 +285,13 @@ router.get("/admin/employees", async (req: Request, res: Response) => {
 
     const rows = await query<{
       employee_id: number; emp_code: string; username: string;
-      employee_name: string; email: string | null; department: string;
+      employee_name: string; email: string | null; mobile_no: string | null; department: string;
       profile_id: number; profile_name: string;
       activated: boolean; employee_locked: boolean; approved: boolean;
       failed_attempts: number; last_login_date: string | null;
       last_password_reset: string | null; created_at: string; added_by: string | null;
     }>(
-      `SELECT e.employee_id, e.emp_code, e.username, e.employee_name, e.email,
+      `SELECT e.employee_id, e.emp_code, e.username, e.employee_name, e.email, e.mobile_no,
               e.department, e.profile_id, p.profile_name,
               e.activated, e.employee_locked, e.approved,
               e.failed_attempts, e.last_login_date, e.last_password_reset,
@@ -307,6 +308,9 @@ router.get("/admin/employees", async (req: Request, res: Response) => {
 
 // POST /admin/employees  (enroll)
 router.post("/admin/employees", async (req: Request, res: Response) => {
+  let mobile: string | null | undefined;
+  try { mobile = employeeMobile(req.body.mobile_no); }
+  catch (error) { res.status(400).json({ ok: false, error: (error as Error).message }); return; }
   const { username, employee_name, email, department, profile_id, activated, approved, password } =
     req.body as Record<string, string | boolean | number>;
   if (!username || !employee_name || !profile_id) {
@@ -339,8 +343,8 @@ router.post("/admin/employees", async (req: Request, res: Response) => {
     const row = await queryOne<{ employee_id: number }>(
       `INSERT INTO crm.employees
          (emp_code, username, password_hash, employee_name, email, department,
-          profile_id, activated, approved, last_password_reset, added_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULL,$10)
+          profile_id, activated, approved, last_password_reset, added_by, mobile_no)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULL,$10,$11)
        RETURNING employee_id`,
       [emp_code, String(username), hash, String(employee_name),
        email ? String(email) : null,
@@ -348,7 +352,7 @@ router.post("/admin/employees", async (req: Request, res: Response) => {
        Number(profile_id),
        activated === true || activated === "true",
        approved === true || approved === "true",
-       req.user!.username]
+       req.user!.username, mobile ?? null]
     );
 
     await query(
@@ -380,12 +384,17 @@ router.get("/admin/employees/:id", async (req: Request, res: Response) => {
 
 // PUT /admin/employees/:id
 router.put("/admin/employees/:id", async (req: Request, res: Response) => {
+  let mobile: string | null | undefined;
+  try { mobile = employeeMobile(req.body.mobile_no); }
+  catch (error) { res.status(400).json({ ok: false, error: (error as Error).message }); return; }
   const { employee_name, email, department, profile_id } = req.body as Record<string, string | number>;
   try {
     await query(
       `UPDATE crm.employees SET employee_name=$1, email=$2, department=$3, profile_id=$4,
-       modified_by=$5, updated_at=NOW() WHERE employee_id=$6`,
-      [employee_name, email || null, department || null, Number(profile_id), req.user!.username, req.params.id]
+       modified_by=$5, updated_at=NOW(),
+       mobile_no=CASE WHEN $7::boolean THEN $8::varchar ELSE mobile_no END WHERE employee_id=$6`,
+      [employee_name, email || null, department || null, Number(profile_id), req.user!.username, req.params.id,
+       mobile !== undefined, mobile ?? null]
     );
     await query(
       `INSERT INTO crm.admin_audit_trail (employee_id, action, details) VALUES ($1,'USER_UPDATED',$2)`,

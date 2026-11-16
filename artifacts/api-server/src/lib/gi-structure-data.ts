@@ -10,7 +10,7 @@ export async function requireGiAdmin(client:PoolClient,actor:GiActor){
     AND (p.profile_id IN(1,2) OR lower(btrim(p.profile_name))='national sales admin')`,[actor.sub,actor.profileId]);
   if(!result.rowCount)throw new SalesSetupError(403,"Sales Administrator or System Administrator access is required.");
 }
-export const giManagersSql=`SELECT m.*,e.employee_name,e.emp_code,e.email,
+export const giManagersSql=`SELECT m.*,e.employee_name,e.emp_code,e.email,e.mobile_no,
   coalesce((SELECT jsonb_agg(DISTINCT s.data->>'GI_UNIT_CODE') FROM crm.gi_manager_source_links l
     JOIN crm.sales_catalog_source_records s ON s.id=l.source_record_id
     WHERE l.enrollment_id=m.id AND nullif(s.data->>'GI_UNIT_CODE','') IS NOT NULL),'[]'::jsonb) source_unit_codes,
@@ -55,7 +55,7 @@ export async function giMedicalUnits(client:PoolClient,nodes:GiNode[]){
 export async function giSnapshotData(client:PoolClient){
   const nodes=await giNodes(client);
   const managers=(await client.query<GiManager>(`${giManagersSql} ORDER BY e.employee_name,m.level,m.id`)).rows;
-  const manager_users=(await client.query<SalesStaff>(`SELECT e.employee_id,e.employee_name,e.username,e.emp_code,e.email,
+  const manager_users=(await client.query<SalesStaff>(`SELECT e.employee_id,e.employee_name,e.username,e.emp_code,e.email,e.mobile_no,
     (e.activated AND e.approved AND NOT e.employee_locked) user_eligible,
     nullif(concat_ws('; ',CASE WHEN NOT e.activated THEN 'Inactive' END,
       CASE WHEN NOT e.approved THEN 'Not approved' END,CASE WHEN e.employee_locked THEN 'Locked' END),'') eligibility_note

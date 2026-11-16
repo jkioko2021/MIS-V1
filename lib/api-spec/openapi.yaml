@@ -1091,6 +1091,7 @@ components:
         employee_name: { type: string }
         emp_code: { type: [string, "null"] }
         email: { type: [string, "null"] }
+        mobile_no: { type: [string, "null"], maxLength: 50, description: Mobile number from the linked MIS user account }
         level: { $ref: "#/components/schemas/GiLevel" }
         is_active: { type: boolean }
         user_eligible: { type: boolean }
@@ -1355,6 +1356,7 @@ components:
         username: { type: string }
         emp_code: { type: [string, "null"] }
         email: { type: [string, "null"] }
+        mobile_no: { type: [string, "null"], maxLength: 50 }
         inactive_manager_categories:
           type: array
           items: { $ref: "#/components/schemas/SalesLevel" }

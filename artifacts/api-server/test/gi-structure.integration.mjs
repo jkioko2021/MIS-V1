@@ -46,6 +46,8 @@ try{
   await assert.rejects(lib.giStructureSnapshot(normal),e=>e.status===403);
   await assert.rejects(lib.giStructureSnapshot({...normal,profileId:1}),e=>e.status===403);
   const reason='Isolated GI integration verification';
+  const mobile='+254 0700-001-002';
+  await db.query('UPDATE crm.employees SET mobile_no=$1 WHERE employee_id=$2',[mobile,staff[1].employee_id]);
   const node=async(code,level,parent=null,manager=null,status='PENDING')=>{
     await lib.saveGiNode({id:null,version:0,code,name:code,level,status,parent_id:parent,manager_id:manager,reason},actor);
     return (await lib.giStructureSnapshot(actor)).nodes.find(n=>n.code===code);
@@ -77,6 +79,11 @@ try{
   lib.GetGiStructureResponse.parse(snapshot);
   let manager=snapshot.managers.find(m=>m.details.GI_UM_ID===details.GI_UM_ID);
   assert.equal(manager.details.RETAINER_AMT,details.RETAINER_AMT,'No floating-point rounding');
+  assert.equal(manager.mobile_no,mobile,'Manager mobile is read from the linked user account');
+  assert.equal(snapshot.manager_users.find(u=>u.employee_id===staff[1].employee_id).mobile_no,mobile);
+  await db.query('UPDATE crm.employees SET mobile_no=$1 WHERE employee_id=$2',['0722 001 003',staff[1].employee_id]);
+  assert.equal((await lib.giStructureSnapshot(actor)).managers.find(m=>m.id===manager.id).mobile_no,'0722 001 003',
+    'Account mobile edits appear without re-saving the designation');
   assert.equal(manager.details.MIS_EMP_CODE,'LEGACY_EMPLOYEE_CODE','Preserve legacy identifier independently from the account');
   assert.equal(manager.user_eligible,true,'Expired retainer term does not expire manager validity');
   const legacyEnrollment=(await db.query(`INSERT INTO crm.sales_manager_enrollments

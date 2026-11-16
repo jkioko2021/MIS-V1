@@ -8,6 +8,8 @@
 import * as zod from 'zod';
 
 
+export const getGiStructureResponseManagersItemMobileNoMax = 50;
+
 export const getGiStructureResponseManagersItemDetailsGIUMIDMax = 50;
 
 
@@ -34,6 +36,8 @@ export const getGiStructureResponseManagersItemDetailsRETAINERAMTMax = 25;
 
 
 export const getGiStructureResponseManagersItemDetailsRETAINERAMTRegExp = new RegExp('^($|\\d{1,18}(\\.\\d{1,6})?)$');
+export const getGiStructureResponseManagerUsersItemMobileNoMax = 50;
+
 
 
 export const GetGiStructureResponse = zod.object({
@@ -58,6 +62,7 @@ export const GetGiStructureResponse = zod.object({
   "employee_name": zod.string(),
   "emp_code": zod.string().nullable(),
   "email": zod.string().nullable(),
+  "mobile_no": zod.string().max(getGiStructureResponseManagersItemMobileNoMax).nullish().describe('Mobile number from the linked MIS user account'),
   "level": zod.enum(['BRANCH', 'UNIT']),
   "is_active": zod.boolean(),
   "user_eligible": zod.boolean(),
@@ -86,6 +91,7 @@ export const GetGiStructureResponse = zod.object({
   "username": zod.string(),
   "emp_code": zod.string().nullish(),
   "email": zod.string().nullish(),
+  "mobile_no": zod.string().max(getGiStructureResponseManagerUsersItemMobileNoMax).nullish(),
   "inactive_manager_categories": zod.array(zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT'])).optional(),
   "user_eligible": zod.boolean().optional(),
   "eligibility_note": zod.string().nullish()
@@ -297,6 +303,8 @@ export const getOrganisationResponseManagersItemDetailsOneMisEmpCodeMax = 50;
 
 export const getOrganisationResponseManagersItemDetailsOneValidFromRegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
 export const getOrganisationResponseManagersItemDetailsOneValidToRegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
+export const getOrganisationResponseManagerUsersItemMobileNoMax = 50;
+
 
 
 export const GetOrganisationResponse = zod.object({
@@ -352,6 +360,7 @@ export const GetOrganisationResponse = zod.object({
   "username": zod.string(),
   "emp_code": zod.string().nullish(),
   "email": zod.string().nullish(),
+  "mobile_no": zod.string().max(getOrganisationResponseManagerUsersItemMobileNoMax).nullish(),
   "inactive_manager_categories": zod.array(zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT'])).optional(),
   "user_eligible": zod.boolean().optional(),
   "eligibility_note": zod.string().nullish()
@@ -482,6 +491,10 @@ export const GetOrganisationAgentHistoryResponseItem = zod.object({
 export const GetOrganisationAgentHistoryResponse = zod.array(GetOrganisationAgentHistoryResponseItem)
 
 
+export const getSalesManagerMappingsResponseUsersItemMobileNoMax = 50;
+
+
+
 export const GetSalesManagerMappingsResponse = zod.object({
   "organizations": zod.array(zod.object({
   "catalog": zod.enum(['sales-regions', 'sales-branches', 'sales-units']),
@@ -504,6 +517,7 @@ export const GetSalesManagerMappingsResponse = zod.object({
   "username": zod.string(),
   "emp_code": zod.string().nullish(),
   "email": zod.string().nullish(),
+  "mobile_no": zod.string().max(getSalesManagerMappingsResponseUsersItemMobileNoMax).nullish(),
   "inactive_manager_categories": zod.array(zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT'])).optional(),
   "user_eligible": zod.boolean().optional(),
   "eligibility_note": zod.string().nullish()
@@ -589,6 +603,8 @@ export const GetSalesManagerMappingHistoryResponseItem = zod.object({
 export const GetSalesManagerMappingHistoryResponse = zod.array(GetSalesManagerMappingHistoryResponseItem)
 
 
+export const getSalesCatalogsResponseUsersItemMobileNoMax = 50;
+
 export const getSalesCatalogsResponseBranchManagersItemDetailsOneCodeMax = 50;
 
 
@@ -651,6 +667,7 @@ export const GetSalesCatalogsResponse = zod.object({
   "username": zod.string(),
   "emp_code": zod.string().nullish(),
   "email": zod.string().nullish(),
+  "mobile_no": zod.string().max(getSalesCatalogsResponseUsersItemMobileNoMax).nullish(),
   "inactive_manager_categories": zod.array(zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT'])).optional(),
   "user_eligible": zod.boolean().optional(),
   "eligibility_note": zod.string().nullish()
@@ -769,6 +786,8 @@ export const getSalesStructureResponseManagersItemDetailsOneMisEmpCodeMax = 50;
 
 export const getSalesStructureResponseManagersItemDetailsOneValidFromRegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
 export const getSalesStructureResponseManagersItemDetailsOneValidToRegExp = new RegExp('^($|\\d{4}-\\d{2}-\\d{2})$');
+export const getSalesStructureResponseUsersItemMobileNoMax = 50;
+
 
 
 export const GetSalesStructureResponse = zod.object({
@@ -812,6 +831,7 @@ export const GetSalesStructureResponse = zod.object({
   "username": zod.string(),
   "emp_code": zod.string().nullish(),
   "email": zod.string().nullish(),
+  "mobile_no": zod.string().max(getSalesStructureResponseUsersItemMobileNoMax).nullish(),
   "inactive_manager_categories": zod.array(zod.enum(['NATIONAL', 'REGION', 'BRANCH', 'UNIT'])).optional(),
   "user_eligible": zod.boolean().optional(),
   "eligibility_note": zod.string().nullish()

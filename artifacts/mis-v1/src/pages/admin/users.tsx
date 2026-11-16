@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getGetOrganisationQueryKey, getGetSalesStructureQueryKey } from '@workspace/api-client-react';
+import { getGetOrganisationQueryKey, getGetSalesStructureQueryKey, getGetGiStructureQueryKey } from '@workspace/api-client-react';
 import { userDepartmentChoices } from './user-departments';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,7 @@ interface Employee {
   username: string;
   employee_name: string;
   email: string | null;
+  mobile_no: string | null;
   department: string | null;
   profile_id: number;
   profile_name: string;
@@ -107,6 +108,7 @@ function EnrollDialog({
     username:      employee?.username      ?? '',
     employee_name: employee?.employee_name ?? '',
     email:         employee?.email         ?? '',
+    mobile_no:     employee?.mobile_no     ?? '',
     department:    employee?.department    ?? '',
     profile_id:    String(employee?.profile_id ?? ''),
     activated:     employee?.activated     ?? true,
@@ -142,6 +144,7 @@ function EnrollDialog({
           body: JSON.stringify({
             employee_name: form.employee_name.trim(),
             email:         form.email.trim(),
+            mobile_no:     form.mobile_no.trim() || null,
             department:    form.department,
             profile_id:    Number(form.profile_id),
           }),
@@ -154,6 +157,7 @@ function EnrollDialog({
           username:      form.username.trim(),
           employee_name: form.employee_name.trim(),
           email:         form.email.trim(),
+          mobile_no:     form.mobile_no.trim() || null,
           department:    form.department,
           profile_id:    Number(form.profile_id),
           activated:     form.activated,
@@ -166,6 +170,7 @@ function EnrollDialog({
       qc.invalidateQueries({ queryKey: ['admin-employees'] });
       qc.invalidateQueries({ queryKey: getGetOrganisationQueryKey() });
       qc.invalidateQueries({ queryKey: getGetSalesStructureQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetGiStructureQueryKey() });
       onClose();
     },
     onError: (e: Error) => setError(e.message),
@@ -239,6 +244,14 @@ function EnrollDialog({
               ? <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{emailError}</p>
               : <p className="text-xs text-muted-foreground">Used for OTP delivery and account notifications</p>
             }
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="user-enrollment-mobile">Mobile Number</Label>
+            <Input id="user-enrollment-mobile" type="tel" autoComplete="tel"
+              value={form.mobile_no} onChange={e => setField('mobile_no')(e.target.value)}
+              maxLength={50} placeholder="+254 7XX XXX XXX" />
+            <p className="text-xs text-muted-foreground">Displayed on the linked manager record. Include the country code where available.</p>
           </div>
 
           {/* Department + Profile */}

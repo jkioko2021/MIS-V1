@@ -16,6 +16,12 @@ export interface GiManager {
   emp_code: string | null;
   /** @nullable */
   email: string | null;
+  /**
+     * Mobile number from the linked MIS user account
+     * @maxLength 50
+     * @nullable
+     */
+  mobile_no?: string | null;
   level: GiLevel;
   is_active: boolean;
   user_eligible: boolean;
