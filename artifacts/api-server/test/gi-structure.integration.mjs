@@ -59,6 +59,19 @@ try{
     NSM_CODE:'',VALID_FROM:'2020-01-01',VALID_TO:'2099-12-31',JOIN_DATE:'2020-01-01',
     RET_EFF_UPTO:'2021-12-31',RETAINER_AMT:'123456789012345678.123456'};
   const managerInput={id:null,version:0,employee_id:staff[1].employee_id,level:'UNIT',is_active:true,details,reason};
+  const draftDetails={...details,GI_UM_ID:`${prefix}_DRAFT`,GI_UNIT_CODE:'',
+    VALID_FROM:'',VALID_TO:'',JOIN_DATE:'',RET_EFF_UPTO:'',RETAINER_AMT:''};
+  await lib.saveGiManagerEnrollment({...managerInput,employee_id:staff[1].employee_id,
+    is_active:false,details:draftDetails},actor);
+  let draft=(await lib.giStructureSnapshot(actor)).managers.find(m=>m.details.GI_UM_ID===draftDetails.GI_UM_ID);
+  assert(draft,'Enrollment without primary Unit or activation must persist');
+  assert.equal(draft.is_active,false);
+  assert.equal(draft.details.GI_UNIT_CODE,'');
+  await lib.saveGiManagerEnrollment({...managerInput,id:draft.id,version:draft.version,
+    employee_id:staff[1].employee_id,is_active:false,
+    details:{...draftDetails,GI_UM_NAME:'Updated draft manager'}},actor);
+  draft=(await lib.giStructureSnapshot(actor)).managers.find(m=>m.id===draft.id);
+  assert.equal(draft.details.GI_UM_NAME,'Updated draft manager');
   await lib.saveGiManagerEnrollment(managerInput,actor);
   let snapshot=await lib.giStructureSnapshot(actor);
   lib.GetGiStructureResponse.parse(snapshot);

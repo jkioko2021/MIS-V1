@@ -67,7 +67,8 @@ export function ManagerForm({ manager, snapshot, onDone, onCancel }: Props) {
   const saveManager = useSaveGiManager();
   const [level, setLevel] = useState<GiLevel>(manager?.level ?? 'UNIT');
   const [employeeId, setEmployeeId] = useState(manager ? String(manager.employee_id) : '');
-  const [isActive, setIsActive] = useState(manager?.is_active ?? false);
+  // Enrollment edits must not silently activate or deactivate a designation.
+  const isActive = manager?.is_active ?? false;
   const [reason, setReason] = useState('');
   const [details, setDetails] = useState<GiManagerDetails>(manager?.details ?? emptyDetails);
   const selected = snapshot.manager_users.find(user => String(user.employee_id) === employeeId);
@@ -91,18 +92,6 @@ export function ManagerForm({ manager, snapshot, onDone, onCancel }: Props) {
     disabled: (!!manager && user.employee_id !== manager.employee_id)
       || (!manager && !levelAllowed(user, level)),
   }));
-  const units = snapshot.nodes.filter(node => node.level === 'UNIT');
-  const unitOptions = [
-    { value: '', label: 'No primary GI Unit', description: 'No primary unit metadata' },
-    ...units.map(unit => ({
-      value: unit.code,
-      label: unit.name,
-      description: `${unit.status === 'PENDING' ? 'Pending setup · ' : unit.status === 'INACTIVE' ? 'Inactive · ' : ''}${unit.parent_name || 'Branch not assigned'}`,
-    })),
-  ];
-  if (details.GI_UNIT_CODE && !unitOptions.some(option => option.value === details.GI_UNIT_CODE)) {
-    unitOptions.push({ value: details.GI_UNIT_CODE, label: `Unresolved GI Unit · ${details.GI_UNIT_CODE}`, description: 'Retained imported value; choose a listed Unit to replace it' });
-  }
   const nationalOptions = [
     { value: '', label: 'No National designation', description: 'Optional' },
     ...snapshot.nationals.map(national => ({ value: national.code, label: national.name, description: 'National Sales Manager' })),
@@ -156,7 +145,7 @@ export function ManagerForm({ manager, snapshot, onDone, onCancel }: Props) {
         </Field>
       </div>
       {selected?.user_eligible === false && <FormNotice tone="warning">{selected.eligibility_note || 'This MIS account is not eligible for an active GI Manager designation. It may remain as an inactive draft.'}</FormNotice>}
-      {!!manager?.source_unit_codes?.length && <FormNotice>Imported GI Units: {manager.source_unit_codes.map(code => snapshot.nodes.find(node => node.level==='UNIT'&&node.code===code)?.name??'Unresolved source Unit').join(', ')}. These source assignments do not require choosing a single primary Unit.</FormNotice>}
+      <FormNotice>{manager ? 'Saving preserves the existing designation status and imported Unit metadata.' : 'New enrollments are saved as inactive drafts.'} Assign managers to GI Units through Hierarchy Setup.</FormNotice>
       {!!manager?.source_notes?.length && <FormNotice tone="warning"><b>Original import review notes</b><ul className="mt-1 list-disc pl-5">{manager.source_notes.map(note=><li key={note}>{note}</li>)}</ul></FormNotice>}
 
       <section className="rounded-lg border p-4 sm:p-5">
@@ -169,16 +158,9 @@ export function ManagerForm({ manager, snapshot, onDone, onCancel }: Props) {
           <Field label="EMAIL"><Input type="email" value={details.EMAIL} onChange={event => update('EMAIL', event.target.value)} maxLength={254} /></Field>
           <Field label="MIS_EMP_CODE" hint="Optional source field; it is never replaced with a username."><Input value={details.MIS_EMP_CODE} onChange={event => update('MIS_EMP_CODE', event.target.value)} maxLength={50} /></Field>
           <Field label="HRMIS_CODE" hint="Optional for imported or incomplete records."><Input value={details.HRMIS_CODE} onChange={event => update('HRMIS_CODE', event.target.value)} maxLength={50} /></Field>
-          <Field label="Primary GI Unit" hint="Metadata only. A manager may be assigned to multiple Units. Pending Units are available for setup.">
-            <SearchableSelect id="gi-manager-primary-unit" value={details.GI_UNIT_CODE} options={unitOptions} onValueChange={value => update('GI_UNIT_CODE', value)} placeholder="Choose primary GI Unit" searchPlaceholder="Search GI Units…" emptyMessage="No GI Units available." />
-          </Field>
           <Field label="NSM_CODE" hint="Optional; select an existing National or retain the imported unresolved value.">
             <SearchableSelect id="gi-manager-national" value={details.NSM_CODE} options={nationalOptions} onValueChange={value => update('NSM_CODE', value)} placeholder="Choose National Sales Manager" searchPlaceholder="Search Nationals…" emptyMessage="No matching National found." />
           </Field>
-          <div className="flex items-center gap-3 rounded-md border bg-muted/20 px-3 py-2.5">
-            <Checkbox id="gi-manager-active" checked={isActive} onCheckedChange={value => setIsActive(value === true)} />
-            <label htmlFor="gi-manager-active" className="cursor-pointer"><span className="block text-sm font-medium">ACTIVE</span><span className="block text-xs text-muted-foreground">Activates this GI designation only.</span></label>
-          </div>
         </div>
       </section>
 
@@ -202,7 +184,7 @@ export function ManagerForm({ manager, snapshot, onDone, onCancel }: Props) {
           <Field label="RET_EFF_UPTO"><Input type="date" value={details.RET_EFF_UPTO} onChange={event => update('RET_EFF_UPTO', event.target.value)} /></Field>
         </div>
       </section>
-      {isActive && !validForActivation && <FormNotice tone="warning">To activate, complete the designation ID, name, valid email and validity dates; use an eligible verified MIS account. Unit Managers also require a primary Unit. An earned retainer requires join/end dates and an amount. Server validation checks date and decimal ranges.</FormNotice>}
+      {isActive && !validForActivation && <FormNotice tone="warning">This active designation requires a designation ID, name, valid email, validity dates and an eligible verified MIS account. An earned retainer requires join/end dates and an amount. Complete these details to save without changing its status.</FormNotice>}
       {details.NSM_CODE && !snapshot.nationals.some(national => national.code === details.NSM_CODE) && <FormNotice tone="warning">The National value is unresolved and retained from the imported record. It has not been inferred or replaced.</FormNotice>}
       <Reason value={reason} onChange={setReason} />
       {saveManager.isError && <p role="alert" className="text-sm text-destructive">{errorMessage(saveManager.error)}</p>}

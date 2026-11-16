@@ -35,3 +35,12 @@ provenance; preserve all source rows and Unit assignments. Leave conflicting
 single-value fields blank with review notes rather than choosing a Unit/date.
 Keep unverified identities for review and imported designations inactive until
 explicit approval. Retainer fields are metadata, not payment instructions.
+
+GI enrollment must not show a Primary GI Unit selector or Active checkbox.
+New enrollments remain inactive drafts; edits preserve the existing status and
+source Unit metadata. Team assignments belong in Hierarchy Setup.
+
+**Why:** The user asked to remove both controls from GI manager enrollment.
+
+**How to apply:** Do not infer activation from saving or erase historical Unit
+values when a field is removed from the form.
