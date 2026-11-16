@@ -43,7 +43,7 @@ export async function organisationSnapshot(user: JwtPayload) {
         ...node,medical_details:{...sourceMedicalDetails(node.level,source_details),...node.medical_details},
       }));
     const managers = scope.global ? (await client.query(`SELECT m.id,m.employee_id,m.level,m.is_active,m.version,
-      e.employee_name,e.username,e.emp_code,e.email AS account_email,m.manager_details AS details,
+      e.employee_name,e.username,e.emp_code,e.email AS account_email,e.mobile_no,m.manager_details AS details,
       (NOT e.is_deleted AND e.activated AND e.approved AND NOT e.employee_locked
         AND (m.manager_details IS NULL OR (m.manager_details->>'valid_from'<=CURRENT_DATE::text
           AND m.manager_details->>'valid_to'>=CURRENT_DATE::text))) AS user_eligible
@@ -52,7 +52,7 @@ export async function organisationSnapshot(user: JwtPayload) {
       WHERE p.is_active AND lower(btrim(p.profile_name))='sales manager' AND NOT e.is_deleted AND ${medicalManagerSql('m')}
       ORDER BY e.employee_name,m.level`)).rows : [];
     const managerUsers = scope.global ? (await client.query(`SELECT e.employee_id,e.employee_name,e.username,
-      e.emp_code,e.email,(e.activated AND e.approved AND NOT e.employee_locked
+      e.emp_code,e.email,e.mobile_no,(e.activated AND e.approved AND NOT e.employee_locked
         AND lower(btrim(coalesce(e.department,'')))='sales') AS user_eligible,
       nullif(concat_ws('; ',CASE WHEN NOT e.activated THEN 'Inactive' END,
         CASE WHEN NOT e.approved THEN 'Not approved' END,CASE WHEN e.employee_locked THEN 'Locked' END,

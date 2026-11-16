@@ -194,7 +194,7 @@ function ManagerWorkspace({ username }: { username: string }) {
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-3">
                             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#eaf1ec] text-xs font-semibold text-[#28614f]">{manager.employee_name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</span>
-                            <div><p className="font-medium">{manager.employee_name}</p><p className="mt-0.5 text-xs text-muted-foreground">{manager.username}</p></div>
+                            <div><p className="font-medium">{manager.employee_name}</p><p className="mt-0.5 text-xs text-muted-foreground">{manager.username}</p><p className="mt-1 break-words text-xs text-muted-foreground">Mobile: {manager.mobile_no || 'Not captured on user account'}</p></div>
                           </div>
                         </td>
                         <td className="px-5 py-3.5"><Badge variant="outline" className="border-[#cdded5] bg-[#f1f6f2] text-[#285b4b]">{LEVEL_LABEL[manager.level]}</Badge></td>

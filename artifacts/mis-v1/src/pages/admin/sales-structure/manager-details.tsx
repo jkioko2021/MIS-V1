@@ -56,6 +56,7 @@ function detailsFromStaff(staff?: SalesStaff): ManagerDetailsDraft {
     code: empCode,
     name: staff?.employee_name ?? '',
     email: staff?.email ?? '',
+    mobile_no: staff?.mobile_no ?? '',
     mis_emp_code: empCode,
   };
 }
@@ -404,7 +405,8 @@ export function ManagerDetailsForm({
           <DetailsField id="manager-detail-name" label="NAME" value={details.name} disabled={pending} readOnly hint="Read-only; uses the linked user’s actual name." />
           <DetailsField id="manager-detail-email" label="EMAIL" value={details.email} onChange={value => updateDetails('email', value)} disabled={pending} maxLength={254} hint="Manager contact only. Editing this does not update the MIS account email." />
           <DetailsField id="manager-detail-hrmis-code" label="HRMIS_CODE" value={details.hrmis_code} onChange={value => updateDetails('hrmis_code', value)} disabled={pending} maxLength={50} />
-          <DetailsField id="manager-detail-mobile-no" label="MOBILE_NO" value={details.mobile_no} onChange={value => updateDetails('mobile_no', value)} disabled={pending} maxLength={50} hint="Stored as typed, including leading zeroes and phone punctuation." />
+          <DetailsField id="manager-account-mobile" label="Mobile Number" value={selectedUser?.mobile_no ?? editManager?.mobile_no ?? ''} disabled={pending} readOnly hint="Captured in Administration → User Enrollment. Update the user account to change this number." />
+          <DetailsField id="manager-detail-mobile-no" label="Source MOBILE_NO" value={details.mobile_no} onChange={value => updateDetails('mobile_no', value)} disabled={pending} maxLength={50} hint="Original manager contact metadata, retained separately from the current user-account mobile number." />
           <DetailsField id="manager-detail-h-tax" label="H_TAX" value={details.h_tax} onChange={value => updateDetails('h_tax', value)} disabled={pending} maxLength={16} hint="Decimal text, up to 9 integer and 6 fractional digits; trailing zeroes are retained." />
           <DetailsField id="manager-detail-mis-emp-code" label="MIS_EMP_CODE" value={details.mis_emp_code} disabled={pending} readOnly hint="Read-only; copied from the selected MIS user’s existing code." />
           <DetailsField id="manager-detail-valid-from" label="VALID_FROM" type="date" value={details.valid_from} onChange={value => updateDetails('valid_from', value)} disabled={pending} />
@@ -446,7 +448,8 @@ export function ManagerDetailsView({ manager, onClose, onEdit }: {
     ['NAME', manager.employee_name],
     ['EMAIL', details?.email ?? 'Details not captured'],
     ['HRMIS_CODE', details?.hrmis_code ?? 'Details not captured'],
-    ['MOBILE_NO', details?.mobile_no ?? 'Details not captured'],
+    ['Mobile Number', manager.mobile_no || 'Not captured on user account'],
+    ['Source MOBILE_NO', details?.mobile_no ?? 'Details not captured'],
     ['H_TAX', details?.h_tax ?? 'Details not captured'],
     ['MIS_EMP_CODE', manager.emp_code ?? 'Not captured'],
     ['VALID_FROM', details?.valid_from ?? 'Details not captured'],

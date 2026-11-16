@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { identityQueryKey, errorMessage } from '../organisation/shared';
 import { ManagerForm } from './manager-form';
+import { NodeStatusAction } from './node-status-action';
 
 type View = 'dashboard' | 'hierarchy' | 'managers' | 'medical-units';
 const views: Array<{ id: View; label: string; icon: typeof Network }> = [
@@ -120,7 +121,7 @@ function NodeForm({ node, snapshot, onDone, onCancel }: { node?: GiNode; snapsho
   const [level, setLevel] = useState<GiLevel>(node?.level ?? 'BRANCH');
   const [name, setName] = useState(node?.name ?? '');
   const [code, setCode] = useState(node?.code ?? '');
-  const [status, setStatus] = useState<GiNode['status']>(node?.status ?? 'PENDING');
+  const status = node?.status ?? 'PENDING';
   const [parent, setParent] = useState(node?.parent_id == null ? '' : String(node.parent_id));
   const [manager, setManager] = useState(node?.manager_id == null ? '' : String(node.manager_id));
   const [reason, setReason] = useState('');
@@ -159,7 +160,6 @@ function NodeForm({ node, snapshot, onDone, onCancel }: { node?: GiNode; snapsho
     <form onSubmit={submit} className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Level"><select disabled={!!node} value={level} onChange={event => { setLevel(event.target.value as GiLevel); setParent(''); setManager(''); }} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="BRANCH">Branch</option><option value="UNIT">Unit</option></select></Field>
-        <Field label="Status"><select value={status} onChange={event => setStatus(event.target.value as GiNode['status'])} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="PENDING">Pending setup</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></Field>
         <Field label="Code" hint={node ? 'Imported codes are fixed.' : 'Use the assigned organisational code.'}><Input value={code} disabled={!!node} onChange={event => setCode(event.target.value)} maxLength={50} required /></Field>
         <Field label="Name"><Input value={name} onChange={event => setName(event.target.value)} maxLength={150} required /></Field>
         {level === 'UNIT' && <Field label="Parent Branch" hint="Pending Branches may be linked for setup, but cannot support operational activation.">
@@ -169,6 +169,7 @@ function NodeForm({ node, snapshot, onDone, onCancel }: { node?: GiNode; snapsho
           <SearchableSelect id="gi-node-manager" value={manager} options={managerOptions} onValueChange={setManager} placeholder="No manager assigned" searchPlaceholder="Search enrolled managers…" emptyMessage="No eligible manager enrollment." />
         </Field>
       </div>
+      <Notice>{node ? 'Editing preserves the current status. Use Activate or Deactivate in Branch & Unit setup to change availability.' : 'New entries are saved as Pending setup. Activate them separately after completing setup.'}</Notice>
       {status === 'ACTIVE' && level === 'UNIT' && <Notice tone={operationalIssue ? 'warning' : 'success'}>{operationalIssue ? 'This Unit cannot operate yet. Choose an available active Branch and an active Unit Manager.' : 'An active Unit must have an active Branch and an active Unit Manager.'}</Notice>}
       {node?.source_reference_id != null && <Notice>Imported from the existing source register. Source matching and original parent references are preserved.</Notice>}
       {node?.manager_id == null && node?.manager_name && <Notice tone="warning">Imported manager reference: {node.manager_name}. This reference is read-only and will not be auto-enrolled or matched to an account.</Notice>}
@@ -371,7 +372,7 @@ export default function GiStructurePage() {
             </div>
             {!filteredNodes.length ? <div className="px-5 py-14 text-center"><Network className="mx-auto h-8 w-8 text-muted-foreground" /><h3 className="mt-3 font-semibold">{nodes.length ? 'No matching structure entries' : 'No GI hierarchy records yet'}</h3><p className="mx-auto mt-1 max-w-lg text-sm text-muted-foreground">{nodes.length ? 'Adjust the level, search or status filter.' : 'Imported Branches and Units will appear here, or create the first Branch.'}</p>{canManage && !nodes.length && <Button onClick={() => setNodeEditor('new')} className="mt-4 gap-2"><Plus className="h-4 w-4" />Add Branch</Button>}</div>
               : <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-sm"><thead className="bg-[#f6f8f6] text-left text-[11px] font-semibold uppercase tracking-[.12em] text-muted-foreground"><tr><th className="px-5 py-3">Organisation</th><th className="px-5 py-3">Reports to</th><th className="px-5 py-3">Accountable manager</th><th className="px-5 py-3">Availability</th><th className="px-5 py-3">Status</th><th className="px-5 py-3 text-right">Action</th></tr></thead><tbody>{filteredNodes.map(node => <tr key={node.id} className="border-t align-top hover:bg-[#f7faf7]" data-testid={`row-gi-node-${node.id}`}>
-                <td className="px-5 py-3.5"><b>{node.name}</b><div className="mt-1 text-xs text-muted-foreground">{levelLabel(node.level)}{node.source_reference_id != null ? ' · Imported record' : ''}</div></td><td className="px-5 py-3.5">{node.level === 'BRANCH' ? 'GI root' : node.parent_name || 'Branch not assigned'}</td><td className="px-5 py-3.5">{node.manager_name || <span className="text-muted-foreground">Not assigned</span>}</td><td className="px-5 py-3.5"><span className="text-xs">{node.available ? 'Operational' : 'Setup only'}</span></td><td className="px-5 py-3.5"><StatusPill status={node.status} available={node.available} /></td><td className="px-5 py-3.5 text-right"><div className="flex justify-end gap-2">{canManage && <Button size="sm" variant="outline" onClick={() => setNodeEditor(node)} className="gap-1.5"><Pencil className="h-3.5 w-3.5" />Edit</Button>}</div></td>
+                <td className="px-5 py-3.5"><b>{node.name}</b><div className="mt-1 text-xs text-muted-foreground">{levelLabel(node.level)}{node.source_reference_id != null ? ' · Imported record' : ''}</div></td><td className="px-5 py-3.5">{node.level === 'BRANCH' ? 'GI root' : node.parent_name || 'Branch not assigned'}</td><td className="px-5 py-3.5">{node.manager_name || <span className="text-muted-foreground">Not assigned</span>}</td><td className="px-5 py-3.5"><span className="text-xs">{node.available ? 'Operational' : 'Setup only'}</span></td><td className="px-5 py-3.5"><StatusPill status={node.status} /></td><td className="px-5 py-3.5 text-right"><div className="flex flex-wrap justify-end gap-2">{canManage && <><Button size="sm" variant="outline" onClick={() => setNodeEditor(node)} className="gap-1.5"><Pencil className="h-3.5 w-3.5" />Edit</Button><NodeStatusAction node={node} /></>}</div></td>
                 <td className="hidden" />
               </tr>)}</tbody></table></div>}
           </section>

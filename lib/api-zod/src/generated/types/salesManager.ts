@@ -20,6 +20,12 @@ export interface SalesManager {
   emp_code?: string | null;
   /** @nullable */
   account_email?: string | null;
+  /**
+     * Current mobile number captured on user enrollment
+     * @maxLength 50
+     * @nullable
+     */
+  mobile_no?: string | null;
   user_eligible: boolean;
   details?: SalesManagerDetails | null;
 }

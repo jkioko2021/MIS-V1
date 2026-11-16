@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getGetOrganisationQueryKey, getGetSalesStructureQueryKey, getGetGiStructureQueryKey } from '@workspace/api-client-react';
 import { userDepartmentChoices } from './user-departments';
+import { UserDetailsDialog } from './user-details-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,7 +21,7 @@ import {
   UserPlus, Search, MoreVertical, Shield, Lock, LockOpen,
   CheckCircle, XCircle, KeyRound, Pencil, RefreshCw,
   Users, AlertCircle, Copy, Check, Mail, MailWarning,
-  Calendar,
+  Calendar, Eye,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -402,6 +403,7 @@ export default function UsersPage() {
   const [emailFilter, setEmailFilter]   = useState(false);
   const [enrollOpen, setEnrollOpen]     = useState(false);
   const [editEmployee, setEditEmployee] = useState<Employee | null>(null);
+  const [viewEmployee, setViewEmployee] = useState<Employee | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
 
   const { data: empData, isLoading } = useQuery({
@@ -599,11 +601,15 @@ export default function UsersPage() {
                 <td className="px-4 py-3">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={`Actions for ${emp.employee_name}`}>
                         <MoreVertical className="w-3.5 h-3.5" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => setViewEmployee(emp)} className="gap-2"
+                        data-testid={`button-view-user-${emp.employee_id}`}>
+                        <Eye className="w-3.5 h-3.5" />View Details
+                      </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => setEditEmployee(emp)}
                         className="gap-2"
@@ -673,6 +679,9 @@ export default function UsersPage() {
       )}
 
       {/* Dialogs */}
+      {viewEmployee && <UserDetailsDialog
+        employee={allEmployees.find(employee => employee.employee_id === viewEmployee.employee_id) ?? viewEmployee}
+        onClose={() => setViewEmployee(null)} />}
       {(enrollOpen || editEmployee) && (
         <EnrollDialog
           key={editEmployee?.employee_id ?? 'new'}

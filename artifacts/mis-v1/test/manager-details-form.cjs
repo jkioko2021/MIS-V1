@@ -74,6 +74,12 @@ const optionText = value => typeof value === 'string' ? value
   for (const label of ['Unit Manager', 'Regional Manager', 'Branch Manager', 'National Sales Manager'])
     assert(choices.some(item => optionText(item) === label));
   account(1);
+  staff[0].mobile_no = '+254 0711-002-003';
+  account(1);
+  assert.equal(node('input-manager-account-mobile').props.value, '+254 0711-002-003');
+  assert.equal(node('input-manager-account-mobile').props.readOnly, true);
+  delete staff[0].mobile_no;
+  account(1);
   for (const [key, value] of [['code', 'EMP_FIRST'], ['mis-emp-code', 'EMP_FIRST'], ['name', 'First normal user']]) {
     assert.equal(field(key).props.value, value);
     assert.equal(field(key).props.readOnly, true);

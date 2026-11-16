@@ -45,10 +45,17 @@ source Unit metadata. Team assignments belong in Hierarchy Setup.
 **How to apply:** Do not infer activation from saving or erase historical Unit
 values when a field is removed from the form.
 
-Display a manager's mobile number from the linked user enrollment record, rather
-than collecting a second copy in GI enrollment.
+Display a manager's mobile number from the linked user enrollment record in both
+GI and Medical manager enrollment. Keep historical source contacts separate.
 
-**Why:** The user requested that manager mobile numbers be captured on user enrollment.
+**Why:** The user requested mobile capture on user enrollment and display on both GI and Medical manager enrollment.
 
 **How to apply:** Keep the manager mobile display read-only and let account contact
 edits flow through to existing designations.
+
+GI Branch and Unit editing preserves status. Activation/deactivation is a separate,
+explicit action with a reason and existing availability/dependency checks.
+
+**Why:** The user requested removing Status from editing and adding Activate/Deactivate options.
+
+**How to apply:** Create new entries as Pending setup; do not activate as a side effect of editing.

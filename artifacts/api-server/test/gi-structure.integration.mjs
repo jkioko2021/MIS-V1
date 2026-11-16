@@ -114,6 +114,10 @@ try{
   medical=await lib.organisationSnapshot(actor);
   assert(medical.managers.some(m=>m.id===legacyEnrollment),'Genuine shared Medical/GI designation must remain visible');
   assert(medical.manager_users.some(u=>u.employee_id===staff[1].employee_id),'Dual-role user remains available in Medical');
+  assert.equal(medical.manager_users.find(u=>u.employee_id===staff[1].employee_id).mobile_no,'0722 001 003',
+    'Medical enrollment choices include the current user-account mobile');
+  assert.equal(medical.managers.find(m=>m.id===legacyEnrollment).mobile_no,'0722 001 003',
+    'Medical manager records include the current user-account mobile');
   const editing={...managerInput,id:manager.id,version:manager.version};
   await assert.rejects(lib.saveGiManagerEnrollment({...editing,details:{...details,JOIN_DATE:'2026-02-30'}},actor),e=>e.status===400);
   await assert.rejects(lib.saveGiManagerEnrollment({...editing,details:{...details,RETAINER_AMT:'-1'}},actor),e=>e.status===400);

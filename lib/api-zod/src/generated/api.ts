@@ -281,6 +281,8 @@ export const GetGiStructureHistoryResponseItem = zod.object({
 export const GetGiStructureHistoryResponse = zod.array(GetGiStructureHistoryResponseItem)
 
 
+export const getOrganisationResponseManagersItemMobileNoMax = 50;
+
 export const getOrganisationResponseManagersItemDetailsOneCodeMax = 50;
 
 
@@ -341,6 +343,7 @@ export const GetOrganisationResponse = zod.object({
   "username": zod.string(),
   "emp_code": zod.string().nullish(),
   "account_email": zod.string().nullish(),
+  "mobile_no": zod.string().max(getOrganisationResponseManagersItemMobileNoMax).nullish().describe('Current mobile number captured on user enrollment'),
   "user_eligible": zod.boolean(),
   "details": zod.union([zod.object({
   "code": zod.string().min(1).max(getOrganisationResponseManagersItemDetailsOneCodeMax).regex(getOrganisationResponseManagersItemDetailsOneCodeRegExp),
@@ -605,6 +608,8 @@ export const GetSalesManagerMappingHistoryResponse = zod.array(GetSalesManagerMa
 
 export const getSalesCatalogsResponseUsersItemMobileNoMax = 50;
 
+export const getSalesCatalogsResponseBranchManagersItemMobileNoMax = 50;
+
 export const getSalesCatalogsResponseBranchManagersItemDetailsOneCodeMax = 50;
 
 
@@ -693,6 +698,7 @@ export const GetSalesCatalogsResponse = zod.object({
   "username": zod.string(),
   "emp_code": zod.string().nullish(),
   "account_email": zod.string().nullish(),
+  "mobile_no": zod.string().max(getSalesCatalogsResponseBranchManagersItemMobileNoMax).nullish().describe('Current mobile number captured on user enrollment'),
   "user_eligible": zod.boolean(),
   "details": zod.union([zod.object({
   "code": zod.string().min(1).max(getSalesCatalogsResponseBranchManagersItemDetailsOneCodeMax).regex(getSalesCatalogsResponseBranchManagersItemDetailsOneCodeRegExp),
@@ -764,6 +770,8 @@ export const UpdateSalesCatalogEntryResponse = zod.object({
 })
 
 
+export const getSalesStructureResponseManagersItemMobileNoMax = 50;
+
 export const getSalesStructureResponseManagersItemDetailsOneCodeMax = 50;
 
 
@@ -812,6 +820,7 @@ export const GetSalesStructureResponse = zod.object({
   "username": zod.string(),
   "emp_code": zod.string().nullish(),
   "account_email": zod.string().nullish(),
+  "mobile_no": zod.string().max(getSalesStructureResponseManagersItemMobileNoMax).nullish().describe('Current mobile number captured on user enrollment'),
   "user_eligible": zod.boolean(),
   "details": zod.union([zod.object({
   "code": zod.string().min(1).max(getSalesStructureResponseManagersItemDetailsOneCodeMax).regex(getSalesStructureResponseManagersItemDetailsOneCodeRegExp),

@@ -1388,6 +1388,7 @@ components:
         username: { type: string }
         emp_code: { type: [string, "null"] }
         account_email: { type: [string, "null"] }
+        mobile_no: { type: [string, "null"], maxLength: 50, description: Current mobile number captured on user enrollment }
         user_eligible: { type: boolean }
         details:
           oneOf:
