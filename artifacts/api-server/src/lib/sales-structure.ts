@@ -191,7 +191,8 @@ async function validateMedicalGiLink(client: PoolClient, values: Record<string, 
 async function checkedManagerDetails(client: PoolClient, employeeId: number, input: SalesManagerDetails, requireSales = false, requireComplete = true) {
   if (!input) fail("Complete the manager enrollment details.");
   const details = Object.fromEntries(Object.entries(input).map(([key, value]) => [key, value.trim()])) as SalesManagerDetails;
-  for (const [key, value] of Object.entries(details)) if (!value && (requireComplete || ["code","name","mis_emp_code"].includes(key)))
+  const requiredFields = ["code", "name", "mis_emp_code", ...(requireComplete ? ["valid_from", "valid_to"] : [])];
+  for (const key of requiredFields) if (!details[key as keyof SalesManagerDetails])
     fail(`${key} is required${requireComplete ? " before activating this enrollment. Edit the manager details first" : ""}.`);
   if (details.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(details.email)) fail("Enter a valid manager email.");
   const { rows } = await client.query<{ employee_name: string; emp_code: string | null; department: string | null }>(

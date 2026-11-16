@@ -139,3 +139,15 @@ Keep changes audited and version-checked. Manual pending-manager selections are
 distinct from imported identity matches; retain source records and prior links
 in history. Display imported Unit names in Agent Unit Mapping without making
 pending or unavailable Units selectable.
+
+Medical manager activation allows blank optional email, HRMIS, mobile and tax
+fields. Keep verified account identity and eligibility, both validity dates,
+and verified manager/parent mappings mandatory. Never invent missing values.
+
+**Why:** The user explicitly chose “Allow blank optional fields” when activating
+Medical units and agreed that unresolved managers and missing validity dates
+remain blocked.
+
+**How to apply:** Activate only validated hierarchy entries and their required
+parents using existing mappings. Leave unresolved units pending; do not activate
+login accounts or change manager assignments as a side effect.

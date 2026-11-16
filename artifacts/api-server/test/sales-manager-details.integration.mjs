@@ -83,6 +83,21 @@ try {
   assert.equal((await stored(draft.id)).is_active,true,"Completing details allows explicit activation");
   await db.query("ROLLBACK TO SAVEPOINT blank_draft_check");
   await db.query("RELEASE SAVEPOINT blank_draft_check");
+  await db.query("SAVEPOINT optional_contact_check");
+  const optionalDetails = { ...details(staff[1]), email: "", hrmis_code: "", mobile_no: "", h_tax: "" };
+  const optionalManager = await enroll({ ...base, employee_id: staff[1].employee_id, details: optionalDetails });
+  assert.equal((await stored(optionalManager.id)).is_active, true, "Blank optional fields do not block activation");
+  assert.deepEqual((await stored(optionalManager.id)).manager_details, optionalDetails, "Missing values stay blank, never fabricated");
+  for (const key of ["valid_from", "valid_to"])
+    await assert.rejects(lib.updateSalesManager(optionalManager.id, {
+      is_active: true, version: 1, details: { ...optionalDetails, [key]: "" },
+    }, prefix), e => e.status === 400 && /required/.test(e.message));
+  for (const patch of [{ email: "invalid" }, { h_tax: "-1" }])
+    await assert.rejects(lib.updateSalesManager(optionalManager.id, {
+      is_active: true, version: 1, details: { ...optionalDetails, ...patch },
+    }, prefix), e => e.status === 400);
+  await db.query("ROLLBACK TO SAVEPOINT optional_contact_check");
+  await db.query("RELEASE SAVEPOINT optional_contact_check");
   for (const value of ["-0.1", "1e-3", "0.1234567"])
     assert(!lib.EnrollSalesManagerBody.safeParse({ ...base, details: { ...base.details, h_tax: value } }).success);
   for (const dates of [
