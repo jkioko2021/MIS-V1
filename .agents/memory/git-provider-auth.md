@@ -18,3 +18,13 @@ may therefore be unavailable. If that card fails, use Replit's Git Providers
 settings, the documented recovery route. Reconnecting only a generic
 Connected Service may not repair Git authentication. Never extract or print
 tokens, and never force-push to work around authentication failure.
+
+A push can update GitHub successfully and then report an error when the workspace
+blocks its local remote-tracking reference update.
+
+**Why:** The remote accepted the push even though the command subsequently
+reported a protected local Git-reference write.
+
+**How to apply:** Compare the remote branch with local HEAD before reporting a
+failed push or retrying. Do not mistake local tracking bookkeeping for rejected
+GitHub credentials.
