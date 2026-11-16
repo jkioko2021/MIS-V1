@@ -55,6 +55,7 @@ export * from './intermediaryDirector';
 export * from './intermediaryDocument';
 export * from './intermediaryDocumentDocumentType';
 export * from './intermediaryEvent';
+export * from './intermediaryGiManagerChoice';
 export * from './intermediaryImportResult';
 export * from './intermediaryInput';
 export * from './intermediaryLicence';

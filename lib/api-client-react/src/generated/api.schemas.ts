@@ -902,6 +902,11 @@ export type Intermediary = IntermediaryInput & ({
   terminate_date?: string | null;
 }), 'version'>>;
 
+export interface IntermediaryGiManagerChoice {
+  code: string;
+  name: string;
+}
+
 export interface IntermediaryOptions {
   import_available: boolean;
   /** @nullable */
@@ -913,6 +918,7 @@ export interface IntermediaryOptions {
   branches: string[];
   regions: string[];
   gi_codes: string[];
+  gi_managers?: IntermediaryGiManagerChoice[];
 }
 
 export interface IntermediaryList {

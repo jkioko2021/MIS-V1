@@ -44,8 +44,8 @@ export function AgentRegistration({
   const importMutation = useImportIntermediaries();
   const update = useUpdateIntermediary();
   const action = useActionIntermediary();
-  const organisation = useGetOrganisation({ query: { queryKey: identityQueryKey(getGetOrganisationQueryKey(), user), enabled: !!user, staleTime: 30_000 } });
-  const availableUnits = organisation.data?.nodes.filter(node => node.level === 'UNIT' && node.is_active && node.available) ?? [];
+  const organisation = useGetOrganisation({ query: { queryKey: identityQueryKey(getGetOrganisationQueryKey(), user), enabled: !!user, staleTime: 30_000, refetchOnMount: 'always', refetchOnWindowFocus: 'always' } });
+  const availableUnits = organisation.data?.nodes.filter(node => node.level === 'UNIT') ?? [];
   const selectedAgent = detail?.agent;
   const baseline = useRef<IntermediaryInput | null>(null);
   const today = new Date().toISOString().slice(0, 10);
@@ -261,7 +261,7 @@ export function AgentRegistration({
           {notice && <SuccessMessage>{notice}</SuccessMessage>}
           {isConflict(error) && <ConflictReload onReload={reloadCurrent} />}
           <form onSubmit={saveDetails}>
-            <RegistrationProfileFields value={selectedAgent.registration_status === 'COMPLETED' ? intermediaryInputFrom(selectedAgent) : form} onChange={selectedAgent.registration_status === 'COMPLETED' ? () => undefined : setForm} sourceRef={selectedAgent.source_ref || ''} disabled={selectedAgent.registration_status === 'COMPLETED'} agentTypes={options?.agent_types} codeCatalog={options} units={selectedAgent.organisation_unit_id ? [...availableUnits, ...(organisation.data?.nodes.find(node => node.id === selectedAgent.organisation_unit_id && !node.is_active) ? [organisation.data.nodes.find(node => node.id === selectedAgent.organisation_unit_id)!] : [])] : availableUnits} unitsLoading={organisation.isLoading} unitsError={organisation.error} />
+            <RegistrationProfileFields value={selectedAgent.registration_status === 'COMPLETED' ? intermediaryInputFrom(selectedAgent) : form} onChange={selectedAgent.registration_status === 'COMPLETED' ? () => undefined : setForm} sourceRef={selectedAgent.source_ref || ''} disabled={selectedAgent.registration_status === 'COMPLETED'} agentTypes={options?.agent_types} codeCatalog={options} units={availableUnits} pendingUnits={organisation.data?.candidates.filter(node => node.level === 'UNIT')} unitsLoading={organisation.isLoading} unitsError={organisation.error} />
             {selectedAgent.registration_status !== 'COMPLETED' && <>
               <NoteField value={saveNote} onChange={setSaveNote} label="MIS profile change note" />
               <div className="im-form-footer"><span>Save explicitly against initialized version {form.version ?? selectedAgent.version}. Moving to another step does not save.</span><Button type="submit" disabled={isPending || !saveNote.trim()}>{update.isPending ? 'Saving…' : 'Save MIS profile'} <Check size={15} /></Button></div>
@@ -321,10 +321,11 @@ export function AgentRegistration({
   </div>;
 }
 
-function RegistrationProfileFields({ value, onChange, sourceRef, disabled = false, agentTypes = [], codeCatalog, units = [], unitsLoading = false, unitsError }: {
+export function RegistrationProfileFields({ value, onChange, sourceRef, disabled = false, agentTypes = [], codeCatalog, units = [], pendingUnits = [], unitsLoading = false, unitsError }: {
   value: IntermediaryInput; onChange: (value: IntermediaryInput) => void; sourceRef: string; disabled?: boolean;
   agentTypes?: string[]; codeCatalog?: IntermediaryOptions;
   units?: OrganisationNode[]; unitsLoading?: boolean; unitsError?: unknown;
+  pendingUnits?: { code: string; name: string }[];
 }) {
   const set = (key: keyof IntermediaryInput, raw: string) => {
     const nullable: (keyof IntermediaryInput)[] = ['receive_date','contract_date','unit_code','region_code','gi_code','pin_no','nid_no','hrmis_code','mobile_no','secondary_mobile','email','pay_mode'];
@@ -333,7 +334,6 @@ function RegistrationProfileFields({ value, onChange, sourceRef, disabled = fals
   const setNumber = (raw: string) => onChange({ ...value, commission_rate: raw === '' ? null : Number(raw) });
   return <div className={`im-registration-fields ${disabled ? 'disabled' : ''}`} aria-disabled={disabled}>
     {disabled && <div className="im-readonly-banner">Read-only record · core identity remains immutable</div>}
-    <datalist id="registration-gi-codes">{(codeCatalog?.gi_codes ?? []).map(code => <option key={code} value={code} />)}</datalist>
     <div className="im-form-section"><div className="im-form-section-title"><span>01</span><div><b>Personal Details</b><small>Source registration and organization assignment</small></div></div>
       <div className="im-form-grid">
         <Field label="App Number" value={sourceRef} onChange={() => undefined} disabled hint="Source reference · read only" />
@@ -342,11 +342,16 @@ function RegistrationProfileFields({ value, onChange, sourceRef, disabled = fals
         <Field label="Intermediary Name" value={value.agent_name} onChange={() => undefined} disabled hint="Core registered name · immutable" />
         {agentTypes.length ? <SelectField label="Agent Type" value={value.agent_type} onChange={v => set('agent_type', v)} options={agentTypes} required disabled={disabled} /> : <Field label="Agent Type" value={value.agent_type} onChange={v => set('agent_type', v)} disabled={disabled} required hint="Approved agent-type catalog is not currently loaded" />}
         <label className="im-field"><span>Organisation Unit<b className="im-required"> *</b></span><select value={value.organisation_unit_id ?? ''} disabled={disabled || unitsLoading} required onChange={event => onChange({ ...value, organisation_unit_id: event.target.value ? Number(event.target.value) : null })}>
-          <option value="">{unitsLoading ? 'Loading available Units…' : 'Select an active Unit'}</option>
-          {units.map(unit => <option key={unit.id} value={unit.id}>{unit.name} · {unit.code}</option>)}
-        </select><small>{unitsError ? 'Organisation list could not be loaded. Retry before saving.' : 'Required reporting assignment. Existing organisation and agent records are reused.'}</small></label>
+          <option value="">{unitsLoading ? 'Loading Medical Units…' : 'Select a Medical Unit'}</option>
+          {units.map(unit => <option key={unit.id} value={unit.id} disabled={!unit.is_active || !unit.available}>{unit.name}{!unit.is_active || !unit.available ? ' — Setup required' : ''}</option>)}
+          {pendingUnits.map(unit => <option key={`source-${unit.code}`} value={`source-${unit.code}`} disabled>{unit.name} — Pending setup</option>)}
+        </select><small>{unitsError ? 'Medical Unit list could not be loaded. Retry before saving.' : 'Medical Units only. Units requiring setup must be activated with an eligible hierarchy before assignment.'}</small></label>
         <DerivedPath unit={units.find(unit => unit.id === value.organisation_unit_id)} />
-        <Field label="GI Manager" value={value.gi_code ?? ''} onChange={v => set('gi_code', v)} list="registration-gi-codes" disabled={disabled} hint="GI manager code (gi_code); names are not loaded" placeholder="Enter GI manager code" />
+        <label className="im-field"><span>GI Manager</span><select value={value.gi_code ?? ''} onChange={event => set('gi_code', event.target.value)} disabled={disabled || !codeCatalog}>
+          <option value="">{codeCatalog ? 'Select a GI manager' : 'Loading GI managers…'}</option>
+          {value.gi_code && !codeCatalog?.gi_managers?.some(manager => manager.code === value.gi_code) && <option value={value.gi_code} disabled>Previously saved assignment (unavailable)</option>}
+          {(codeCatalog?.gi_managers ?? []).map(manager => <option key={manager.code} value={manager.code}>{manager.name}</option>)}
+        </select><small>{codeCatalog && !codeCatalog.gi_managers?.length ? 'No eligible GI Unit managers are currently available.' : 'Select an enrolled GI Unit manager by name.'}</small></label>
         <Field label="PIN" value={value.pin_no ?? ''} onChange={v => set('pin_no', v)} disabled={disabled} />
         <Field label="ID / Reg No" value={value.nid_no ?? ''} onChange={v => set('nid_no', v)} disabled={disabled} />
         <Field label="Contract Date" type="date" value={value.contract_date ?? ''} onChange={v => set('contract_date', v)} disabled={disabled} />

@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { IntermediaryGiManagerChoice } from './intermediaryGiManagerChoice';
 
 export interface IntermediaryOptions {
   import_available: boolean;
@@ -17,4 +18,5 @@ export interface IntermediaryOptions {
   branches: string[];
   regions: string[];
   gi_codes: string[];
+  gi_managers?: IntermediaryGiManagerChoice[];
 }

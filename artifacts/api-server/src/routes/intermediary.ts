@@ -10,6 +10,7 @@ import { agentCode, agentSelect, canManageIntermediaries, detail, IntermediaryEr
 import { ObjectStorageService } from "../lib/document-storage";
 import { coreImportConfiguration, pullCoreAgents, importCoreRows } from "../lib/intermediary-core-import";
 import { SalesSetupError } from "../lib/sales-structure";
+import { giManagersSql } from "../lib/gi-structure-data";
 
 const router = Router();
 const storage = new ObjectStorageService();
@@ -34,13 +35,20 @@ router.use("/intermediary", requireAuth, async (req: Request, res: Response, nex
   } catch (err) { next(err); }
 });
 router.get("/intermediary/options", wrap(async (req, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  const giManagers = await query(`SELECT DISTINCT
+    coalesce(nullif(btrim(m.details->>'GI_UM_ID'),''),m.emp_code) AS code,
+    m.employee_name AS name
+    FROM (${giManagersSql}) m WHERE m.level='UNIT' AND m.user_eligible
+    ORDER BY name,code`);
   const rows = await query(`SELECT agent_type,agent_status,unit_code,branch_code,region_code,gi_code FROM crm.tbl_mis_sales_intermediary`);
   const values = (key: string, defaults: string[] = []) =>
     [...new Set([...defaults, ...rows.map(r => r[key]).filter((s): s is string => typeof s === "string" && !!s.trim())])].sort();
   res.json(GetIntermediaryOptionsResponse.parse({ username: req.user!.username,
     ...coreImportConfiguration(), agent_types: values("agent_type", ["IN_HOUSE", "DIRECT AGENT", "INDEPENDENT", "BROKER", "UNCLASSIFIED"]),
     statuses: values("agent_status", ["DRAFT", "ACTIVE", "SUSPENDED", "TERMINATED"]),
-    units: values("unit_code"), branches: values("branch_code"), regions: values("region_code"), gi_codes: values("gi_code") }));
+    units: values("unit_code"), branches: values("branch_code"), regions: values("region_code"), gi_codes: values("gi_code"),
+    gi_managers: giManagers }));
 }));
 router.get("/intermediary/agents", wrap(async (req, res) => {
   const p = z.object({ search: z.string().max(200).optional(), search_by: z.enum(["all", "name", "agent_code", "payroll"]).default("all"),

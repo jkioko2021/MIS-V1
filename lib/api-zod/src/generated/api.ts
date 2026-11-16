@@ -1023,7 +1023,11 @@ export const GetIntermediaryOptionsResponse = zod.object({
   "units": zod.array(zod.string()),
   "branches": zod.array(zod.string()),
   "regions": zod.array(zod.string()),
-  "gi_codes": zod.array(zod.string())
+  "gi_codes": zod.array(zod.string()),
+  "gi_managers": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string()
+})).optional()
 })
 
 

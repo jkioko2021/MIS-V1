@@ -66,6 +66,8 @@ function mount(file, exportName, initialProps) {
   vm.runInNewContext(output, {
     exports, Date, console, requestAnimationFrame: fn => fn(),
     require(name) {
+      if (name === '@/lib/auth-context') return { useAuth: () => ({ user: { username: 'test' } }) };
+      if (name === '@/pages/admin/organisation/shared') return { identityQueryKey: key => key };
       if (name === 'react') return react;
       if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'Fragment' };
       if (name === '@workspace/api-client-react') return api;
@@ -120,12 +122,14 @@ assert(emptyProfile, 'All profile sections remain mounted without a selected age
 assert.equal(emptyProfile.props.disabled, true);
 const emptyFields = walk(emptyProfile.type(emptyProfile.props));
 for (const label of ['App Number', 'Receive Date', 'Agent No', 'Intermediary Name', 'Agent Type',
-  'Region Name', 'Sales Manager', 'GI Manager', 'PIN', 'ID / Reg No', 'Contract Date', 'Payroll No',
+  'PIN', 'ID / Reg No', 'Contract Date', 'Payroll No',
   'Pri Mobile No', 'Sec Mobile No', 'Email', 'Commission Rate (%)']) {
   assert(emptyFields.some(node => node.props.label === label), `Step 02 retains ${label}`);
 }
 assert.match(text(emptyProfile.type(emptyProfile.props)), /Pay Frequency/);
 assert.match(text(emptyProfile.type(emptyProfile.props)), /eTIMS Integrated/);
+assert.match(text(emptyProfile.type(emptyProfile.props)), /Organisation Unit/);
+assert.match(text(emptyProfile.type(emptyProfile.props)), /GI Manager/);
 let refreshes = 0;
 let pickedCode = '';
 const importedAgents = Array.from({ length: 8 }, (_, i) => ({
@@ -215,3 +219,34 @@ supportTree = support.render({ activeSection: 'directors' });
 assert.equal(field('Full Name').props.value, 'Unsaved Director');
 assert.equal(mutations, 0);
 console.log('PASS: five accessible workflow tabs, keyboard navigation, stable support mount, saved-only review, completion gates, retained profile/licence/director/comment/file drafts and navigation without mutations.');
+
+let changedProfile;
+const dropdownProfile = mount('agent-registration.tsx', 'RegistrationProfileFields', {
+  value: { gi_code: 'GI_ORIGINAL', organisation_unit_id: 10 },
+  onChange: value => { changedProfile = value; },
+  sourceRef: 'core',
+  codeCatalog: { gi_managers: [{ code: 'GI_ORIGINAL', name: 'Example GI Manager' }] },
+  units: [
+    { id: 10, name: 'Medical Central', code: 'MED001', is_active: true, available: true },
+    { id: 11, name: 'Medical Pending', code: 'MED002', is_active: false, available: false },
+  ],
+  pendingUnits: [{ code: 'SRC001', name: 'Imported Medical Unit' }],
+});
+let profileTree = dropdownProfile.render();
+const selectFor = label => walk(profileTree).find(node => node.type === 'label' && text(node).startsWith(label))?.props.children.find(node => node?.type === 'select');
+const giSelect = selectFor('GI Manager');
+assert(giSelect);
+assert.equal(giSelect.props.value, 'GI_ORIGINAL');
+assert(walk(giSelect).some(node => node.type === 'option' && node.props.value === 'GI_ORIGINAL' && text(node) === 'Example GI Manager'));
+giSelect.props.onChange({ target: { value: 'GI_ORIGINAL' } });
+assert.equal(changedProfile.gi_code, 'GI_ORIGINAL', 'A name selection retains the original manager identifier');
+const medicalSelect = selectFor('Organisation Unit');
+assert(walk(medicalSelect).some(node => node.type === 'option' && node.props.value === 10 && text(node).trim() === 'Medical Central'));
+assert(!text(medicalSelect).includes('MED001'), 'Medical names, not codes, are displayed');
+assert(walk(medicalSelect).some(node => node.type === 'option' && node.props.value === 11 && node.props.disabled));
+assert(walk(medicalSelect).some(node => node.type === 'option' && /Imported Medical Unit/.test(text(node)) && node.props.disabled));
+medicalSelect.props.onChange({ target: { value: '10' } });
+assert.equal(changedProfile.organisation_unit_id, 10, 'The existing numeric Medical hierarchy assignment contract is retained');
+profileTree = dropdownProfile.render({ value: { gi_code: 'HISTORICAL' } });
+assert(walk(selectFor('GI Manager')).some(node => node.type === 'option' && node.props.value === 'HISTORICAL' && node.props.disabled), 'Historical assignments remain visible without becoming selectable new choices');
+console.log('PASS: GI manager names retain codes; Medical Unit names retain IDs; pending choices cannot bypass activation; historical assignments are preserved.');
