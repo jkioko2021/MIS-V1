@@ -49,7 +49,7 @@ export function NodeViewAction({ node, snapshot }: { node: GiNode; snapshot: GiS
           <LinkedMedicalUnits units={linked} />
           {!linked.length && <p className="mt-2 text-xs text-muted-foreground">Link Medical Units through Medical Unit mapping.</p>}
         </section> : <section aria-label="GI Units in this Branch">
-          <h3 className="text-sm font-semibold">GI Units ({children.length})</h3>
+          <h3 className="text-sm font-semibold">Medical unit ({children.length})</h3>
           {children.length ? <ul className="mt-2 space-y-2">{children.map(child => <li key={child.id} className="rounded-md border p-3 text-sm">
             <p className="font-medium">{child.name}</p>
             <LinkedMedicalUnits units={snapshot.medical_units.filter(unit => unit.gi_unit_id === child.id)} />
