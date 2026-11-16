@@ -9,6 +9,29 @@ import * as zod from 'zod';
 
 
 export const GetRmManagementResponse = zod.object({
+  "organisation": zod.object({
+  "regions": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "parent_code": zod.string().nullable(),
+  "region_code": zod.string().nullable(),
+  "reference_only": zod.boolean()
+})),
+  "branches": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "parent_code": zod.string().nullable(),
+  "region_code": zod.string().nullable(),
+  "reference_only": zod.boolean()
+})),
+  "units": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "parent_code": zod.string().nullable(),
+  "region_code": zod.string().nullable(),
+  "reference_only": zod.boolean()
+}))
+}),
   "year": zod.number().int(),
   "managers": zod.array(zod.object({
   "code": zod.string(),
@@ -36,6 +59,12 @@ export const getRmAgentsQueryManagerCodeMax = 32;
 
 export const getRmAgentsQuerySearchMax = 200;
 
+export const getRmAgentsQueryRegionCodeMax = 64;
+
+export const getRmAgentsQueryBranchCodeMax = 64;
+
+export const getRmAgentsQueryUnitCodeMax = 64;
+
 export const getRmAgentsQueryPageDefault = 1;
 
 
@@ -45,6 +74,9 @@ export const GetRmAgentsQueryParams = zod.object({
   "manager_code": zod.coerce.string().max(getRmAgentsQueryManagerCodeMax).optional(),
   "unassigned": zod.coerce.boolean().optional(),
   "search": zod.coerce.string().max(getRmAgentsQuerySearchMax).optional(),
+  "region_code": zod.coerce.string().min(1).max(getRmAgentsQueryRegionCodeMax).optional(),
+  "branch_code": zod.coerce.string().min(1).max(getRmAgentsQueryBranchCodeMax).optional(),
+  "unit_code": zod.coerce.string().min(1).max(getRmAgentsQueryUnitCodeMax).optional(),
   "page": zod.coerce.number().int().min(1).default(getRmAgentsQueryPageDefault)
 })
 
@@ -102,6 +134,12 @@ export const SaveRmManagerResponse = zod.object({
 })
 
 
+export const previewRmTransferBodyRegionCodeMax = 64;
+
+export const previewRmTransferBodyBranchCodeMax = 64;
+
+export const previewRmTransferBodyUnitCodeMax = 64;
+
 export const previewRmTransferBodyFromCodeMax = 32;
 
 export const previewRmTransferBodyToCodeMax = 32;
@@ -117,7 +155,10 @@ export const previewRmTransferBodyReasonMax = 1000;
 
 export const PreviewRmTransferBody = zod.object({
   "category": zod.enum(['C', 'R']),
-  "mode": zod.enum(['SELECTED', 'ALL']),
+  "mode": zod.enum(['SELECTED', 'ALL', 'GROUP']),
+  "region_code": zod.string().min(1).max(previewRmTransferBodyRegionCodeMax).optional(),
+  "branch_code": zod.string().min(1).max(previewRmTransferBodyBranchCodeMax).optional(),
+  "unit_code": zod.string().min(1).max(previewRmTransferBodyUnitCodeMax).optional(),
   "from_code": zod.string().max(previewRmTransferBodyFromCodeMax).nullable(),
   "to_code": zod.string().min(1).max(previewRmTransferBodyToCodeMax),
   "agent_codes": zod.array(zod.string().min(1).max(previewRmTransferBodyAgentCodesItemMax)).max(previewRmTransferBodyAgentCodesMax),
@@ -125,6 +166,7 @@ export const PreviewRmTransferBody = zod.object({
 })
 
 export const PreviewRmTransferResponse = zod.object({
+  "scope_label": zod.string().nullable(),
   "id": zod.string(),
   "category": zod.enum(['C', 'R']),
   "target_name": zod.string(),
@@ -149,6 +191,7 @@ export const CommitRmTransferParams = zod.object({
 })
 
 export const CommitRmTransferResponse = zod.object({
+  "scope_label": zod.string().nullable(),
   "id": zod.string(),
   "category": zod.enum(['C', 'R']),
   "target_name": zod.string(),

@@ -7,8 +7,10 @@
  */
 import type { RmHistoryEntry } from './rmHistoryEntry';
 import type { RmManagerRecord } from './rmManagerRecord';
+import type { RmOrganisationChoices } from './rmOrganisationChoices';
 
 export interface RmManagementSnapshot {
+  organisation: RmOrganisationChoices;
   year: number;
   managers: RmManagerRecord[];
   history: RmHistoryEntry[];

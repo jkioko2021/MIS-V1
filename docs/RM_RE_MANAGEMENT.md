@@ -26,6 +26,8 @@ transfer targets. Corporate and Retail are independent classifications.
 1. Choose **Corporate** or **Retail**.
 2. Find agents by name/code. Narrow the source to unassigned agents, an existing
    manager, or an exact legacy code when necessary.
+   Optionally choose a **Region**, **Branch** or **Unit**. These cascading filters
+   display names and restrict both the list and the transfer preview.
 3. Select individual agents, or select the entire chosen source portfolio.
 4. Choose an active target manager in the same category and enter a reason.
 5. Preview the exact agents and old/new ownership, then confirm.
@@ -39,6 +41,19 @@ Agents arriving after a preview are not silently included. Previews expire after
 15 minutes. Agent version changes, target-manager changes, removal or loss of
 the operator's permissions block the transfer without partial updates.
 Confirmation is safe to retry after a successful commit.
+
+For an entire organisational group, choose **All agents**, select a Region,
+Branch or Unit, and select **All agents in source scope**. Without an organisation
+filter, whole-group assignment is blocked. Existing-manager and unassigned
+source filters can also be combined with an organisation filter.
+
+Organisation grouping follows the agent's current assigned Medical Unit and
+its current parents. For agents without an operational Unit assignment, an exact,
+recognized imported Unit reference can be used; it is marked as an imported
+reference and is not activated. Unknown references remain available in the
+unfiltered agent search, not guessed into a group. Reassigning a relationship
+manager does not change the agent's Region, Branch or Unit. If an agent leaves
+the selected group before confirmation, the complete transfer is blocked.
 
 ## Deactivation and audit
 

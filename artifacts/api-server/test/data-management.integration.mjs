@@ -187,6 +187,55 @@ try {
   const expired=await lib.previewTransfer({...transferInput,to_code:thirdCode,agent_codes:[agentCode]},actor);
   await db.query("UPDATE crm.rm_transfer_previews SET expires_at=now()-interval '1 minute' WHERE id=$1",[expired.id]);
   await assert.rejects(()=>lib.commitTransfer(expired.id,actor),e=>e.status===409);
+  const orgNode=async(suffix,level,parent=null)=>{
+    const manager=level==="BRANCH" ? null : (await db.query(`SELECT n.manager_id FROM crm.sales_structure_nodes n
+      JOIN crm.organisation_paths p ON p.id=n.id WHERE n.level=$1 AND p.available AND n.manager_id IS NOT NULL LIMIT 1`,[level])).rows[0].manager_id;
+    return (await db.query(`INSERT INTO crm.sales_structure_nodes
+      (code,name,level,parent_id,is_active,created_by,updated_by,manager_id) VALUES($1,$2,$3,$4,true,$5,$5,$6) RETURNING *`,
+      [`${prefix}_${suffix}`.toUpperCase(),`${prefix} ${suffix}`,level,parent,prefix,manager])).rows[0];
+  };
+  const national=await orgNode("N","NATIONAL"), region1=await orgNode("R1","REGION",national.id),
+    region2=await orgNode("R2","REGION",national.id), branch1=await orgNode("B1","BRANCH",region1.id),
+    branch2=await orgNode("B2","BRANCH",region1.id), branch3=await orgNode("B3","BRANCH",region2.id),
+    unit1=await orgNode("U1","UNIT",branch1.id), unit2=await orgNode("U2","UNIT",branch2.id),
+    unit3=await orgNode("U3","UNIT",branch3.id);
+  await db.query("UPDATE crm.tbl_mis_sales_intermediary SET organisation_unit_id=$2 WHERE agent_code=$1",[agentCode,unit1.id]);
+  await db.query("UPDATE crm.tbl_mis_sales_intermediary SET organisation_unit_id=$2 WHERE agent_code=$1",[secondAgent,unit2.id]);
+  const outsideAgent=`${prefix}_OUT`, arrivalAgent=`${prefix}_LATE`;
+  await db.query(`INSERT INTO crm.tbl_mis_sales_intermediary(agent_code,agent_name,agent_type,organisation_unit_id,rms_code_corp,rms_code_ret)
+    VALUES($1,$1,'INDEPENDENT',$2,$3,$4)`,[outsideAgent,unit3.id,destinationCode,sourceCode]);
+  assert.equal((await lib.rmAgents({category:"C",region_code:region1.code,page:1},actor)).total,2);
+  assert.equal((await lib.rmAgents({category:"C",branch_code:branch1.code,page:1},actor)).total,1);
+  assert.equal((await lib.rmAgents({category:"C",unit_code:unit2.code,page:1},actor)).total,1);
+  await assert.rejects(()=>lib.rmAgents({category:"C",region_code:region2.code,branch_code:branch1.code,page:1},actor),e=>e.status===400);
+  await assert.rejects(()=>lib.previewTransfer({...transferInput,mode:"GROUP",to_code:thirdCode,agent_codes:[]},actor),e=>e.status===400);
+  await assert.rejects(()=>lib.previewTransfer({...transferInput,to_code:thirdCode,unit_code:unit1.code,agent_codes:[secondAgent]},actor),e=>e.status===409);
+  const groupInput={...transferInput,mode:"GROUP",to_code:thirdCode,region_code:region1.code,agent_codes:[]};
+  const staleGroup=await lib.previewTransfer(groupInput,actor);
+  assert.equal(staleGroup.total,2);
+  assert.ok(staleGroup.scope_label.includes(region1.name));
+  await db.query("UPDATE crm.tbl_mis_sales_intermediary SET organisation_unit_id=$2 WHERE agent_code=$1",[secondAgent,unit3.id]);
+  await assert.rejects(()=>lib.commitTransfer(staleGroup.id,actor),e=>e.status===409,"Unit changes are detected even without an agent version bump");
+  await db.query("UPDATE crm.tbl_mis_sales_intermediary SET organisation_unit_id=$2 WHERE agent_code=$1",[secondAgent,unit2.id]);
+  const group=await lib.previewTransfer(groupInput,actor);
+  await db.query(`INSERT INTO crm.tbl_mis_sales_intermediary(agent_code,agent_name,agent_type,organisation_unit_id,rms_code_corp,rms_code_ret)
+    VALUES($1,$1,'INDEPENDENT',$2,$3,$4)`,[arrivalAgent,unit1.id,destinationCode,sourceCode]);
+  await lib.commitTransfer(group.id,actor);
+  const scopedRows=(await db.query(`SELECT agent_code,rms_code_corp,rms_code_ret,organisation_unit_id,source_data
+    FROM crm.tbl_mis_sales_intermediary WHERE agent_code=ANY($1)`,[[agentCode,secondAgent,outsideAgent,arrivalAgent]])).rows;
+  assert.equal(scopedRows.find(a=>a.agent_code===agentCode).rms_code_corp,thirdCode);
+  assert.equal(scopedRows.find(a=>a.agent_code===secondAgent).rms_code_corp,thirdCode);
+  assert.ok(scopedRows.filter(a=>[outsideAgent,arrivalAgent].includes(a.agent_code)).every(a=>a.rms_code_corp===destinationCode),"Outside and post-preview agents stay untouched");
+  assert.ok(scopedRows.every(a=>a.rms_code_ret===sourceCode),"Group moves cannot alter Retail ownership");
+  assert.equal(scopedRows.find(a=>a.agent_code===agentCode).organisation_unit_id,unit1.id);
+  assert.equal(scopedRows.find(a=>a.agent_code===secondAgent).organisation_unit_id,unit2.id);
+  assert.deepEqual(scopedRows.find(a=>a.agent_code===agentCode).source_data,originalProvenance);
+  const choices=(await lib.rmSnapshot(actor)).organisation;
+  const importedUnit=choices.units.find(u=>u.reference_only && u.code);
+  assert.ok(importedUnit,"Pending imported Unit choices stay available without activation");
+  await db.query("UPDATE crm.tbl_mis_sales_intermediary SET organisation_unit_id=NULL,source_data=$2::jsonb WHERE agent_code=$1",
+    [secondAgent,JSON.stringify({data:{UNIT_CODE:importedUnit.code}})]);
+  assert.equal((await lib.rmAgents({category:"C",unit_code:importedUnit.code,search:secondAgent,page:1},actor)).total,1);
   await db.query("UPDATE crm.employees SET profile_id=(SELECT min(profile_id) FROM crm.profiles WHERE profile_id NOT IN(1,2,$2)) WHERE employee_id=$1",[actor.sub,retention]);
   await assert.rejects(()=>lib.rmSnapshot(actor),e=>e.status===403);
   await db.query("UPDATE crm.employees SET profile_id=1 WHERE employee_id=$1",[actor.sub]);
@@ -196,7 +245,7 @@ try {
   globalThis.__dataImportFailAudit = false;
   assert.equal((await db.query("SELECT 1 FROM crm.tbl_mis_sales_intermediary WHERE agent_code=$1", [`${prefix}_ROLLBACK`])).rowCount, 0, "Audit failure rolls back all inserts");
   assert.equal((await lib.loadImportBatch(rollback.id)).status, "VALIDATED");
-  console.log("PASS: CSV/TSV validation, JSONB preview, inactive users, no default password, identities unchanged, duplicate/replay safety, late conflict revalidation, raw source preservation, Medical/GI and category/year-specific RM mapping, source-coded skips and atomic audit rollback.");
+  console.log("PASS: Go-live imports and RM lifecycle; Region/Branch/Unit filtering, pending references, frozen group transfers, hierarchy-change conflicts, independent categories, original-source preservation and atomic audit rollback.");
 } finally {
   if (connected) await db.query("ROLLBACK").catch(() => {});
   await db.end(); await rm(dir, { recursive: true, force: true });

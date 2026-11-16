@@ -12,4 +12,5 @@ export type RmTransferInputMode = typeof RmTransferInputMode[keyof typeof RmTran
 export const RmTransferInputMode = {
   SELECTED: 'SELECTED',
   ALL: 'ALL',
+  GROUP: 'GROUP',
 } as const;

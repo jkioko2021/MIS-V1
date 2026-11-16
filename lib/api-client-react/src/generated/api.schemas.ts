@@ -74,7 +74,24 @@ export interface RmHistoryEntry {
   created_at: string;
 }
 
+export interface RmOrganisationChoice {
+  code: string;
+  name: string;
+  /** @nullable */
+  parent_code: string | null;
+  /** @nullable */
+  region_code: string | null;
+  reference_only: boolean;
+}
+
+export interface RmOrganisationChoices {
+  regions: RmOrganisationChoice[];
+  branches: RmOrganisationChoice[];
+  units: RmOrganisationChoice[];
+}
+
 export interface RmManagementSnapshot {
+  organisation: RmOrganisationChoices;
   year: number;
   managers: RmManagerRecord[];
   history: RmHistoryEntry[];
@@ -111,11 +128,27 @@ export type RmTransferInputMode = typeof RmTransferInputMode[keyof typeof RmTran
 export const RmTransferInputMode = {
   SELECTED: 'SELECTED',
   ALL: 'ALL',
+  GROUP: 'GROUP',
 } as const;
 
 export interface RmTransferInput {
   category: RmTransferInputCategory;
   mode: RmTransferInputMode;
+  /**
+     * @minLength 1
+     * @maxLength 64
+     */
+  region_code?: string;
+  /**
+     * @minLength 1
+     * @maxLength 64
+     */
+  branch_code?: string;
+  /**
+     * @minLength 1
+     * @maxLength 64
+     */
+  unit_code?: string;
   /**
      * @maxLength 32
      * @nullable
@@ -160,6 +193,8 @@ export const RmTransferPreviewStatus = {
 } as const;
 
 export interface RmTransferPreview {
+  /** @nullable */
+  scope_label: string | null;
   id: string;
   category: RmTransferPreviewCategory;
   target_name: string;
@@ -2352,6 +2387,21 @@ unassigned?: boolean;
  * @maxLength 200
  */
 search?: string;
+/**
+ * @minLength 1
+ * @maxLength 64
+ */
+region_code?: string;
+/**
+ * @minLength 1
+ * @maxLength 64
+ */
+branch_code?: string;
+/**
+ * @minLength 1
+ * @maxLength 64
+ */
+unit_code?: string;
 /**
  * @minimum 1
  */

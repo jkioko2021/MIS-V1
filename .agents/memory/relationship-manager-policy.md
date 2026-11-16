@@ -36,3 +36,16 @@ how current assignments differ from the source.
 **How to apply:** Preview the exact affected agents, confirm with a reason,
 reject stale versions, and commit assignment changes and audit records
 atomically. Keep source extracts unchanged and retain before/after ownership.
+
+Relationship-manager ownership can be assigned by Medical Region, Branch or
+Unit, independently of the agent's actual organisation membership.
+
+**Why:** The user requested assigning agents per Region, Branch or Unit. This is
+a portfolio assignment, not permission to transfer agents between sales teams.
+
+**How to apply:** Prefer current assigned Unit ancestry. An unassigned agent may
+be grouped through an exact recognized imported Unit reference without
+activating that reference. Do not infer unknown hierarchy links from unrelated
+source fields. Apply the same scope to listing, preview and confirmation;
+require an explicit organisation filter before moving an entire all-manager
+group, and reject agents that leave the chosen scope before confirmation.

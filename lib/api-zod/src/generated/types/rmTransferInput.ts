@@ -12,6 +12,21 @@ export interface RmTransferInput {
   category: RmTransferInputCategory;
   mode: RmTransferInputMode;
   /**
+     * @minLength 1
+     * @maxLength 64
+     */
+  region_code?: string;
+  /**
+     * @minLength 1
+     * @maxLength 64
+     */
+  branch_code?: string;
+  /**
+     * @minLength 1
+     * @maxLength 64
+     */
+  unit_code?: string;
+  /**
      * @maxLength 32
      * @nullable
      */

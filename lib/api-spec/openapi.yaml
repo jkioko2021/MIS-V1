@@ -28,6 +28,9 @@ paths:
         - { name: manager_code, in: query, schema: { type: string, maxLength: 32 } }
         - { name: unassigned, in: query, schema: { type: boolean } }
         - { name: search, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: region_code, in: query, schema: { type: string, minLength: 1, maxLength: 64 } }
+        - { name: branch_code, in: query, schema: { type: string, minLength: 1, maxLength: 64 } }
+        - { name: unit_code, in: query, schema: { type: string, minLength: 1, maxLength: 64 } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
       responses:
         "200":
@@ -1208,8 +1211,9 @@ components:
         created_at: { type: string }
     RmManagementSnapshot:
       type: object
-      required: [year, managers, history]
+      required: [year, managers, history, organisation]
       properties:
+        organisation: { $ref: "#/components/schemas/RmOrganisationChoices" }
         year: { type: integer }
         managers: { type: array, items: { $ref: "#/components/schemas/RmManagerRecord" } }
         history: { type: array, items: { $ref: "#/components/schemas/RmHistoryEntry" } }
@@ -1235,7 +1239,10 @@ components:
       required: [category, mode, from_code, to_code, agent_codes, reason]
       properties:
         category: { type: string, enum: [C, R] }
-        mode: { type: string, enum: [SELECTED, ALL] }
+        mode: { type: string, enum: [SELECTED, ALL, GROUP] }
+        region_code: { type: string, minLength: 1, maxLength: 64 }
+        branch_code: { type: string, minLength: 1, maxLength: 64 }
+        unit_code: { type: string, minLength: 1, maxLength: 64 }
         from_code: { type: [string, "null"], maxLength: 32 }
         to_code: { type: string, minLength: 1, maxLength: 32 }
         agent_codes: { type: array, maxItems: 500, items: { type: string, minLength: 1, maxLength: 30 } }
@@ -1249,8 +1256,9 @@ components:
             will_change: { type: boolean }
     RmTransferPreview:
       type: object
-      required: [id, category, target_name, total, changes, expires_at, status, items]
+      required: [id, category, target_name, total, changes, expires_at, status, items, scope_label]
       properties:
+        scope_label: { type: [string, "null"] }
         id: { type: string }
         category: { type: string, enum: [C, R] }
         target_name: { type: string }
@@ -1259,6 +1267,22 @@ components:
         expires_at: { type: string }
         status: { type: string, enum: [PREVIEW, COMMITTED] }
         items: { type: array, items: { $ref: "#/components/schemas/RmTransferItem" } }
+    RmOrganisationChoice:
+      type: object
+      required: [code, name, parent_code, region_code, reference_only]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        parent_code: { type: [string, "null"] }
+        region_code: { type: [string, "null"] }
+        reference_only: { type: boolean }
+    RmOrganisationChoices:
+      type: object
+      required: [regions, branches, units]
+      properties:
+        regions: { type: array, items: { $ref: "#/components/schemas/RmOrganisationChoice" } }
+        branches: { type: array, items: { $ref: "#/components/schemas/RmOrganisationChoice" } }
+        units: { type: array, items: { $ref: "#/components/schemas/RmOrganisationChoice" } }
     DataExtractInput:
       type: object
       required: [filename, content]

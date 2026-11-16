@@ -19,6 +19,21 @@ unassigned?: boolean;
  */
 search?: string;
 /**
+ * @minLength 1
+ * @maxLength 64
+ */
+region_code?: string;
+/**
+ * @minLength 1
+ * @maxLength 64
+ */
+branch_code?: string;
+/**
+ * @minLength 1
+ * @maxLength 64
+ */
+unit_code?: string;
+/**
  * @minimum 1
  */
 page?: number;

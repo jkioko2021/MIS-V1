@@ -204,6 +204,8 @@ export * from './rmManagerInput';
 export * from './rmManagerInputCategory';
 export * from './rmManagerRecord';
 export * from './rmManagerRecordCategory';
+export * from './rmOrganisationChoice';
+export * from './rmOrganisationChoices';
 export * from './rmTransferInput';
 export * from './rmTransferInputCategory';
 export * from './rmTransferInputMode';

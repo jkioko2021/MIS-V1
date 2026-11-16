@@ -3,6 +3,7 @@ import type { PoolClient } from "pg";
 import type { RmManagerInput, RmTransferInput, GetRmAgentsParams } from "@workspace/api-zod";
 import { withTransaction } from "./postgres";
 import { DataImportError } from "./data-extract";
+import { rmOrganisationChoices, resolveRmOrgScope, rmEffectiveUnitCodeSql } from "./rm-organisation-scope";
 
 type Actor = { sub: number };
 const fail = (status: number, message: string): never => { throw new DataImportError(status, message); };
@@ -48,7 +49,7 @@ export async function rmSnapshot(actor: Actor) {
       to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created_at
       FROM crm.rm_management_events ORDER BY created_at DESC,id DESC LIMIT 100`)).rows;
     const year = (await client.query("SELECT extract(year FROM CURRENT_DATE)::int AS year")).rows[0].year;
-    return { year, managers, history };
+    return { year, managers, history, organisation: await rmOrganisationChoices(client) };
   });
 }
 const agentSelect = (category: string) => `SELECT a.agent_code AS code,a.agent_name AS name,
@@ -61,12 +62,14 @@ export async function rmAgents(params: GetRmAgentsParams, actor: Actor) {
     await client.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
     await requireRmAccess(client, actor);
     if (params.unassigned && params.manager_code) fail(400, "Choose either a manager filter or unassigned agents.");
+    const scope = await resolveRmOrgScope(client,params);
     const conditions = ` WHERE ($2::text IS NULL OR btrim(a.${column(params.category)})=$2)
       AND (NOT $3::boolean OR nullif(btrim(a.${column(params.category)}),'') IS NULL)
-      AND ($4::text='' OR position(lower($4) IN lower(a.agent_code||' '||a.agent_name))>0)`;
-    const args = [params.category, params.manager_code?.trim() || null, params.unassigned === true, params.search?.trim() ?? ""];
+      AND ($4::text='' OR position(lower($4) IN lower(a.agent_code||' '||a.agent_name))>0)
+      AND ($5::text[] IS NULL OR ${rmEffectiveUnitCodeSql}=ANY($5::text[]))`;
+    const args = [params.category, params.manager_code?.trim() || null, params.unassigned === true, params.search?.trim() ?? "",scope.unitCodes];
     const page = params.page ?? 1;
-    const items = (await client.query(`${agentSelect(params.category)}${conditions} ORDER BY a.agent_name,a.agent_code LIMIT 25 OFFSET $5`, [...args, (page-1)*25])).rows;
+    const items = (await client.query(`${agentSelect(params.category)}${conditions} ORDER BY a.agent_name,a.agent_code LIMIT 25 OFFSET $6`, [...args, (page-1)*25])).rows;
     // Include category in the count through a harmless typed condition so binding remains aligned.
     const total = (await client.query(`SELECT count(*)::int total FROM crm.tbl_mis_sales_intermediary a${conditions} AND $1::text IN('C','R')`, args)).rows[0].total;
     return { items, total, page, page_size: 25 };
@@ -75,6 +78,7 @@ export async function rmAgents(params: GetRmAgentsParams, actor: Actor) {
 async function rmWrite<T>(actor: Actor, fn: (client: PoolClient, username: string) => Promise<T>) {
   return withTransaction(async client => {
     await client.query("SELECT pg_advisory_xact_lock(7345202)");
+    await client.query("SELECT pg_advisory_xact_lock(82026,55)");
     return fn(client, await requireRmAccess(client, actor));
   });
 }
@@ -116,28 +120,35 @@ async function transferResult(client: PoolClient, id: string) {
     'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS expires_text FROM crm.rm_transfer_previews WHERE id=$1`, [id])).rows[0];
   if (!row) fail(404, "Transfer preview not found.");
   return { id, category:row.input.category,target_name:row.target.name,total:row.results.length,
-    changes:row.results.filter((r: any)=>r.will_change).length,expires_at:row.expires_text,status:row.status,items:row.results };
+    changes:row.results.filter((r: any)=>r.will_change).length,expires_at:row.expires_text,status:row.status,items:row.results,
+    scope_label:row.input.scope_label ?? null };
 }
 export async function previewTransfer(input: RmTransferInput, actor: Actor) {
   return rmWrite(actor, async (client) => {
     const targetCode = cleanCode(input.to_code), reason = cleanReason(input.reason);
     const target = await targetManager(client,targetCode,input.category);
+    const scope = await resolveRmOrgScope(client,input);
     const fromCode = input.from_code?.trim() || null;
     if (input.mode === "ALL" && fromCode === targetCode) fail(400, "Choose a different target manager.");
     const codes = [...new Set(input.agent_codes)];
     if (input.mode === "SELECTED" && !codes.length) fail(400, "Select at least one agent.");
-    if (input.mode === "ALL" && codes.length) fail(400, "Bulk source-manager mode does not accept a separate agent selection.");
+    if (input.mode !== "SELECTED" && codes.length) fail(400, "Bulk mode does not accept a separate agent selection.");
+    if (input.mode === "GROUP" && (!scope.unitCodes || fromCode))
+      fail(400,"Choose a Region, Branch or Unit for group assignment, without a source-manager restriction.");
     const selected = (await client.query(`${agentSelect(input.category)} WHERE ${
       input.mode === "SELECTED" ? "a.agent_code=ANY($2::text[])" :
-        `coalesce(nullif(btrim(a.${column(input.category)}),''),'')=coalesce($2::text,'')`
-    } ORDER BY a.agent_code LIMIT 5001`, [input.category,input.mode==="SELECTED" ? codes : fromCode])).rows;
-    if (input.mode === "SELECTED" && selected.length !== codes.length) fail(409, "Some selected agents no longer exist. Refresh the list.");
+        input.mode === "GROUP" ? "$2::text IS NULL"
+          : `coalesce(nullif(btrim(a.${column(input.category)}),''),'')=coalesce($2::text,'')`
+    } AND ($3::text[] IS NULL OR ${rmEffectiveUnitCodeSql}=ANY($3::text[]))
+      ORDER BY a.agent_code LIMIT 5001`, [input.category,input.mode==="SELECTED" ? codes : input.mode==="GROUP" ? null : fromCode,scope.unitCodes])).rows;
+    if (input.mode === "SELECTED" && selected.length !== codes.length) fail(409, "Some selected agents are missing or outside the selected organisational group. Refresh the list.");
     if (!selected.length || selected.length > 5000) fail(400, "Choose between 1 and 5,000 agents per transfer.");
     const rows = selected.map(a => ({...a,will_change:a.current_code!==targetCode}));
     if (!rows.some(a=>a.will_change)) fail(400, "All selected agents already have this manager.");
     const id = randomUUID();
     await client.query(`INSERT INTO crm.rm_transfer_previews(id,created_by,input,target,results)
-      VALUES($1,$2,$3::jsonb,$4::jsonb,$5::jsonb)`, [id,actor.sub,JSON.stringify({...input,reason,to_code:targetCode,from_code:fromCode}),JSON.stringify(target),JSON.stringify(rows)]);
+      VALUES($1,$2,$3::jsonb,$4::jsonb,$5::jsonb)`, [id,actor.sub,JSON.stringify({...input,reason,to_code:targetCode,from_code:fromCode,
+        scope_label:scope.label}),JSON.stringify(target),JSON.stringify(rows)]);
     return transferResult(client,id);
   });
 }
@@ -151,18 +162,27 @@ export async function commitTransfer(id: string, actor: Actor) {
     const target = await targetManager(client,to_code,category);
     if (target.version !== preview.target.version || target.year !== preview.target.year)
       fail(409, "The target manager changed. Preview again.");
+    let scope;
+    try { scope = await resolveRmOrgScope(client,preview.input); }
+    catch(error) {
+      if(error instanceof DataImportError && error.status===400) fail(409,"The selected hierarchy changed. Preview again.");
+      throw error;
+    }
     const codes = preview.results.map((r: any)=>r.code);
-    const locked = (await client.query(`SELECT agent_code,version,${column(category)} AS current_code
-      FROM crm.tbl_mis_sales_intermediary WHERE agent_code=ANY($1::text[]) ORDER BY agent_code FOR UPDATE`, [codes])).rows;
+    const locked = (await client.query(`SELECT a.agent_code,a.version,a.${column(category)} AS current_code,
+      ${rmEffectiveUnitCodeSql} AS org_unit_code
+      FROM crm.tbl_mis_sales_intermediary a WHERE a.agent_code=ANY($1::text[]) ORDER BY a.agent_code FOR UPDATE OF a`, [codes])).rows;
     if (locked.length !== codes.length) fail(409, "An agent was removed. Preview again.");
     for (const row of preview.results) {
       const actual = locked.find(a=>a.agent_code===row.code);
       if (!actual || actual.version!==row.version || (actual.current_code?.trim() || null)!==row.current_code)
         fail(409, "An agent's details or assignment changed. No agents were moved; preview again.");
+      if (scope.unitCodes && !scope.unitCodes.includes(actual.org_unit_code))
+        fail(409,"An agent moved outside the selected organisational group. No agents were moved; preview again.");
     }
     for (const row of preview.results.filter((r: any)=>r.will_change)) {
       await client.query(`UPDATE crm.tbl_mis_sales_intermediary SET ${column(category)}=$2,version=version+1 WHERE agent_code=$1`, [row.code,to_code]);
-      const description = `${category==='C'?'Corporate':'Retail'}: ${row.name} (${row.code}), ${row.current_name ?? row.current_code ?? 'Unassigned'} → ${target.name}.`;
+      const description = `${category==='C'?'Corporate':'Retail'}: ${row.name} (${row.code}), ${row.current_name ?? row.current_code ?? 'Unassigned'} → ${target.name}.${preview.input.scope_label ? ` ${preview.input.scope_label}.` : ''}`;
       await audit(client,"AGENT_REASSIGNED",username,reason,description,row,{...row,current_code:to_code,current_name:target.name},row.code,id);
       await client.query(`INSERT INTO crm.intermediary_events(agent_code,action,actor,notes) VALUES($1,'RM_REASSIGNED',$2,$3)`,
         [row.code,username,`${description} ${reason}`]);

@@ -10,6 +10,8 @@ import type { RmTransferPreviewCategory } from './rmTransferPreviewCategory';
 import type { RmTransferPreviewStatus } from './rmTransferPreviewStatus';
 
 export interface RmTransferPreview {
+  /** @nullable */
+  scope_label: string | null;
   id: string;
   category: RmTransferPreviewCategory;
   target_name: string;

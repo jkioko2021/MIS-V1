@@ -109,6 +109,9 @@ export default function RelationshipManagerManagementPage() {
   const [agentPage, setAgentPage] = useState(1);
   const [sourceMode, setSourceMode] = useState<SourceMode>('unassigned');
   const [sourceCode, setSourceCode] = useState('');
+  const [regionCode, setRegionCode] = useState('');
+  const [branchCode, setBranchCode] = useState('');
+  const [unitCode, setUnitCode] = useState('');
   const [targetCode, setTargetCode] = useState('');
   const [transferMode, setTransferMode] = useState<TransferMode>('SELECTED');
   const [transferReason, setTransferReason] = useState('');
@@ -125,6 +128,10 @@ export default function RelationshipManagerManagementPage() {
   const [deactivateError, setDeactivateError] = useState('');
 
   const managers = snapshot.data?.managers ?? [];
+  const organisation = snapshot.data?.organisation;
+  const regions = organisation?.regions ?? [];
+  const branches = organisation?.branches ?? [];
+  const units = organisation?.units ?? [];
   const currentYear = snapshot.data?.year ?? new Date().getFullYear();
   const categoryManagers = useMemo(
     () => managers.filter((manager) => manager.category === category),
@@ -143,6 +150,16 @@ export default function RelationshipManagerManagementPage() {
     }
     return [...byCode.values()];
   }, [categoryManagers]);
+  const branchChoices = useMemo(
+    () => regionCode ? branches.filter((branch) => branch.parent_code === regionCode) : branches,
+    [branches, regionCode],
+  );
+  const unitChoices = useMemo(
+    () => branchCode
+      ? units.filter((unit) => unit.parent_code === branchCode)
+      : regionCode ? units.filter((unit) => unit.region_code === regionCode) : units,
+    [units, branchCode, regionCode],
+  );
 
   const agentParams = useMemo(() => ({
     category,
@@ -151,8 +168,11 @@ export default function RelationshipManagerManagementPage() {
       : sourceMode === 'all' ? {}
         : sourceCode.length > 0 ? { manager_code: sourceCode } : {}),
     ...(transferMode === 'SELECTED' && agentSearch.trim() ? { search: agentSearch.trim() } : {}),
+    ...(regionCode ? { region_code: regionCode } : {}),
+    ...(branchCode ? { branch_code: branchCode } : {}),
+    ...(unitCode ? { unit_code: unitCode } : {}),
     page: agentPage,
-  }), [category, sourceMode, sourceCode, agentSearch, agentPage, transferMode]);
+  }), [category, sourceMode, sourceCode, agentSearch, agentPage, transferMode, regionCode, branchCode, unitCode]);
   const canLoadAgents = !!user && (sourceMode === 'unassigned' || sourceMode === 'all' || sourceCode.trim().length > 0);
   const agentQuery = useGetRmAgents(agentParams, {
     query: {
@@ -172,13 +192,14 @@ export default function RelationshipManagerManagementPage() {
   const allScopeCount = agentQuery.data?.total ?? 0;
   const sameSourceAndTarget = sourceMode !== 'unassigned' && !!sourceCode && sourceCode === targetCode;
   const sourceReady = sourceMode === 'unassigned' || sourceMode === 'all' || sourceCode.trim().length > 0;
-  const allSourceModeBlocked = sourceMode === 'all' && transferMode === 'ALL';
+  const hasOrgScope = !!(regionCode || branchCode || unitCode);
+  const groupScopeRequired = sourceMode === 'all' && transferMode === 'ALL' && !hasOrgScope;
   const transferCountReady = transferMode === 'SELECTED'
     ? selectedCodes.size > 0 && selectedCodes.size <= MAX_SELECTED
     : allScopeCount > 0 && allScopeCount <= MAX_TRANSFER;
   const canPreviewTransfer = !!user && !mutationBusy && sourceReady && !!targetCode
     && targetManagers.some((manager) => manager.code === targetCode)
-    && !sameSourceAndTarget && !allSourceModeBlocked && transferCountReady
+    && !sameSourceAndTarget && !groupScopeRequired && transferCountReady
     && transferReason.trim().length >= 3 && !agentQuery.isFetching;
   const previewExpired = !!previewResult && Date.parse(previewResult.expires_at) <= Date.now();
   const canCommitPreview = !!previewResult && previewResult.status === 'PREVIEW'
@@ -221,6 +242,76 @@ export default function RelationshipManagerManagementPage() {
     } else {
       setSourceMode('manual'); setSourceCode(value);
     }
+  }
+
+  function resetOrgAssignmentScope() {
+    clearTransferPreview();
+    setSelectedCodes(new Set());
+    setAgentPage(1);
+  }
+
+  function changeRegion(nextCode: string) {
+    if (mutationBusy) return;
+    let nextBranch = branchCode;
+    let nextUnit = unitCode;
+    if (nextCode && nextBranch) {
+      const branch = branches.find((item) => item.code === nextBranch);
+      if (!branch || branch.parent_code !== nextCode) {
+        nextBranch = '';
+        nextUnit = '';
+      }
+    }
+    if (nextCode && nextUnit) {
+      const unit = units.find((item) => item.code === nextUnit);
+      if (!unit || unit.region_code !== nextCode) nextUnit = '';
+    }
+    resetOrgAssignmentScope();
+    setRegionCode(nextCode);
+    setBranchCode(nextBranch);
+    setUnitCode(nextUnit);
+  }
+
+  function changeBranch(nextCode: string) {
+    if (mutationBusy) return;
+    let nextRegion = regionCode;
+    let nextUnit = unitCode;
+    const branch = nextCode ? branches.find((item) => item.code === nextCode) : undefined;
+    if (!nextCode) nextUnit = '';
+    else {
+      const parentRegion = branch?.parent_code;
+      if (parentRegion && regions.some((region) => region.code === parentRegion)) nextRegion = parentRegion;
+      const unit = nextUnit ? units.find((item) => item.code === nextUnit) : undefined;
+      if (unit && unit.parent_code !== nextCode) nextUnit = '';
+    }
+    resetOrgAssignmentScope();
+    setRegionCode(nextRegion);
+    setBranchCode(nextCode);
+    setUnitCode(nextUnit);
+  }
+
+  function changeUnit(nextCode: string) {
+    if (mutationBusy) return;
+    let nextRegion = regionCode;
+    let nextBranch = branchCode;
+    if (nextCode) {
+      const unit = units.find((item) => item.code === nextCode);
+      const parentBranch = unit?.parent_code
+        ? branches.find((branch) => branch.code === unit.parent_code)
+        : undefined;
+      if (parentBranch) {
+        nextBranch = parentBranch.code;
+        const parentRegion = parentBranch.parent_code;
+        nextRegion = parentRegion && regions.some((region) => region.code === parentRegion) ? parentRegion : '';
+      } else {
+        nextBranch = '';
+        const ancestorRegion = unit?.region_code;
+        if (ancestorRegion && regions.some((region) => region.code === ancestorRegion)) nextRegion = ancestorRegion;
+      }
+    }
+    resetOrgAssignmentScope();
+    setRegionCode(nextRegion);
+    setBranchCode(nextBranch);
+    setUnitCode(nextCode);
   }
 
   function toggleSelected(code: string, selected: boolean) {
@@ -355,7 +446,7 @@ export default function RelationshipManagerManagementPage() {
   }
 
   async function requestTransferPreview() {
-    if (!canPreviewTransfer || lockRef.current || (sourceMode === 'all' && transferMode === 'ALL')) return;
+    if (!canPreviewTransfer || lockRef.current || groupScopeRequired) return;
     const epoch = previewEpoch.current;
     lockRef.current = true;
     setTransferError('');
@@ -363,7 +454,10 @@ export default function RelationshipManagerManagementPage() {
     try {
       const result = await previewMutation.mutateAsync({ data: {
         category,
-        mode: transferMode,
+        mode: sourceMode === 'all' && transferMode === 'ALL' ? 'GROUP' : transferMode,
+        ...(regionCode ? { region_code: regionCode } : {}),
+        ...(branchCode ? { branch_code: branchCode } : {}),
+        ...(unitCode ? { unit_code: unitCode } : {}),
         from_code: sourceMode === 'unassigned' || sourceMode === 'all' ? null : sourceCode,
         to_code: targetCode,
         agent_codes: transferMode === 'SELECTED' ? selectedList : [],
@@ -514,10 +608,10 @@ export default function RelationshipManagerManagementPage() {
                 {selectedCodes.size > 0 && <button type="button" className="rm-button rm-quiet !min-h-8 !px-3" disabled={mutationBusy} onClick={() => { clearTransferPreview(); setSelectedCodes(new Set()); }} data-testid="button-clear-rm-selection">Clear selection</button>}
               </div>
             </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-4 grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
               <label className="rm-label"><span>Source manager scope</span><select className="rm-input" value={sourceMode === 'unassigned' ? UNASSIGNED_OPTION : sourceMode === 'all' ? ALL_AGENTS_OPTION : sourceMode === 'manual' ? MANUAL_OPTION : `${MANAGER_OPTION_PREFIX}${sourceCode}`} onChange={(event) => changeSource(event.target.value)} disabled={mutationBusy} data-testid="select-rm-source">
                 <option value={UNASSIGNED_OPTION}>Unassigned</option>
-                <option value={ALL_AGENTS_OPTION}>All agents · selected transfers only</option>
+                <option value={ALL_AGENTS_OPTION}>All agents · organisation scope for bulk</option>
                 {sourceManagerChoices.map((manager) => <option key={manager.code} value={`${MANAGER_OPTION_PREFIX}${manager.code}`}>{manager.name} · {manager.code}{manager.year > currentYear ? ' · future' : !manager.active || !manager.is_current ? ` · ${manager.is_current ? 'inactive' : 'legacy'}` : ''}</option>)}
                 <option value={MANUAL_OPTION}>Enter legacy / unmapped source code…</option>
               </select></label>
@@ -527,9 +621,26 @@ export default function RelationshipManagerManagementPage() {
                 {targetManagers.map((manager) => <option key={`${manager.year}-${manager.code}`} value={manager.code}>{manager.name} · {manager.code}</option>)}
               </select><small>Only current, active {categoryLabel(category)} references can receive assignments.</small></label>
               <label className="rm-label"><span>Transfer scope</span><select className="rm-input" value={transferMode} onChange={(event) => { clearTransferPreview(); setTransferMode(event.target.value as TransferMode); setSelectedCodes(new Set()); setAgentPage(1); }} disabled={mutationBusy} data-testid="select-rm-transfer-mode">
-                <option value="SELECTED">Selected agents only</option><option value="ALL" disabled={sourceMode === 'all'}>All agents in source scope</option>
-              </select><small>{transferMode === 'ALL' ? 'Unassigned means from_code null; manager scope uses the exact source code.' : `Select up to ${MAX_SELECTED} agents across pages.`}</small></label>
+                <option value="SELECTED">Selected agents only</option><option value="ALL">All agents in source scope</option>
+              </select><small>{transferMode === 'ALL'
+                ? sourceMode === 'all'
+                  ? 'Group mode moves every agent in the selected organisation scope, regardless of current manager.'
+                  : 'Unassigned includes only agents without a manager. Region, Branch and Unit filters narrow the source group.'
+                : `Select up to ${MAX_SELECTED} agents across pages. Organisation filters narrow the list.`}</small></label>
+              <label className="rm-label"><span>Region · optional</span><select className="rm-input" value={regionCode} onChange={(event) => changeRegion(event.target.value)} disabled={mutationBusy} data-testid="select-rm-region">
+                <option value="">All regions</option>
+                {regions.map((region) => <option key={region.code} value={region.code}>{region.name}{region.reference_only ? ' · Imported reference (not activated)' : ''}</option>)}
+              </select></label>
+              <label className="rm-label"><span>Branch · optional</span><select className="rm-input" value={branchCode} onChange={(event) => changeBranch(event.target.value)} disabled={mutationBusy} data-testid="select-rm-branch">
+                <option value="">All branches</option>
+                {branchChoices.map((branch) => <option key={branch.code} value={branch.code}>{branch.name}{branch.reference_only ? ' · Imported reference (not activated)' : ''}</option>)}
+              </select></label>
+              <label className="rm-label"><span>Unit · optional</span><select className="rm-input" value={unitCode} onChange={(event) => changeUnit(event.target.value)} disabled={mutationBusy} data-testid="select-rm-unit">
+                <option value="">All Units</option>
+                {unitChoices.map((unit) => <option key={unit.code} value={unit.code}>{unit.name}{unit.reference_only ? ' · Imported reference (not activated)' : ''}</option>)}
+              </select></label>
             </div>
+            <p className="mt-2 text-[10px] leading-4 text-muted-foreground">Organisation choices only filter agent scope. Imported references are shown as not activated and are never activated or written by RM_RE. Selecting a known Branch or Unit fills its known parent filters.</p>
             {sourceMode === 'manager' && sourceCode && <p className="mt-3 text-[10px] text-muted-foreground">Source code is sent exactly as shown: <span className="font-mono font-bold text-foreground">{sourceCode}</span>. Inactive and historical source codes remain selectable.</p>}
           </div>
 
@@ -562,11 +673,11 @@ export default function RelationshipManagerManagementPage() {
 
             <aside className="border-t border-border bg-muted/25 p-4 sm:p-5 xl:border-l xl:border-t-0">
               <p className="rm-eyebrow">Transfer authorization</p>
-              <div className="mt-3 rounded-lg border border-border bg-card p-3"><div className="flex items-center gap-2 text-xs font-semibold"><ArrowRightLeft className="h-4 w-4 text-primary" />{transferMode === 'ALL' ? `${allScopeCount.toLocaleString()} in source scope` : `${selectedCodes.size} selected agent${selectedCodes.size === 1 ? '' : 's'}`}</div><p className="mt-1 text-[10px] leading-4 text-muted-foreground">{categoryLabel(category)} only. The other manager category is not changed.</p></div>
+              <div className="mt-3 rounded-lg border border-border bg-card p-3"><div className="flex items-center gap-2 text-xs font-semibold"><ArrowRightLeft className="h-4 w-4 text-primary" />{transferMode === 'ALL' ? `${allScopeCount.toLocaleString()} ${sourceMode === 'all' ? 'agents in selected organisation group' : 'agents in source and organisation scope'}` : `${selectedCodes.size} selected agent${selectedCodes.size === 1 ? '' : 's'}`}</div><p className="mt-1 text-[10px] leading-4 text-muted-foreground">{categoryLabel(category)} only. The other manager category is not changed.</p></div>
               <label className="rm-label mt-4"><span>Reason for this transfer <b className="text-destructive">*</b></span><textarea className="rm-input min-h-24 resize-y" value={transferReason} onChange={(event) => { clearTransferPreview(); setTransferReason(event.target.value); }} disabled={mutationBusy} maxLength={1000} placeholder="Record the operational reason for this reassignment" data-testid="textarea-rm-transfer-reason" /><small>Required, 3–1,000 characters. Any edit invalidates the preview.</small></label>
               {sameSourceAndTarget && <p className="rm-inline-error"><AlertCircle className="h-4 w-4" />Target must differ from the source manager.</p>}
               {transferMode === 'SELECTED' && selectedCodes.size > MAX_SELECTED && <p className="rm-inline-error"><AlertCircle className="h-4 w-4" />Selected-agent maximum is {MAX_SELECTED}.</p>}
-              {allSourceModeBlocked && <p className="rm-inline-error"><AlertCircle className="h-4 w-4" />Choose Unassigned or an exact source manager for an all-source transfer. Blank from_code never means all agents.</p>}
+              {groupScopeRequired && <p className="rm-inline-error"><AlertCircle className="h-4 w-4" />Choose a Region, Branch or Unit before assigning an entire organisation group.</p>}
               {transferMode === 'ALL' && allScopeCount > MAX_TRANSFER && <p className="rm-inline-error"><AlertCircle className="h-4 w-4" />Scope exceeds the {MAX_TRANSFER.toLocaleString()}-agent maximum.</p>}
               {transferError && <p className="rm-inline-error" role="alert"><AlertCircle className="h-4 w-4" />{transferError}</p>}
               <button type="button" className="rm-button rm-primary mt-4 w-full" onClick={() => void requestTransferPreview()} disabled={!canPreviewTransfer} data-testid="button-preview-rm-transfer">
@@ -610,9 +721,9 @@ export default function RelationshipManagerManagementPage() {
 
       <Dialog open={confirmTransfer && !!previewResult} onOpenChange={(open) => { if (open || (!commitMutation.isPending && !lockRef.current)) setConfirmTransfer(open); }}>
         {previewResult && <DialogContent className="w-[calc(100%-2rem)] max-w-4xl" onEscapeKeyDown={(event) => { if (commitMutation.isPending || lockRef.current) event.preventDefault(); }} onInteractOutside={(event) => { if (commitMutation.isPending || lockRef.current) event.preventDefault(); }}>
-          <DialogHeader><p className="rm-eyebrow">Snapshot review · {previewResult.status}</p><DialogTitle>{previewResult.status === 'COMMITTED' ? 'Transfer complete' : 'Confirm agent reassignment'}</DialogTitle><DialogDescription>{categoryLabel(previewResult.category)} relationships only. {previewResult.changes.toLocaleString()} of {previewResult.total.toLocaleString()} snapshot agents will change to {previewResult.target_name}.</DialogDescription></DialogHeader>
+          <DialogHeader><p className="rm-eyebrow">Snapshot review · {previewResult.status}</p><DialogTitle>{previewResult.status === 'COMMITTED' ? 'Transfer complete' : 'Confirm agent reassignment'}</DialogTitle><DialogDescription>{categoryLabel(previewResult.category)} relationships only. {previewResult.changes.toLocaleString()} of {previewResult.total.toLocaleString()} snapshot agents will change to {previewResult.target_name}. Organisation scope: {previewResult.scope_label || 'No organisational filter'}.</DialogDescription></DialogHeader>
           {previewExpired && previewResult.status === 'PREVIEW' && <p className="rm-inline-error" role="alert"><Clock3 className="h-4 w-4" />This preview expired. Close it and build a new snapshot; expired previews cannot be committed.</p>}
-          <div className="grid gap-2 sm:grid-cols-3"><div className="rounded-lg bg-muted/50 p-3"><small className="rm-eyebrow">Category</small><b className="mt-1 block text-sm">{categoryLabel(previewResult.category)}</b></div><div className="rounded-lg bg-muted/50 p-3"><small className="rm-eyebrow">Will change</small><b className="mt-1 block font-mono text-lg">{previewResult.changes.toLocaleString()}</b></div><div className="rounded-lg bg-muted/50 p-3"><small className="rm-eyebrow">Preview expires</small><b className="mt-1 block text-xs">{new Date(previewResult.expires_at).toLocaleString()}</b></div></div>
+          <div className="grid gap-2 sm:grid-cols-4"><div className="rounded-lg bg-muted/50 p-3"><small className="rm-eyebrow">Category</small><b className="mt-1 block text-sm">{categoryLabel(previewResult.category)}</b></div><div className="rounded-lg bg-muted/50 p-3"><small className="rm-eyebrow">Will change</small><b className="mt-1 block font-mono text-lg">{previewResult.changes.toLocaleString()}</b></div><div className="rounded-lg bg-muted/50 p-3"><small className="rm-eyebrow">Organisation scope</small><b className="mt-1 block text-xs">{previewResult.scope_label || 'No organisational filter'}</b></div><div className="rounded-lg bg-muted/50 p-3"><small className="rm-eyebrow">Preview expires</small><b className="mt-1 block text-xs">{new Date(previewResult.expires_at).toLocaleString()}</b></div></div>
           <div className="max-h-[42vh] overflow-auto rounded-lg border border-border">
             <table className="rm-table min-w-[620px]"><thead><tr><th>Agent</th><th>From</th><th>To</th><th>Result</th></tr></thead><tbody>{previewResult.items.slice(0, 100).map((item) => <tr key={item.code}><td><b>{item.name}</b><small className="font-mono">{item.code}</small></td><td><SourceBadge code={item.current_code} name={item.current_name} /></td><td>{item.will_change ? <span className="text-xs font-semibold text-primary">{previewResult.target_name}</span> : <span className="text-xs text-muted-foreground">No change</span>}</td><td><span className={`text-[10px] font-bold ${item.will_change ? 'text-emerald-700' : 'text-muted-foreground'}`}>{item.will_change ? 'WILL MOVE' : 'UNCHANGED'}</span></td></tr>)}</tbody></table>
             {previewResult.items.length > 100 && <p className="border-t border-border p-2 text-center text-[10px] text-muted-foreground">Showing first 100 of {previewResult.items.length.toLocaleString()} server-previewed agents. Commit is limited to this exact snapshot.</p>}
