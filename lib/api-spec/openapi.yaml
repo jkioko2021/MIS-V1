@@ -11,6 +11,131 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /rm-re:
+    get:
+      operationId: getRmManagement
+      responses:
+        "200":
+          description: Relationship manager references and audited changes
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RmManagementSnapshot" }
+  /rm-re/agents:
+    get:
+      operationId: getRmAgents
+      parameters:
+        - { name: category, in: query, required: true, schema: { type: string, enum: [C, R] } }
+        - { name: manager_code, in: query, schema: { type: string, maxLength: 32 } }
+        - { name: unassigned, in: query, schema: { type: boolean } }
+        - { name: search, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+      responses:
+        "200":
+          description: Agents and their category-specific current relationship manager
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RmAgentPage" }
+  /rm-re/managers:
+    post:
+      operationId: saveRmManager
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RmManagerInput" }
+      responses:
+        "200":
+          description: Saved manager reference
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RmManagerRecord" }
+  /rm-re/transfers/preview:
+    post:
+      operationId: previewRmTransfer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RmTransferInput" }
+      responses:
+        "200":
+          description: Frozen transfer scope requiring explicit confirmation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RmTransferPreview" }
+  /rm-re/transfers/{id}/commit:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: commitRmTransfer
+      responses:
+        "200":
+          description: Committed transfer, safe to retry
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RmTransferPreview" }
+  /data-management/{kind}/template:
+    parameters:
+      - { name: kind, in: path, required: true, schema: { type: string, enum: [users, agents, relationship-managers] } }
+    get:
+      operationId: getDataImportTemplate
+      responses:
+        "200":
+          description: Supported extract columns and import rules
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataImportTemplate" }
+  /data-management/{kind}/preview:
+    parameters:
+      - { name: kind, in: path, required: true, schema: { type: string, enum: [users, agents, relationship-managers] } }
+    post:
+      operationId: previewDataImport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DataExtractInput" }
+      responses:
+        "200":
+          description: Saved validation preview without modifying target records
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataImportBatch" }
+  /data-management/batches:
+    get:
+      operationId: listDataImportBatches
+      parameters:
+        - { name: kind, in: query, required: true, schema: { type: string, enum: [users, agents, relationship-managers] } }
+      responses:
+        "200":
+          description: Most recent import runs
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DataImportRun" }
+  /data-management/batches/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getDataImportBatch
+      responses:
+        "200":
+          description: Saved import preview and row results
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataImportBatch" }
+  /data-management/batches/{id}/commit:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: commitDataImport
+      responses:
+        "200":
+          description: Atomically imported new records, or refreshed blocked preview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataImportBatch" }
   /gi-structure:
     get:
       operationId: getGiStructure
@@ -1046,6 +1171,149 @@ paths:
           description: Allocation changed before the upload could be saved
 components:
   schemas:
+    RmManagerInput:
+      type: object
+      required: [code, name, class_code, category, year, active, version, reason]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 32 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        class_code: { type: string, minLength: 1, maxLength: 50 }
+        category: { type: string, enum: [C, R] }
+        year: { type: integer, minimum: 1900, maximum: 2100 }
+        active: { type: boolean }
+        version: { type: integer, minimum: 0 }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
+    RmManagerRecord:
+      type: object
+      required: [code, name, class_code, category, year, active, version, agent_count, is_current]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        class_code: { type: string }
+        category: { type: string, enum: [C, R] }
+        year: { type: integer }
+        active: { type: boolean }
+        version: { type: integer }
+        agent_count: { type: integer }
+        is_current: { type: boolean }
+    RmHistoryEntry:
+      type: object
+      required: [id, action, actor, reason, description, created_at]
+      properties:
+        id: { type: string }
+        action: { type: string }
+        actor: { type: string }
+        reason: { type: string }
+        description: { type: string }
+        created_at: { type: string }
+    RmManagementSnapshot:
+      type: object
+      required: [year, managers, history]
+      properties:
+        year: { type: integer }
+        managers: { type: array, items: { $ref: "#/components/schemas/RmManagerRecord" } }
+        history: { type: array, items: { $ref: "#/components/schemas/RmHistoryEntry" } }
+    RmAgent:
+      type: object
+      required: [code, name, current_code, current_name, version]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        current_code: { type: [string, "null"] }
+        current_name: { type: [string, "null"] }
+        version: { type: integer }
+    RmAgentPage:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/RmAgent" } }
+        total: { type: integer }
+        page: { type: integer }
+        page_size: { type: integer }
+    RmTransferInput:
+      type: object
+      required: [category, mode, from_code, to_code, agent_codes, reason]
+      properties:
+        category: { type: string, enum: [C, R] }
+        mode: { type: string, enum: [SELECTED, ALL] }
+        from_code: { type: [string, "null"], maxLength: 32 }
+        to_code: { type: string, minLength: 1, maxLength: 32 }
+        agent_codes: { type: array, maxItems: 500, items: { type: string, minLength: 1, maxLength: 30 } }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
+    RmTransferItem:
+      allOf:
+        - { $ref: "#/components/schemas/RmAgent" }
+        - type: object
+          required: [will_change]
+          properties:
+            will_change: { type: boolean }
+    RmTransferPreview:
+      type: object
+      required: [id, category, target_name, total, changes, expires_at, status, items]
+      properties:
+        id: { type: string }
+        category: { type: string, enum: [C, R] }
+        target_name: { type: string }
+        total: { type: integer }
+        changes: { type: integer }
+        expires_at: { type: string }
+        status: { type: string, enum: [PREVIEW, COMMITTED] }
+        items: { type: array, items: { $ref: "#/components/schemas/RmTransferItem" } }
+    DataExtractInput:
+      type: object
+      required: [filename, content]
+      properties:
+        filename: { type: string, minLength: 1, maxLength: 200 }
+        content: { type: string, minLength: 1, maxLength: 2000000 }
+    DataImportTemplate:
+      type: object
+      required: [headers, notes, max_rows]
+      properties:
+        headers: { type: array, items: { type: string } }
+        notes: { type: array, items: { type: string } }
+        max_rows: { type: integer }
+    DataImportSummary:
+      type: object
+      required: [total, new, skipped, errors, warnings, imported]
+      properties:
+        total: { type: integer }
+        new: { type: integer }
+        skipped: { type: integer }
+        errors: { type: integer }
+        warnings: { type: integer }
+        imported: { type: integer }
+    DataImportRun:
+      type: object
+      required: [id, kind, filename, status, created_by, created_at, imported_at, summary]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [users, agents, relationship-managers] }
+        filename: { type: string }
+        status: { type: string, enum: [VALIDATED, BLOCKED, IMPORTED] }
+        created_by: { type: string }
+        created_at: { type: string }
+        imported_at: { type: [string, "null"] }
+        summary: { $ref: "#/components/schemas/DataImportSummary" }
+    DataImportRow:
+      type: object
+      required: [line, state, values, errors, warnings]
+      properties:
+        line: { type: integer }
+        state: { type: string, enum: [NEW, SKIP, ERROR] }
+        values:
+          type: object
+          additionalProperties: { type: [string, "null"] }
+        errors: { type: array, items: { type: string } }
+        warnings: { type: array, items: { type: string } }
+    DataImportBatch:
+      allOf:
+        - { $ref: "#/components/schemas/DataImportRun" }
+        - type: object
+          required: [rows]
+          properties:
+            rows:
+              type: array
+              items: { $ref: "#/components/schemas/DataImportRow" }
     GiLevel:
       type: string
       enum: [BRANCH, UNIT]
@@ -1593,6 +1861,8 @@ components:
         - type: object
           required: [agent_status, terminated, suspended, version, registration_status]
           properties:
+            rms_corp_name: { type: ["string", "null"] }
+            rms_ret_name: { type: ["string", "null"] }
             registration_status: { type: string, enum: [PENDING, COMPLETED] }
             source_ref: { type: ["string", "null"] }
             agent_status: { type: ["string", "null"] }

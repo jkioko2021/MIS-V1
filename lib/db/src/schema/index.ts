@@ -5,3 +5,6 @@ export * from "./risk-action-statuses";
 export * from "./risk-control-effectiveness";
 export * from "./risk-impact-factors";
 export * from "./risk-likelihood-factors";
+export * from "./data-import-batches";
+export * from "./relationship-managers";
+export * from "./rm-management";

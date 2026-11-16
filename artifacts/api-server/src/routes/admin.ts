@@ -12,6 +12,9 @@ router.use(requireAuth);
 // This is the authoritative list of all pages/items in the system.
 // Access rights for every profile are derived from this list.
 export const MENU_MASTER = [
+  { main: "Data Management", sub: "Users Data", url: "/data-management/users", order: 10 },
+  { main: "Data Management", sub: "Agents Data", url: "/data-management/agents", order: 20 },
+  { main: "Data Management", sub: "Relationship Managers Data", url: "/data-management/relationship-managers", order: 30 },
   { main: "Organization structure-Medical", sub: "Organisation Hierarchy", url: "/admin/organisation/dashboard", order: 10 },
   { main: "Organization structure-Medical", sub: "Hierachy Setup", url: "/admin/organisation/hierarchy", order: 20 },
   { main: "Organization structure-Medical", sub: "Manager Assignment", url: "/admin/organisation/managers", order: 60 },
@@ -24,6 +27,7 @@ export const MENU_MASTER = [
   { main: "Intemediary Management", sub: "Licence Verification", url: "/intermediary/verification", order: 60 },
   { main: "Intemediary Management", sub: "Agent Suspension", url: "/intermediary/suspension", order: 70 },
   { main: "Intemediary Management", sub: "Agent Mapping", url: "/intermediary/mapping", order: 80 },
+  { main: "Intemediary Management", sub: "RM_RE Management", url: "/intermediary/rm-re", order: 90 },
   { main: "Dashboard", sub: "Overview", url: "/", order: 10 },
   { main: "Dashboard", sub: "Notifications", url: "/notifications", order: 20 },
   { main: "Business", sub: "Register Queue", url: "/business", order: 10 },

@@ -29,6 +29,8 @@ import GiAllocatePage from '@/pages/business/gi-allocate';
 import BusinessStatusPage from '@/pages/business/business-status';
 import NotificationsPage from '@/pages/notifications';
 import IntermediaryPage from '@/pages/intermediary';
+import DataManagementPage from '@/pages/data-management/data-management-page';
+import RmManagementPage from '@/pages/intermediary/rm-management';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import {
   Route,
@@ -63,6 +65,8 @@ type NavItem = {
   pricingOnly?: boolean;
   cashierOnly?: boolean;
   intermediaryOnly?: boolean;
+  intermediaryGroupOnly?: boolean;
+  rmOnly?: boolean;
   dpuOnly?: boolean;
   giOnly?: boolean;
   giStructureOnly?: boolean;
@@ -132,16 +136,17 @@ const NAV_SECTIONS: Array<{
       {
         href: '/intermediary/agents', label: 'Intemediary Management', icon: Fingerprint,
         children: [
-          { href: '/intermediary/registration', label: 'Agent Registration', icon: FilePlus2 },
-          { href: '/intermediary/agents', label: 'Agent Listing', icon: UsersRound },
-          { href: '/intermediary/details', label: 'Agent Details', icon: User },
-          { href: '/intermediary/changes', label: 'Agent Details Change', icon: ClipboardCheck },
-          { href: '/intermediary/licences', label: 'Licence Update', icon: FileCheck2 },
-          { href: '/intermediary/verification', label: 'Licence Verification', icon: BadgeCheck },
-          { href: '/intermediary/suspension', label: 'Agent Suspension', icon: ShieldAlert },
-          { href: '/intermediary/mapping', label: 'Agent Mapping', icon: Workflow },
+          { href: '/intermediary/registration', label: 'Agent Registration', icon: FilePlus2, intermediaryOnly: true },
+          { href: '/intermediary/agents', label: 'Agent Listing', icon: UsersRound, intermediaryOnly: true },
+          { href: '/intermediary/details', label: 'Agent Details', icon: User, intermediaryOnly: true },
+          { href: '/intermediary/changes', label: 'Agent Details Change', icon: ClipboardCheck, intermediaryOnly: true },
+          { href: '/intermediary/licences', label: 'Licence Update', icon: FileCheck2, intermediaryOnly: true },
+          { href: '/intermediary/verification', label: 'Licence Verification', icon: BadgeCheck, intermediaryOnly: true },
+          { href: '/intermediary/suspension', label: 'Agent Suspension', icon: ShieldAlert, intermediaryOnly: true },
+          { href: '/intermediary/mapping', label: 'Agent Mapping', icon: Workflow, intermediaryOnly: true },
+          { href: '/intermediary/rm-re', label: 'RM_RE Management', icon: UsersRound, rmOnly: true },
         ],
-        intermediaryOnly: true,
+        intermediaryGroupOnly: true,
       },
       { href: '/discovery', label: 'DB Discovery',      icon: Database },
       { href: '/notifications', label: 'Notifications', icon: Bell },
@@ -152,6 +157,14 @@ const NAV_SECTIONS: Array<{
     items: [
       { href: '/admin/users',    label: 'User Enrollment',    icon: Users, adminOnly: true },
       { href: '/admin/profiles', label: 'Profiles & Access',  icon: Settings, adminOnly: true },
+      {
+        href: '/data-management', label: 'Data Management', icon: Database, adminOnly: true,
+        children: [
+          { href: '/data-management/users', label: 'Users Data', icon: Users },
+          { href: '/data-management/agents', label: 'Agents Data', icon: Fingerprint },
+          { href: '/data-management/relationship-managers', label: 'Relationship Managers Data', icon: UsersRound },
+        ],
+      },
       {
         href: '/admin/gi-structure', label: 'Organization structure-GI', icon: Network, giStructureOnly: true,
         children: [
@@ -188,6 +201,7 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
   const { user, logout } = useAuth();
   const canSeeIntermediary = !!user && (user.profileId === 1 || user.profileId === 2 || user.profileName?.trim().toLowerCase() === 'national sales admin');
   const canSeeGiStructure = canSeeIntermediary;
+  const canSeeRm = canAccessRm(user);
 
   // Show admin section only for profile 1 (SuperAdmin) or 2 (System Admin)
   const isAdmin = user && (user.profileId === 1 || user.profileId === 2);
@@ -259,6 +273,8 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
                 if (item.giStructureOnly && !canSeeGiStructure) return null;
                 if (item.riskAdminOnly && !riskActor?.can_manage) return null;
                 if (item.intermediaryOnly && !canSeeIntermediary) return null;
+                if (item.intermediaryGroupOnly && !canSeeIntermediary && !canSeeRm) return null;
+                if (item.rmOnly && !canSeeRm) return null;
                 const bpoOnly = 'bpoOnly' in item && item.bpoOnly;
                 if (bpoOnly && !canSeeAllocatedFiles) return null;
                 if ('giOnly' in item && item.giOnly && !canSeeGi) return null;
@@ -271,6 +287,8 @@ function Sidebar({ mobileOpen, onNavigate, onClose, navigationRef }: { mobileOpe
                    && (!child.medicalOnly || canSeeMedical)
                   && (!child.pricingOnly || canSeePricing)
                   && (!child.cashierOnly || canSeeCashier)
+                  && (!child.intermediaryOnly || canSeeIntermediary)
+                  && (!child.rmOnly || canSeeRm)
                    && (!child.dpuOnly || canSeeRecordFiling)
                   && (!child.giOnly || canSeeGi)
                   && (!child.giStructureOnly || canSeeGiStructure),
@@ -464,10 +482,23 @@ function ProtectedRouter() {
       <AppLayout>
         <Switch>
           <Route path="/"                 component={HomePage} />
+          <Route path="/data-management">
+            {() => <Redirect to="/data-management/users" />}
+          </Route>
+          <Route path="/data-management/users">
+            {() => [1, 2].includes(user.profileId) ? <DataManagementPage key={`users-${user.id}`} kind="users" /> : <DataManagementDenied />}
+          </Route>
+          <Route path="/data-management/agents">
+            {() => [1, 2].includes(user.profileId) ? <DataManagementPage key={`agents-${user.id}`} kind="agents" /> : <DataManagementDenied />}
+          </Route>
+          <Route path="/data-management/relationship-managers">
+            {() => [1, 2].includes(user.profileId) ? <DataManagementPage key={`relationship-managers-${user.id}`} kind="relationship-managers" /> : <DataManagementDenied />}
+          </Route>
           <Route path="/intermediary">
             {() => canAccessIntermediary(user) ? <Redirect to="/intermediary/agents" /> : <IntermediaryDenied />}
           </Route>
           <Route path="/intermediary/registration">{() => canAccessIntermediary(user) ? <IntermediaryPage /> : <IntermediaryDenied />}</Route>
+          <Route path="/intermediary/rm-re">{() => canAccessRm(user) ? <RmManagementPage /> : <div role="alert" className="p-6">RM_RE Management is available to Retention Admin and system administrators.</div>}</Route>
           <Route path="/intermediary/agents">{() => canAccessIntermediary(user) ? <IntermediaryPage /> : <IntermediaryDenied />}</Route>
           <Route path="/intermediary/details">{() => canAccessIntermediary(user) ? <IntermediaryPage /> : <IntermediaryDenied />}</Route>
           <Route path="/intermediary/changes">{() => canAccessIntermediary(user) ? <IntermediaryPage /> : <IntermediaryDenied />}</Route>
@@ -601,8 +632,15 @@ function canAccessIntermediary(user: { profileId: number; profileName?: string }
   return !!user && (user.profileId === 1 || user.profileId === 2 || user.profileName?.trim().toLowerCase() === 'national sales admin');
 }
 
+function canAccessRm(user: { profileId: number; profileName?: string } | null) {
+  return !!user && ([1, 2].includes(user.profileId) || user.profileName?.trim().toLowerCase() === 'retention admin');
+}
 function IntermediaryDenied() {
   return <div className="min-h-[70dvh] p-8 flex items-center justify-center"><div className="max-w-md rounded-xl border bg-card p-7 text-center shadow-sm"><LockKeyhole className="mx-auto mb-4 h-7 w-7 text-muted-foreground" /><h1 className="text-xl font-semibold">Intermediary access restricted</h1><p className="mt-2 text-sm text-muted-foreground">This workspace is available to National Sales Admin and the designated system administrators.</p></div></div>;
+}
+
+function DataManagementDenied() {
+  return <div role="alert" className="p-8"><h1 className="text-xl font-semibold">Data Management access restricted</h1><p>Only SuperAdmin and System Admin can load go-live extracts.</p></div>;
 }
 
 function RoutedErrorBoundary({ children }: { children: ReactNode }) {

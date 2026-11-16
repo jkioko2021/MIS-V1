@@ -58,3 +58,5 @@
 - [Development schema validation](development-schema-validation.md) — New options endpoints can fail on pending reference migrations despite passing health and compilation checks.
 - [Shared test fixtures](shared-test-fixtures.md) — Browser and integration checks share development data; isolate reporting-period dates, not just account and department names.
 - [Export runtime clock](export-runtime-clock.md) — Use the database capture timestamp for backups; some durable execution sessions reject the ambient clock.
+- [Go-live imports](go-live-import-policy.md) — Additive loads do not authorize replacement or login activation.
+- [Relationship manager portfolios](relationship-manager-policy.md) — Independent Corporate/Retail ownership, retention-admin access and transfer-before-deactivation boundaries.

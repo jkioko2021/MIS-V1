@@ -9,6 +9,10 @@ import type { IntermediaryInput } from './intermediaryInput';
 import type { IntermediaryRegistrationStatus } from './intermediaryRegistrationStatus';
 
 export type Intermediary = IntermediaryInput & ({
+  /** @nullable */
+  rms_corp_name?: string | null;
+  /** @nullable */
+  rms_ret_name?: string | null;
   registration_status: IntermediaryRegistrationStatus;
   /** @nullable */
   source_ref?: string | null;
@@ -19,6 +23,10 @@ export type Intermediary = IntermediaryInput & ({
   /** @nullable */
   terminate_date?: string | null;
 }) & Required<Pick<IntermediaryInput & ({
+  /** @nullable */
+  rms_corp_name?: string | null;
+  /** @nullable */
+  rms_ret_name?: string | null;
   registration_status: IntermediaryRegistrationStatus;
   /** @nullable */
   source_ref?: string | null;

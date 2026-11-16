@@ -59,6 +59,9 @@ const emptyAgent = (): IntermediaryInput => ({
 });
 
 function toNull(value: string) { return value.trim() || null; }
+function relationshipManagerName(name?: string | null, code?: string | null) {
+  return name?.trim() || (code?.trim() ? `Unmapped ${code.trim()}` : '—');
+}
 
 export default function IntermediaryPage() {
   const { user } = useAuth();
@@ -392,7 +395,8 @@ function AgentWorkspace({ page, agent, detail, catalog, master, setMaster, note,
           ['User / payroll ID', agent.user_id], ['Email', agent.email], ['Primary mobile', agent.mobile_no], ['Secondary mobile', agent.secondary_mobile],
           ['KRA PIN', agent.pin_no], ['National ID', agent.nid_no], ['HRMIS code', agent.hrmis_code], ['eTIMS verified', agent.etims_verified ? 'Yes' : 'No'],
           ['Received', agent.receive_date], ['Contract date', agent.contract_date], ['Unit', agent.unit_code], ['Branch', agent.branch_code],
-          ['Region', agent.region_code], ['GI code', agent.gi_code], ['RMS corporate', agent.rms_code_corp], ['RMS retail', agent.rms_code_ret],
+          ['Region', agent.region_code], ['GI code', agent.gi_code], ['RMS corporate code', agent.rms_code_corp], ['Corporate Relationship Manager', relationshipManagerName(agent.rms_corp_name, agent.rms_code_corp)],
+          ['RMS retail code', agent.rms_code_ret], ['Retail Relationship Manager', relationshipManagerName(agent.rms_ret_name, agent.rms_code_ret)],
           ['Commission rate', agent.commission_rate == null ? null : `${agent.commission_rate}%`], ['Pay mode', agent.pay_mode],
         ].map(([label, value]) => <div key={label}><small>{label}</small><b>{value || '—'}</b></div>)}</div>
       </section>

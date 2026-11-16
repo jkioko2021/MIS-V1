@@ -22,6 +22,10 @@ import type {
 import type {
   AllocatedDocumentInput,
   AmlOriginatingSystemsResponse,
+  DataExtractInput,
+  DataImportBatch,
+  DataImportRun,
+  DataImportTemplate,
   GetClientRatingOptions200,
   GetClientRatingsReportParams,
   GetGiStructureHistoryParams,
@@ -31,6 +35,7 @@ import type {
   GetRiskRegisterReopenScope200,
   GetRiskRegisterReopenScopeParams,
   GetRiskRegisterSummaryParams,
+  GetRmAgentsParams,
   GetSalesManagerMappingHistoryParams,
   GiManagerInput,
   GiMappingInput,
@@ -51,6 +56,7 @@ import type {
   ListClientRatingsParams,
   ListClosedRiskRegisters200,
   ListClosedRiskRegistersParams,
+  ListDataImportBatchesParams,
   ListHistoricalDepartmentRisks200,
   ListHistoricalDepartmentRisksParams,
   ListIntermediariesParams,
@@ -98,6 +104,12 @@ import type {
   RiskReminderResponse,
   RiskSummaryResponse,
   RiskWorkflowInput,
+  RmAgentPage,
+  RmManagementSnapshot,
+  RmManagerInput,
+  RmManagerRecord,
+  RmTransferInput,
+  RmTransferPreview,
   SalesCatalogInput,
   SalesCatalogSnapshot,
   SalesCatalogUpdate,
@@ -139,6 +151,701 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetRmManagementUrl = () => {
+
+
+
+
+  return `/api/rm-re`
+}
+
+export const getRmManagement = async ( options?: Parameters<typeof customFetch>[1]): Promise<RmManagementSnapshot> => {
+
+  return customFetch<RmManagementSnapshot>(getGetRmManagementUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRmManagementQueryKey = () => {
+    return [
+    `/api/rm-re`
+    ] as const;
+    }
+
+
+export const getGetRmManagementQueryOptions = <TData = Awaited<ReturnType<typeof getRmManagement>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRmManagement>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRmManagementQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRmManagement>>> = ({ signal }) => getRmManagement({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRmManagement>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRmManagementQueryResult = NonNullable<Awaited<ReturnType<typeof getRmManagement>>>
+export type GetRmManagementQueryError = ErrorType<unknown>
+
+
+
+export function useGetRmManagement<TData = Awaited<ReturnType<typeof getRmManagement>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRmManagement>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRmManagementQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetRmAgentsUrl = (params: GetRmAgentsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/rm-re/agents?${stringifiedParams}` : `/api/rm-re/agents`
+}
+
+export const getRmAgents = async (params: GetRmAgentsParams, options?: Parameters<typeof customFetch>[1]): Promise<RmAgentPage> => {
+
+  return customFetch<RmAgentPage>(getGetRmAgentsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRmAgentsQueryKey = (params?: GetRmAgentsParams,) => {
+    return [
+    `/api/rm-re/agents`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetRmAgentsQueryOptions = <TData = Awaited<ReturnType<typeof getRmAgents>>, TError = ErrorType<unknown>>(params: GetRmAgentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRmAgents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRmAgentsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRmAgents>>> = ({ signal }) => getRmAgents(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRmAgents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRmAgentsQueryResult = NonNullable<Awaited<ReturnType<typeof getRmAgents>>>
+export type GetRmAgentsQueryError = ErrorType<unknown>
+
+
+
+export function useGetRmAgents<TData = Awaited<ReturnType<typeof getRmAgents>>, TError = ErrorType<unknown>>(
+ params: GetRmAgentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRmAgents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRmAgentsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveRmManagerUrl = () => {
+
+
+
+
+  return `/api/rm-re/managers`
+}
+
+export const saveRmManager = async (rmManagerInput: RmManagerInput, options?: Parameters<typeof customFetch>[1]): Promise<RmManagerRecord> => {
+
+  return customFetch<RmManagerRecord>(getSaveRmManagerUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(rmManagerInput)
+  }
+);}
+
+
+
+
+
+export const getSaveRmManagerMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveRmManager>>, TError,{data: BodyType<RmManagerInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveRmManager>>, TError,{data: BodyType<RmManagerInput>}, TContext> => {
+
+const mutationKey = ['saveRmManager'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveRmManager>>, {data: BodyType<RmManagerInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  saveRmManager(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveRmManagerMutationResult = NonNullable<Awaited<ReturnType<typeof saveRmManager>>>
+    export type SaveRmManagerMutationBody = BodyType<RmManagerInput>
+    export type SaveRmManagerMutationError = ErrorType<unknown>
+
+    export const useSaveRmManager = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveRmManager>>, TError,{data: BodyType<RmManagerInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveRmManager>>,
+        TError,
+        {data: BodyType<RmManagerInput>},
+        TContext
+      > => {
+      return useMutation(getSaveRmManagerMutationOptions(options));
+    }
+
+export const getPreviewRmTransferUrl = () => {
+
+
+
+
+  return `/api/rm-re/transfers/preview`
+}
+
+export const previewRmTransfer = async (rmTransferInput: RmTransferInput, options?: Parameters<typeof customFetch>[1]): Promise<RmTransferPreview> => {
+
+  return customFetch<RmTransferPreview>(getPreviewRmTransferUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(rmTransferInput)
+  }
+);}
+
+
+
+
+
+export const getPreviewRmTransferMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewRmTransfer>>, TError,{data: BodyType<RmTransferInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewRmTransfer>>, TError,{data: BodyType<RmTransferInput>}, TContext> => {
+
+const mutationKey = ['previewRmTransfer'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewRmTransfer>>, {data: BodyType<RmTransferInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  previewRmTransfer(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewRmTransferMutationResult = NonNullable<Awaited<ReturnType<typeof previewRmTransfer>>>
+    export type PreviewRmTransferMutationBody = BodyType<RmTransferInput>
+    export type PreviewRmTransferMutationError = ErrorType<unknown>
+
+    export const usePreviewRmTransfer = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewRmTransfer>>, TError,{data: BodyType<RmTransferInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof previewRmTransfer>>,
+        TError,
+        {data: BodyType<RmTransferInput>},
+        TContext
+      > => {
+      return useMutation(getPreviewRmTransferMutationOptions(options));
+    }
+
+export const getCommitRmTransferUrl = (id: string,) => {
+
+
+
+
+  return `/api/rm-re/transfers/${encodeURIComponent(String(id))}/commit`
+}
+
+export const commitRmTransfer = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<RmTransferPreview> => {
+
+  return customFetch<RmTransferPreview>(getCommitRmTransferUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCommitRmTransferMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof commitRmTransfer>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof commitRmTransfer>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['commitRmTransfer'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof commitRmTransfer>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  commitRmTransfer(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CommitRmTransferMutationResult = NonNullable<Awaited<ReturnType<typeof commitRmTransfer>>>
+
+    export type CommitRmTransferMutationError = ErrorType<unknown>
+
+    export const useCommitRmTransfer = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof commitRmTransfer>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof commitRmTransfer>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getCommitRmTransferMutationOptions(options));
+    }
+
+export const getGetDataImportTemplateUrl = (kind: 'users' | 'agents' | 'relationship-managers',) => {
+
+
+
+
+  return `/api/data-management/${encodeURIComponent(String(kind))}/template`
+}
+
+export const getDataImportTemplate = async (kind: 'users' | 'agents' | 'relationship-managers', options?: Parameters<typeof customFetch>[1]): Promise<DataImportTemplate> => {
+
+  return customFetch<DataImportTemplate>(getGetDataImportTemplateUrl(kind),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDataImportTemplateQueryKey = (kind: 'users' | 'agents' | 'relationship-managers',) => {
+    return [
+    `/api/data-management/${kind}/template`
+    ] as const;
+    }
+
+
+export const getGetDataImportTemplateQueryOptions = <TData = Awaited<ReturnType<typeof getDataImportTemplate>>, TError = ErrorType<unknown>>(kind: 'users' | 'agents' | 'relationship-managers', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDataImportTemplate>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDataImportTemplateQueryKey(kind);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDataImportTemplate>>> = ({ signal }) => getDataImportTemplate(kind, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: kind !== null && kind !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDataImportTemplate>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDataImportTemplateQueryResult = NonNullable<Awaited<ReturnType<typeof getDataImportTemplate>>>
+export type GetDataImportTemplateQueryError = ErrorType<unknown>
+
+
+
+export function useGetDataImportTemplate<TData = Awaited<ReturnType<typeof getDataImportTemplate>>, TError = ErrorType<unknown>>(
+ kind: 'users' | 'agents' | 'relationship-managers', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDataImportTemplate>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDataImportTemplateQueryOptions(kind,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPreviewDataImportUrl = (kind: 'users' | 'agents' | 'relationship-managers',) => {
+
+
+
+
+  return `/api/data-management/${encodeURIComponent(String(kind))}/preview`
+}
+
+export const previewDataImport = async (kind: 'users' | 'agents' | 'relationship-managers',
+    dataExtractInput: DataExtractInput, options?: Parameters<typeof customFetch>[1]): Promise<DataImportBatch> => {
+
+  return customFetch<DataImportBatch>(getPreviewDataImportUrl(kind),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(dataExtractInput)
+  }
+);}
+
+
+
+
+
+export const getPreviewDataImportMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewDataImport>>, TError,{kind: 'users' | 'agents' | 'relationship-managers';data: BodyType<DataExtractInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewDataImport>>, TError,{kind: 'users' | 'agents' | 'relationship-managers';data: BodyType<DataExtractInput>}, TContext> => {
+
+const mutationKey = ['previewDataImport'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewDataImport>>, {kind: 'users' | 'agents' | 'relationship-managers';data: BodyType<DataExtractInput>}> = (props) => {
+          const {kind,data} = props ?? {};
+
+          return  previewDataImport(kind,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewDataImportMutationResult = NonNullable<Awaited<ReturnType<typeof previewDataImport>>>
+    export type PreviewDataImportMutationBody = BodyType<DataExtractInput>
+    export type PreviewDataImportMutationError = ErrorType<unknown>
+
+    export const usePreviewDataImport = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewDataImport>>, TError,{kind: 'users' | 'agents' | 'relationship-managers';data: BodyType<DataExtractInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof previewDataImport>>,
+        TError,
+        {kind: 'users' | 'agents' | 'relationship-managers';data: BodyType<DataExtractInput>},
+        TContext
+      > => {
+      return useMutation(getPreviewDataImportMutationOptions(options));
+    }
+
+export const getListDataImportBatchesUrl = (params: ListDataImportBatchesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/data-management/batches?${stringifiedParams}` : `/api/data-management/batches`
+}
+
+export const listDataImportBatches = async (params: ListDataImportBatchesParams, options?: Parameters<typeof customFetch>[1]): Promise<DataImportRun[]> => {
+
+  return customFetch<DataImportRun[]>(getListDataImportBatchesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDataImportBatchesQueryKey = (params?: ListDataImportBatchesParams,) => {
+    return [
+    `/api/data-management/batches`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListDataImportBatchesQueryOptions = <TData = Awaited<ReturnType<typeof listDataImportBatches>>, TError = ErrorType<unknown>>(params: ListDataImportBatchesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDataImportBatches>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDataImportBatchesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDataImportBatches>>> = ({ signal }) => listDataImportBatches(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDataImportBatches>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDataImportBatchesQueryResult = NonNullable<Awaited<ReturnType<typeof listDataImportBatches>>>
+export type ListDataImportBatchesQueryError = ErrorType<unknown>
+
+
+
+export function useListDataImportBatches<TData = Awaited<ReturnType<typeof listDataImportBatches>>, TError = ErrorType<unknown>>(
+ params: ListDataImportBatchesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDataImportBatches>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDataImportBatchesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetDataImportBatchUrl = (id: string,) => {
+
+
+
+
+  return `/api/data-management/batches/${encodeURIComponent(String(id))}`
+}
+
+export const getDataImportBatch = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<DataImportBatch> => {
+
+  return customFetch<DataImportBatch>(getGetDataImportBatchUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDataImportBatchQueryKey = (id: string,) => {
+    return [
+    `/api/data-management/batches/${id}`
+    ] as const;
+    }
+
+
+export const getGetDataImportBatchQueryOptions = <TData = Awaited<ReturnType<typeof getDataImportBatch>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDataImportBatch>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDataImportBatchQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDataImportBatch>>> = ({ signal }) => getDataImportBatch(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDataImportBatch>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDataImportBatchQueryResult = NonNullable<Awaited<ReturnType<typeof getDataImportBatch>>>
+export type GetDataImportBatchQueryError = ErrorType<unknown>
+
+
+
+export function useGetDataImportBatch<TData = Awaited<ReturnType<typeof getDataImportBatch>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDataImportBatch>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDataImportBatchQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCommitDataImportUrl = (id: string,) => {
+
+
+
+
+  return `/api/data-management/batches/${encodeURIComponent(String(id))}/commit`
+}
+
+export const commitDataImport = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<DataImportBatch> => {
+
+  return customFetch<DataImportBatch>(getCommitDataImportUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCommitDataImportMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof commitDataImport>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof commitDataImport>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['commitDataImport'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof commitDataImport>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  commitDataImport(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CommitDataImportMutationResult = NonNullable<Awaited<ReturnType<typeof commitDataImport>>>
+
+    export type CommitDataImportMutationError = ErrorType<unknown>
+
+    export const useCommitDataImport = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof commitDataImport>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof commitDataImport>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getCommitDataImportMutationOptions(options));
+    }
 
 export const getGetGiStructureUrl = () => {
 

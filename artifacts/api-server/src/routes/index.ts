@@ -20,8 +20,12 @@ import intermediaryRouter from "./intermediary";
 import salesStructureRouter from "./sales-structure";
 import organisationRouter from "./organisation";
 import giStructureRouter from "./gi-structure";
+import dataManagementRouter from "./data-management";
+import rmManagementRouter from "./rm-management";
 
 const router: IRouter = Router();
+router.use(dataManagementRouter);
+router.use(rmManagementRouter);
 router.use(salesStructureRouter);
 router.use(organisationRouter);
 router.use(giStructureRouter);

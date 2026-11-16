@@ -5,6 +5,252 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type RmManagerInputCategory = typeof RmManagerInputCategory[keyof typeof RmManagerInputCategory];
+
+
+export const RmManagerInputCategory = {
+  C: 'C',
+  R: 'R',
+} as const;
+
+export interface RmManagerInput {
+  /**
+     * @minLength 1
+     * @maxLength 32
+     */
+  code: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name: string;
+  /**
+     * @minLength 1
+     * @maxLength 50
+     */
+  class_code: string;
+  category: RmManagerInputCategory;
+  /**
+     * @minimum 1900
+     * @maximum 2100
+     */
+  year: number;
+  active: boolean;
+  /** @minimum 0 */
+  version: number;
+  /**
+     * @minLength 3
+     * @maxLength 1000
+     */
+  reason: string;
+}
+
+export type RmManagerRecordCategory = typeof RmManagerRecordCategory[keyof typeof RmManagerRecordCategory];
+
+
+export const RmManagerRecordCategory = {
+  C: 'C',
+  R: 'R',
+} as const;
+
+export interface RmManagerRecord {
+  code: string;
+  name: string;
+  class_code: string;
+  category: RmManagerRecordCategory;
+  year: number;
+  active: boolean;
+  version: number;
+  agent_count: number;
+  is_current: boolean;
+}
+
+export interface RmHistoryEntry {
+  id: string;
+  action: string;
+  actor: string;
+  reason: string;
+  description: string;
+  created_at: string;
+}
+
+export interface RmManagementSnapshot {
+  year: number;
+  managers: RmManagerRecord[];
+  history: RmHistoryEntry[];
+}
+
+export interface RmAgent {
+  code: string;
+  name: string;
+  /** @nullable */
+  current_code: string | null;
+  /** @nullable */
+  current_name: string | null;
+  version: number;
+}
+
+export interface RmAgentPage {
+  items: RmAgent[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export type RmTransferInputCategory = typeof RmTransferInputCategory[keyof typeof RmTransferInputCategory];
+
+
+export const RmTransferInputCategory = {
+  C: 'C',
+  R: 'R',
+} as const;
+
+export type RmTransferInputMode = typeof RmTransferInputMode[keyof typeof RmTransferInputMode];
+
+
+export const RmTransferInputMode = {
+  SELECTED: 'SELECTED',
+  ALL: 'ALL',
+} as const;
+
+export interface RmTransferInput {
+  category: RmTransferInputCategory;
+  mode: RmTransferInputMode;
+  /**
+     * @maxLength 32
+     * @nullable
+     */
+  from_code: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 32
+     */
+  to_code: string;
+  /**
+     * @maxItems 500
+     * @items.minLength 1
+     * @items.maxLength 30
+     */
+  agent_codes: string[];
+  /**
+     * @minLength 3
+     * @maxLength 1000
+     */
+  reason: string;
+}
+
+export type RmTransferItem = RmAgent & {
+  will_change: boolean;
+};
+
+export type RmTransferPreviewCategory = typeof RmTransferPreviewCategory[keyof typeof RmTransferPreviewCategory];
+
+
+export const RmTransferPreviewCategory = {
+  C: 'C',
+  R: 'R',
+} as const;
+
+export type RmTransferPreviewStatus = typeof RmTransferPreviewStatus[keyof typeof RmTransferPreviewStatus];
+
+
+export const RmTransferPreviewStatus = {
+  PREVIEW: 'PREVIEW',
+  COMMITTED: 'COMMITTED',
+} as const;
+
+export interface RmTransferPreview {
+  id: string;
+  category: RmTransferPreviewCategory;
+  target_name: string;
+  total: number;
+  changes: number;
+  expires_at: string;
+  status: RmTransferPreviewStatus;
+  items: RmTransferItem[];
+}
+
+export interface DataExtractInput {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  filename: string;
+  /**
+     * @minLength 1
+     * @maxLength 2000000
+     */
+  content: string;
+}
+
+export interface DataImportTemplate {
+  headers: string[];
+  notes: string[];
+  max_rows: number;
+}
+
+export interface DataImportSummary {
+  total: number;
+  new: number;
+  skipped: number;
+  errors: number;
+  warnings: number;
+  imported: number;
+}
+
+export type DataImportRunKind = typeof DataImportRunKind[keyof typeof DataImportRunKind];
+
+
+export const DataImportRunKind = {
+  users: 'users',
+  agents: 'agents',
+  'relationship-managers': 'relationship-managers',
+} as const;
+
+export type DataImportRunStatus = typeof DataImportRunStatus[keyof typeof DataImportRunStatus];
+
+
+export const DataImportRunStatus = {
+  VALIDATED: 'VALIDATED',
+  BLOCKED: 'BLOCKED',
+  IMPORTED: 'IMPORTED',
+} as const;
+
+export interface DataImportRun {
+  id: string;
+  kind: DataImportRunKind;
+  filename: string;
+  status: DataImportRunStatus;
+  created_by: string;
+  created_at: string;
+  /** @nullable */
+  imported_at: string | null;
+  summary: DataImportSummary;
+}
+
+export type DataImportRowState = typeof DataImportRowState[keyof typeof DataImportRowState];
+
+
+export const DataImportRowState = {
+  NEW: 'NEW',
+  SKIP: 'SKIP',
+  ERROR: 'ERROR',
+} as const;
+
+export type DataImportRowValues = {[key: string]: string | null};
+
+export interface DataImportRow {
+  line: number;
+  state: DataImportRowState;
+  values: DataImportRowValues;
+  errors: string[];
+  warnings: string[];
+}
+
+export type DataImportBatch = DataImportRun & {
+  rows: DataImportRow[];
+};
+
 export type GiLevel = typeof GiLevel[keyof typeof GiLevel];
 
 
@@ -881,6 +1127,10 @@ export const IntermediaryRegistrationStatus = {
 } as const;
 
 export type Intermediary = IntermediaryInput & ({
+  /** @nullable */
+  rms_corp_name?: string | null;
+  /** @nullable */
+  rms_ret_name?: string | null;
   registration_status: IntermediaryRegistrationStatus;
   /** @nullable */
   source_ref?: string | null;
@@ -891,6 +1141,10 @@ export type Intermediary = IntermediaryInput & ({
   /** @nullable */
   terminate_date?: string | null;
 }) & Required<Pick<IntermediaryInput & ({
+  /** @nullable */
+  rms_corp_name?: string | null;
+  /** @nullable */
+  rms_ret_name?: string | null;
   registration_status: IntermediaryRegistrationStatus;
   /** @nullable */
   source_ref?: string | null;
@@ -2086,6 +2340,44 @@ export interface AllocatedDocumentUpload {
   /** @nullable */
   originating_system: string | null;
 }
+
+export type GetRmAgentsParams = {
+category: GetRmAgentsCategory;
+/**
+ * @maxLength 32
+ */
+manager_code?: string;
+unassigned?: boolean;
+/**
+ * @maxLength 200
+ */
+search?: string;
+/**
+ * @minimum 1
+ */
+page?: number;
+};
+
+export type GetRmAgentsCategory = typeof GetRmAgentsCategory[keyof typeof GetRmAgentsCategory];
+
+
+export const GetRmAgentsCategory = {
+  C: 'C',
+  R: 'R',
+} as const;
+
+export type ListDataImportBatchesParams = {
+kind: ListDataImportBatchesKind;
+};
+
+export type ListDataImportBatchesKind = typeof ListDataImportBatchesKind[keyof typeof ListDataImportBatchesKind];
+
+
+export const ListDataImportBatchesKind = {
+  users: 'users',
+  agents: 'agents',
+  'relationship-managers': 'relationship-managers',
+} as const;
 
 export type GetGiStructureHistoryParams = {
 entity_type: GetGiStructureHistoryEntityType;

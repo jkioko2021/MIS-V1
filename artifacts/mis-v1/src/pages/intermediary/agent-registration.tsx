@@ -51,6 +51,8 @@ export function AgentRegistration({
     ?? organisation.data?.candidates.find(unit => unit.level === 'UNIT'
       && unit.code.trim().toUpperCase() === selectedAgent?.unit_code?.trim().toUpperCase())?.name
     ?? 'Not mapped';
+  const managerName = (name?: string | null, code?: string | null) =>
+    name?.trim() || (code?.trim() ? `Unmapped ${code.trim()}` : '—');
   const baseline = useRef<IntermediaryInput | null>(null);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -266,6 +268,13 @@ export function AgentRegistration({
           {isConflict(error) && <ConflictReload onReload={reloadCurrent} />}
           <form onSubmit={saveDetails}>
             <RegistrationProfileFields value={selectedAgent.registration_status === 'COMPLETED' ? intermediaryInputFrom(selectedAgent) : form} onChange={selectedAgent.registration_status === 'COMPLETED' ? () => undefined : setForm} sourceRef={selectedAgent.source_ref || ''} disabled={selectedAgent.registration_status === 'COMPLETED'} agentTypes={options?.agent_types} codeCatalog={options} units={availableUnits} pendingUnits={organisation.data?.candidates.filter(node => node.level === 'UNIT')} unitsLoading={organisation.isLoading} unitsError={organisation.error} />
+            <div className="im-form-section">
+              <div className="im-form-section-title"><span>04</span><div><b>Relationship managers</b><small>Read-only names resolved from the source RMS codes</small></div></div>
+              <div className="im-form-grid">
+                <Field label="Corporate Relationship Manager" value={managerName(selectedAgent.rms_corp_name, selectedAgent.rms_code_corp)} onChange={() => undefined} disabled hint={`Source RMS code: ${selectedAgent.rms_code_corp || '—'} · resolved from the active relationship-manager reference`} />
+                <Field label="Retail Relationship Manager" value={managerName(selectedAgent.rms_ret_name, selectedAgent.rms_code_ret)} onChange={() => undefined} disabled hint={`Source RMS code: ${selectedAgent.rms_code_ret || '—'} · resolved from the active relationship-manager reference`} />
+              </div>
+            </div>
             {selectedAgent.registration_status !== 'COMPLETED' && <>
               <NoteField value={saveNote} onChange={setSaveNote} label="MIS profile change note" />
               <div className="im-form-footer"><span>Save explicitly against initialized version {form.version ?? selectedAgent.version}. Moving to another step does not save.</span><Button type="submit" disabled={isPending || !saveNote.trim()}>{update.isPending ? 'Saving…' : 'Save MIS profile'} <Check size={15} /></Button></div>
@@ -283,7 +292,7 @@ export function AgentRegistration({
             <div className="im-saved-overview-head"><div><div className="im-section-index">SAVED PROFILE OVERVIEW</div><h3>{selectedAgent.agent_name}</h3><p>{selectedAgent.agent_code} · Source {selectedAgent.source_ref || 'reference unavailable'} · Server version {selectedAgent.version}</p></div><StatusPill status={selectedAgent.registration_status} /></div>
             {profileDirty && <div className="im-alert im-alert-warn"><ShieldCheck size={16} /><span>The profile has unsaved edits. This overview shows persisted server values only; save in Agent Details before completion.</span></div>}
             <div className="im-saved-summary">
-              {[['Agent type', selectedAgent.agent_type || '—'], ['Organisation Unit', selectedUnitName], ['GI Manager', options?.gi_managers?.find(manager => manager.code === selectedAgent.gi_code)?.name || 'Not mapped'], ['Reporting path', organisation.data?.nodes.find(node => node.id === selectedAgent.organisation_unit_id)?.path.map(item => item.name).join(' / ') || selectedAgent.region_code || '—'], ['Primary mobile', selectedAgent.mobile_no || '—'], ['Email', selectedAgent.email || '—'], ['Commission rate', selectedAgent.commission_rate == null ? '—' : `${selectedAgent.commission_rate}%`], ['Pay frequency', selectedAgent.pay_mode || '—'], ['Receive date', selectedAgent.receive_date || '—'], ['Contract date', selectedAgent.contract_date || '—']].map(([label, value]) => <div key={label}><small>{label}</small><b>{value}</b></div>)}
+              {[['Agent type', selectedAgent.agent_type || '—'], ['Organisation Unit', selectedUnitName], ['GI Manager', options?.gi_managers?.find(manager => manager.code === selectedAgent.gi_code)?.name || 'Not mapped'], ['Corporate Relationship Manager', managerName(selectedAgent.rms_corp_name, selectedAgent.rms_code_corp)], ['Retail Relationship Manager', managerName(selectedAgent.rms_ret_name, selectedAgent.rms_code_ret)], ['Reporting path', organisation.data?.nodes.find(node => node.id === selectedAgent.organisation_unit_id)?.path.map(item => item.name).join(' / ') || selectedAgent.region_code || '—'], ['Primary mobile', selectedAgent.mobile_no || '—'], ['Email', selectedAgent.email || '—'], ['Commission rate', selectedAgent.commission_rate == null ? '—' : `${selectedAgent.commission_rate}%`], ['Pay frequency', selectedAgent.pay_mode || '—'], ['Receive date', selectedAgent.receive_date || '—'], ['Contract date', selectedAgent.contract_date || '—']].map(([label, value]) => <div key={label}><small>{label}</small><b>{value}</b></div>)}
             </div>
             <div className="im-overview-counts"><div><span>Licence records</span><b>{detail.licences.length}</b></div><div><span>Confirmed documents</span><b>{detail.documents.length}</b></div><div><span>Directors</span><b>{detail.directors.length}</b></div><div><span>Retained actions</span><b>{detail.events.length}</b></div></div>
           </section>

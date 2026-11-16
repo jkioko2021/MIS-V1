@@ -19,6 +19,10 @@ export const masterColumns = ["agent_name", "agent_type", "receive_date", "contr
   "pin_no", "nid_no", "rms_code_corp", "rms_code_ret", "gi_code", "commission_rate", "pay_mode", "etims_verified"] as const;
 export const agentSelect = `*, receive_date::text AS receive_date,contract_date::text AS contract_date,
   terminate_date::text AS terminate_date,commission_rate::float8 AS commission_rate,'Agent master record' AS notes,
+  (SELECT CASE WHEN r.is_active THEN r.re_name END FROM crm.relationship_managers r WHERE r.re_code=btrim(rms_code_corp) AND r.c_code='C'
+    AND r.reporting_year<=extract(year FROM CURRENT_DATE) ORDER BY r.reporting_year DESC LIMIT 1) AS rms_corp_name,
+  (SELECT CASE WHEN r.is_active THEN r.re_name END FROM crm.relationship_managers r WHERE r.re_code=btrim(rms_code_ret) AND r.c_code='R'
+    AND r.reporting_year<=extract(year FROM CURRENT_DATE) ORDER BY r.reporting_year DESC LIMIT 1) AS rms_ret_name,
   CASE WHEN organisation_unit_id IS NULL THEN unit_code ELSE
     (SELECT p.path->3->>'code' FROM crm.organisation_paths p WHERE p.id=organisation_unit_id) END AS unit_code,
   CASE WHEN organisation_unit_id IS NULL THEN branch_code ELSE

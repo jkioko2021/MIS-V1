@@ -8,6 +8,305 @@
 import * as zod from 'zod';
 
 
+export const GetRmManagementResponse = zod.object({
+  "year": zod.number().int(),
+  "managers": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "class_code": zod.string(),
+  "category": zod.enum(['C', 'R']),
+  "year": zod.number().int(),
+  "active": zod.boolean(),
+  "version": zod.number().int(),
+  "agent_count": zod.number().int(),
+  "is_current": zod.boolean()
+})),
+  "history": zod.array(zod.object({
+  "id": zod.string(),
+  "action": zod.string(),
+  "actor": zod.string(),
+  "reason": zod.string(),
+  "description": zod.string(),
+  "created_at": zod.string()
+}))
+})
+
+
+export const getRmAgentsQueryManagerCodeMax = 32;
+
+export const getRmAgentsQuerySearchMax = 200;
+
+export const getRmAgentsQueryPageDefault = 1;
+
+
+
+export const GetRmAgentsQueryParams = zod.object({
+  "category": zod.enum(['C', 'R']),
+  "manager_code": zod.coerce.string().max(getRmAgentsQueryManagerCodeMax).optional(),
+  "unassigned": zod.coerce.boolean().optional(),
+  "search": zod.coerce.string().max(getRmAgentsQuerySearchMax).optional(),
+  "page": zod.coerce.number().int().min(1).default(getRmAgentsQueryPageDefault)
+})
+
+export const GetRmAgentsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "current_code": zod.string().nullable(),
+  "current_name": zod.string().nullable(),
+  "version": zod.number().int()
+})),
+  "total": zod.number().int(),
+  "page": zod.number().int(),
+  "page_size": zod.number().int()
+})
+
+
+export const saveRmManagerBodyCodeMax = 32;
+
+export const saveRmManagerBodyNameMax = 200;
+
+export const saveRmManagerBodyClassCodeMax = 50;
+
+export const saveRmManagerBodyYearMin = 1900;
+export const saveRmManagerBodyYearMax = 2100;
+
+export const saveRmManagerBodyVersionMin = 0;
+
+export const saveRmManagerBodyReasonMin = 3;
+export const saveRmManagerBodyReasonMax = 1000;
+
+
+
+export const SaveRmManagerBody = zod.object({
+  "code": zod.string().min(1).max(saveRmManagerBodyCodeMax),
+  "name": zod.string().min(1).max(saveRmManagerBodyNameMax),
+  "class_code": zod.string().min(1).max(saveRmManagerBodyClassCodeMax),
+  "category": zod.enum(['C', 'R']),
+  "year": zod.number().int().min(saveRmManagerBodyYearMin).max(saveRmManagerBodyYearMax),
+  "active": zod.boolean(),
+  "version": zod.number().int().min(saveRmManagerBodyVersionMin),
+  "reason": zod.string().min(saveRmManagerBodyReasonMin).max(saveRmManagerBodyReasonMax)
+})
+
+export const SaveRmManagerResponse = zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "class_code": zod.string(),
+  "category": zod.enum(['C', 'R']),
+  "year": zod.number().int(),
+  "active": zod.boolean(),
+  "version": zod.number().int(),
+  "agent_count": zod.number().int(),
+  "is_current": zod.boolean()
+})
+
+
+export const previewRmTransferBodyFromCodeMax = 32;
+
+export const previewRmTransferBodyToCodeMax = 32;
+
+export const previewRmTransferBodyAgentCodesItemMax = 30;
+
+export const previewRmTransferBodyAgentCodesMax = 500;
+
+export const previewRmTransferBodyReasonMin = 3;
+export const previewRmTransferBodyReasonMax = 1000;
+
+
+
+export const PreviewRmTransferBody = zod.object({
+  "category": zod.enum(['C', 'R']),
+  "mode": zod.enum(['SELECTED', 'ALL']),
+  "from_code": zod.string().max(previewRmTransferBodyFromCodeMax).nullable(),
+  "to_code": zod.string().min(1).max(previewRmTransferBodyToCodeMax),
+  "agent_codes": zod.array(zod.string().min(1).max(previewRmTransferBodyAgentCodesItemMax)).max(previewRmTransferBodyAgentCodesMax),
+  "reason": zod.string().min(previewRmTransferBodyReasonMin).max(previewRmTransferBodyReasonMax)
+})
+
+export const PreviewRmTransferResponse = zod.object({
+  "id": zod.string(),
+  "category": zod.enum(['C', 'R']),
+  "target_name": zod.string(),
+  "total": zod.number().int(),
+  "changes": zod.number().int(),
+  "expires_at": zod.string(),
+  "status": zod.enum(['PREVIEW', 'COMMITTED']),
+  "items": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "current_code": zod.string().nullable(),
+  "current_name": zod.string().nullable(),
+  "version": zod.number().int()
+}).and(zod.object({
+  "will_change": zod.boolean()
+})))
+})
+
+
+export const CommitRmTransferParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const CommitRmTransferResponse = zod.object({
+  "id": zod.string(),
+  "category": zod.enum(['C', 'R']),
+  "target_name": zod.string(),
+  "total": zod.number().int(),
+  "changes": zod.number().int(),
+  "expires_at": zod.string(),
+  "status": zod.enum(['PREVIEW', 'COMMITTED']),
+  "items": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "current_code": zod.string().nullable(),
+  "current_name": zod.string().nullable(),
+  "version": zod.number().int()
+}).and(zod.object({
+  "will_change": zod.boolean()
+})))
+})
+
+
+export const GetDataImportTemplateParams = zod.object({
+  "kind": zod.enum(['users', 'agents', 'relationship-managers'])
+})
+
+export const GetDataImportTemplateResponse = zod.object({
+  "headers": zod.array(zod.string()),
+  "notes": zod.array(zod.string()),
+  "max_rows": zod.number().int()
+})
+
+
+export const PreviewDataImportParams = zod.object({
+  "kind": zod.enum(['users', 'agents', 'relationship-managers'])
+})
+
+export const previewDataImportBodyFilenameMax = 200;
+
+export const previewDataImportBodyContentMax = 2000000;
+
+
+
+export const PreviewDataImportBody = zod.object({
+  "filename": zod.string().min(1).max(previewDataImportBodyFilenameMax),
+  "content": zod.string().min(1).max(previewDataImportBodyContentMax)
+})
+
+export const PreviewDataImportResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['users', 'agents', 'relationship-managers']),
+  "filename": zod.string(),
+  "status": zod.enum(['VALIDATED', 'BLOCKED', 'IMPORTED']),
+  "created_by": zod.string(),
+  "created_at": zod.string(),
+  "imported_at": zod.string().nullable(),
+  "summary": zod.object({
+  "total": zod.number().int(),
+  "new": zod.number().int(),
+  "skipped": zod.number().int(),
+  "errors": zod.number().int(),
+  "warnings": zod.number().int(),
+  "imported": zod.number().int()
+})
+}).and(zod.object({
+  "rows": zod.array(zod.object({
+  "line": zod.number().int(),
+  "state": zod.enum(['NEW', 'SKIP', 'ERROR']),
+  "values": zod.record(zod.string(), zod.string().nullable()),
+  "errors": zod.array(zod.string()),
+  "warnings": zod.array(zod.string())
+}))
+}))
+
+
+export const ListDataImportBatchesQueryParams = zod.object({
+  "kind": zod.enum(['users', 'agents', 'relationship-managers'])
+})
+
+export const ListDataImportBatchesResponseItem = zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['users', 'agents', 'relationship-managers']),
+  "filename": zod.string(),
+  "status": zod.enum(['VALIDATED', 'BLOCKED', 'IMPORTED']),
+  "created_by": zod.string(),
+  "created_at": zod.string(),
+  "imported_at": zod.string().nullable(),
+  "summary": zod.object({
+  "total": zod.number().int(),
+  "new": zod.number().int(),
+  "skipped": zod.number().int(),
+  "errors": zod.number().int(),
+  "warnings": zod.number().int(),
+  "imported": zod.number().int()
+})
+})
+export const ListDataImportBatchesResponse = zod.array(ListDataImportBatchesResponseItem)
+
+
+export const GetDataImportBatchParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const GetDataImportBatchResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['users', 'agents', 'relationship-managers']),
+  "filename": zod.string(),
+  "status": zod.enum(['VALIDATED', 'BLOCKED', 'IMPORTED']),
+  "created_by": zod.string(),
+  "created_at": zod.string(),
+  "imported_at": zod.string().nullable(),
+  "summary": zod.object({
+  "total": zod.number().int(),
+  "new": zod.number().int(),
+  "skipped": zod.number().int(),
+  "errors": zod.number().int(),
+  "warnings": zod.number().int(),
+  "imported": zod.number().int()
+})
+}).and(zod.object({
+  "rows": zod.array(zod.object({
+  "line": zod.number().int(),
+  "state": zod.enum(['NEW', 'SKIP', 'ERROR']),
+  "values": zod.record(zod.string(), zod.string().nullable()),
+  "errors": zod.array(zod.string()),
+  "warnings": zod.array(zod.string())
+}))
+}))
+
+
+export const CommitDataImportParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const CommitDataImportResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['users', 'agents', 'relationship-managers']),
+  "filename": zod.string(),
+  "status": zod.enum(['VALIDATED', 'BLOCKED', 'IMPORTED']),
+  "created_by": zod.string(),
+  "created_at": zod.string(),
+  "imported_at": zod.string().nullable(),
+  "summary": zod.object({
+  "total": zod.number().int(),
+  "new": zod.number().int(),
+  "skipped": zod.number().int(),
+  "errors": zod.number().int(),
+  "warnings": zod.number().int(),
+  "imported": zod.number().int()
+})
+}).and(zod.object({
+  "rows": zod.array(zod.object({
+  "line": zod.number().int(),
+  "state": zod.enum(['NEW', 'SKIP', 'ERROR']),
+  "values": zod.record(zod.string(), zod.string().nullable()),
+  "errors": zod.array(zod.string()),
+  "warnings": zod.array(zod.string())
+}))
+}))
+
+
 export const getGiStructureResponseManagersItemMobileNoMax = 50;
 
 export const getGiStructureResponseManagersItemDetailsGIUMIDMax = 50;
@@ -1112,6 +1411,8 @@ export const ListIntermediariesResponse = zod.object({
   "pay_mode": zod.string().max(listIntermediariesResponseItemsItemOnePayModeMax).nullish(),
   "etims_verified": zod.boolean().optional()
 }).and(zod.object({
+  "rms_corp_name": zod.string().nullish(),
+  "rms_ret_name": zod.string().nullish(),
   "registration_status": zod.enum(['PENDING', 'COMPLETED']),
   "source_ref": zod.string().nullish(),
   "agent_status": zod.string().nullable(),
@@ -1198,6 +1499,8 @@ export const GetIntermediaryResponse = zod.object({
   "pay_mode": zod.string().max(getIntermediaryResponseAgentOnePayModeMax).nullish(),
   "etims_verified": zod.boolean().optional()
 }).and(zod.object({
+  "rms_corp_name": zod.string().nullish(),
+  "rms_ret_name": zod.string().nullish(),
   "registration_status": zod.enum(['PENDING', 'COMPLETED']),
   "source_ref": zod.string().nullish(),
   "agent_status": zod.string().nullable(),
@@ -1395,6 +1698,8 @@ export const UpdateIntermediaryResponse = zod.object({
   "pay_mode": zod.string().max(updateIntermediaryResponseAgentOnePayModeMax).nullish(),
   "etims_verified": zod.boolean().optional()
 }).and(zod.object({
+  "rms_corp_name": zod.string().nullish(),
+  "rms_ret_name": zod.string().nullish(),
   "registration_status": zod.enum(['PENDING', 'COMPLETED']),
   "source_ref": zod.string().nullish(),
   "agent_status": zod.string().nullable(),
@@ -1564,6 +1869,8 @@ export const ActionIntermediaryResponse = zod.object({
   "pay_mode": zod.string().max(actionIntermediaryResponseAgentOnePayModeMax).nullish(),
   "etims_verified": zod.boolean().optional()
 }).and(zod.object({
+  "rms_corp_name": zod.string().nullish(),
+  "rms_ret_name": zod.string().nullish(),
   "registration_status": zod.enum(['PENDING', 'COMPLETED']),
   "source_ref": zod.string().nullish(),
   "agent_status": zod.string().nullable(),
@@ -1719,6 +2026,8 @@ export const ConfirmIntermediaryUploadResponse = zod.object({
   "pay_mode": zod.string().max(confirmIntermediaryUploadResponseAgentOnePayModeMax).nullish(),
   "etims_verified": zod.boolean().optional()
 }).and(zod.object({
+  "rms_corp_name": zod.string().nullish(),
+  "rms_ret_name": zod.string().nullish(),
   "registration_status": zod.enum(['PENDING', 'COMPLETED']),
   "source_ref": zod.string().nullish(),
   "agent_status": zod.string().nullable(),
