@@ -59,3 +59,11 @@ explicit action with a reason and existing availability/dependency checks.
 **Why:** The user requested removing Status from editing and adding Activate/Deactivate options.
 
 **How to apply:** Create new entries as Pending setup; do not activate as a side effect of editing.
+
+GI setup must refresh periodically while open, as well as on mount and focus.
+
+**Why:** User-requested bulk activation changed the database outside the page's
+mutation cache; a finite stale time alone did not refresh the already-open list.
+
+**How to apply:** Retain a freshness path for external updates, not just local
+mutation invalidation. Do not overwrite open edit drafts when refreshing lists.

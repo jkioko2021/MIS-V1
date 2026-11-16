@@ -71,5 +71,8 @@ function confirm() { return render().filter(item => item.type === 'Button').at(-
   assert(!page.includes('setStatus('));
   assert(page.includes('const status = node?.status ?? \'PENDING\''));
   assert(page.includes('<NodeStatusAction node={node} />'));
+  assert(page.includes('refetchInterval: 15_000'), 'External activations must refresh while the page remains open');
+  assert(page.includes("refetchOnMount: 'always'") && page.includes("refetchOnWindowFocus: 'always'"),
+    'Reopening or returning to the GI page must fetch current statuses');
   console.log('PASS: Separate GI activation/deactivation, confirmation, reasons, blockers, version guards and list refresh.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

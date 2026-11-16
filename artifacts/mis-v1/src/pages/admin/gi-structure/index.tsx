@@ -314,7 +314,11 @@ export default function GiStructurePage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data, isLoading, isFetching, isError, error, refetch } = useGetGiStructure({
-    query: { queryKey: identityQueryKey(getGetGiStructureQueryKey(), user), enabled: !!user, staleTime: 15_000 },
+    query: {
+      queryKey: identityQueryKey(getGetGiStructureQueryKey(), user), enabled: !!user,
+      staleTime: 15_000, refetchInterval: 15_000,
+      refetchOnMount: 'always', refetchOnWindowFocus: 'always',
+    },
   });
   const snapshot = data;
   const route = location.split('?')[0].replace(/\/+$/, '').split('/').at(-1) ?? 'dashboard';
