@@ -12,6 +12,20 @@ Medical-style setup workflow and many-to-one Medical Unit mapping.
 **How to apply:** Keep the two hierarchies independent. A pending cross-link is
 setup metadata, not activation, an agent transfer, or a Medical reparenting.
 
+In the uploaded agent list, `GI_CODE` identifies a GI **Unit**, not the GI
+manager's identifier. Link it through the Unit's current assigned eligible
+manager; the registration GI Manager field uses that manager's original
+`GI_UM_ID` (or existing account-code fallback).
+
+**Why:** The user requested populating GI Manager from uploaded agent codes.
+Treating GI Unit codes as manager identifiers left valid imported assignments
+unavailable in the name dropdown.
+
+**How to apply:** Preserve the exact uploaded GI code in source provenance.
+Do not confuse it with a manager ID, infer a manager from the agent's Medical
+Unit, or replace unrelated Medical-to-GI mappings. Missing, ambiguous or
+ineligible matches remain unresolved.
+
 GI-only imported manager designations and account choices must not appear in
 Medical Structure. Genuine Medical/GI dual-role managers remain in both.
 

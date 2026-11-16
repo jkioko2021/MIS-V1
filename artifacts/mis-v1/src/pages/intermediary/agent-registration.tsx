@@ -47,6 +47,10 @@ export function AgentRegistration({
   const organisation = useGetOrganisation({ query: { queryKey: identityQueryKey(getGetOrganisationQueryKey(), user), enabled: !!user, staleTime: 30_000, refetchOnMount: 'always', refetchOnWindowFocus: 'always' } });
   const availableUnits = organisation.data?.nodes.filter(node => node.level === 'UNIT') ?? [];
   const selectedAgent = detail?.agent;
+  const selectedUnitName = availableUnits.find(unit => unit.id === selectedAgent?.organisation_unit_id)?.name
+    ?? organisation.data?.candidates.find(unit => unit.level === 'UNIT'
+      && unit.code.trim().toUpperCase() === selectedAgent?.unit_code?.trim().toUpperCase())?.name
+    ?? 'Not mapped';
   const baseline = useRef<IntermediaryInput | null>(null);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -279,7 +283,7 @@ export function AgentRegistration({
             <div className="im-saved-overview-head"><div><div className="im-section-index">SAVED PROFILE OVERVIEW</div><h3>{selectedAgent.agent_name}</h3><p>{selectedAgent.agent_code} · Source {selectedAgent.source_ref || 'reference unavailable'} · Server version {selectedAgent.version}</p></div><StatusPill status={selectedAgent.registration_status} /></div>
             {profileDirty && <div className="im-alert im-alert-warn"><ShieldCheck size={16} /><span>The profile has unsaved edits. This overview shows persisted server values only; save in Agent Details before completion.</span></div>}
             <div className="im-saved-summary">
-              {[['Agent type', selectedAgent.agent_type || '—'], ['Organisation Unit', organisation.data?.nodes.find(node => node.id === selectedAgent.organisation_unit_id)?.name || selectedAgent.unit_code || 'Not mapped'], ['Reporting path', organisation.data?.nodes.find(node => node.id === selectedAgent.organisation_unit_id)?.path.map(item => item.name).join(' / ') || selectedAgent.region_code || '—'], ['Primary mobile', selectedAgent.mobile_no || '—'], ['Email', selectedAgent.email || '—'], ['Commission rate', selectedAgent.commission_rate == null ? '—' : `${selectedAgent.commission_rate}%`], ['Pay frequency', selectedAgent.pay_mode || '—'], ['Receive date', selectedAgent.receive_date || '—'], ['Contract date', selectedAgent.contract_date || '—']].map(([label, value]) => <div key={label}><small>{label}</small><b>{value}</b></div>)}
+              {[['Agent type', selectedAgent.agent_type || '—'], ['Organisation Unit', selectedUnitName], ['GI Manager', options?.gi_managers?.find(manager => manager.code === selectedAgent.gi_code)?.name || 'Not mapped'], ['Reporting path', organisation.data?.nodes.find(node => node.id === selectedAgent.organisation_unit_id)?.path.map(item => item.name).join(' / ') || selectedAgent.region_code || '—'], ['Primary mobile', selectedAgent.mobile_no || '—'], ['Email', selectedAgent.email || '—'], ['Commission rate', selectedAgent.commission_rate == null ? '—' : `${selectedAgent.commission_rate}%`], ['Pay frequency', selectedAgent.pay_mode || '—'], ['Receive date', selectedAgent.receive_date || '—'], ['Contract date', selectedAgent.contract_date || '—']].map(([label, value]) => <div key={label}><small>{label}</small><b>{value}</b></div>)}
             </div>
             <div className="im-overview-counts"><div><span>Licence records</span><b>{detail.licences.length}</b></div><div><span>Confirmed documents</span><b>{detail.documents.length}</b></div><div><span>Directors</span><b>{detail.directors.length}</b></div><div><span>Retained actions</span><b>{detail.events.length}</b></div></div>
           </section>
@@ -332,6 +336,9 @@ export function RegistrationProfileFields({ value, onChange, sourceRef, disabled
     onChange({ ...value, [key]: nullable.includes(key) ? raw || null : raw } as IntermediaryInput);
   };
   const setNumber = (raw: string) => onChange({ ...value, commission_rate: raw === '' ? null : Number(raw) });
+  const sourceUnit = pendingUnits.find(unit => unit.code.trim().toUpperCase() === value.unit_code?.trim().toUpperCase());
+  const unitSelection = value.organisation_unit_id
+    ?? (sourceUnit ? `source-${sourceUnit.code}` : value.unit_code ? 'unmatched-source-unit' : '');
   return <div className={`im-registration-fields ${disabled ? 'disabled' : ''}`} aria-disabled={disabled}>
     {disabled && <div className="im-readonly-banner">Read-only record · core identity remains immutable</div>}
     <div className="im-form-section"><div className="im-form-section-title"><span>01</span><div><b>Personal Details</b><small>Source registration and organization assignment</small></div></div>
@@ -341,11 +348,16 @@ export function RegistrationProfileFields({ value, onChange, sourceRef, disabled
         <Field label="Agent No" value={value.agent_code} onChange={() => undefined} disabled hint="Core agent code · immutable" />
         <Field label="Intermediary Name" value={value.agent_name} onChange={() => undefined} disabled hint="Core registered name · immutable" />
         {agentTypes.length ? <SelectField label="Agent Type" value={value.agent_type} onChange={v => set('agent_type', v)} options={agentTypes} required disabled={disabled} /> : <Field label="Agent Type" value={value.agent_type} onChange={v => set('agent_type', v)} disabled={disabled} required hint="Approved agent-type catalog is not currently loaded" />}
-        <label className="im-field"><span>Organisation Unit<b className="im-required"> *</b></span><select value={value.organisation_unit_id ?? ''} disabled={disabled || unitsLoading} required onChange={event => onChange({ ...value, organisation_unit_id: event.target.value ? Number(event.target.value) : null })}>
+        <label className="im-field"><span>Organisation Unit<b className="im-required"> *</b></span><select value={unitSelection} disabled={disabled || unitsLoading} required onChange={event => {
+          const id = Number(event.target.value);
+          if (event.target.value && (!Number.isInteger(id) || !units.some(unit => unit.id === id && unit.is_active && unit.available))) return;
+          onChange({ ...value, organisation_unit_id: event.target.value ? id : null });
+        }}>
           <option value="">{unitsLoading ? 'Loading Medical Units…' : 'Select a Medical Unit'}</option>
+          {!value.organisation_unit_id && value.unit_code && !sourceUnit && <option value="unmatched-source-unit" disabled>Uploaded Unit not linked — select a Medical Unit</option>}
           {units.map(unit => <option key={unit.id} value={unit.id} disabled={!unit.is_active || !unit.available}>{unit.name}{!unit.is_active || !unit.available ? ' — Setup required' : ''}</option>)}
           {pendingUnits.map(unit => <option key={`source-${unit.code}`} value={`source-${unit.code}`} disabled>{unit.name} — Pending setup</option>)}
-        </select><small>{unitsError ? 'Medical Unit list could not be loaded. Retry before saving.' : 'Medical Units only. Units requiring setup must be activated with an eligible hierarchy before assignment.'}</small></label>
+        </select><small>{unitsError ? 'Medical Unit list could not be loaded. Retry before saving.' : sourceUnit && !value.organisation_unit_id ? 'Matched to the uploaded Unit name. Complete its hierarchy setup before assignment, or select an active Medical Unit.' : 'Medical Units only. Units requiring setup must be activated with an eligible hierarchy before assignment.'}</small></label>
         <DerivedPath unit={units.find(unit => unit.id === value.organisation_unit_id)} />
         <label className="im-field"><span>GI Manager</span><select value={value.gi_code ?? ''} onChange={event => set('gi_code', event.target.value)} disabled={disabled || !codeCatalog}>
           <option value="">{codeCatalog ? 'Select a GI manager' : 'Loading GI managers…'}</option>
