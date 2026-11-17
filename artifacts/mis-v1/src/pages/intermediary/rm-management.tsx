@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle, ArrowRightLeft, Ban, Building2, Check, ChevronLeft,
-  ChevronRight, Clock3, FileClock, LoaderCircle, Pencil, Plus, RefreshCw, Search, ShieldCheck,
+  ChevronRight, Clock3, Eye, FileClock, LoaderCircle, Pencil, Plus, RefreshCw, Search, ShieldCheck,
   UserRound, Users, X,
 } from 'lucide-react';
 import {
@@ -17,19 +17,21 @@ import {
   useGetRmManagement,
   usePreviewRmTransfer,
   useSaveRmManager,
-  type RmAgent,
   type RmManagerInput,
   type RmManagerRecord,
   type RmTransferPreview,
 } from '@workspace/api-client-react';
 import { useAuth } from '@/lib/auth-context';
 import { identityQueryKey } from '@/pages/admin/organisation/shared';
+import { RmPortfolioDialog } from '@/pages/intermediary/rm-portfolio-dialog';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import './rm-management.css';
 
 type Category = 'C' | 'R';
+type PageTab = 'managers' | 'assign' | 'history';
 type TransferMode = 'SELECTED' | 'ALL';
 type SourceMode = 'unassigned' | 'all' | 'manager' | 'manual';
 type ManagerDraft = Pick<RmManagerInput, 'code' | 'name' | 'class_code' | 'category' | 'year' | 'version'> & {
@@ -104,6 +106,8 @@ export default function RelationshipManagerManagementPage() {
   const previewEpoch = useRef(0);
 
   const [category, setCategory] = useState<Category>('C');
+  const [pageTab, setPageTab] = useState<PageTab>('managers');
+  const [viewManagerRef, setViewManagerRef] = useState<Pick<RmManagerRecord, 'code' | 'category' | 'year'> | null>(null);
   const [managerSearch, setManagerSearch] = useState('');
   const [agentSearch, setAgentSearch] = useState('');
   const [agentPage, setAgentPage] = useState(1);
@@ -128,6 +132,11 @@ export default function RelationshipManagerManagementPage() {
   const [deactivateError, setDeactivateError] = useState('');
 
   const managers = snapshot.data?.managers ?? [];
+  const viewManager = viewManagerRef
+    ? managers.find((manager) => manager.code === viewManagerRef.code
+      && manager.category === viewManagerRef.category
+      && manager.year === viewManagerRef.year) ?? null
+    : null;
   const organisation = snapshot.data?.organisation;
   const regions = organisation?.regions ?? [];
   const branches = organisation?.branches ?? [];
@@ -173,7 +182,7 @@ export default function RelationshipManagerManagementPage() {
     ...(unitCode ? { unit_code: unitCode } : {}),
     page: agentPage,
   }), [category, sourceMode, sourceCode, agentSearch, agentPage, transferMode, regionCode, branchCode, unitCode]);
-  const canLoadAgents = !!user && (sourceMode === 'unassigned' || sourceMode === 'all' || sourceCode.trim().length > 0);
+  const canLoadAgents = !!user && pageTab === 'assign' && (sourceMode === 'unassigned' || sourceMode === 'all' || sourceCode.trim().length > 0);
   const agentQuery = useGetRmAgents(agentParams, {
     query: {
       queryKey: identityQueryKey(getGetRmAgentsQueryKey(agentParams), identity),
@@ -223,6 +232,32 @@ export default function RelationshipManagerManagementPage() {
     setSelectedCodes(new Set());
     setAgentSearch('');
     setAgentPage(1);
+  }
+
+  function changePageTab(value: string) {
+    if (mutationBusy || (value !== 'managers' && value !== 'assign' && value !== 'history')) return;
+    const nextTab = value as PageTab;
+    if (pageTab === 'assign' && nextTab !== 'assign') clearTransferPreview();
+    setPageTab(nextTab);
+  }
+
+  function switchToAssignmentFrom(manager: RmManagerRecord) {
+    if (mutationBusy) return;
+    if (manager.category !== category) changeCategory(manager.category);
+    clearTransferPreview();
+    setPageTab('assign');
+    setSourceMode('manager');
+    setSourceCode(manager.code);
+    setRegionCode('');
+    setBranchCode('');
+    setUnitCode('');
+    setAgentSearch('');
+    setAgentPage(1);
+    setSelectedCodes(new Set());
+    setTransferMode('SELECTED');
+    setTargetCode('');
+    setTransferReason('');
+    setViewManagerRef(null);
   }
 
   function changeSource(value: string) {
@@ -544,7 +579,6 @@ export default function RelationshipManagerManagementPage() {
             <button type="button" className="rm-button rm-quiet" onClick={() => { void snapshot.refetch(); }} disabled={snapshot.isFetching || mutationBusy} data-testid="button-refresh-rm">
               <RefreshCw className={`h-4 w-4 ${snapshot.isFetching ? 'animate-spin' : ''}`} /> Refresh
             </button>
-            <button type="button" className="rm-button rm-primary" onClick={openCreateManager} disabled={mutationBusy} data-testid="button-add-rm"><Plus className="h-4 w-4" /> Add manager</button>
           </div>
         </header>
 
@@ -552,13 +586,25 @@ export default function RelationshipManagerManagementPage() {
         {snapshot.isError && <div role="alert" className="rm-alert rm-alert-error"><AlertCircle className="h-4 w-4" /><span>{getErrorText(snapshot.error, 'Relationship manager data could not be loaded.')}</span><button type="button" className="underline" onClick={() => void snapshot.refetch()}>Retry</button></div>}
         {successMessage && <div role="status" className="rm-alert rm-alert-success"><Check className="h-4 w-4" />{successMessage}<button type="button" aria-label="Dismiss success message" onClick={() => setSuccessMessage('')}><X className="h-4 w-4" /></button></div>}
 
-        <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(370px,.75fr)]">
+        <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div><p className="rm-eyebrow">Active relationship category</p><p className="mt-1 text-xs text-muted-foreground">This category controls the records and assignment workspace. A manager portfolio always uses that manager’s own category.</p></div>
+          <div className="flex gap-1 rounded-lg bg-muted p-1" role="group" aria-label="Active relationship manager category">
+            {(['C', 'R'] as Category[]).map((value) => <button type="button" key={value} aria-pressed={category === value} onClick={() => changeCategory(value)} disabled={mutationBusy} className={`rounded-md px-3 py-2 text-xs font-bold ${category === value ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`} data-testid={`tab-rm-${value}`}>{categoryLabel(value)} <span className="font-mono">{value}</span></button>)}
+          </div>
+        </div>
+
+        <Tabs value={pageTab} onValueChange={changePageTab} className="space-y-4">
+          <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1.5 sm:w-fit" aria-label="RM_RE workspace sections">
+            <TabsTrigger value="managers" disabled={mutationBusy} className="min-h-10 gap-2 px-4 text-xs sm:text-sm" data-testid="tab-rm-managers"><Building2 className="h-4 w-4" />Relationship managers</TabsTrigger>
+            <TabsTrigger value="assign" disabled={mutationBusy} className="min-h-10 gap-2 px-4 text-xs sm:text-sm" data-testid="tab-rm-assign"><ArrowRightLeft className="h-4 w-4" />Assign or move agents</TabsTrigger>
+            <TabsTrigger value="history" disabled={mutationBusy} className="min-h-10 gap-2 px-4 text-xs sm:text-sm" data-testid="tab-rm-history"><FileClock className="h-4 w-4" />History</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="managers" className="mt-0">
           <section className="rm-card overflow-hidden" aria-labelledby="manager-list-title">
             <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
               <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><Building2 className="h-4 w-4" /></span><div><p className="rm-eyebrow">01 / Reference register</p><h2 id="manager-list-title" className="text-base font-semibold">Manager records · {snapshot.data?.year ?? '…'}</h2></div></div>
-              <div className="flex gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Relationship manager category">
-                {(['C', 'R'] as Category[]).map((value) => <button type="button" key={value} role="tab" aria-selected={category === value} onClick={() => changeCategory(value)} disabled={mutationBusy} className={`rounded-md px-3 py-2 text-xs font-bold ${category === value ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`} data-testid={`tab-rm-${value}`}>{categoryLabel(value)} <span className="font-mono">{value}</span></button>)}
-              </div>
+              <button type="button" className="rm-button rm-primary" onClick={openCreateManager} disabled={mutationBusy} data-testid="button-add-rm"><Plus className="h-4 w-4" /> Add manager</button>
             </div>
             <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
               <label className="relative block w-full sm:max-w-xs"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><input className="rm-input w-full pl-9" value={managerSearch} onChange={(event) => setManagerSearch(event.target.value)} placeholder="Find by name or code" aria-label="Search relationship managers" data-testid="input-search-rm" /></label>
@@ -575,6 +621,7 @@ export default function RelationshipManagerManagementPage() {
                     <td><span className="font-mono">{manager.agent_count.toLocaleString()}</span><small>{categoryLabel(manager.category)} agents</small></td>
                     <td><ManagerStatus manager={manager} snapshotYear={currentYear} /></td>
                     <td><div className="flex justify-end gap-1">
+                      <button type="button" className="rm-button rm-quiet !min-h-8 !px-2" aria-label={`View ${manager.name}`} onClick={() => setViewManagerRef({ code: manager.code, category: manager.category, year: manager.year })} disabled={mutationBusy} data-testid={`button-view-rm-${manager.code}`}><Eye className="h-4 w-4" /><span>View</span></button>
                       <button type="button" className="rm-icon-button" aria-label={`Edit ${manager.name}`} onClick={() => openEditManager(manager)} disabled={mutationBusy} data-testid={`button-edit-rm-${manager.code}`}><Pencil className="h-4 w-4" /></button>
                       {manager.active && <button type="button" className="rm-icon-button danger" aria-label={`Deactivate ${manager.name}`} title={manager.is_current && manager.agent_count > 0 ? 'Reassign agents before deactivation' : 'Deactivate manager'} onClick={() => { setDeactivateManager(manager); setDeactivateReason(''); setDeactivateError(''); }} disabled={mutationBusy || (manager.is_current && manager.agent_count > 0)} data-testid={`button-deactivate-rm-${manager.code}`}><Ban className="h-4 w-4" /></button>}
                     </div></td>
@@ -584,7 +631,9 @@ export default function RelationshipManagerManagementPage() {
             )}
             <div className="flex items-center gap-2 border-t border-border bg-muted/30 px-4 py-3 text-[10px] text-muted-foreground sm:px-5"><ShieldCheck className="h-4 w-4 text-primary" />Code, category and year form the versioned reference identity. Editing never replaces an agent identity.</div>
           </section>
+          </TabsContent>
 
+          <TabsContent value="history" className="mt-0">
           <section className="rm-card overflow-hidden" aria-labelledby="history-title">
             <div className="flex items-center justify-between border-b border-border p-4 sm:px-5"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground"><FileClock className="h-4 w-4" /></span><div><p className="rm-eyebrow">Audit record</p><h2 id="history-title" className="text-base font-semibold">Recent changes</h2></div></div><span className="text-[10px] text-muted-foreground">Latest 100</span></div>
             {snapshot.isLoading ? <LoadingList /> : !snapshot.data?.history.length ? <div className="rm-empty"><Clock3 className="h-5 w-5" /><b>No changes recorded</b><span>Manager updates and assignment moves appear here.</span></div> : (
@@ -597,8 +646,9 @@ export default function RelationshipManagerManagementPage() {
               </div>
             )}
           </section>
-        </div>
+          </TabsContent>
 
+          <TabsContent value="assign" className="mt-0">
         <section className="rm-card overflow-hidden" aria-labelledby="assign-title">
           <div className="border-b border-border p-4 sm:px-5 sm:py-5">
             <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-start">
@@ -687,7 +737,18 @@ export default function RelationshipManagerManagementPage() {
             </aside>
           </div>
         </section>
+          </TabsContent>
+        </Tabs>
       </div>
+
+      <RmPortfolioDialog
+        key={viewManagerRef ? `${viewManagerRef.category}-${viewManagerRef.year}-${viewManagerRef.code}` : 'closed'}
+        open={!!viewManagerRef}
+        manager={viewManager}
+        snapshotYear={currentYear}
+        onClose={() => setViewManagerRef(null)}
+        onAssign={switchToAssignmentFrom}
+      />
 
       <Dialog open={managerDialog} onOpenChange={(open) => { if (open || (!mutationBusy && !lockRef.current)) setManagerDialog(open); }}>
         <DialogContent className="w-[calc(100%-2rem)] max-w-xl">

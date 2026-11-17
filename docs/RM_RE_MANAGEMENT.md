@@ -6,6 +6,20 @@ Admin. Assign the Retention Admin profile to the intended existing MIS users
 through User Enrollment. No existing staff receive that profile automatically.
 This does not grant Retention Admin access to unrelated intermediary pages.
 
+## Page navigation
+
+- **Relationship managers** opens the searchable manager register. Use **View**
+  to inspect a reference and its current assigned agents, or use the existing
+  add, edit and deactivate actions.
+- **Assign or move agents** contains the agent filters and reviewed transfer
+  workflow.
+- **History** shows the existing recent-change audit records.
+
+The manager's View option supports agent search and pagination. Its agent list
+is the **current portfolio for the manager code and category**, not a historical
+snapshot of the selected reference year. Its assignment shortcut opens the
+assignment tab with that manager as the source; it does not move agents.
+
 ## Reference managers
 
 The catalog maintains the supplied manager code, name, class, Corporate/Retail
@@ -23,7 +37,7 @@ transfer targets. Corporate and Retail are independent classifications.
 
 ## Assigning and transferring agents
 
-1. Choose **Corporate** or **Retail**.
+1. Open **Assign or move agents** and choose **Corporate** or **Retail**.
 2. Find agents by name/code. Narrow the source to unassigned agents, an existing
    manager, or an exact legacy code when necessary.
    Optionally choose a **Region**, **Branch** or **Unit**. These cascading filters
